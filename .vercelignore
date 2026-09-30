@@ -1,0 +1,6 @@
+.git
+.env*
+artifacts
+test-results
+playwright-report
+coverage
