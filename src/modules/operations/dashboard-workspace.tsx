@@ -14,15 +14,20 @@ import { demoClients, getDemoSnapshot } from "./demo-data";
 import { deliveryRate, emptySnapshot, type DashboardPeriod, type DashboardSnapshot, type ReportRow } from "./dashboard-data";
 import { ClientManager } from "@/modules/clients/client-manager";
 import type { ClientItem } from "@/modules/clients/schema";
+import type { ClientPortalAdminAccess } from "@/modules/client-portal/types";
+import { MetaIntegrationManager } from "@/modules/meta/integration-manager";
+import type { MetaAdminSnapshot } from "@/modules/meta/types";
+import { ReportManager } from "@/modules/reports/report-manager";
+import type { ReportsAdminSnapshot } from "@/modules/reports/types";
 import { logoutAction } from "@/modules/auth/actions";
 
 const ActivityChart = dynamic(() => import("@/components/charts/activity-chart"), { ssr: false, loading: () => <div className="activity-chart skeleton" aria-label="Carregando gráfico" /> });
 
-interface Props { demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; agencyId?: string; canEditClients?: boolean; }
+interface Props { demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const number = (value: number | null) => value === null ? "—" : value.toLocaleString("pt-BR");
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ demo, section, identity, activeClients = 0, clients, agencyId, canEditClients = false }: Props) {
+export function DashboardWorkspace({ demo, section, identity, activeClients = 0, clients, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], metaSnapshot, reportsSnapshot }: Props) {
   const [period, setPeriod] = useState<DashboardPeriod>("30d");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("Todos os estados");
@@ -53,11 +58,28 @@ export function DashboardWorkspace({ demo, section, identity, activeClients = 0,
         <div className="bottom-grid"><Communication data={data} demo={demo} onInfo={setDetail} /><section className="panel integrations-summary"><div className="panel-heading"><div><h2>Suas integrações</h2><p>A base de uma operação conectada</p></div><Plug size={17} className="muted" /></div><div className="integration-row"><span className="provider-logo meta-logo">∞</span><div><strong>Meta Ads</strong><small>Contas e dados de campanhas</small></div><span className={cn("badge", demo ? "blue" : "neutral")}>{demo ? "Simulada" : "Não configurada"}</span></div><div className="integration-row"><span className="provider-logo whatsapp-logo"><Send size={20} /></span><div><strong>WhatsApp Business</strong><small>Cloud API oficial</small></div><span className={cn("badge", demo ? "blue" : "neutral")}>{demo ? "Simulada" : "Não configurada"}</span></div><Link className="panel-footer-link" href={`${base}/integracoes`}>Gerenciar integrações<ArrowRight size={14} /></Link></section></div>
       </>}
 
-      {section === "relatorios" && <><div className="section-toolbar"><div className="flex items-center gap-2 muted text-sm"><Filter size={16} /><label className="sr-only" htmlFor="report-status">Filtrar relatórios por estado</label><select id="report-status" className="input compact-select" value={status} onChange={e => setStatus(e.target.value)}><option>Todos os estados</option><option>Entregue</option><option>Aguardando aprovação</option><option>Processando</option></select></div><span className="text-xs muted">{demo ? "Prévia com dados fictícios" : "Geração prevista no próximo ciclo"}</span></div><ReportsTable rows={matchingReports} total={data.reports.length} demo={demo} base={base} onSelect={setSelectedReport} expanded /></>}
+      {section === "relatorios" && (demo ? <><div className="section-toolbar"><div className="flex items-center gap-2 muted text-sm"><Filter size={16} /><label className="sr-only" htmlFor="report-status">Filtrar relatórios por estado</label><select id="report-status" className="input compact-select" value={status} onChange={e => setStatus(e.target.value)}><option>Todos os estados</option><option>Entregue</option><option>Aguardando aprovação</option><option>Processando</option></select></div><span className="text-xs muted">Prévia com dados fictícios</span></div><ReportsTable rows={matchingReports} total={data.reports.length} demo={demo} base={base} onSelect={setSelectedReport} expanded /></> : agencyId && reportsSnapshot ? <ReportManager agencyId={agencyId} clients={clients ?? []} snapshot={reportsSnapshot} canEdit={canEditClients} /> : null)}
 
-      {section === "clientes" && <ClientManager demo={demo} initialClients={clients} agencyId={agencyId} canEdit={canEditClients} search={search} />}
+      {section === "clientes" && <ClientManager demo={demo} initialClients={clients} agencyId={agencyId} canEdit={canEditClients} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} search={search} />}
 
-      {section === "integracoes" && <><div className="info-banner"><ShieldCheck size={19} /><p>Somente proprietários e administradores poderão gerenciar credenciais. Nenhuma integração externa está ativa nesta fundação.</p></div><div className="integration-cards">{[{ name: "Meta Ads", label: "Marketing API", icon: "∞", description: "Contas de anúncios, campanhas e dados de performance em um único fluxo.", color: "blue" }, { name: "WhatsApp Business", label: "Cloud API oficial", icon: "↗", description: "Relatórios entregues aos destinatários com autorização de recebimento.", color: "green" }, { name: "Upstash QStash", label: "Jobs e agendamentos", icon: "ϟ", description: "Execuções em etapas, com tentativas controladas e rastreabilidade.", color: "violet" }].map(provider => <section className="panel integration-card" key={provider.name}><span className={cn("provider-large", provider.color)}>{provider.icon}</span><span className="badge neutral mt-6">Não configurada</span><h2>{provider.name}</h2><span className="eyebrow text-[10px]">{provider.label}</span><p>{provider.description}</p><div className="planned-note"><Clock3 size={15} />Implementação em etapa futura</div></section>)}</div></>}
+      {section === "integracoes" && <>
+        <div className="info-banner"><ShieldCheck size={19} /><p>Credenciais externas são processadas somente no servidor. Proprietários e administradores gerenciam segredos; editores podem configurar clientes e atualizar dados quando a integração estiver pronta.</p></div>
+        <div className="integration-cards">
+          {!demo && agencyId && metaSnapshot ? (
+            <MetaIntegrationManager agencyId={agencyId} snapshot={metaSnapshot} canManage={canManageClientAccess} />
+          ) : (
+            <section className="panel integration-card">
+              <span className="provider-large blue">∞</span>
+              <span className="badge neutral mt-6">{demo ? "Simulada" : "Não configurada"}</span>
+              <h2>Meta Ads</h2>
+              <span className="eyebrow text-[11px]">MARKETING API</span>
+              <p>Contas de anúncios, campanhas e dados de performance em um único fluxo.</p>
+              <div className="planned-note"><Clock3 size={15} />{demo ? "Integração simulada no ambiente demonstrativo" : "Aguardando configuração"}</div>
+            </section>
+          )}
+          {[{ name: "WhatsApp Business", label: "Cloud API oficial", icon: "↗", description: "Relatórios entregues aos destinatários com autorização de recebimento.", color: "green" }, { name: "Upstash QStash", label: "Jobs e agendamentos", icon: "ϟ", description: "Execuções em etapas, com tentativas controladas e rastreabilidade.", color: "violet" }].map(provider => <section className="panel integration-card" key={provider.name}><span className={cn("provider-large", provider.color)}>{provider.icon}</span><span className="badge neutral mt-6">Não configurada</span><h2>{provider.name}</h2><span className="eyebrow text-[11px]">{provider.label}</span><p>{provider.description}</p><div className="planned-note"><Clock3 size={15} />Implementação em etapa futura</div></section>)}
+        </div>
+      </>}
 
       {section === "configuracoes" && <div className="settings-grid"><section className="panel settings-panel"><div className="panel-heading"><div><h2>Agência e acesso</h2><p>{demo ? "Contexto demonstrativo" : "Contexto autenticado da sua sessão"}</p></div><ShieldCheck size={18} className="muted" /></div><dl className="settings-fields"><div><dt>Agência</dt><dd>{identity.agencyName}</dd></div><div><dt>Usuário</dt><dd>{identity.userName}</dd></div><div><dt>Perfil</dt><dd>{identity.roleLabel}</dd></div><div><dt>Fuso horário</dt><dd className="font-mono text-sm">{identity.timezone}</dd></div></dl>{demo ? <Link className="button button-secondary" href="/entrar">Entrar na minha agência<ArrowUpRight size={15} /></Link> : <div className="flex gap-3 flex-wrap"><Link className="button button-secondary" href="/selecionar-agencia">Trocar agência</Link><form action={logoutAction}><button className="button button-secondary" type="submit">Sair da conta</button></form></div>}</section><section className="panel settings-panel"><div className="panel-heading"><div><h2>Aparência</h2><p>Escolha como a plataforma aparece para você</p></div><Settings2 size={18} className="muted" /></div><div className="theme-options">{[{ key: "dark", label: "Escuro", Icon: Moon }, { key: "light", label: "Claro", Icon: Sun }, { key: "system", label: "Sistema", Icon: Monitor }].map(({ key, label, Icon }) => <button key={key} className={cn("theme-option", hydrated && theme === key && "selected")} onClick={() => setTheme(key)} aria-pressed={hydrated && theme === key}><Icon size={24} /><span>{label}</span></button>)}</div><p className="muted text-xs mt-5">Sua preferência fica salva neste navegador.</p></section></div>}
 

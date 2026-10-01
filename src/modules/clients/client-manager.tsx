@@ -1,22 +1,28 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { Archive, ArrowUpRight, Plus, RotateCcw, Users } from "lucide-react";
+import { Archive, ArrowUpRight, DatabaseZap, Plus, RotateCcw, ShieldCheck, Users } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { demoClients } from "@/modules/operations/demo-data";
 import { saveClient, setClientArchived } from "./actions";
 import { clientInputSchema, type ClientItem, type ClientResult } from "./schema";
 import { RecipientManager } from "./recipient-manager";
+import { ClientAccessManager } from "@/modules/client-portal/client-access-manager";
+import type { ClientPortalAdminAccess } from "@/modules/client-portal/types";
+import { ClientMetaManager } from "@/modules/meta/client-meta-manager";
+import type { MetaAdminSnapshot } from "@/modules/meta/types";
 
 const samples: ClientItem[] = demoClients.map((client, index) => ({ id: `demo-${index}`, name: client.name, notes: client.segment, archived_at: null, updated_at: "2026-09-30T12:00:00Z" }));
 
-export function ClientManager({ demo, initialClients = [], agencyId, canEdit = false, search }: { demo: boolean; initialClients?: ClientItem[]; agencyId?: string; canEdit?: boolean; search: string }) {
+export function ClientManager({ demo, initialClients = [], agencyId, canEdit = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], metaSnapshot = { accounts: [], links: [], mappings: [], integration: null, serverReadiness: { databaseReady: false, serviceRoleConfigured: false, encryptionConfigured: false, apiVersion: null, ready: false } }, search }: { demo: boolean; initialClients?: ClientItem[]; agencyId?: string; canEdit?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; metaSnapshot?: MetaAdminSnapshot; search: string }) {
   const [rows, setRows] = useState(demo ? samples : initialClients);
   const [filter, setFilter] = useState("active");
   const [editing, setEditing] = useState<ClientItem | "new" | null>(null);
   const [archiving, setArchiving] = useState<ClientItem | null>(null);
   const [recipientClient, setRecipientClient] = useState<ClientItem | null>(null);
+  const [accessClient, setAccessClient] = useState<ClientItem | null>(null);
+  const [metaClient, setMetaClient] = useState<ClientItem | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, startTransition] = useTransition();
@@ -57,11 +63,13 @@ export function ClientManager({ demo, initialClients = [], agencyId, canEdit = f
   }
   return <>
     <Dialog open={!!recipientClient} onOpenChange={open => { if (!open) setRecipientClient(null); }} title={`Destinatários · ${recipientClient?.name ?? ""}`} description="Cadastro, autorização de recebimento e histórico.">{recipientClient && <RecipientManager key={recipientClient.id} demo={demo} agencyId={agencyId} clientId={recipientClient.id} canEdit={canEdit} archived={!!recipientClient.archived_at} />}</Dialog>
+    <Dialog open={!!accessClient} onOpenChange={open => { if (!open) setAccessClient(null); }} title={`Acesso do cliente · ${accessClient?.name ?? ""}`} description="Gerencie quem pode entrar na Área do Cliente.">{accessClient && agencyId && <ClientAccessManager key={accessClient.id} agencyId={agencyId} clientId={accessClient.id} clientName={accessClient.name} archived={!!accessClient.archived_at} initialAccesses={portalAccesses.filter(access => access.clientId === accessClient.id)} />}</Dialog>
+    <Dialog open={!!metaClient} onOpenChange={open => { if (!open) setMetaClient(null); }} title={`Dados Meta · ${metaClient?.name ?? ""}`} description="Associe contas e configure o resultado principal.">{metaClient && agencyId && <ClientMetaManager key={metaClient.id} agencyId={agencyId} clientId={metaClient.id} clientName={metaClient.name} archived={!!metaClient.archived_at} ready={metaSnapshot.serverReadiness.databaseReady} accounts={metaSnapshot.accounts} initialLinks={metaSnapshot.links.filter(link => link.clientId === metaClient.id)} initialMapping={metaSnapshot.mappings.find(mapping => mapping.clientId === metaClient.id) ?? null} integration={metaSnapshot.integration} />}</Dialog>
     <div className="section-toolbar"><label className="muted flex items-center gap-3 text-sm">Exibir<select className="input compact-select" aria-label="Estado dos clientes" value={filter} onChange={e => setFilter(e.target.value)}><option value="active">Ativos</option><option value="archived">Arquivados</option><option value="all">Todos</option></select><span>{filtered.length} cliente(s)</span></label>{allowed && <Button onClick={() => { setError(""); setEditing("new"); }}><Plus size={16} />Novo cliente</Button>}</div>
     {demo && <p className="info-banner">Teste o cadastro com dados fictícios. As alterações são temporárias e desaparecem ao sair ou recarregar esta página.</p>}
     {!allowed && <p className="info-banner">Seu perfil é Leitor: você pode consultar os clientes, mas não alterar seus dados.</p>}
     {notice && <p role="status" className="info-banner">{notice}</p>}
-    <div className="client-grid">{filtered.map(client => <section className="panel client-card" key={client.id}><div className="flex items-center justify-between"><span className="client-avatar large violet">{client.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span><span className="badge neutral">{client.archived_at ? "Arquivado" : demo ? "Fictício" : "Ativo"}</span></div><h2>{client.name}</h2><p className="muted text-sm mt-3 whitespace-pre-wrap break-words line-clamp-3">{client.notes || "Sem observações."}</p><div className="client-details"><span className="muted text-xs">Contas de anúncios serão conectadas em uma próxima etapa.</span></div><div className="flex gap-4 flex-wrap"><button className="text-link" onClick={() => setRecipientClient(client)}>Destinatários</button><button className="text-link" onClick={() => { setError(""); setEditing(client); }}>{allowed && !client.archived_at ? "Editar cliente" : "Ver detalhes"}<ArrowUpRight size={14} /></button>{allowed && <button className="text-link" onClick={() => { setError(""); setArchiving(client); }}>{client.archived_at ? <RotateCcw size={14} /> : <Archive size={14} />}{client.archived_at ? "Reativar" : "Arquivar"}</button>}</div></section>)}</div>
+    <div className="client-grid">{filtered.map(client => <section className="panel client-card" key={client.id}><div className="flex items-center justify-between"><span className="client-avatar large violet">{client.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span><span className="badge neutral">{client.archived_at ? "Arquivado" : demo ? "Fictício" : "Ativo"}</span></div><h2>{client.name}</h2><p className="muted text-sm mt-3 whitespace-pre-wrap break-words line-clamp-3">{client.notes || "Sem observações."}</p><div className="client-details"><span className="muted text-xs">{metaSnapshot.serverReadiness.databaseReady ? "Configure as contas Meta e o resultado principal deste cliente." : "Fundação Meta preparada; aguardando habilitação no banco de produção."}</span></div><div className="flex gap-4 flex-wrap"><button className="text-link" onClick={() => setRecipientClient(client)}>Destinatários</button>{canManageClientAccess && clientPortalAdminReady && !demo && <button className="text-link" onClick={() => setAccessClient(client)}><ShieldCheck size={14} />Acesso do cliente</button>}{canEdit && !demo && <button className="text-link" onClick={() => setMetaClient(client)}><DatabaseZap size={14} />Dados Meta</button>}<button className="text-link" onClick={() => { setError(""); setEditing(client); }}>{allowed && !client.archived_at ? "Editar cliente" : "Ver detalhes"}<ArrowUpRight size={14} /></button>{allowed && <button className="text-link" onClick={() => { setError(""); setArchiving(client); }}>{client.archived_at ? <RotateCcw size={14} /> : <Archive size={14} />}{client.archived_at ? "Reativar" : "Arquivar"}</button>}</div></section>)}</div>
     {!filtered.length && <section className="panel empty-state"><Users size={28} /><h3>Nenhum cliente encontrado</h3><p>{search ? "Ajuste sua busca ou o filtro de estado." : "Cadastre seu primeiro cliente ou consulte os arquivados."}</p></section>}
     <Dialog open={!!editing} onOpenChange={open => { if (!open && !pending) setEditing(null); }} title={editing === "new" ? "Novo cliente" : "Dados do cliente"} description={demo ? "Demonstração temporária, sem persistência no banco." : "Dados pertencentes à agência selecionada."}>
       <form onSubmit={submit} key={editing === "new" ? "new" : editing?.id}>

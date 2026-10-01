@@ -29,16 +29,127 @@ type ClientUserRow = {
   agency_id: string; client_id: string; user_id: string; active: boolean;
   created_by: string | null; created_at: string; updated_at: string;
 };
+type IntegrationRow = {
+  id: string; agency_id: string; provider: "meta" | "whatsapp" | "qstash";
+  connection_status: "disconnected" | "connected" | "error";
+  health_status: "unknown" | "healthy" | "degraded" | "error";
+  last_checked_at: string | null; last_success_at: string | null; last_error_at: string | null;
+  last_error_code: string | null; created_by: string | null; created_at: string; updated_at: string;
+};
+type IntegrationSecretRow = {
+  agency_id: string; integration_id: string; secret_kind: string; key_id: string;
+  nonce_b64: string; ciphertext_b64: string; auth_tag_b64: string;
+  created_at: string; updated_at: string;
+};
+type MetaConnectionRow = {
+  id: string; agency_id: string; integration_id: string; external_user_id: string | null;
+  scopes: string[]; metadata: Json; connected_at: string | null;
+  last_accounts_sync_at: string | null; created_at: string; updated_at: string;
+};
+type MetaAdAccountRow = {
+  id: string; agency_id: string; meta_connection_id: string; external_id: string; name: string;
+  currency: string; timezone_name: string; account_status: string | null; business_name: string | null;
+  archived_at: string | null; last_synced_at: string | null; created_at: string; updated_at: string;
+};
+type ClientAdAccountRow = {
+  agency_id: string; client_id: string; ad_account_id: string; active: boolean;
+  created_by: string | null; created_at: string; updated_at: string;
+};
+type MetaDailyInsightRow = {
+  agency_id: string; ad_account_id: string; insight_date: string;
+  level: "account" | "campaign" | "adset" | "ad"; external_entity_id: string;
+  parent_external_id: string | null; entity_name: string | null; objective: string | null;
+  captured_status: string | null; spend: number; impressions: number; reach: number | null;
+  link_clicks: number | null; api_version: string; attribution_setting: string | null;
+  collected_at: string; metadata: Json;
+};
+type MetaDailyActionRow = {
+  agency_id: string; ad_account_id: string; insight_date: string;
+  level: "account" | "campaign" | "adset" | "ad"; external_entity_id: string;
+  action_type: string; action_value: number; value_amount: number | null; collected_at: string;
+};
+type MetricDefinitionRow = {
+  key: string; label: string; description: string;
+  unit: "currency" | "integer" | "percent" | "ratio";
+  source: string; formula: string | null; aggregation: string;
+  desirable_direction: "up" | "down" | "neutral"; display_precision: number;
+  definition_version: number; active: boolean; created_at: string;
+};
+type ClientMetricMappingRow = {
+  agency_id: string; client_id: string; primary_metric_key: string; primary_action_type: string;
+  revenue_action_type: string | null; mapping_version: number; updated_by: string | null;
+  created_at: string; updated_at: string;
+};
 type AuditRow = {
   id: string; agency_id: string; actor_id: string | null; action: string;
   entity_id: string | null; metadata: Json; created_at: string;
 };
-type RecipientRow = import("@/modules/clients/recipient-schema").Recipient & { agency_id: string; client_id: string; created_at: string; updated_at: string };
-type ConsentEventRow = import("@/modules/clients/recipient-schema").ConsentEvent & { agency_id: string; client_id: string };
+type ReportTemplateRow = {
+  id: string; agency_id: string; name: string; description: string | null;
+  kind: "leads" | "conversations" | "sales" | "custom"; archived_at: string | null;
+  created_by: string | null; created_at: string; updated_at: string;
+};
+type ReportTemplateVersionRow = {
+  id: string; agency_id: string; template_id: string; version_number: number;
+  config: Json; created_by: string | null; created_at: string;
+};
+type ReportRow = {
+  id: string; agency_id: string; client_id: string; title: string;
+  template_id: string | null; created_by: string | null; created_at: string;
+  archived_at: string | null;
+};
+type ReportVersionRow = {
+  id: string; agency_id: string; report_id: string; client_id: string;
+  version_number: number; template_version_id: string | null; date_from: string;
+  date_to: string; currency: string | null; timezone_name: string | null;
+  state: "ready" | "published" | "superseded"; configuration_snapshot: Json;
+  data_collected_at: string | null; generated_at: string; published_at: string | null;
+  created_by: string | null; created_at: string;
+};
+type ReportDataSnapshotRow = {
+  id: string; agency_id: string; report_version_id: string; summary_json: Json;
+  quality_status: "complete" | "warning" | "blocked"; source_api_version: string | null;
+  collected_at: string | null; created_at: string;
+};
+type ReportMetricRow = {
+  agency_id: string; report_version_id: string; metric_key: string; label: string;
+  unit: "currency" | "integer" | "percent" | "ratio"; numeric_value: number | null;
+  display_precision: number; definition_version: number; created_at: string;
+};
+
+type RecipientRow = import("@/modules/clients/recipient-schema").Recipient & {
+  agency_id: string; client_id: string; created_at: string; updated_at: string
+};
+type ConsentEventRow = import("@/modules/clients/recipient-schema").ConsentEvent & {
+  agency_id: string; client_id: string
+};
 type Table<Row, Insert, Update, Relationships extends Array<{
   foreignKeyName: string; columns: string[]; isOneToOne: boolean;
   referencedRelation: string; referencedColumns: string[];
 }> = []> = { Row: Row; Insert: Insert; Update: Update; Relationships: Relationships };
+
+export type ClientMetricSummaryRow = {
+  client_id: string;
+  date_from: string;
+  date_to: string;
+  data_status: string;
+  compatibility_issue: string | null;
+  currency: string | null;
+  timezone_name: string | null;
+  ad_account_count: number;
+  spend: number | null;
+  impressions: number | null;
+  link_clicks: number | null;
+  primary_metric_key: string | null;
+  primary_results: number | null;
+  attributed_revenue: number | null;
+  ctr_link: number | null;
+  cpc_link: number | null;
+  cpm: number | null;
+  cost_per_result: number | null;
+  roas: number | null;
+  latest_data_date: string | null;
+};
 
 export type Database = {
   public: {
@@ -56,6 +167,20 @@ export type Database = {
         foreignKeyName: "client_users_agency_id_client_id_fkey";
         columns: ["agency_id", "client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["agency_id", "id"];
       }]>;
+      integrations: Table<IntegrationRow, Pick<IntegrationRow, "agency_id" | "provider"> & Partial<IntegrationRow>, Partial<IntegrationRow>>;
+      meta_connections: Table<MetaConnectionRow, Pick<MetaConnectionRow, "agency_id" | "integration_id"> & Partial<MetaConnectionRow>, Partial<MetaConnectionRow>>;
+      meta_ad_accounts: Table<MetaAdAccountRow, Pick<MetaAdAccountRow, "agency_id" | "meta_connection_id" | "external_id" | "name" | "currency" | "timezone_name"> & Partial<MetaAdAccountRow>, Partial<MetaAdAccountRow>>;
+      client_ad_accounts: Table<ClientAdAccountRow, Pick<ClientAdAccountRow, "agency_id" | "client_id" | "ad_account_id"> & Partial<ClientAdAccountRow>, Partial<ClientAdAccountRow>>;
+      meta_daily_insights: Table<MetaDailyInsightRow, Pick<MetaDailyInsightRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "spend" | "impressions" | "api_version"> & Partial<MetaDailyInsightRow>, Partial<MetaDailyInsightRow>>;
+      meta_daily_actions: Table<MetaDailyActionRow, Pick<MetaDailyActionRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "action_type"> & Partial<MetaDailyActionRow>, Partial<MetaDailyActionRow>>;
+      metric_definitions: Table<MetricDefinitionRow, never, never>;
+      client_metric_mappings: Table<ClientMetricMappingRow, never, never>;
+      report_templates: Table<ReportTemplateRow, Pick<ReportTemplateRow, "agency_id" | "name"> & Partial<ReportTemplateRow>, Partial<ReportTemplateRow>>;
+      report_template_versions: Table<ReportTemplateVersionRow, Pick<ReportTemplateVersionRow, "agency_id" | "template_id" | "version_number" | "config"> & Partial<ReportTemplateVersionRow>, never>;
+      reports: Table<ReportRow, never, never>;
+      report_versions: Table<ReportVersionRow, never, never>;
+      report_data_snapshots: Table<ReportDataSnapshotRow, never, never>;
+      report_metrics: Table<ReportMetricRow, never, never>;
       audit_logs: Table<AuditRow, Pick<AuditRow, "agency_id" | "action"> & Partial<AuditRow>, Partial<AuditRow>>;
     };
     Views: { [_ in never]: never };
@@ -64,9 +189,77 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { id: string; agency_id: string; name: string; logo_path: string | null; archived_at: string | null }[];
       };
-      set_client_user_access: { Args: { p_agency_id: string; p_client_id: string; p_user_id: string; p_active: boolean }; Returns: undefined };
-      save_client_recipient: { Args: { p_agency_id: string; p_client_id: string; p_id: string | null; p_name: string; p_phone: string; p_active: boolean }; Returns: string };
-      set_recipient_consent: { Args: { p_agency_id: string; p_client_id: string; p_recipient_id: string; p_phone: string; p_granted: boolean; p_source: string; p_occurred_at: string | null }; Returns: string };
+      list_agency_client_portal_accesses: {
+        Args: { p_agency_id: string };
+        Returns: { client_id: string; user_id: string; email: string; active: boolean; created_at: string; updated_at: string }[];
+      };
+      set_client_user_access: {
+        Args: { p_agency_id: string; p_client_id: string; p_user_id: string; p_active: boolean };
+        Returns: undefined;
+      };
+      set_client_user_access_by_email: {
+        Args: { p_agency_id: string; p_client_id: string; p_email: string; p_active: boolean };
+        Returns: string;
+      };
+      set_client_ad_account: {
+        Args: { p_agency_id: string; p_client_id: string; p_ad_account_id: string; p_active: boolean };
+        Returns: undefined;
+      };
+      set_client_metric_mapping: {
+        Args: {
+          p_agency_id: string; p_client_id: string; p_primary_metric_key: string;
+          p_primary_action_type: string; p_revenue_action_type?: string | null;
+        };
+        Returns: undefined;
+      };
+      get_client_portal_data_context: {
+        Args: { p_client_id: string };
+        Returns: { client_id: string; data_status: string; compatibility_issue: string | null; currency: string | null; timezone_name: string | null; ad_account_count: number; latest_data_date: string | null }[];
+      };
+      get_client_portal_metric_summary: {
+        Args: { p_client_id: string; p_date_from: string; p_date_to: string };
+        Returns: ClientMetricSummaryRow[];
+      };
+      create_manual_report_version: {
+        Args: {
+          p_agency_id: string; p_client_id: string; p_date_from: string; p_date_to: string;
+          p_report_id?: string | null; p_title?: string;
+        };
+        Returns: string;
+      };
+      publish_report_version: {
+        Args: { p_agency_id: string; p_report_version_id: string };
+        Returns: undefined;
+      };
+      list_client_portal_reports: {
+        Args: { p_client_id: string };
+        Returns: {
+          report_version_id: string; report_id: string; title: string; version_number: number;
+          date_from: string; date_to: string; currency: string | null; timezone_name: string | null;
+          data_collected_at: string | null; published_at: string | null;
+        }[];
+      };
+      get_client_portal_report_metrics: {
+        Args: { p_report_version_id: string };
+        Returns: {
+          metric_key: string; label: string; unit: "currency" | "integer" | "percent" | "ratio";
+          numeric_value: number | null; display_precision: number;
+        }[];
+      };
+      save_client_recipient: {
+        Args: {
+          p_agency_id: string; p_client_id: string; p_id: string | null; p_name: string;
+          p_phone: string; p_active: boolean;
+        };
+        Returns: string;
+      };
+      set_recipient_consent: {
+        Args: {
+          p_agency_id: string; p_client_id: string; p_recipient_id: string; p_phone: string;
+          p_granted: boolean; p_source: string; p_occurred_at: string | null;
+        };
+        Returns: string;
+      };
       accept_agency_invitation: { Args: { p_token: string }; Returns: string };
       issue_agency_invitation: {
         Args: { p_agency_id: string; p_email: string; p_role: AgencyRole; p_expires_in_hours?: number };
@@ -77,6 +270,15 @@ export type Database = {
       remove_agency_member: { Args: { p_agency_id: string; p_user_id: string }; Returns: undefined };
     };
     Enums: { agency_role: AgencyRole };
+    CompositeTypes: { [_ in never]: never };
+  };
+  private: {
+    Tables: {
+      integration_secrets: Table<IntegrationSecretRow, Pick<IntegrationSecretRow, "agency_id" | "integration_id" | "secret_kind" | "key_id" | "nonce_b64" | "ciphertext_b64" | "auth_tag_b64"> & Partial<IntegrationSecretRow>, Partial<IntegrationSecretRow>>;
+    };
+    Views: { [_ in never]: never };
+    Functions: { [_ in never]: never };
+    Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
 };
