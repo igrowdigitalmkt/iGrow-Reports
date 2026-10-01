@@ -924,6 +924,11 @@ body { font-size: var(--ui-body); line-height: 1.5; }
 .client-report-metrics { padding:14px; }
 .client-report-metrics .client-metric-card { min-height:92px; }
 
+/* Report previews use the agency theme instead of external portal variables. */
+.report-preview-metric { min-height: 108px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); color: var(--text); }
+.report-preview-metric p { margin: 0 0 8px; color: var(--secondary); font-size: 13px; }
+.report-preview-metric strong { display: block; color: var(--text); font-size: 23px; font-weight: 650; overflow-wrap: anywhere; }
+
 .meta-token-guide {
   border: 1px solid var(--border);
   border-radius: 8px;

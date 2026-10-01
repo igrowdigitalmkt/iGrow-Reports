@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
-import { getCompletePortalPeriod } from "@/modules/client-portal/metrics";
+import { resolveAnalyticsRange } from "@/modules/client-portal/range";
+import { getClientAnalytics } from "@/modules/client-portal/analytics";
 import { isMissingSchemaError } from "@/lib/supabase/schema";
 import type { AdminReportPreview } from "./types";
 
@@ -40,7 +41,9 @@ export async function getAgencyReportPreview(input: unknown): Promise<
 const generateSchema = z.object({
   agencyId: z.uuid(),
   clientId: z.uuid(),
-  period: z.enum(["7d", "30d"]),
+  period: z.enum(["7d", "30d", "90d", "180d", "365d", "custom"]),
+  from: z.string().optional(),
+  to: z.string().optional(),
   title: z.string().trim().min(2).max(200).default("Relatório de performance"),
   reportId: z.uuid().optional().nullable(),
 });
@@ -93,10 +96,18 @@ export async function generateManualReport(
     };
   }
 
-  const { dateFrom, dateTo } = getCompletePortalPeriod(
-    parsed.data.period,
-    dataContext.timezone_name,
-  );
+  let range;
+  try {
+    range = resolveAnalyticsRange({ periodo: parsed.data.period, from: parsed.data.from, to: parsed.data.to }, dataContext.timezone_name);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Período inválido." };
+  }
+  const { dateFrom, dateTo } = range;
+
+  const analytics = await getClientAnalytics(context.supabase, parsed.data.clientId, dateFrom, dateTo);
+  if (analytics.coverage.status !== "complete") {
+    return { error: "Atualize os dados deste período no dashboard do cliente antes de gerar o resumo. A coleta ainda está incompleta." };
+  }
 
   const { data: summary, error: summaryError } = await context.supabase
     .rpc("get_client_portal_metric_summary", {

@@ -12,13 +12,14 @@ import type { ReportsAdminSnapshot } from "@/modules/reports/types";
 
 const sections = ["", "clientes", "relatorios", "templates", "agendamentos", "entregas", "integracoes", "configuracoes"];
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export default async function DashboardPage({
   params,
   searchParams,
 }: {
   params: Promise<{ section?: string[] }>;
-  searchParams: Promise<{ client?: string }>;
+  searchParams: Promise<{ client?: string; clientId?: string; from?: string; to?: string; periodo?: string }>;
 }) {
   const context = await requireAgencyContext();
   const { section = [] } = await params;
@@ -53,5 +54,5 @@ export default async function DashboardPage({
   if (key === "relatorios") {
     reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
   }
-  return <DashboardWorkspace key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
+  return <DashboardWorkspace key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} initialReportRange={query} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
 }

@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CalendarDays, CheckCircle2, FilePlus2, Send, Clock3, GitBranchPlus, X, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import type { AnalyticsPeriod } from "@/modules/client-portal/range";
 import type { ClientItem } from "@/modules/clients/schema";
 import { generateManualReport, getAgencyReportPreview, publishReportVersion } from "./actions";
 import type { AdminReportPreview, AdminReportVersion, ClientPortalReportMetric, ReportsAdminSnapshot } from "./types";
@@ -14,16 +16,20 @@ export function ReportManager({
   clients,
   snapshot,
   canEdit,
+  initialRange,
 }: {
   agencyId: string;
   clients: ClientItem[];
   snapshot: ReportsAdminSnapshot;
   canEdit: boolean;
+  initialRange?: { clientId?: string; from?: string; to?: string; periodo?: string };
 }) {
   const router = useRouter();
   const activeClients = clients.filter((client) => !client.archived_at);
-  const [clientId, setClientId] = useState(activeClients[0]?.id ?? "");
-  const [period, setPeriod] = useState<"7d" | "30d">("30d");
+  const [clientId, setClientId] = useState(activeClients.find(client => client.id === initialRange?.clientId)?.id ?? activeClients[0]?.id ?? "");
+  const [period, setPeriod] = useState<AnalyticsPeriod>(initialRange?.from && initialRange?.to ? "custom" : "30d");
+  const [from, setFrom] = useState(initialRange?.from ?? "");
+  const [to, setTo] = useState(initialRange?.to ?? "");
   const [title, setTitle] = useState("Relatório de performance");
   const [reportId, setReportId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -45,7 +51,7 @@ export function ReportManager({
   function generate() {
     setError(""); setNotice("");
     startTransition(async () => {
-      const result = await generateManualReport({ agencyId, clientId, period, title, reportId });
+      const result = await generateManualReport({ agencyId, clientId, period, from, to, title, reportId });
       if ("error" in result) { setError(result.error); return; }
       const baseNotice = reportId
         ? "Nova versão gerada. Revise e publique quando estiver pronta."
@@ -86,12 +92,13 @@ export function ReportManager({
         <select className="input" value={clientId} onChange={e => setClientId(e.target.value)} aria-label="Cliente" disabled={!!reportId}>
           {activeClients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
         </select>
-        <select className="input" value={period} onChange={e => setPeriod(e.target.value as "7d" | "30d")} aria-label="Período">
-          <option value="7d">7 dias completos</option><option value="30d">30 dias completos</option>
+        <select className="input" value={period} onChange={e => setPeriod(e.target.value as AnalyticsPeriod)} aria-label="Período">
+          <option value="7d">7 dias completos</option><option value="30d">30 dias completos</option><option value="90d">90 dias</option><option value="180d">6 meses</option><option value="365d">1 ano</option><option value="custom">Personalizado</option>
         </select>
         <input className="input" value={title} onChange={e => setTitle(e.target.value)} maxLength={200} aria-label="Título" disabled={!!reportId} />
         <Button onClick={generate} disabled={pending || !clientId || title.trim().length < 2}><FilePlus2 size={15} />{pending ? "Gerando…" : reportId ? "Gerar versão" : "Gerar"}</Button>
       </div>
+      {period === "custom" && <div className="mt-3 flex flex-wrap gap-3"><label className="text-sm">De<input className="input mt-1" type="date" value={from} onChange={e => setFrom(e.target.value)} /></label><label className="text-sm">Até<input className="input mt-1" type="date" value={to} onChange={e => setTo(e.target.value)} /></label><p className="muted text-sm self-end">Resumo de todas as contas associadas ao cliente.</p></div>}
       {error && <p role="alert" className="mt-3 text-sm text-rose-400">{error}</p>}
       {notice && <p role="status" className="mt-3 text-sm text-emerald-500">{notice}</p>}
     </section>}
@@ -115,13 +122,21 @@ export function ReportManager({
           <span className="muted text-sm">{formatDate(preview.dateFrom)} – {formatDate(preview.dateTo)}</span>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {preview.metrics.map(metric => <div className="client-metric-card" key={metric.metricKey}><p>{metric.label}</p><strong>{formatPreviewMetric(metric, preview.currency)}</strong></div>)}
+          {preview.metrics.map(metric => <div className="report-preview-metric" key={metric.metricKey}><p>{metric.label}</p><strong>{formatPreviewMetric(metric, preview.currency)}</strong></div>)}
         </div>
         {!preview.metrics.length && <p>Esta versão não possui indicadores disponíveis.</p>}
         <p className="muted mt-5 text-sm">Valores preservados nesta versão. Novas coletas não alteram este relatório.</p>
+        {viewing && <><div className="mt-4"><Link className="text-link" href={`/cliente/${viewing.clientId}?periodo=custom&from=${preview.dateFrom}&to=${preview.dateTo}`}>Explorar dashboard do cliente</Link></div><label className="mt-5 block text-sm" htmlFor="report-short-summary">Resumo curto para WhatsApp</label><textarea id="report-short-summary" className="input mt-2" rows={4} readOnly value={shortReportSummary(viewing, preview)} /></>}
       </>}
     </Dialog>
   </div>;
+}
+
+function shortReportSummary(version: AdminReportVersion, preview: AdminReportPreview) {
+  const keys = ["spend", "impressions", "link_clicks", "conversations", "leads", "purchases"];
+  const values = preview.metrics.filter(metric => keys.includes(metric.metricKey) && metric.numericValue !== null)
+    .map(metric => `${metric.label}: ${formatPreviewMetric(metric, preview.currency)}`);
+  return `${version.clientName} · ${formatDate(preview.dateFrom)} a ${formatDate(preview.dateTo)}\n${values.join(" · ")}\nDetalhamento no dashboard do cliente.`;
 }
 
 function formatDate(value: string) {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { ArrowLeft, LogOut, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/layout/brand";
 import { logoutAction } from "@/modules/auth/actions";
@@ -10,6 +10,7 @@ type ClientPortalShellProps = {
   description: string;
   userEmail: string | undefined;
   showClientSwitcher?: boolean;
+  agencyMode?: boolean;
 };
 
 export function ClientPortalShell({
@@ -18,15 +19,21 @@ export function ClientPortalShell({
   description,
   userEmail,
   showClientSwitcher = false,
+  agencyMode = false,
 }: ClientPortalShellProps) {
   return (
     <main className="client-portal">
       <header className="client-topbar">
         <div className="client-topbar-inner">
-          <Link href="/cliente" aria-label="iGrow Reports — Área do Cliente" className="client-brand-link">
+          <Link href={agencyMode ? "/dashboard/clientes" : "/cliente"} aria-label="iGrow Reports — Área do Cliente" className="client-brand-link">
             <Brand />
           </Link>
           <div className="client-topbar-actions">
+            {agencyMode && (
+              <Link href="/dashboard/clientes" className="client-topbar-link">
+                <ArrowLeft size={14} /> Voltar aos clientes
+              </Link>
+            )}
             {showClientSwitcher && (
               <Link href="/cliente" className="client-topbar-link">
                 Trocar cliente
@@ -47,7 +54,7 @@ export function ClientPortalShell({
         <div className="client-page-heading">
           <span className="client-kicker">
             <ShieldCheck size={13} />
-            Área do Cliente
+            {agencyMode ? "Visão do cliente · Agência" : "Área do Cliente"}
           </span>
           <h1>{title}</h1>
           <p>{description}</p>
