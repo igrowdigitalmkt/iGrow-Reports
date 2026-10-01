@@ -172,6 +172,8 @@ select is(
 select is((select count(*) from meta_daily_insights),0::bigint,'Cliente continua sem ler Insights brutos');
 
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000052',true);
+select throws_ok($q$select create_manual_report_version('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',null,'Editor')$q$,'42501',null,'Editor não salva relatórios');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000051',true);
 update report_test_ids x set second_version = create_manual_report_version(
   'aaaaaaaa-0000-4000-8000-000000000051',
   '11111111-0000-4000-8000-000000000051',
@@ -179,7 +181,7 @@ update report_test_ids x set second_version = create_manual_report_version(
 );
 select is(
   (select version_number from report_versions where id=(select second_version from report_test_ids)),
-  2,'Editor cria nova versão do mesmo relatório'
+  2,'Administrador cria nova versão do mesmo relatório'
 );
 select lives_ok(
   format(
@@ -187,7 +189,7 @@ select lives_ok(
     'aaaaaaaa-0000-4000-8000-000000000051',
     (select second_version from report_test_ids)::text
   ),
-  'Editor publica nova versão'
+  'Administrador publica nova versão'
 );
 select is(
   (select state from report_versions where id=(select first_version from report_test_ids)),

@@ -67,20 +67,50 @@ export function normalizeInsightSlice(input: {
   collectedAt: string;
   accountInsights: MetaInsight[];
   campaignInsights: MetaInsight[];
+  adsetInsights?: MetaInsight[];
+  adInsights?: MetaInsight[];
 }) {
   const insights: Database["public"]["Tables"]["meta_daily_insights"]["Insert"][] = [];
   const actions: Database["public"]["Tables"]["meta_daily_actions"]["Insert"][] = [];
-  for (const level of ["account", "campaign"] as const) {
-    for (const insight of level === "account" ? input.accountInsights : input.campaignInsights) {
+  const rowsByLevel = {
+    account: input.accountInsights,
+    campaign: input.campaignInsights,
+    adset: input.adsetInsights ?? [],
+    ad: input.adInsights ?? [],
+  } as const;
+  for (const level of ["account", "campaign", "adset", "ad"] as const) {
+    for (const insight of rowsByLevel[level]) {
       parseCollectionDate(insight.date_start);
       if (insight.date_start < input.since || insight.date_start > input.until
         || insight.date_stop !== insight.date_start
         || (insight.account_id && `act_${insight.account_id}` !== input.externalAccountId)) {
         throw new Error("A Meta retornou dados fora da conta ou do período solicitado.");
       }
-      const externalEntityId = level === "account" ? input.externalAccountId : insight.campaign_id;
-      if (!externalEntityId || (level === "campaign" && !/^\d+$/.test(externalEntityId))) {
-        throw new Error("A Meta retornou uma campanha sem identificador válido.");
+      const externalEntityId = level === "account"
+        ? input.externalAccountId
+        : level === "campaign"
+          ? insight.campaign_id
+          : level === "adset"
+            ? insight.adset_id
+            : insight.ad_id;
+      const parentExternalId = level === "account"
+        ? null
+        : level === "campaign"
+          ? input.externalAccountId
+          : level === "adset"
+            ? insight.campaign_id ?? null
+            : insight.adset_id ?? null;
+      const entityName = level === "account"
+        ? insight.account_name
+        : level === "campaign"
+          ? insight.campaign_name
+          : level === "adset"
+            ? insight.adset_name
+            : insight.ad_name;
+      if (!externalEntityId || (level !== "account" && !/^\d+$/.test(externalEntityId))
+        || (level === "adset" && (!parentExternalId || !/^\d+$/.test(parentExternalId)))
+        || (level === "ad" && (!parentExternalId || !/^\d+$/.test(parentExternalId)))) {
+        throw new Error("A Meta retornou uma entidade de anúncios sem identificador válido.");
       }
       const key = {
         agency_id: input.agencyId,
@@ -92,8 +122,8 @@ export function normalizeInsightSlice(input: {
       };
       insights.push({
         ...key,
-        parent_external_id: level === "campaign" ? input.externalAccountId : null,
-        entity_name: (level === "account" ? insight.account_name : insight.campaign_name) ?? null,
+        parent_external_id: parentExternalId,
+        entity_name: entityName ?? null,
         objective: insight.objective ?? null,
         spend: numeric(insight.spend, 0)!,
         impressions: numeric(insight.impressions, 0)!,
@@ -103,6 +133,12 @@ export function normalizeInsightSlice(input: {
         metadata: {
           timezone_name: input.timezoneName,
           business_id: input.businessId,
+          campaign_id: insight.campaign_id ?? null,
+          campaign_name: insight.campaign_name ?? null,
+          adset_id: insight.adset_id ?? null,
+          adset_name: insight.adset_name ?? null,
+          ad_id: insight.ad_id ?? null,
+          ad_name: insight.ad_name ?? null,
           clicks: numeric(insight.clicks),
           unique_clicks: numeric(insight.unique_clicks),
           frequency: numeric(insight.frequency),

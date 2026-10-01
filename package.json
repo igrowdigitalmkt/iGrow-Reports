@@ -30,6 +30,7 @@
     "decimal.js": "^10.6.0",
     "echarts": "^6.1.0",
     "geist": "^1.7.2",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.48.0",
     "motion": "^13.4.6",
     "next": "16.3.8",

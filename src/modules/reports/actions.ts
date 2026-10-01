@@ -16,11 +16,15 @@ export async function getAgencyReportPreview(input: unknown): Promise<
   if (!parsed.success) return { error: "Versão de relatório inválida." };
   const { data: version, error: versionError } = await context.supabase
     .from("report_versions")
-    .select("currency,date_from,date_to,state,timezone_name")
+    .select("report_id,currency,date_from,date_to,state,timezone_name")
     .eq("agency_id", context.agency.id)
     .eq("id", parsed.data)
     .maybeSingle();
-  if (versionError || !version) return { error: "Relatório indisponível nesta agência." };
+  if (versionError || !version) return { error: "Relatório indisponível neste espaço de trabalho." };
+  const { data: report } = await context.supabase.from("reports")
+    .select("id").eq("agency_id", context.agency.id)
+    .eq("id", version.report_id).is("archived_at", null).maybeSingle();
+  if (!report) return { error: "Relatório indisponível neste espaço de trabalho." };
   const { data: metrics, error: metricsError } = await context.supabase
     .from("report_metrics")
     .select("metric_key,label,unit,numeric_value,display_precision")
@@ -58,7 +62,7 @@ export type ReportActionResult =
   | { error: string };
 
 function canEditReports(role: string) {
-  return role === "owner" || role === "admin" || role === "editor";
+  return role === "owner" || role === "admin";
 }
 
 export async function generateManualReport(
@@ -71,7 +75,7 @@ export async function generateManualReport(
 
   const parsed = generateSchema.safeParse(input);
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
-    return { error: "Cliente, período ou agência inválida." };
+    return { error: "Cliente, período ou espaço de trabalho inválido." };
   }
 
   const { data: dataContext, error: contextError } = await context.supabase
@@ -168,7 +172,7 @@ export async function publishReportVersion(
 
   const parsed = publishSchema.safeParse(input);
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
-    return { error: "Versão ou agência inválida." };
+    return { error: "Versão ou espaço de trabalho inválido." };
   }
 
   const { error } = await context.supabase.rpc("publish_report_version", {

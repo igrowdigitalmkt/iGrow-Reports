@@ -57,11 +57,14 @@ export async function requireClientDashboardAccess(clientId: string) {
         client: { id: client.id, name: client.name, logoPath: client.logo_path, archivedAt: client.archived_at },
       };
       return { supabase, user, access, accesses: [access], agencyMode: true,
-        canCollect: membership.role !== "viewer" && !client.archived_at };
+        workspaceRole: membership.role,
+        canCollect: membership.role !== "viewer" && !client.archived_at,
+        canManageReports: (membership.role === "owner" || membership.role === "admin") && !client.archived_at };
     }
   }
   const accesses = await getClientPortalAccesses(supabase);
   const selected = accesses.find(({ client }) => client.id === clientId);
   if (!selected) redirect("/cliente?estado=sem-acesso");
-  return { supabase, user, access: selected, accesses, agencyMode: false, canCollect: false };
+  return { supabase, user, access: selected, accesses, agencyMode: false,
+    workspaceRole: null, canCollect: false, canManageReports: false };
 }

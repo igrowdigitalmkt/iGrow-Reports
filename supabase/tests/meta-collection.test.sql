@@ -60,6 +60,26 @@ select is((select count(*) from meta_daily_actions),0::bigint,'Reconciliacao vaz
 select is((select status from meta_collection_runs),'complete','Periodo sem entrega ainda tem cobertura confirmada');
 select is((select insight_count from meta_collection_runs),0,'Zero linhas retornadas registrado explicitamente');
 
+
+select ok(not has_function_privilege('authenticated','public.persist_meta_detailed_slice(uuid,uuid,uuid,date,date,jsonb,jsonb)','execute'),'Usuário não forja coleta granular');
+select lives_ok($q$select * from persist_meta_detailed_slice(
+ 'aaaaaaaa-0000-4000-8000-000000000061','11111111-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061',
+ '2026-09-01','2026-09-30',(select insights from collection_fixture)||
+ '[{"agency_id":"aaaaaaaa-0000-4000-8000-000000000061","ad_account_id":"50000000-0000-4000-8000-000000000061","insight_date":"2026-09-10","level":"adset","external_entity_id":"611","parent_external_id":"6100","spend":10,"impressions":100,"api_version":"v26.0"},
+ {"agency_id":"aaaaaaaa-0000-4000-8000-000000000061","ad_account_id":"50000000-0000-4000-8000-000000000061","insight_date":"2026-09-10","level":"ad","external_entity_id":"612","parent_external_id":"611","spend":10,"impressions":100,"api_version":"v26.0"}]'::jsonb,
+ (select actions from collection_fixture))$q$,'Coleta granular persiste quatro níveis atomicamente');
+select is((select count(*) from meta_daily_insights),4::bigint,'Quatro níveis ficam disponíveis');
+select ok((select levels@>array['account','campaign','adset','ad'] from meta_collection_runs),'Histórico confirma detalhamento inclusive sem atividade');
+select throws_ok($q$select * from persist_meta_detailed_slice(
+ 'aaaaaaaa-0000-4000-8000-000000000061','11111111-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061',
+ '2026-09-01','2026-09-30',(select insights from collection_fixture),
+ jsonb_set((select actions from collection_fixture),'{0,external_entity_id}','"act_999"'))$q$,'23503',null,'Falha no detalhamento reverte o lote inteiro');
+select is((select count(*) from meta_daily_insights),4::bigint,'Rollback preserva anúncios e totais anteriores');
+select lives_ok($q$select * from persist_meta_detailed_slice(
+ 'aaaaaaaa-0000-4000-8000-000000000061','11111111-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061',
+ '2026-09-01','2026-09-30','[]','[]')$q$,'Resposta vazia reconcilia todos os níveis');
+select is((select count(*) from meta_daily_insights),0::bigint,'Reconciliação remove detalhamento obsoleto');
+
 reset role;
 select * from finish();
 rollback;

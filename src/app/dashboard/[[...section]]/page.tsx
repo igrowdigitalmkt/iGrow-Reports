@@ -27,7 +27,7 @@ export default async function DashboardPage({
   const key = section.join("/");
   if (!sections.includes(key)) notFound();
   const { count, error } = await context.supabase.from("clients").select("id", { count: "exact", head: true }).eq("agency_id", context.agency.id).is("archived_at", null);
-  if (error) throw new Error("Não foi possível consultar os clientes da agência.");
+  if (error) throw new Error("Não foi possível consultar os clientes deste espaço de trabalho.");
   const clients: ClientItem[] = [];
   let portalAccesses: ClientPortalAdminAccess[] = [];
   let clientPortalAdminReady = false;
@@ -54,5 +54,5 @@ export default async function DashboardPage({
   if (key === "relatorios") {
     reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
   }
-  return <DashboardWorkspace key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} initialReportRange={query} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
+  return <DashboardWorkspace key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
 }

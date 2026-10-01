@@ -207,6 +207,10 @@ export type Database = {
         Args: { p_agency_id: string; p_client_id: string; p_ad_account_id: string; p_date_from: string; p_date_to: string; p_insights: Json; p_actions: Json };
         Returns: { insight_count: number; action_count: number }[];
       };
+      persist_meta_detailed_slice: {
+        Args: { p_agency_id: string; p_client_id: string; p_ad_account_id: string; p_date_from: string; p_date_to: string; p_insights: Json; p_actions: Json };
+        Returns: { insight_count: number; action_count: number }[];
+      };
       list_client_portal_clients: {
         Args: Record<PropertyKey, never>;
         Returns: { id: string; agency_id: string; name: string; logo_path: string | null; archived_at: string | null }[];
@@ -253,6 +257,22 @@ export type Database = {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string };
         Returns: ClientMetricSummaryRow[];
       };
+      get_campaign_scoped_analytics: {
+        Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids: string[]; p_entity_keys: string[] };
+        Returns: Json;
+      };
+      get_client_analytics_hierarchy: {
+        Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids: string[] };
+        Returns: Json;
+      };
+      get_client_report_header: { Args: { p_client_id: string }; Returns: Json; };
+      create_dashboard_report: {
+        Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids: string[];
+          p_entity_keys: string[]; p_metric_keys: string[]; p_title: string; p_header: Json };
+        Returns: string;
+      };
+      get_dashboard_report_document: { Args: { p_report_version_id: string }; Returns: Json; };
+      archive_dashboard_report: { Args: { p_client_id: string; p_report_id: string }; Returns: undefined; };
       create_manual_report_version: {
         Args: {
           p_agency_id: string; p_client_id: string; p_date_from: string; p_date_to: string;

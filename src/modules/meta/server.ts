@@ -467,6 +467,8 @@ export async function collectMetaClientInsights(input: {
 
   let insightCount = 0;
   let actionCount = 0;
+  let granularInsightCount = 0;
+  let granularActionCount = 0;
   let completedSliceCount = 0;
   let reusedSliceCount = 0;
   const failures: Array<{ accountId: string; since: string; until: string; scope: "daily" | "period" | "account"; code: string }> = [];
@@ -517,7 +519,7 @@ export async function collectMetaClientInsights(input: {
         continue;
       }
       const { data: previousRuns, error: runError } = await service.from("meta_collection_runs")
-        .select("date_from,date_to,insight_count,action_count")
+        .select("date_from,date_to,insight_count,action_count,levels")
         .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("ad_account_id", account.id)
         .eq("status", "complete").gte("date_from", input.since).lte("date_to", input.until);
       if (runError) throw new MetaSetupError("Não foi possível consultar o histórico das coletas.");
@@ -525,7 +527,9 @@ export async function collectMetaClientInsights(input: {
       let allDailyComplete = true;
       for (const slice of slices) {
         const previous = completeRuns.get(`${slice.since}:${slice.until}`);
-        if (!input.forceRefresh && previous && slice.until < historicalCutoff) {
+        const canReuse = !input.forceRefresh && previous && slice.until < historicalCutoff
+          && ['account', 'campaign', 'adset', 'ad'].every(level => previous.levels.includes(level));
+        if (canReuse && previous) {
           insightCount += previous.insight_count;
           actionCount += previous.action_count;
           completedSliceCount += 1;
@@ -533,10 +537,13 @@ export async function collectMetaClientInsights(input: {
           continue;
         }
         try {
-          const [accountInsights, campaignInsights] = await Promise.all([
+          const [accountInsights, campaignInsights, adsetInsights, adInsights] = await Promise.all([
             client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "account" }),
             client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "campaign" }),
+            client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "adset" }),
+            client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "ad" }),
           ]);
+          const collectedAt = new Date().toISOString();
           const normalized = normalizeInsightSlice({
             agencyId: input.agencyId,
             accountId: account.id,
@@ -545,11 +552,13 @@ export async function collectMetaClientInsights(input: {
             timezoneName: liveAccount.timezone_name,
             businessId: liveAccount.business!.id!,
             apiVersion,
-            collectedAt: new Date().toISOString(),
+            collectedAt,
             accountInsights,
             campaignInsights,
+            adsetInsights,
+            adInsights,
           });
-          const { data: persisted, error: persistError } = await service.rpc("persist_meta_insight_slice", {
+          const { data: persisted, error: persistError } = await service.rpc("persist_meta_detailed_slice", {
             p_agency_id: input.agencyId,
             p_client_id: input.clientId,
             p_ad_account_id: account.id,
@@ -559,8 +568,11 @@ export async function collectMetaClientInsights(input: {
             p_actions: normalized.actions as Json,
           }).single();
           if (persistError || !persisted) throw new MetaSetupError("Não foi possível persistir o lote de Insights e ações Meta.");
+
           insightCount += persisted.insight_count;
           actionCount += persisted.action_count;
+          granularInsightCount += normalized.insights.filter(row => row.level === "adset" || row.level === "ad").length;
+          granularActionCount += normalized.actions.filter(row => row.level === "adset" || row.level === "ad").length;
           completedSliceCount += 1;
         } catch (error) {
           await recordFailure(account.id, slice, error, "daily");
@@ -612,6 +624,8 @@ export async function collectMetaClientInsights(input: {
         account_count: accounts.length,
         insight_count: insightCount,
         action_count: actionCount,
+        granular_insight_count: granularInsightCount,
+        granular_action_count: granularActionCount,
         completed_slice_count: completedSliceCount,
         reused_slice_count: reusedSliceCount,
         failed_slice_count: failures.length,
@@ -623,6 +637,8 @@ export async function collectMetaClientInsights(input: {
       accountCount: accounts.length,
       insightCount,
       actionCount,
+      granularInsightCount,
+      granularActionCount,
       completedSliceCount,
       reusedSliceCount,
       failures,

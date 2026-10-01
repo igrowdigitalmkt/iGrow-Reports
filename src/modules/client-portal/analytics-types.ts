@@ -16,6 +16,17 @@ export type AnalyticsAccount = {
   currency: string;
 };
 
+export type AnalyticsReportItem = {
+  reportVersionId: string;
+  reportId: string;
+  title: string;
+  versionNumber: number;
+  dateFrom: string;
+  dateTo: string;
+  state: "ready" | "published" | "superseded";
+  publishedAt: string | null;
+};
+
 export type AnalyticsDashboardData = {
   dateFrom: string;
   dateTo: string;

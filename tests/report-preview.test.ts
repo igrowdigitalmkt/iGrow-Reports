@@ -9,7 +9,7 @@ import { getAgencyReportPreview } from "@/modules/reports/actions";
 const id = "576975e4-00f4-4b99-811a-8783d289cfd6";
 beforeEach(() => {
   vi.clearAllMocks();
-  const query = { select: vi.fn().mockReturnThis(), eq: mocks.eq, maybeSingle: mocks.version, order: mocks.metrics };
+  const query = { select: vi.fn().mockReturnThis(), is: vi.fn().mockReturnThis(), eq: mocks.eq, maybeSingle: mocks.version, order: mocks.metrics };
   mocks.eq.mockReturnValue(query);
   mocks.from.mockReturnValue(query);
   mocks.context.mockResolvedValue({ agency: { id: "trusted-agency" }, role: "viewer", supabase: { from: mocks.from } });
@@ -20,7 +20,7 @@ beforeEach(() => {
 it("permite prévia antes de publicar e limita ambas as consultas à agência autenticada", async () => {
   const result = await getAgencyReportPreview(id);
   expect(result).toMatchObject({ success: true, preview: { state: "ready", metrics: [{ numericValue: 3565.16 }] } });
-  expect(mocks.eq.mock.calls.filter(([key]) => key === "agency_id")).toEqual([["agency_id", "trusted-agency"], ["agency_id", "trusted-agency"]]);
+  expect(mocks.eq.mock.calls.filter(([key]) => key === "agency_id")).toEqual(Array(3).fill(["agency_id", "trusted-agency"]));
 });
 
 it("não consulta métricas quando a versão não pertence à agência", async () => {
@@ -32,4 +32,10 @@ it("não consulta métricas quando a versão não pertence à agência", async (
 it("rejeita ID inválido antes de consultar o banco", async () => {
   expect(await getAgencyReportPreview("invalid")).toHaveProperty("error");
   expect(mocks.from).not.toHaveBeenCalled();
+});
+
+it("não permite prévia de relatório arquivado", async () => {
+  mocks.version.mockResolvedValueOnce({ data: { report_id: id }, error: null }).mockResolvedValueOnce({ data: null, error: null });
+  expect(await getAgencyReportPreview(id)).toHaveProperty("error");
+  expect(mocks.metrics).not.toHaveBeenCalled();
 });

@@ -93,8 +93,8 @@ test("painel privado exige configuração e nunca usa dados fictícios", async (
   await expect(page.getByText("Não configurado", { exact: true })).toBeVisible();
   await expect(page.getByText("Aurora Studio")).toHaveCount(0);
   const health = await request.get("/api/health");
-  expect(health.status()).toBe(200);
-  expect((await health.json()).checks).toEqual({ application: "ok" });
+  expect(health.status()).toBe(503);
+  expect((await health.json()).checks).toEqual({ application: true, privilegedSupabase: false, database: false, encryption: false, metaApi: false });
   await page.goto("/auth/callback?next=https://attacker.example");
   await expect(page).toHaveURL(/127\.0\.0\.1:3100\/entrar/);
 });
@@ -103,8 +103,9 @@ test("navegação, temas e integrações futuras sem status falso", async ({ pag
   const errors: string[] = [];
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   await page.goto("/demo/integracoes");
-  await expect(page.getByText("Não configurada", { exact: true })).toHaveCount(3);
-  await expect(page.getByText("Implementação em etapa futura")).toHaveCount(3);
+  await expect(page.getByText("Não configurada", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("Simulada", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("Implementação em etapa futura")).toHaveCount(2);
   await page.getByRole("navigation").getByRole("link", { name: "Configurações" }).click();
   await page.getByRole("button", { name: "Claro", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");

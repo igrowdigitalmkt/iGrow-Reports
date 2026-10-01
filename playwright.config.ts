@@ -14,7 +14,7 @@ export default defineConfig({
   },
   webServer: {
     command: "node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3100",
-    url: "http://127.0.0.1:3100/api/health",
+    url: "http://127.0.0.1:3100/entrar",
     reuseExistingServer: false,
     timeout: 120_000,
     env: { ENABLE_DEMO: "true", NEXT_PUBLIC_SUPABASE_URL: "", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "", NEXT_TELEMETRY_DISABLED: "1" },
