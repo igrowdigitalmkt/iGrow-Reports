@@ -63,32 +63,34 @@ function ChartCanvas({ option, label, height = 280 }: { option: EChartsCoreOptio
 
 const tooltip = { trigger: "axis", backgroundColor: "#172232", borderColor: "#32465f", textStyle: { color: "#edf5ff", fontSize: 12 }, confine: true, renderMode: "richText" };
 
-export function AnalyticsTrendChart({ data, metrics, comparison = true, height = 280 }: { data: AnalyticsDashboardData; metrics: AnalyticsMetric[]; comparison?: boolean; height?: number }) {
+export function AnalyticsTrendChart({ data, metrics, comparison = true, height = 280, chartType = "line" }: { data: AnalyticsDashboardData; metrics: AnalyticsMetric[]; comparison?: boolean; height?: number; chartType?: "line" | "bar" }) {
   const previousAvailable = comparison && data.coverage.previousStatus === "complete";
   const series = metrics.flatMap((metric, index) => {
     const color = ANALYTICS_COLORS[index % ANALYTICS_COLORS.length];
     const current = {
-      name: metric.label, type: "line", yAxisIndex: index,
+      name: metric.label, type: chartType, yAxisIndex: index,
       data: data.daily.map((day) => day.values[metric.key] ?? null),
       smooth: .2, connectNulls: false, showSymbol: false, symbolSize: 6,
-      lineStyle: { color, width: 2.8 }, itemStyle: { color },
-      ...(index === 0 ? { areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#48d5f026" }, { offset: 1, color: "#48d5f000" }] } } } : {}),
+      lineStyle: { color, width: 2.8 }, itemStyle: { color, ...(chartType === "bar" ? { borderRadius: [3, 3, 0, 0] } : {}) },
+      ...(chartType === "bar" ? { barMaxWidth: 18, barGap: "20%" } : {}),
+      ...(index === 0 && chartType === "line" ? { areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#48d5f026" }, { offset: 1, color: "#48d5f000" }] } } } : {}),
     };
     return previousAvailable ? [current, {
-      name: `${metric.label} · período anterior`, type: "line", yAxisIndex: index,
+      name: `${metric.label} · período anterior`, type: chartType, yAxisIndex: index,
       data: data.daily.map((_, day) => data.previousDaily[day]?.values[metric.key] ?? null),
       smooth: .2, connectNulls: false, showSymbol: false,
-      lineStyle: { color, width: 1.5, type: "dashed", opacity: .48 }, itemStyle: { color },
+      lineStyle: { color, width: 1.5, type: "dashed", opacity: .48 }, itemStyle: { color, ...(chartType === "bar" ? { opacity: .3, borderRadius: [3, 3, 0, 0] } : {}) },
+      ...(chartType === "bar" ? { barMaxWidth: 18, barGap: "20%" } : {}),
     }] : [current];
   });
   const option: EChartsCoreOption = {
     backgroundColor: "transparent", tooltip,
     grid: { left: 52, right: metrics.length > 1 ? 55 : 20, top: 32, bottom: 32 },
-    xAxis: { type: "category", boundaryGap: false, data: data.daily.map((day) => shortDate(day.date)), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "#9aadc4", fontSize: 10, hideOverlap: true } },
+    xAxis: { type: "category", boundaryGap: chartType === "bar", data: data.daily.map((day) => shortDate(day.date)), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "#9aadc4", fontSize: 10, hideOverlap: true } },
     yAxis: metrics.map((metric, index) => ({ type: "value", name: metric.unit === "currency" ? data.currency ?? "" : metric.unit === "percent" ? "%" : "", nameTextStyle: { color: "#94a7be", fontSize: 10 }, position: index === 0 ? "left" : "right", axisLabel: { color: "#9aadc4", fontSize: 10, formatter: axisValue }, splitLine: { show: index === 0, lineStyle: { color: "#243347", type: "dashed" } } })),
     series,
   };
-  const label = `Evolução diária de ${metrics.map((metric) => metric.label).join(" e ")}, de ${data.dateFrom} a ${data.dateTo}. Valores e datas estão disponíveis na tabela.`;
+  const label = `Gráfico de ${chartType === "bar" ? "barras" : "linhas"}. Evolução diária de ${metrics.map((metric) => metric.label).join(" e ")}, de ${data.dateFrom} a ${data.dateTo}. Valores e datas estão disponíveis na tabela.`;
   return <>
     <ChartCanvas option={option} label={label} height={height} />
     <details className="analytics-chart-data">

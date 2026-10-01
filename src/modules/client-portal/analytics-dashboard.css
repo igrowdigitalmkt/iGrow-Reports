@@ -105,12 +105,17 @@
 .analytics-card-heading > svg { color: #7196b8; }
 .analytics-compare-toggle { display: flex; align-items: center; gap: 6px; color: #aec0d5; font-size: 10px; white-space: nowrap; cursor: pointer; }
 .analytics-comparison-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 9px; }
+.analytics-chart-view-controls { display: flex; align-items: center; gap: 14px; }
+.analytics-chart-switcher { display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #34485e; background: #0c1826; border-radius: 6px; }
+.analytics-chart-switcher > button { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 4px; padding: 5px 6px; font-size: 10px; color: #9fb4cc; background: transparent; }
+.analytics-chart-switcher > button.is-active { color: #83deef; background: #1a3545; }
 .analytics-collect-comparison { display: inline-flex; gap: 5px; align-items: center; border: 0; padding: 0; background: transparent; color: #82d7ec; font-size: 9px !important; }
 .analytics-compare-toggle:has(input:disabled) { color: #93a4b7; }
 .analytics-chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 15px 20px 0; }
 .analytics-chart-legend > span { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: #adbed2; }
 .analytics-chart-legend i { width: 7px; height: 7px; border-radius: 50%; }
 .analytics-chart-legend .analytics-dashed-legend { width: 12px; height: 0; border-top: 1px dashed #aec0d4; border-radius: 0; }
+.analytics-chart-legend .analytics-previous-bar-legend { background: #48d5f0; opacity: .35; border-radius: 2px; }
 .analytics-chart { width: 100%; min-width: 0; }
 .analytics-chart-fallback { min-height: 180px; display: grid; place-items: center; padding: 30px; color: #adc0d6; line-height: 1.6; }
 .analytics-chart-data { margin: 0 20px 15px; font-size: 10px; color: #9fb3ce; }
@@ -216,6 +221,7 @@
   .analytics-card-heading h3 { font-size: 13px; }
   .analytics-card-kicker { font-size: 7px; letter-spacing: 1px; }
   .analytics-compare-toggle { margin-top: 2px; }
+  .analytics-chart-view-controls { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
   .analytics-chart-legend { margin: 14px 14px 0; gap: 10px; }
   .analytics-chart-legend > span { font-size: 9px; }
   .analytics-account-card { display: block; }
