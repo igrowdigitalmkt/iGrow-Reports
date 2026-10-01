@@ -31,9 +31,22 @@ export function isDemoEnabled() {
 }
 
 
+function isPrivilegedSupabaseKey(value: string) {
+  if (value.startsWith("sb_secret_")) return true;
+  if (value.startsWith("sb_publishable_")) return false;
+  try {
+    const payload = JSON.parse(
+      atob(value.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    return payload.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
 const privilegedSchema = z.object({
   url: z.url(),
-  serviceRoleKey: z.string().min(20),
+  serviceRoleKey: z.string().min(20).refine(isPrivilegedSupabaseKey),
 });
 
 const metaConfigSchema = z.object({
