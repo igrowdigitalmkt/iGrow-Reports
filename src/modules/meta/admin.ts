@@ -13,7 +13,7 @@ export async function getMetaAdminSnapshot(
   const [accountsResult, linksResult, mappingsResult, integrationResult, connectionResult] = await Promise.all([
     supabase
       .from("meta_ad_accounts")
-      .select("id,external_id,name,currency,timezone_name,archived_at,last_synced_at")
+      .select("id,meta_connection_id,external_id,name,currency,timezone_name,archived_at,last_synced_at")
       .eq("agency_id", agencyId)
       .order("name")
       .order("id"),
@@ -33,9 +33,10 @@ export async function getMetaAdminSnapshot(
       .maybeSingle(),
     supabase
       .from("meta_connections")
-      .select("scopes")
+      .select("id,client_id,label,scopes,connected_at,last_accounts_sync_at")
       .eq("agency_id", agencyId)
-      .maybeSingle(),
+      .not("client_id", "is", null)
+      .order("created_at"),
   ]);
 
   const privileged = getPrivilegedSupabaseConfig();
@@ -60,6 +61,7 @@ export async function getMetaAdminSnapshot(
       links: [],
       mappings: [],
       integration: null,
+      connections: [],
       serverReadiness: {
         databaseReady: false,
         serviceRoleConfigured: !!privileged,
@@ -73,6 +75,7 @@ export async function getMetaAdminSnapshot(
   return {
     accounts: (accountsResult.data ?? []).map((row) => ({
       id: row.id,
+      connectionId: row.meta_connection_id,
       externalId: row.external_id,
       name: row.name,
       currency: row.currency,
@@ -99,9 +102,18 @@ export async function getMetaAdminSnapshot(
           lastCheckedAt: integrationResult.data.last_checked_at,
           lastSuccessAt: integrationResult.data.last_success_at,
           lastErrorAt: integrationResult.data.last_error_at,
-          scopes: connectionResult.data?.scopes ?? [],
         }
       : null,
+    connections: (connectionResult.data ?? [])
+      .filter((row) => row.client_id)
+      .map((row) => ({
+        id: row.id,
+        clientId: row.client_id as string,
+        label: row.label,
+        scopes: row.scopes,
+        connectedAt: row.connected_at,
+        lastAccountsSyncAt: row.last_accounts_sync_at,
+      })),
     serverReadiness: {
       databaseReady: true,
       serviceRoleConfigured: !!privileged,

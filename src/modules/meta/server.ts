@@ -20,6 +20,10 @@ import {
 
 const TOKEN_KIND = "meta_access_token";
 
+function connectionTokenKind(connectionId: string) {
+  return `${TOKEN_KIND}:${connectionId}`;
+}
+
 export class MetaSetupError extends Error {
   constructor(message: string) {
     super(message);
@@ -39,19 +43,20 @@ function operationalDependencies() {
   return { service, apiVersion: meta.apiVersion };
 }
 
-function secretAad(agencyId: string, integrationId: string) {
-  return `igrow-reports:${agencyId}:${integrationId}:${TOKEN_KIND}`;
+function secretAad(agencyId: string, integrationId: string, connectionId: string) {
+  return `igrow-reports:${agencyId}:${integrationId}:${connectionTokenKind(connectionId)}`;
 }
 
 async function storeAccessToken(
   service: SupabaseClient<Database>,
   agencyId: string,
   integrationId: string,
+  connectionId: string,
   accessToken: string,
 ) {
   const encrypted = encryptServerSecret(
     accessToken,
-    secretAad(agencyId, integrationId),
+    secretAad(agencyId, integrationId, connectionId),
   );
   const { error } = await service
     .schema("private")
@@ -59,7 +64,7 @@ async function storeAccessToken(
     .upsert({
       agency_id: agencyId,
       integration_id: integrationId,
-      secret_kind: TOKEN_KIND,
+      secret_kind: connectionTokenKind(connectionId),
       key_id: encrypted.keyId,
       nonce_b64: encrypted.nonceB64,
       ciphertext_b64: encrypted.ciphertextB64,
@@ -73,6 +78,7 @@ async function loadAccessToken(
   service: SupabaseClient<Database>,
   agencyId: string,
   integrationId: string,
+  connectionId: string,
 ) {
   const { data, error } = await service
     .schema("private")
@@ -80,7 +86,7 @@ async function loadAccessToken(
     .select("key_id,nonce_b64,ciphertext_b64,auth_tag_b64")
     .eq("agency_id", agencyId)
     .eq("integration_id", integrationId)
-    .eq("secret_kind", TOKEN_KIND)
+    .eq("secret_kind", connectionTokenKind(connectionId))
     .single();
 
   if (error || !data) {
@@ -93,7 +99,7 @@ async function loadAccessToken(
     ciphertextB64: data.ciphertext_b64,
     authTagB64: data.auth_tag_b64,
   };
-  return decryptServerSecret(envelope, secretAad(agencyId, integrationId));
+  return decryptServerSecret(envelope, secretAad(agencyId, integrationId, connectionId));
 }
 
 async function syncAccounts(
@@ -152,9 +158,39 @@ async function syncAccounts(
   return { count: accounts.length, syncedAt };
 }
 
+async function linkConnectionAccountsToClient(
+  service: SupabaseClient<Database>,
+  agencyId: string,
+  clientId: string,
+  connectionId: string,
+  actorId: string,
+) {
+  const { data: accounts, error } = await service
+    .from("meta_ad_accounts")
+    .select("id,archived_at")
+    .eq("agency_id", agencyId)
+    .eq("meta_connection_id", connectionId);
+  if (error) throw new MetaSetupError("Não foi possível associar as contas Meta ao cliente.");
+
+  const rows = (accounts ?? []).map((account) => ({
+    agency_id: agencyId,
+    client_id: clientId,
+    ad_account_id: account.id,
+    active: account.archived_at === null,
+    created_by: actorId,
+  }));
+  if (!rows.length) return;
+
+  const { error: linkError } = await service
+    .from("client_ad_accounts")
+    .upsert(rows, { onConflict: "agency_id,client_id,ad_account_id" });
+  if (linkError) throw new MetaSetupError("Não foi possível associar as contas Meta ao cliente.");
+}
+
 async function getStoredConnection(
   service: SupabaseClient<Database>,
   agencyId: string,
+  clientId: string,
 ) {
   const { data: integration, error: integrationError } = await service
     .from("integrations")
@@ -166,14 +202,17 @@ async function getStoredConnection(
     throw new MetaSetupError("A integração Meta ainda não foi configurada.");
   }
 
-  const { data: connection, error: connectionError } = await service
+  const { data: connections, error: connectionError } = await service
     .from("meta_connections")
     .select("id")
     .eq("agency_id", agencyId)
     .eq("integration_id", integration.id)
-    .single();
+    .eq("client_id", clientId)
+    .order("created_at")
+    .limit(1);
+  const connection = connections?.[0];
   if (connectionError || !connection) {
-    throw new MetaSetupError("A conexão Meta desta agência está incompleta.");
+    throw new MetaSetupError("Este cliente ainda não possui uma conexão Meta.");
   }
 
   return { integration, connection };
@@ -200,8 +239,9 @@ async function markIntegrationFailure(
     .eq("id", integrationId);
 }
 
-export async function connectMetaForAgency(input: {
+export async function connectMetaForClient(input: {
   agencyId: string;
+  clientId: string;
   actorId: string;
   accessToken: string;
 }) {
@@ -247,28 +287,46 @@ export async function connectMetaForAgency(input: {
     throw new MetaSetupError("Não foi possível registrar a integração Meta.");
   }
 
-  const { data: connection, error: connectionError } = await service
+  const { data: existingConnections, error: existingConnectionError } = await service
     .from("meta_connections")
-    .upsert({
-      agency_id: input.agencyId,
-      integration_id: integration.id,
-      external_user_id: identity.id,
-      scopes: grantedScopes,
-      metadata: { identity_name: identity.name ?? null },
-      connected_at: now,
-      last_accounts_sync_at: now,
-      updated_at: now,
-    }, { onConflict: "agency_id,integration_id" })
+    .select("id")
+    .eq("agency_id", input.agencyId)
+    .eq("integration_id", integration.id)
+    .eq("client_id", input.clientId)
+    .order("created_at")
+    .limit(1);
+  if (existingConnectionError) {
+    throw new MetaSetupError("Não foi possível consultar a conexão Meta do cliente.");
+  }
+
+  const connectionPayload = {
+    agency_id: input.agencyId,
+    integration_id: integration.id,
+    client_id: input.clientId,
+    external_user_id: identity.id,
+    scopes: grantedScopes,
+    metadata: { identity_name: identity.name ?? null },
+    connected_at: now,
+    last_accounts_sync_at: now,
+    updated_at: now,
+  };
+  const existingConnection = existingConnections?.[0];
+  const connectionQuery = existingConnection
+    ? service.from("meta_connections").update(connectionPayload)
+        .eq("agency_id", input.agencyId).eq("id", existingConnection.id)
+    : service.from("meta_connections").insert(connectionPayload);
+  const { data: connection, error: connectionError } = await connectionQuery
     .select("id")
     .single();
   if (connectionError || !connection) {
-    throw new MetaSetupError("Não foi possível registrar a conexão Meta.");
+    throw new MetaSetupError("Não foi possível registrar a conexão Meta do cliente.");
   }
 
   await storeAccessToken(
     service,
     input.agencyId,
     integration.id,
+    connection.id,
     input.accessToken,
   );
   const synced = await syncAccounts(
@@ -276,6 +334,13 @@ export async function connectMetaForAgency(input: {
     input.agencyId,
     connection.id,
     accounts,
+  );
+  await linkConnectionAccountsToClient(
+    service,
+    input.agencyId,
+    input.clientId,
+    connection.id,
+    input.actorId,
   );
 
   await service.from("audit_logs").insert({
@@ -299,13 +364,14 @@ export async function connectMetaForAgency(input: {
   };
 }
 
-export async function syncMetaAccountsForAgency(input: {
+export async function syncMetaAccountsForClient(input: {
   agencyId: string;
+  clientId: string;
   actorId: string;
 }) {
   const { service, apiVersion } = operationalDependencies();
-  const { integration, connection } = await getStoredConnection(service, input.agencyId);
-  const token = await loadAccessToken(service, input.agencyId, integration.id);
+  const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+  const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
   const client = new MetaClient({ accessToken: token, apiVersion });
 
   try {
@@ -315,6 +381,13 @@ export async function syncMetaAccountsForAgency(input: {
       input.agencyId,
       connection.id,
       accounts,
+    );
+    await linkConnectionAccountsToClient(
+      service,
+      input.agencyId,
+      input.clientId,
+      connection.id,
+      input.actorId,
     );
     await service.from("meta_connections")
       .update({ last_accounts_sync_at: synced.syncedAt, updated_at: synced.syncedAt })
@@ -393,8 +466,8 @@ export async function collectMetaClientInsights(input: {
   until: string;
 }) {
   const { service, apiVersion } = operationalDependencies();
-  const { integration } = await getStoredConnection(service, input.agencyId);
-  const token = await loadAccessToken(service, input.agencyId, integration.id);
+  const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+  const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
   const client = new MetaClient({ accessToken: token, apiVersion });
 
   const { data: links, error: linksError } = await service

@@ -66,7 +66,7 @@ export function DashboardWorkspace({ demo, section, identity, activeClients = 0,
         <div className="info-banner"><ShieldCheck size={19} /><p>Credenciais externas são processadas somente no servidor. Proprietários e administradores gerenciam segredos; editores podem configurar clientes e atualizar dados quando a integração estiver pronta.</p></div>
         <div className="integration-cards">
           {!demo && agencyId && metaSnapshot ? (
-            <MetaIntegrationManager agencyId={agencyId} snapshot={metaSnapshot} canManage={canManageClientAccess} />
+            <MetaIntegrationManager agencyId={agencyId} clients={(clients ?? []).filter((client) => !client.archived_at)} snapshot={metaSnapshot} canManage={canManageClientAccess} />
           ) : (
             <section className="panel integration-card">
               <span className="provider-large blue">∞</span>

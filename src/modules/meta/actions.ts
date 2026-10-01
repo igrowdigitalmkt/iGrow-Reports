@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { getCompletePortalPeriod } from "@/modules/client-portal/metrics";
 import { MetaApiError } from "./client";
-import { collectMetaClientInsights, connectMetaForAgency, MetaSetupError, syncMetaAccountsForAgency } from "./server";
+import { collectMetaClientInsights, connectMetaForClient, MetaSetupError, syncMetaAccountsForClient } from "./server";
 
 const accountLinkSchema = z.object({
   agencyId: z.uuid(),
@@ -99,11 +99,13 @@ export async function setClientMetricMapping(
 
 const connectionSchema = z.object({
   agencyId: z.uuid(),
+  clientId: z.uuid(),
   accessToken: z.string().trim().min(20).max(8192),
 });
 
-const agencyOperationSchema = z.object({
+const clientOperationSchema = z.object({
   agencyId: z.uuid(),
+  clientId: z.uuid(),
 });
 
 const collectionSchema = z.object({
@@ -135,8 +137,9 @@ export async function connectMetaIntegration(
   }
 
   try {
-    const result = await connectMetaForAgency({
+    const result = await connectMetaForClient({
       agencyId: context.agency.id,
+      clientId: parsed.data.clientId,
       actorId: context.user.id,
       accessToken: parsed.data.accessToken,
     });
@@ -155,14 +158,15 @@ export async function syncMetaAccounts(
   if (context.role !== "owner" && context.role !== "admin") {
     return { error: "Somente proprietário ou administrador pode sincronizar contas Meta." };
   }
-  const parsed = agencyOperationSchema.safeParse(input);
+  const parsed = clientOperationSchema.safeParse(input);
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
     return { error: "Agência inválida." };
   }
 
   try {
-    const result = await syncMetaAccountsForAgency({
+    const result = await syncMetaAccountsForClient({
       agencyId: context.agency.id,
+      clientId: parsed.data.clientId,
       actorId: context.user.id,
     });
     revalidatePath("/dashboard/integracoes");

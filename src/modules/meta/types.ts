@@ -1,5 +1,6 @@
 export type MetaAdminAccount = {
   id: string;
+  connectionId: string;
   externalId: string;
   name: string;
   currency: string;
@@ -28,7 +29,15 @@ export type MetaIntegrationStatus = {
   lastCheckedAt: string | null;
   lastSuccessAt: string | null;
   lastErrorAt: string | null;
+};
+
+export type MetaClientConnection = {
+  id: string;
+  clientId: string;
+  label: string | null;
   scopes: string[];
+  connectedAt: string | null;
+  lastAccountsSyncAt: string | null;
 };
 
 export type MetaServerReadiness = {
@@ -44,5 +53,6 @@ export type MetaAdminSnapshot = {
   links: ClientAdAccountLink[];
   mappings: ClientMetricMapping[];
   integration: MetaIntegrationStatus | null;
+  connections: MetaClientConnection[];
   serverReadiness: MetaServerReadiness;
 };
