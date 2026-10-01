@@ -154,6 +154,8 @@ export function MetaIntegrationManager({
             <p className="muted mt-1 text-xs leading-5">
               O token é validado na Meta e armazenado criptografado. Ele não é
               exibido novamente. A permissão <strong>ads_read</strong> é obrigatória.
+              Para produção, prefira um token de <strong>System User</strong> vinculado
+              aos ativos da empresa, em vez de um token curto de usuário.
             </p>
             <input
               id="meta-access-token"
