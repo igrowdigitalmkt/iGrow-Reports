@@ -2,8 +2,10 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import {
+  BookOpen,
   CheckCircle2,
   CircleAlert,
+  ExternalLink,
   KeyRound,
   RefreshCw,
   ShieldCheck,
@@ -157,6 +159,56 @@ export function MetaIntegrationManager({
               Para produção, prefira um token de <strong>System User</strong> vinculado
               aos ativos da empresa, em vez de um token curto de usuário.
             </p>
+
+            <details className="meta-token-guide mt-4">
+              <summary>
+                <span><BookOpen size={15} />Como obter o token da Meta</span>
+                <span className="muted text-xs">passo a passo</span>
+              </summary>
+              <div className="meta-token-guide-body">
+                <ol>
+                  <li>
+                    <strong>Abra as Configurações do negócio da Meta.</strong>
+                    <span>Entre no portfólio empresarial que possui as contas de anúncios que você quer trazer para o iGrow.</span>
+                  </li>
+                  <li>
+                    <strong>Acesse Usuários → Usuários do sistema.</strong>
+                    <span>Crie um usuário do sistema chamado, por exemplo, <em>iGrow Reports</em>. Se já existir um usuário exclusivo para integrações, você pode reutilizá-lo.</span>
+                  </li>
+                  <li>
+                    <strong>Atribua os ativos.</strong>
+                    <span>Adicione ao usuário do sistema somente as contas de anúncios necessárias e dê acesso suficiente para visualizar desempenho. Evite conceder permissões além do necessário.</span>
+                  </li>
+                  <li>
+                    <strong>Gere um token para o app da integração.</strong>
+                    <span>No usuário do sistema, escolha <em>Gerar novo token</em>, selecione o aplicativo conectado ao seu negócio e marque obrigatoriamente <code>ads_read</code>.</span>
+                  </li>
+                  <li>
+                    <strong>Copie o token uma única vez.</strong>
+                    <span>A Meta pode não exibi-lo novamente. Não envie esse token por WhatsApp, e-mail ou chat.</span>
+                  </li>
+                  <li>
+                    <strong>Cole o token abaixo.</strong>
+                    <span>O iGrow valida a credencial na Meta e a armazena criptografada. Depois da conexão, o token deixa de ser exibido.</span>
+                  </li>
+                </ol>
+
+                <div className="meta-token-guide-links">
+                  <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noreferrer">
+                    Abrir Usuários do sistema <ExternalLink size={13} />
+                  </a>
+                  <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer">
+                    Abrir apps da Meta <ExternalLink size={13} />
+                  </a>
+                </div>
+
+                <div className="planned-note mt-3">
+                  <CircleAlert size={15} />
+                  Se “Gerar novo token” não aparecer, normalmente falta um aplicativo Meta vinculado ao portfólio empresarial ou permissão administrativa para gerenciar usuários do sistema.
+                </div>
+              </div>
+            </details>
+
             <input
               id="meta-access-token"
               type="password"
