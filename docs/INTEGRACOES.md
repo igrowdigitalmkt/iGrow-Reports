@@ -48,8 +48,14 @@ Ainda não há publicação de jobs, agendamentos externos ou endpoints de consu
 
 Implementar ocorrências persistidas, outbox, tentativas, locks com expiração, checkpoints e chaves únicas. A entrega repetida da fila precisa ser segura para operações locais; efeitos externos incertos exigem reconciliação específica. Não manter um worker permanente dentro de uma Function.
 
-## Credenciais futuras
+## Credenciais de servidor
 
-Os campos `SUPABASE_SERVICE_ROLE_KEY`, `META_*`, `QSTASH_*`, `ENCRYPTION_*`, `SENTRY_DSN` e `EXTERNAL_DELIVERIES_ENABLED` estão reservados em `.env.example`; não são consumidos pela fundação e não ativam provedores por si. `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_REPORTS_URL` e `APP_ENV` também registram a configuração planejada dos ambientes, sem substituir a configuração Auth no Supabase.
+A integração Meta já consome credenciais de servidor. Prefira `SUPABASE_SECRET_KEY` com uma Secret key moderna (`sb_secret_...`); `SUPABASE_SERVICE_ROLE_KEY` permanece apenas como fallback para projetos ainda no modelo legado. Ambas são exclusivamente server-side e concedem acesso privilegiado ao banco.
 
-Na implementação de cada adaptador, documentar configuração, escopo, validação e rotação reais. Segredos de agência precisarão ficar em schema privado com criptografia AES-256-GCM, nonce exclusivo e identificação de chave; esse armazenamento ainda não faz parte da fundação.
+A credencial Meta fornecida pelo administrador é validada na Graph API e armazenada no schema privado usando AES-256-GCM. `ENCRYPTION_KEY` deve conter exatamente 32 bytes codificados em base64 ou 64 caracteres hexadecimais, e `ENCRYPTION_KEY_ID` identifica a chave usada no envelope criptográfico. A chave mestra nunca é persistida no banco.
+
+`META_GRAPH_API_VERSION` fixa a versão usada pelo adaptador. A produção atual deve configurar explicitamente uma versão suportada e testada; a integração nunca deve depender silenciosamente da versão padrão do provedor.
+
+`QSTASH_*`, `SENTRY_DSN` e `EXTERNAL_DELIVERIES_ENABLED` permanecem reservados às etapas correspondentes. `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_REPORTS_URL` e `APP_ENV` registram a configuração dos ambientes sem substituir a configuração Auth no Supabase.
+
+Rotação de segredos deve criar nova chave, atualizar o ambiente e recriptografar envelopes antes de retirar a chave anterior. Tokens, chaves privilegiadas e material criptográfico não devem aparecer em logs, respostas de erro ou código-fonte.
