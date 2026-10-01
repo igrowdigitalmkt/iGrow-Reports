@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({ context: vi.fn(), from: vi.fn(), eq: vi.fn(), version: vi.fn(), metrics: vi.fn() }));
 vi.mock("@/modules/agencies/context", () => ({ requireAgencyContext: mocks.context }));
