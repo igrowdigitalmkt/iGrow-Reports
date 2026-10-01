@@ -19,6 +19,7 @@ import {
   type ClientPortalMetricView,
 } from "@/modules/client-portal/metrics";
 import { ClientPortalShell } from "@/modules/client-portal/portal-shell";
+import { listClientPortalReports } from "@/modules/reports/client";
 
 export const metadata: Metadata = {
   title: "Visão do cliente",
@@ -38,7 +39,10 @@ export default async function ClientOverviewPage({
   const period = normalizePortalPeriod(query.periodo);
   const { supabase, user, access, accesses } = await requireClientPortalAccess(clientId);
   const { client } = access;
-  const metricView = await getClientPortalMetricView(supabase, clientId, period);
+  const [metricView, reportHistory] = await Promise.all([
+    getClientPortalMetricView(supabase, clientId, period),
+    listClientPortalReports(supabase, clientId),
+  ]);
 
   return (
     <ClientPortalShell
@@ -122,12 +126,34 @@ export default async function ClientOverviewPage({
               <p>Versões publicadas para este cliente</p>
             </div>
           </div>
-          <div className="client-report-empty">
-            <strong>Nenhum relatório publicado</strong>
-            <p>
-              O histórico de versões aparecerá aqui quando o módulo de publicação de relatórios estiver habilitado.
-            </p>
-          </div>
+          {reportHistory.reports.length ? (
+            <div className="client-report-list">
+              {reportHistory.reports.slice(0, 8).map((report) => (
+                <Link
+                  key={report.reportVersionId}
+                  href={`/cliente/${clientId}/relatorios/${report.reportVersionId}`}
+                  className="client-report-row"
+                >
+                  <div>
+                    <strong>{report.title}</strong>
+                    <span>
+                      {formatDate(report.dateFrom)} – {formatDate(report.dateTo)} · v{report.versionNumber}
+                    </span>
+                  </div>
+                  <FileText size={15} />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="client-report-empty">
+              <strong>Nenhum relatório publicado</strong>
+              <p>
+                {reportHistory.ready
+                  ? "Quando a agência publicar uma versão, ela aparecerá aqui."
+                  : "O histórico será liberado assim que a fundação de relatórios for habilitada no banco."}
+              </p>
+            </div>
+          )}
         </div>
       </section>
     </ClientPortalShell>
