@@ -5,6 +5,37 @@ import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { getCompletePortalPeriod } from "@/modules/client-portal/metrics";
 import { isMissingSchemaError } from "@/lib/supabase/schema";
+import type { AdminReportPreview } from "./types";
+
+export async function getAgencyReportPreview(input: unknown): Promise<
+  { success: true; preview: AdminReportPreview } | { error: string }
+> {
+  const context = await requireAgencyContext();
+  const parsed = z.uuid().safeParse(input);
+  if (!parsed.success) return { error: "Versão de relatório inválida." };
+  const { data: version, error: versionError } = await context.supabase
+    .from("report_versions")
+    .select("currency,date_from,date_to,state,timezone_name")
+    .eq("agency_id", context.agency.id)
+    .eq("id", parsed.data)
+    .maybeSingle();
+  if (versionError || !version) return { error: "Relatório indisponível nesta agência." };
+  const { data: metrics, error: metricsError } = await context.supabase
+    .from("report_metrics")
+    .select("metric_key,label,unit,numeric_value,display_precision")
+    .eq("agency_id", context.agency.id)
+    .eq("report_version_id", parsed.data)
+    .order("metric_key");
+  if (metricsError) return { error: "Não foi possível carregar os indicadores deste relatório." };
+  return { success: true, preview: {
+    currency: version.currency, dateFrom: version.date_from, dateTo: version.date_to,
+    state: version.state, timezoneName: version.timezone_name,
+    metrics: (metrics ?? []).map((row) => ({
+      metricKey: row.metric_key, label: row.label, unit: row.unit,
+      numericValue: row.numeric_value, displayPrecision: row.display_precision,
+    })),
+  } };
+}
 
 const generateSchema = z.object({
   agencyId: z.uuid(),

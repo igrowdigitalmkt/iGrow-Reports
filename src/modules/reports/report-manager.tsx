@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, FilePlus2, Send, Clock3, GitBranchPlus, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, FilePlus2, Send, Clock3, GitBranchPlus, X, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import type { ClientItem } from "@/modules/clients/schema";
-import { generateManualReport, publishReportVersion } from "./actions";
-import type { ReportsAdminSnapshot } from "./types";
+import { generateManualReport, getAgencyReportPreview, publishReportVersion } from "./actions";
+import type { AdminReportPreview, AdminReportVersion, ClientPortalReportMetric, ReportsAdminSnapshot } from "./types";
 
 export function ReportManager({
   agencyId,
@@ -28,6 +29,18 @@ export function ReportManager({
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [viewing, setViewing] = useState<AdminReportVersion | null>(null);
+  const [preview, setPreview] = useState<AdminReportPreview | null>(null);
+  const [previewError, setPreviewError] = useState("");
+
+  function viewReport(version: AdminReportVersion) {
+    setViewing(version); setPreview(null); setPreviewError("");
+    startTransition(async () => {
+      const result = await getAgencyReportPreview(version.id);
+      if ("error" in result) { setPreviewError(result.error); return; }
+      setPreview(result.preview);
+    });
+  }
 
   function generate() {
     setError(""); setNotice("");
@@ -91,13 +104,38 @@ export function ReportManager({
           <td>{version.title} <span className="muted">· v{version.versionNumber}</span></td>
           <td>{formatDate(version.dateFrom)} – {formatDate(version.dateTo)}</td>
           <td><span className={version.state === "published" ? "badge green" : version.state === "ready" ? "badge amber" : "badge neutral"}>{version.state === "published" ? "Publicado" : version.state === "ready" ? "Pronto para publicar" : "Versão anterior"}</span></td>
-          <td><div className="flex flex-wrap gap-2">{version.state === "ready" && canEdit ? <Button className="button-sm" onClick={() => publish(version.id)} disabled={pending}><Send size={13} />Publicar</Button> : version.state === "published" ? <span className="planned-note"><CheckCircle2 size={14} />Disponível</span> : <span className="planned-note"><Clock3 size={14} />Histórico</span>}{canEdit && version.state !== "ready" && <Button className="button-sm" variant="secondary" onClick={() => startRevision(version)} disabled={pending}><GitBranchPlus size={13} />Nova versão</Button>}</div></td>
+          <td><div className="flex flex-wrap gap-2"><Button className="button-sm" variant="secondary" onClick={() => viewReport(version)} disabled={pending}><Eye size={13} />Visualizar</Button>{version.state === "ready" && canEdit ? <Button className="button-sm" onClick={() => publish(version.id)} disabled={pending}><Send size={13} />Publicar</Button> : version.state === "published" ? <span className="planned-note"><CheckCircle2 size={14} />Disponível</span> : <span className="planned-note"><Clock3 size={14} />Histórico</span>}{canEdit && version.state !== "ready" && <Button className="button-sm" variant="secondary" onClick={() => startRevision(version)} disabled={pending}><GitBranchPlus size={13} />Nova versão</Button>}</div></td>
         </tr>)}
       </tbody></table></div> : <div className="empty-state"><CalendarDays size={26} /><h3>Nenhum relatório gerado</h3><p>Após coletar os dados de um cliente, gere a primeira versão aqui.</p></div>}
     </section>
+    <Dialog open={!!viewing} onOpenChange={open => { if (!open) setViewing(null); }} title={viewing ? `${viewing.title} · v${viewing.versionNumber}` : "Relatório"} description={viewing?.clientName}>
+      {previewError ? <p role="alert" className="text-sm text-rose-400">{previewError}</p> : !preview ? <p role="status">Carregando relatório…</p> : <>
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <span className="badge neutral">{preview.state === "ready" ? "Prévia · pronto para publicar" : preview.state === "published" ? "Publicado" : "Versão anterior"}</span>
+          <span className="muted text-sm">{formatDate(preview.dateFrom)} – {formatDate(preview.dateTo)}</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {preview.metrics.map(metric => <div className="client-metric-card" key={metric.metricKey}><p>{metric.label}</p><strong>{formatPreviewMetric(metric, preview.currency)}</strong></div>)}
+        </div>
+        {!preview.metrics.length && <p>Esta versão não possui indicadores disponíveis.</p>}
+        <p className="muted mt-5 text-sm">Valores preservados nesta versão. Novas coletas não alteram este relatório.</p>
+      </>}
+    </Dialog>
   </div>;
 }
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value + "T12:00:00Z"));
+}
+
+function formatPreviewMetric(metric: ClientPortalReportMetric, currency: string | null) {
+  if (metric.numericValue === null || !Number.isFinite(Number(metric.numericValue))) return "Indisponível";
+  const value = Number(metric.numericValue);
+  if (metric.unit === "currency" && !currency) return "Indisponível";
+  const formatted = new Intl.NumberFormat("pt-BR", {
+    ...(metric.unit === "currency" ? { style: "currency", currency: currency! } : {}),
+    minimumFractionDigits: metric.unit === "integer" ? 0 : metric.displayPrecision,
+    maximumFractionDigits: metric.unit === "integer" ? 0 : metric.displayPrecision,
+  }).format(value);
+  return metric.unit === "percent" ? `${formatted}%` : metric.unit === "ratio" ? `${formatted}×` : formatted;
 }

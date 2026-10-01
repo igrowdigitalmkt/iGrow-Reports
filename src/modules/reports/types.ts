@@ -39,3 +39,12 @@ export type ClientPortalReportMetric = {
   numericValue: number | null;
   displayPrecision: number;
 };
+
+export type AdminReportPreview = {
+  currency: string | null;
+  dateFrom: string;
+  dateTo: string;
+  state: AdminReportVersion["state"];
+  timezoneName: string | null;
+  metrics: ClientPortalReportMetric[];
+};
