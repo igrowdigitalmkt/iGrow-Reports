@@ -25,8 +25,8 @@ insert into clients(id,agency_id,name) values
 
 insert into integrations(id,agency_id,provider,connection_status,health_status) values
 ('30000000-0000-4000-8000-000000000051','aaaaaaaa-0000-4000-8000-000000000051','meta','connected','healthy');
-insert into meta_connections(id,agency_id,integration_id) values
-('40000000-0000-4000-8000-000000000051','aaaaaaaa-0000-4000-8000-000000000051','30000000-0000-4000-8000-000000000051');
+insert into meta_connections(id,agency_id,integration_id,client_id) values
+('40000000-0000-4000-8000-000000000051','aaaaaaaa-0000-4000-8000-000000000051','30000000-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051');
 insert into meta_ad_accounts(
   id,agency_id,meta_connection_id,external_id,name,currency,timezone_name
 ) values(
@@ -68,8 +68,17 @@ create temporary table report_test_ids(
 );
 grant all on report_test_ids to authenticated;
 
+insert into meta_ad_accounts(id,agency_id,meta_connection_id,external_id,name,currency,timezone_name)
+values('50000000-0000-4000-8000-000000000052','aaaaaaaa-0000-4000-8000-000000000051','40000000-0000-4000-8000-000000000051','act_5200','Conta Los Angeles','BRL','America/Los_Angeles');
+insert into client_ad_accounts(agency_id,client_id,ad_account_id,active)
+values('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051','50000000-0000-4000-8000-000000000052',true);
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000051',true);
+
+select is((select data_status from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30')), 'ok', 'Fusos diferentes permitem relatório por datas locais');
+select is((select compatibility_issue from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30')), 'multiple_timezones', 'Aviso de fuso usa os metadados reais das contas');
+select is((select data_status from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000051','2026-08-01','2026-08-02')), 'no_data', 'Ausência de dados não é tratada como bloqueio por fuso');
 
 insert into report_test_ids(first_version)
 select create_manual_report_version(

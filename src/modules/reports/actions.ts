@@ -83,7 +83,7 @@ export async function generateManualReport(
     return {
       error: summary.compatibility_issue === "multiple_currencies"
         ? "As contas deste cliente usam moedas diferentes e não podem ser consolidadas."
-        : summary.compatibility_issue === "multiple_timezones"
+        : summary.data_status === "incompatible" && summary.compatibility_issue === "multiple_timezones"
           ? "As contas deste cliente têm horários realmente diferentes neste período e não podem ser consolidadas com precisão."
           : "Colete dados para o período selecionado antes de gerar o relatório.",
     };

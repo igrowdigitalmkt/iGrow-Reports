@@ -31,10 +31,10 @@ insert into integrations(
 ('30000000-0000-4000-8000-000000000042','bbbbbbbb-0000-4000-8000-000000000042','meta','connected','healthy',now());
 
 insert into meta_connections(
-  id,agency_id,integration_id,external_user_id,scopes,connected_at
+  id,agency_id,integration_id,external_user_id,scopes,connected_at,client_id
 ) values
-('40000000-0000-4000-8000-000000000041','aaaaaaaa-0000-4000-8000-000000000041','30000000-0000-4000-8000-000000000041','meta-user-a',array['ads_read'],now()),
-('40000000-0000-4000-8000-000000000042','bbbbbbbb-0000-4000-8000-000000000042','30000000-0000-4000-8000-000000000042','meta-user-b',array['ads_read'],now());
+('40000000-0000-4000-8000-000000000041','aaaaaaaa-0000-4000-8000-000000000041','30000000-0000-4000-8000-000000000041','meta-user-a',array['ads_read'],now(),'11111111-0000-4000-8000-000000000041'),
+('40000000-0000-4000-8000-000000000042','bbbbbbbb-0000-4000-8000-000000000042','30000000-0000-4000-8000-000000000042','meta-user-b',array['ads_read'],now(),'22222222-0000-4000-8000-000000000043');
 
 insert into meta_ad_accounts(
   id,agency_id,meta_connection_id,external_id,name,currency,timezone_name,account_status,last_synced_at
