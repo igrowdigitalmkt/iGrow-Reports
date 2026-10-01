@@ -67,9 +67,10 @@ function decodeEncryptionKey(value: string): Buffer | null {
 export function getPrivilegedSupabaseConfig() {
   const result = privilegedSchema.safeParse({
     url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    serviceRoleKey:
+    serviceRoleKey: (
       process.env.SUPABASE_SECRET_KEY ??
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )?.trim(),
   });
   return result.success ? result.data : null;
 }
