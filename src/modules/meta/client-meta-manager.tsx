@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition, type FormEvent } from "react";
-import { Link2, Plug, RefreshCw, Target } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Link2, Plug, RefreshCw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { collectClientMetaData, setClientAdAccount, setClientMetricMapping } from "./actions";
 import type {
@@ -190,8 +191,17 @@ export function ClientMetaManager({
               <Plug className="muted mx-auto" size={21} />
               <strong className="mt-2 block text-sm font-medium">Nenhuma conta Meta sincronizada</strong>
               <p className="muted mx-auto mt-1 max-w-md text-xs leading-5">
-                Assim que a integração Meta for configurada e sincronizada, as contas de anúncios disponíveis aparecerão aqui.
+                {connected
+                  ? "Sincronize a conexão Meta deste cliente para importar as contas de anúncios disponíveis."
+                  : "Conecte o Portfólio Empresarial deste cliente para importar suas contas de anúncios."}
               </p>
+              {!connected && ready && !archived && (
+                <Button asChild className="mt-4">
+                  <Link href={`/dashboard/integracoes?client=${encodeURIComponent(clientId)}`}>
+                    Conectar Meta deste cliente <ArrowRight size={14} />
+                  </Link>
+                </Button>
+              )}
             </div>
           )}
         </div>

@@ -23,11 +23,11 @@ import { logoutAction } from "@/modules/auth/actions";
 
 const ActivityChart = dynamic(() => import("@/components/charts/activity-chart"), { ssr: false, loading: () => <div className="activity-chart skeleton" aria-label="Carregando gráfico" /> });
 
-interface Props { demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
+interface Props { demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const number = (value: number | null) => value === null ? "—" : value.toLocaleString("pt-BR");
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ demo, section, identity, activeClients = 0, clients, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], metaSnapshot, reportsSnapshot }: Props) {
+export function DashboardWorkspace({ demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], metaSnapshot, reportsSnapshot }: Props) {
   const [period, setPeriod] = useState<DashboardPeriod>("30d");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("Todos os estados");
@@ -66,7 +66,7 @@ export function DashboardWorkspace({ demo, section, identity, activeClients = 0,
         <div className="info-banner"><ShieldCheck size={19} /><p>Credenciais externas são processadas somente no servidor. Proprietários e administradores gerenciam segredos; editores podem configurar clientes e atualizar dados quando a integração estiver pronta.</p></div>
         <div className="integration-cards">
           {!demo && agencyId && metaSnapshot ? (
-            <MetaIntegrationManager agencyId={agencyId} clients={(clients ?? []).filter((client) => !client.archived_at)} snapshot={metaSnapshot} canManage={canManageClientAccess} />
+            <MetaIntegrationManager agencyId={agencyId} clients={(clients ?? []).filter((client) => !client.archived_at)} initialClientId={initialMetaClientId} snapshot={metaSnapshot} canManage={canManageClientAccess} />
           ) : (
             <section className="panel integration-card">
               <span className="provider-large blue">∞</span>

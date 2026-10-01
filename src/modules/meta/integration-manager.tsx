@@ -8,15 +8,20 @@ import { connectMetaIntegration, syncMetaAccounts } from "./actions";
 import type { MetaAdminSnapshot } from "./types";
 
 export function MetaIntegrationManager({
-  agencyId, clients, snapshot, canManage,
+  agencyId, clients, initialClientId, snapshot, canManage,
 }: {
   agencyId: string;
   clients: ClientItem[];
+  initialClientId?: string;
   snapshot: MetaAdminSnapshot;
   canManage: boolean;
 }) {
   const activeClients = useMemo(() => clients.filter((client) => !client.archived_at), [clients]);
-  const [clientId, setClientId] = useState(activeClients[0]?.id ?? "");
+  const [clientId, setClientId] = useState(
+    activeClients.some((client) => client.id === initialClientId)
+      ? initialClientId!
+      : activeClients[0]?.id ?? "",
+  );
   const [token, setToken] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");

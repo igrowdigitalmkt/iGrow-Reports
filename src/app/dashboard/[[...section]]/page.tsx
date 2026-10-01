@@ -13,9 +13,16 @@ import type { ReportsAdminSnapshot } from "@/modules/reports/types";
 const sections = ["", "clientes", "relatorios", "templates", "agendamentos", "entregas", "integracoes", "configuracoes"];
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage({ params }: { params: Promise<{ section?: string[] }> }) {
+export default async function DashboardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ section?: string[] }>;
+  searchParams: Promise<{ client?: string }>;
+}) {
   const context = await requireAgencyContext();
   const { section = [] } = await params;
+  const query = await searchParams;
   const key = section.join("/");
   if (!sections.includes(key)) notFound();
   const { count, error } = await context.supabase.from("clients").select("id", { count: "exact", head: true }).eq("agency_id", context.agency.id).is("archived_at", null);
@@ -26,7 +33,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ sect
   let metaSnapshot: MetaAdminSnapshot | undefined;
   let reportsSnapshot: ReportsAdminSnapshot | undefined;
   const canManageClientAccess = canManageAgency(context.role);
-  if (key === "clientes" || key === "relatorios") {
+  if (key === "clientes" || key === "relatorios" || key === "integracoes") {
     for (let offset = 0; ; offset += 500) {
       const result = await context.supabase.from("clients").select("id,name,notes,archived_at,updated_at")
         .eq("agency_id", context.agency.id).order("name").order("id").range(offset, offset + 499);
@@ -46,5 +53,5 @@ export default async function DashboardPage({ params }: { params: Promise<{ sect
   if (key === "relatorios") {
     reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
   }
-  return <DashboardWorkspace key={context.agency.id} demo={false} section={key} clients={clients} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
+  return <DashboardWorkspace key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
 }
