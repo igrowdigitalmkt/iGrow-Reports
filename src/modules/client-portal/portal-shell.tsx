@@ -3,6 +3,7 @@ import { ArrowLeft, LogOut, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/layout/brand";
 import { logoutAction } from "@/modules/auth/actions";
+import "./portal-shell.css";
 
 type ClientPortalShellProps = {
   children: ReactNode;
@@ -22,7 +23,7 @@ export function ClientPortalShell({
   agencyMode = false,
 }: ClientPortalShellProps) {
   return (
-    <main className="client-portal">
+    <main className="client-portal client-portal-dark">
       <header className="client-topbar">
         <div className="client-topbar-inner">
           <Link href={agencyMode ? "/dashboard/clientes" : "/cliente"} aria-label="iGrow Reports — Área do Cliente" className="client-brand-link">

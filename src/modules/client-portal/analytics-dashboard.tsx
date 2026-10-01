@@ -120,7 +120,7 @@ export function ClientAnalyticsDashboard({ data, clientId, canCollect, agencyMod
     startTransition(async () => {
       try {
         const result = await collectDashboardData({ clientId, from: collectFrom, to: collectTo });
-        if ("error" in result) { setError(result.error); router.refresh(); return; }
+        if (result.error) { setError(result.error); router.refresh(); return; }
         setNotice(range === "previous" ? "Coleta do período anterior concluída. A comparação foi atualizada." : "Coleta concluída para o período selecionado. Os dados foram atualizados.");
         router.refresh();
       } catch {
