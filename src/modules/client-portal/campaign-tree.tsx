@@ -20,7 +20,7 @@ export function CampaignTree({ entities, roots, metrics, selected, onChange, dis
     return <Fragment key={entity.key}>
       <tr className={checked ? "is-selected" : ""}>
         <th scope="row"><div className="analytics-campaign-name" style={{ paddingLeft: depth * 24 }}>
-          {children.length ? <button type="button" className="analytics-tree-expand" aria-expanded={open}
+          {entity.level !== "ad" ? <button type="button" className="analytics-tree-expand" aria-expanded={open}
             aria-label={`${open ? "Recolher" : "Expandir"} ${entity.name}`}
             onClick={() => setExpanded(current => open ? current.filter(key => key !== entity.key) : [...current, entity.key])}>
             {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
@@ -31,12 +31,16 @@ export function CampaignTree({ entities, roots, metrics, selected, onChange, dis
               const remainder = selected.filter(key => !leaves.includes(key));
               onChange(checked ? remainder : [...remainder, ...leaves]);
             }} />
+          <span className={`analytics-entity-status ${entity.effectiveStatus === "ACTIVE" ? "is-active" : entity.effectiveStatus ? "is-inactive" : "is-unknown"}`}
+            role="img" aria-label={entity.effectiveStatus === "ACTIVE" ? "Ativo" : entity.effectiveStatus ? "Inativo" : "Status indisponível"}
+            title={entity.effectiveStatus === "ACTIVE" ? "Ativo" : entity.effectiveStatus ? `Inativo · ${entity.effectiveStatus}` : "Status indisponível"} />
           <div><strong>{entity.name}</strong><small>{entity.level === "campaign" ? entity.accountName
             : entity.level === "adset" ? "Conjunto de anúncios" : "Anúncio"}</small></div>
         </div></th>
         {metrics.map(metric => <td key={metric.key}>{formatAnalyticsValue(entity.values[metric.key], metric, entity.currency)}</td>)}
       </tr>
       {open && children.map(child => render(child, depth + 1))}
+      {open && !children.length && <tr><td colSpan={metrics.length + 1} className="analytics-tree-empty">Nenhum {entity.level === "campaign" ? "conjunto" : "anúncio"} com movimentação coletada neste período.</td></tr>}
     </Fragment>;
   };
   return <tbody>{roots.map(root => render(root, 0))}</tbody>;

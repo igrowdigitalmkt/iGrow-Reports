@@ -265,11 +265,17 @@
 .analytics-kpi.is-fixed { border-color: #31465d; }
 .analytics-kpi.is-removable { position: relative; }
 .analytics-kpi-remove {
+  z-index: 2; cursor: pointer; pointer-events: auto;
   position: absolute; right: 13px; top: 12px; display: grid; place-items: center;
   width: 24px; height: 24px; padding: 0; border: 1px solid #44566c; border-radius: 6px;
   color: #aabed2; background: #142131; opacity: 0; transform: translateY(-2px);
   transition: opacity .15s ease, transform .15s ease, color .15s ease, border-color .15s ease;
 }
+.analytics-kpi-remove svg, .analytics-kpi.is-removable .analytics-kpi-icon { pointer-events: none; }
+.analytics-entity-status { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: #6c7886; }
+.analytics-entity-status.is-active { background: #39df83; box-shadow: 0 0 7px #39df8390; }
+.analytics-entity-status.is-inactive { background: #9b414b; }
+.analytics-tree-empty { padding: 16px 48px; color: #aabed2; }
 .analytics-kpi.is-removable:hover .analytics-kpi-remove,
 .analytics-kpi-remove:focus-visible { opacity: 1; transform: translateY(0); }
 .analytics-kpi-remove:hover { color: #ff9eaa; border-color: #a54a59; }

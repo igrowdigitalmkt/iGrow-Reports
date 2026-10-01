@@ -8,6 +8,7 @@ import { resolveAnalyticsRange } from "@/modules/client-portal/range";
 import { listClientPortalReports } from "@/modules/reports/client";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
 import { normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
+import { getMetaEntityStatuses } from "@/modules/meta/server";
 import type { AnalyticsReportItem } from "@/modules/client-portal/analytics-types";
 
 export const metadata: Metadata = {
@@ -70,6 +71,9 @@ export default async function ClientOverviewPage({ params, searchParams }: {
   if (hierarchy.error || header.error) throw new Error("Não foi possível consultar a seleção de anúncios.");
   const workspaceName = header.data && typeof header.data === "object" && !Array.isArray(header.data)
     && typeof header.data.name === "string" ? header.data.name : "Espaço de trabalho";
+  const entities = normalizeHierarchy(hierarchy.data);
+  const statuses = await getMetaEntityStatuses({ agencyId: access.agencyId, clientId, accountIds: data.selectedAccountIds });
+  for (const entity of entities) entity.effectiveStatus = statuses[`${entity.accountId}:${entity.key}`] ?? null;
   return <ClientPortalShell title={access.client.name}
     description="Explore os resultados, acompanhe a evolução e transforme seus dados em decisões."
     userEmail={user.email} agencyMode={agencyMode} showClientSwitcher={!agencyMode && accesses.length > 1}>
@@ -77,7 +81,7 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     {access.client.archivedAt && <p className="client-alert">Cliente arquivado. Histórico preservado para consulta.</p>}
     <ClientAnalyticsDashboard
       key={JSON.stringify([data.dateFrom, data.dateTo, data.selectedAccountIds, data.coverage.latestCollectedAt])}
-      entities={normalizeHierarchy(hierarchy.data)} workspaceName={workspaceName} clientName={access.client.name}
+      entities={entities} workspaceName={workspaceName} clientName={access.client.name}
       data={data} clientId={clientId} workspaceId={access.agencyId}
       canCollect={canCollect} canManageReports={canManageReports}
       reports={reportHistory} preferenceKey={`${user.id}:${clientId}`}

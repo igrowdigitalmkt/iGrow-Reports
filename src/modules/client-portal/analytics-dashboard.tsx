@@ -5,7 +5,7 @@ import { CampaignTree } from "./campaign-tree";
 import { compactEntitySelection, leafKeys, type AnalyticsEntity } from "./analytics-hierarchy";
 import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type FormEvent } from "react";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
   CircleDollarSign, Clock3, Download, FileText, Filter, Info, Layers3, Lock,
@@ -154,6 +154,27 @@ export function ClientAnalyticsDashboard({
   const [pending, startTransition] = useTransition();
   const [navigating, startNavigation] = useTransition();
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const dashboardRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const menus = () => dashboardRef.current?.querySelectorAll<HTMLDetailsElement>("details.analytics-filter-menu, details.analytics-quality-menu") ?? [];
+    const outside = (event: PointerEvent) => {
+      for (const menu of menus()) if (event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      for (const menu of menus()) if (menu.open) { menu.open = false; menu.querySelector("summary")?.focus(); }
+    };
+    const root = dashboardRef.current;
+    const opened = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLDetailsElement) || !target.open || !target.matches(".analytics-filter-menu, .analytics-quality-menu")) return;
+      for (const menu of menus()) if (menu !== target) menu.open = false;
+    };
+    root?.addEventListener("toggle", opened, true);
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); root?.removeEventListener("toggle", opened, true); };
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -396,7 +417,7 @@ export function ClientAnalyticsDashboard({
     });
   }
 
-  return <section className="analytics-dashboard" aria-label="Painel de desempenho" aria-busy={pending || navigating}>
+  return <section ref={dashboardRef} className="analytics-dashboard" aria-label="Painel de desempenho" aria-busy={pending || navigating}>
     <div className="analytics-command-bar">
       <div className="analytics-title-block">
         <span className="analytics-eyebrow"><span className="analytics-live-dot" /> DESEMPENHO · META ADS</span>

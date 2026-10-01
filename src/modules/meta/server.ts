@@ -20,6 +20,33 @@ import { normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, vali
 
 const TOKEN_KIND = "meta_access_token";
 
+// Called only after the dashboard has authorized access to this client.
+export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[] }): Promise<Record<string, string>> {
+  const statuses: Record<string, string> = {};
+  if (!input.accountIds.length) return statuses;
+  try {
+    const { service, apiVersion } = operationalDependencies();
+    const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+    const { data: links, error: linkError } = await service.from("client_ad_accounts").select("ad_account_id")
+      .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("active", true).in("ad_account_id", input.accountIds);
+    if (linkError || links?.length !== input.accountIds.length) return statuses;
+    const { data: accounts, error } = await service.from("meta_ad_accounts").select("id,external_id")
+      .eq("agency_id", input.agencyId).eq("meta_connection_id", connection.id).in("id", input.accountIds).is("archived_at", null);
+    if (error || !accounts) return statuses;
+    const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
+    const client = new MetaClient({ accessToken: token, apiVersion });
+    await Promise.allSettled(accounts.map(async account => {
+      const results = await Promise.allSettled([client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id)]);
+      results.forEach((result, index) => {
+        if (result.status !== "fulfilled") return;
+        const level = ["campaign", "adset", "ad"][index];
+        for (const entity of result.value) if (entity.effective_status) statuses[`${account.id}:${level}:${entity.id}`] = entity.effective_status;
+      });
+    }));
+  } catch { /* A Meta outage must not mislabel entities or block historical analytics. */ }
+  return statuses;
+}
+
 function connectionTokenKind(connectionId: string) {
   return `${TOKEN_KIND}:${connectionId}`;
 }
