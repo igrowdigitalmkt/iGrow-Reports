@@ -122,6 +122,16 @@ async function syncAccounts(
   }
 
   if (accounts.length) {
+    const { data: conflicts, error: conflictError } = await service
+      .from("meta_ad_accounts")
+      .select("id")
+      .eq("agency_id", agencyId)
+      .in("external_id", accounts.map((account) => account.id))
+      .neq("meta_connection_id", connectionId);
+    if (conflictError) throw new MetaSetupError("Não foi possível validar a propriedade das contas Meta.");
+    if (conflicts?.length) {
+      throw new MetaSetupError("Uma conta retornada pela Meta já pertence à conexão de outro cliente.");
+    }
     const rows = accounts.map((account) => ({
       agency_id: agencyId,
       meta_connection_id: connectionId,

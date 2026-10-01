@@ -28,12 +28,12 @@ insert into integrations(id,agency_id,provider,connection_status,health_status) 
 insert into meta_connections(id,agency_id,integration_id,client_id) values
 ('40000000-0000-4000-8000-000000000051','aaaaaaaa-0000-4000-8000-000000000051','30000000-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051');
 insert into meta_ad_accounts(
-  id,agency_id,meta_connection_id,external_id,name,currency,timezone_name
+  id,agency_id,meta_connection_id,external_id,name,currency,timezone_name,business_id
 ) values(
   '50000000-0000-4000-8000-000000000051',
   'aaaaaaaa-0000-4000-8000-000000000051',
   '40000000-0000-4000-8000-000000000051',
-  'act_5100','Conta relatório','BRL','America/Sao_Paulo'
+  'act_5100','Conta relatório','BRL','America/Sao_Paulo','100'
 );
 insert into client_ad_accounts(agency_id,client_id,ad_account_id,active) values(
   'aaaaaaaa-0000-4000-8000-000000000051',
@@ -68,8 +68,8 @@ create temporary table report_test_ids(
 );
 grant all on report_test_ids to authenticated;
 
-insert into meta_ad_accounts(id,agency_id,meta_connection_id,external_id,name,currency,timezone_name)
-values('50000000-0000-4000-8000-000000000052','aaaaaaaa-0000-4000-8000-000000000051','40000000-0000-4000-8000-000000000051','act_5200','Conta Los Angeles','BRL','America/Los_Angeles');
+insert into meta_ad_accounts(id,agency_id,meta_connection_id,external_id,name,currency,timezone_name,business_id)
+values('50000000-0000-4000-8000-000000000052','aaaaaaaa-0000-4000-8000-000000000051','40000000-0000-4000-8000-000000000051','act_5200','Conta Los Angeles','BRL','America/Los_Angeles','100');
 insert into client_ad_accounts(agency_id,client_id,ad_account_id,active)
 values('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051','50000000-0000-4000-8000-000000000052',true);
 

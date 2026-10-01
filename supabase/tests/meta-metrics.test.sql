@@ -37,11 +37,14 @@ insert into meta_connections(
 ('40000000-0000-4000-8000-000000000042','bbbbbbbb-0000-4000-8000-000000000042','30000000-0000-4000-8000-000000000042','meta-user-b',array['ads_read'],now(),'22222222-0000-4000-8000-000000000043');
 
 insert into meta_ad_accounts(
-  id,agency_id,meta_connection_id,external_id,name,currency,timezone_name,account_status,last_synced_at
+  id,agency_id,meta_connection_id,external_id,name,currency,timezone_name,account_status,last_synced_at,business_id
 ) values
-('50000000-0000-4000-8000-000000000041','aaaaaaaa-0000-4000-8000-000000000041','40000000-0000-4000-8000-000000000041','act_1001','Conta BRL','BRL','America/Sao_Paulo','ACTIVE',now()),
-('50000000-0000-4000-8000-000000000042','aaaaaaaa-0000-4000-8000-000000000041','40000000-0000-4000-8000-000000000041','act_1002','Conta USD','USD','America/Sao_Paulo','ACTIVE',now()),
-('50000000-0000-4000-8000-000000000043','bbbbbbbb-0000-4000-8000-000000000042','40000000-0000-4000-8000-000000000042','act_2001','Conta B','BRL','America/Sao_Paulo','ACTIVE',now());
+('50000000-0000-4000-8000-000000000041','aaaaaaaa-0000-4000-8000-000000000041','40000000-0000-4000-8000-000000000041','act_1001','Conta BRL','BRL','America/Sao_Paulo','ACTIVE',now(),'100'),
+('50000000-0000-4000-8000-000000000042','aaaaaaaa-0000-4000-8000-000000000041','40000000-0000-4000-8000-000000000041','act_1002','Conta USD','USD','America/Sao_Paulo','ACTIVE',now(),'100'),
+('50000000-0000-4000-8000-000000000043','bbbbbbbb-0000-4000-8000-000000000042','40000000-0000-4000-8000-000000000042','act_2001','Conta B','BRL','America/Sao_Paulo','ACTIVE',now(),'200');
+
+select throws_ok($$update meta_ad_accounts set business_id=null where external_id='act_1001'$$,'23514',null,'Banco rejeita conta ativa sem portfólio empresarial');
+select throws_ok($$update meta_ad_accounts set business_id='nome-sem-id' where external_id='act_1001'$$,'23514',null,'Banco rejeita nome no lugar de ID empresarial');
 
 insert into meta_daily_insights(
   agency_id,ad_account_id,insight_date,level,external_entity_id,
