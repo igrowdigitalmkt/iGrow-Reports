@@ -58,19 +58,15 @@ async function storeAccessToken(
     accessToken,
     secretAad(agencyId, integrationId, connectionId),
   );
-  const { error } = await service
-    .schema("private")
-    .from("integration_secrets")
-    .upsert({
-      agency_id: agencyId,
-      integration_id: integrationId,
-      secret_kind: connectionTokenKind(connectionId),
-      key_id: encrypted.keyId,
-      nonce_b64: encrypted.nonceB64,
-      ciphertext_b64: encrypted.ciphertextB64,
-      auth_tag_b64: encrypted.authTagB64,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "integration_id,secret_kind" });
+  const { error } = await service.rpc("upsert_integration_secret", {
+    p_agency_id: agencyId,
+    p_integration_id: integrationId,
+    p_secret_kind: connectionTokenKind(connectionId),
+    p_key_id: encrypted.keyId,
+    p_nonce_b64: encrypted.nonceB64,
+    p_ciphertext_b64: encrypted.ciphertextB64,
+    p_auth_tag_b64: encrypted.authTagB64,
+  });
   if (error) throw new MetaSetupError("Não foi possível armazenar a credencial Meta com segurança.");
 }
 
@@ -80,17 +76,16 @@ async function loadAccessToken(
   integrationId: string,
   connectionId: string,
 ) {
-  const { data, error } = await service
-    .schema("private")
-    .from("integration_secrets")
-    .select("key_id,nonce_b64,ciphertext_b64,auth_tag_b64")
-    .eq("agency_id", agencyId)
-    .eq("integration_id", integrationId)
-    .eq("secret_kind", connectionTokenKind(connectionId))
-    .single();
+  const { data, error } = await service.rpc("get_integration_secret", {
+    p_agency_id: agencyId,
+    p_integration_id: integrationId,
+    p_secret_kind: connectionTokenKind(connectionId),
+  }).single();
 
   if (error || !data) {
-    throw new MetaSetupError("A credencial Meta desta agência não está disponível.");
+    throw new MetaSetupError(
+      "A credencial Meta deste cliente não está disponível. Atualize a credencial para continuar.",
+    );
   }
 
   const envelope: EncryptedSecret = {

@@ -202,6 +202,17 @@ export type Database = {
         Args: { p_agency_id: string; p_client_id: string; p_email: string; p_active: boolean };
         Returns: string;
       };
+      upsert_integration_secret: {
+        Args: {
+          p_agency_id: string; p_integration_id: string; p_secret_kind: string; p_key_id: string;
+          p_nonce_b64: string; p_ciphertext_b64: string; p_auth_tag_b64: string;
+        };
+        Returns: undefined;
+      };
+      get_integration_secret: {
+        Args: { p_agency_id: string; p_integration_id: string; p_secret_kind: string };
+        Returns: { key_id: string; nonce_b64: string; ciphertext_b64: string; auth_tag_b64: string }[];
+      };
       set_client_ad_account: {
         Args: { p_agency_id: string; p_client_id: string; p_ad_account_id: string; p_active: boolean };
         Returns: undefined;
