@@ -1,6 +1,5 @@
 import "server-only";
 
-import Decimal from "decimal.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   decryptServerSecret,
@@ -9,15 +8,15 @@ import {
 } from "@/lib/crypto";
 import { getMetaApiConfig } from "@/lib/env";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import type { Database } from "@/types/database";
+import type { Database, Json } from "@/types/database";
 import {
   hasMetaAdsReadPermission,
   hasBusinessPortfolio,
   MetaApiError,
   MetaClient,
   type MetaAdAccount,
-  type MetaInsight,
 } from "./client";
+import { normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, validateCollectionRange } from "./collection";
 
 const TOKEN_KIND = "meta_access_token";
 
@@ -428,53 +427,15 @@ export async function syncMetaAccountsForClient(input: {
   }
 }
 
-function decimalOrZero(value: string | undefined) {
-  try {
-    return new Decimal(value ?? "0");
-  } catch {
-    return new Decimal(0);
-  }
-}
-
-function actionRows(insight: MetaInsight) {
-  const totals = new Map<string, {
-    actionValue: Decimal;
-    valueAmount: Decimal | null;
-  }>();
-
-  for (const action of insight.actions ?? []) {
-    const existing = totals.get(action.action_type) ?? {
-      actionValue: new Decimal(0),
-      valueAmount: null,
-    };
-    existing.actionValue = existing.actionValue.add(decimalOrZero(action.value));
-    totals.set(action.action_type, existing);
-  }
-
-  for (const value of insight.action_values ?? []) {
-    const existing = totals.get(value.action_type) ?? {
-      actionValue: new Decimal(0),
-      valueAmount: null,
-    };
-    const next = decimalOrZero(value.value);
-    existing.valueAmount = (existing.valueAmount ?? new Decimal(0)).add(next);
-    totals.set(value.action_type, existing);
-  }
-
-  return [...totals.entries()].map(([actionType, values]) => ({
-    actionType,
-    actionValue: values.actionValue.toNumber(),
-    valueAmount: values.valueAmount?.toNumber() ?? null,
-  }));
-}
-
 export async function collectMetaClientInsights(input: {
   agencyId: string;
   clientId: string;
   actorId: string;
   since: string;
   until: string;
+  forceRefresh?: boolean;
 }) {
+  validateCollectionRange(input.since, input.until);
   const { service, apiVersion } = operationalDependencies();
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
@@ -500,120 +461,142 @@ export async function collectMetaClientInsights(input: {
     .eq("meta_connection_id", connection.id)
     .in("id", accountIds)
     .is("archived_at", null);
-  if (accountsError || !accounts?.length) {
+  if (accountsError || !accounts?.length || accounts.length !== accountIds.length) {
     throw new MetaSetupError("As contas Meta associadas não estão disponíveis.");
   }
 
-  if (new Set(accounts.map((account) => account.currency)).size !== 1) {
-    throw new MetaSetupError("A coleta consolidada foi bloqueada porque as contas usam moedas diferentes.");
-  }
   let insightCount = 0;
   let actionCount = 0;
+  let completedSliceCount = 0;
+  let reusedSliceCount = 0;
+  const failures: Array<{ accountId: string; since: string; until: string; scope: "daily" | "period" | "account"; code: string }> = [];
+  const slices = splitCollectionRange(input.since, input.until);
+  const historicalCutoff = new Date(Date.now() - 31 * 86_400_000).toISOString().slice(0, 10);
+
+  async function recordFailure(accountId: string, slice: { since: string; until: string }, error: unknown, scope: "daily" | "account") {
+    const code = error instanceof MetaApiError ? String(error.code ?? error.httpStatus) : "persistence_or_validation";
+    failures.push({ accountId, ...slice, scope, code });
+    // A failed request never replaces the previously collected rows.
+    const { error: runError } = await service.from("meta_collection_runs").upsert({
+      agency_id: input.agencyId,
+      client_id: input.clientId,
+      ad_account_id: accountId,
+      date_from: slice.since,
+      date_to: slice.until,
+      status: "failed",
+      insight_count: 0,
+      action_count: 0,
+      levels: [],
+      collected_at: new Date().toISOString(),
+      error_code: code,
+    }, { onConflict: "agency_id,ad_account_id,date_from,date_to" });
+    if (runError) throw new MetaSetupError("Não foi possível registrar a falha da coleta. Os lotes concluídos foram preservados.");
+  }
 
   try {
+    const permissions = await client.listPermissions();
+    if (!hasMetaAdsReadPermission(permissions.filter((permission) => permission.status === "granted").map((permission) => permission.permission))) {
+      throw new MetaSetupError("A credencial Meta precisa da permissão ads_read para atualizar os dados.");
+    }
     for (const account of accounts) {
-      const liveAccount = await client.getAdAccount(account.external_id);
-      if (!hasBusinessPortfolio(liveAccount)) {
-        throw new MetaSetupError("A Meta não confirmou um portfólio empresarial para esta conta. A coleta foi bloqueada.");
+      let liveAccount: MetaAdAccount;
+      try {
+        liveAccount = await client.getAdAccount(account.external_id);
+        if (!hasBusinessPortfolio(liveAccount)) {
+          throw new MetaSetupError("A Meta não confirmou um portfólio empresarial para esta conta. A coleta foi bloqueada.");
+        }
+        if (liveAccount.currency !== account.currency || liveAccount.timezone_name !== account.timezone_name) {
+          throw new MetaSetupError("Os metadados da conta mudaram na Meta. Sincronize as contas antes de coletar.");
+        }
+        const { error: metadataError } = await service.from("meta_ad_accounts")
+          .update({ business_id: liveAccount.business!.id!, business_name: liveAccount.business?.name ?? null })
+          .eq("agency_id", input.agencyId).eq("id", account.id);
+        if (metadataError) throw new MetaSetupError("Não foi possível registrar o portfólio empresarial da conta.");
+      } catch (error) {
+        await recordFailure(account.id, slices[0], error, "account");
+        continue;
       }
-      if (liveAccount.currency !== account.currency || liveAccount.timezone_name !== account.timezone_name) {
-        throw new MetaSetupError("Os metadados da conta mudaram na Meta. Sincronize as contas antes de coletar.");
-      }
-      const { error: metadataError } = await service.from("meta_ad_accounts")
-        .update({ business_id: liveAccount.business!.id!, business_name: liveAccount.business?.name ?? null })
-        .eq("agency_id", input.agencyId).eq("id", account.id);
-      if (metadataError) throw new MetaSetupError("Não foi possível registrar o portfólio empresarial da conta.");
-      const insights = await client.getDailyInsights({
-        adAccountId: account.external_id,
-        since: input.since,
-        until: input.until,
-        level: "account",
-      });
-
-      for (const insight of insights) {
-        const date = insight.date_start;
-        if (!date) continue;
-
-        const insightRow = {
-          agency_id: input.agencyId,
-          ad_account_id: account.id,
-          insight_date: date,
-          level: "account" as const,
-          external_entity_id: account.external_id,
-          entity_name: insight.account_name ?? null,
-          objective: null,
-          captured_status: null,
-          spend: Number(decimalOrZero(insight.spend).toFixed(8)),
-          impressions: Number(decimalOrZero(insight.impressions).toFixed(0)),
-          reach: insight.reach === undefined
-            ? null
-            : Number(decimalOrZero(insight.reach).toFixed(0)),
-          link_clicks: insight.inline_link_clicks === undefined
-            ? null
-            : Number(decimalOrZero(insight.inline_link_clicks).toFixed(0)),
-          api_version: apiVersion,
-          attribution_setting: null,
-          collected_at: new Date().toISOString(),
-          metadata: { timezone_name: liveAccount.timezone_name, business_id: liveAccount.business!.id! },
-        };
-        const { error: insightError } = await service
-          .from("meta_daily_insights")
-          .upsert(insightRow, {
-            onConflict: "agency_id,ad_account_id,insight_date,level,external_entity_id",
+      const { data: previousRuns, error: runError } = await service.from("meta_collection_runs")
+        .select("date_from,date_to,insight_count,action_count")
+        .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("ad_account_id", account.id)
+        .eq("status", "complete").gte("date_from", input.since).lte("date_to", input.until);
+      if (runError) throw new MetaSetupError("Não foi possível consultar o histórico das coletas.");
+      const completeRuns = new Map((previousRuns ?? []).map((run) => [`${run.date_from}:${run.date_to}`, run]));
+      let allDailyComplete = true;
+      for (const slice of slices) {
+        const previous = completeRuns.get(`${slice.since}:${slice.until}`);
+        if (!input.forceRefresh && previous && slice.until < historicalCutoff) {
+          insightCount += previous.insight_count;
+          actionCount += previous.action_count;
+          completedSliceCount += 1;
+          reusedSliceCount += 1;
+          continue;
+        }
+        try {
+          const [accountInsights, campaignInsights] = await Promise.all([
+            client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "account" }),
+            client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "campaign" }),
+          ]);
+          const normalized = normalizeInsightSlice({
+            agencyId: input.agencyId,
+            accountId: account.id,
+            externalAccountId: account.external_id,
+            ...slice,
+            timezoneName: liveAccount.timezone_name,
+            businessId: liveAccount.business!.id!,
+            apiVersion,
+            collectedAt: new Date().toISOString(),
+            accountInsights,
+            campaignInsights,
           });
-        if (insightError) {
-          throw new MetaSetupError("Não foi possível persistir um Insight da Meta.");
-        }
-        insightCount += 1;
-
-        const { error: deleteError } = await service
-          .from("meta_daily_actions")
-          .delete()
-          .eq("agency_id", input.agencyId)
-          .eq("ad_account_id", account.id)
-          .eq("insight_date", date)
-          .eq("level", "account")
-          .eq("external_entity_id", account.external_id);
-        if (deleteError) {
-          throw new MetaSetupError("Não foi possível reconciliar as ações da coleta Meta.");
-        }
-
-        const normalizedActions = actionRows(insight);
-        if (normalizedActions.length) {
-          const { error: actionsError } = await service
-            .from("meta_daily_actions")
-            .insert(normalizedActions.map((action) => ({
-              agency_id: input.agencyId,
-              ad_account_id: account.id,
-              insight_date: date,
-              level: "account" as const,
-              external_entity_id: account.external_id,
-              action_type: action.actionType,
-              action_value: action.actionValue,
-              value_amount: action.valueAmount,
-              collected_at: new Date().toISOString(),
-            })));
-          if (actionsError) {
-            throw new MetaSetupError("Não foi possível persistir as ações da coleta Meta.");
-          }
-          actionCount += normalizedActions.length;
+          const { data: persisted, error: persistError } = await service.rpc("persist_meta_insight_slice", {
+            p_agency_id: input.agencyId,
+            p_client_id: input.clientId,
+            p_ad_account_id: account.id,
+            p_date_from: slice.since,
+            p_date_to: slice.until,
+            p_insights: normalized.insights as Json,
+            p_actions: normalized.actions as Json,
+          }).single();
+          if (persistError || !persisted) throw new MetaSetupError("Não foi possível persistir o lote de Insights e ações Meta.");
+          insightCount += persisted.insight_count;
+          actionCount += persisted.action_count;
+          completedSliceCount += 1;
+        } catch (error) {
+          await recordFailure(account.id, slice, error, "daily");
+          allDailyComplete = false;
+          // The next retry reuses old completed slices and resumes this account.
+          break;
         }
       }
-
-      await service.from("meta_ad_accounts")
-        .update({ last_synced_at: new Date().toISOString() })
-        .eq("agency_id", input.agencyId)
-        .eq("id", account.id);
+      if (allDailyComplete) {
+        try {
+          const periodInsights = await client.getPeriodInsights({ adAccountId: account.external_id, since: input.since, until: input.until });
+          if (periodInsights.length > 1 || (periodInsights[0]?.account_id && `act_${periodInsights[0].account_id}` !== account.external_id)) {
+            throw new MetaSetupError("A Meta retornou alcance agregado fora do escopo solicitado.");
+          }
+          const { error: periodError } = await service.from("meta_period_insights").upsert({
+            agency_id: input.agencyId, client_id: input.clientId, ad_account_id: account.id,
+            date_from: input.since, date_to: input.until,
+            ...periodInsightMetrics(periodInsights[0]),
+            api_version: apiVersion, collected_at: new Date().toISOString(),
+            metadata: { timezone_name: liveAccount.timezone_name, business_id: liveAccount.business!.id!, no_delivery: periodInsights.length === 0 },
+          }, { onConflict: "agency_id,ad_account_id,date_from,date_to" });
+          if (periodError) throw new MetaSetupError("Não foi possível persistir o alcance único do período.");
+        } catch (error) {
+          failures.push({ accountId: account.id, since: input.since, until: input.until, scope: "period", code: error instanceof MetaApiError ? String(error.code ?? error.httpStatus) : "persistence_or_validation" });
+        }
+      }
     }
 
     const now = new Date().toISOString();
     await service.from("integrations")
       .update({
-        health_status: "healthy",
+        health_status: failures.length ? "degraded" : "healthy",
         last_checked_at: now,
         last_success_at: now,
-        last_error_at: null,
-        last_error_code: null,
+        last_error_at: failures.length ? now : null,
+        last_error_code: failures[0]?.code ?? null,
       })
       .eq("agency_id", input.agencyId)
       .eq("id", integration.id);
@@ -629,6 +612,9 @@ export async function collectMetaClientInsights(input: {
         account_count: accounts.length,
         insight_count: insightCount,
         action_count: actionCount,
+        completed_slice_count: completedSliceCount,
+        reused_slice_count: reusedSliceCount,
+        failed_slice_count: failures.length,
         api_version: apiVersion,
       },
     });
@@ -637,6 +623,9 @@ export async function collectMetaClientInsights(input: {
       accountCount: accounts.length,
       insightCount,
       actionCount,
+      completedSliceCount,
+      reusedSliceCount,
+      failures,
       apiVersion,
     };
   } catch (error) {

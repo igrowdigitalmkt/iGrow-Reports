@@ -176,7 +176,7 @@ describe("MetaClient", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("impede loop de paginação quando o cursor se repete", async () => {
+  it("encerra a paginação no último resultado mesmo quando ainda há cursor", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({
       data: [{
         id: "act_1",
@@ -193,7 +193,71 @@ describe("MetaClient", () => {
     });
 
     const data = await client.listAdAccounts();
-    expect(data).toHaveLength(2);
+    expect(data).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("recupera o cursor de paging.next sem encaminhar credenciais da URL", async () => {
+    const requested: URL[] = [];
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      requested.push(input instanceof URL ? input : new URL(String(input)));
+      return jsonResponse(requested.length === 1
+        ? { data: [], paging: { next: "https://graph.facebook.com/v26.0/act_1/insights?after=NEXT&access_token=LEAK" } }
+        : { data: [] });
+    });
+    const client = new MetaClient({ accessToken: "secret", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    await client.getDailyInsights({ adAccountId: "act_1", since: "2026-09-01", until: "2026-09-30" });
+    expect(requested).toHaveLength(2);
+    expect(requested[1].searchParams.get("after")).toBe("NEXT");
+    expect(requested[1].searchParams.has("access_token")).toBe(false);
+  });
+
+  it("rejeita paginação repetida em vez de devolver uma coleta parcial", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ data: [{ id: "act_1" }], paging: { cursors: { after: "SAME" }, next: "https://graph.facebook.com/next?after=SAME" } }));
+    const client = new MetaClient({ accessToken: "secret", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    await expect(client.listAdAccounts()).rejects.toThrow("Paginação Meta não avançou.");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("repete falhas transitórias de forma limitada e não repete tokens expirados", async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ error: { code: 2, is_transient: true } }, 500))
+      .mockResolvedValueOnce(jsonResponse({ error: { code: 4 } }, 429))
+      .mockResolvedValueOnce(jsonResponse({ data: [] }));
+    const client = new MetaClient({ accessToken: "secret", apiVersion: "v26.0", retryDelayMs: 0, fetchImpl });
+    await expect(client.listPermissions()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    fetchImpl.mockReset().mockResolvedValue(jsonResponse({ error: { code: 190 } }, 400));
+    await expect(client.listPermissions()).rejects.toBeInstanceOf(MetaApiError);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("limita erros de rede e aborta requisições sem expor o token", async () => {
+    const fetchImpl = vi.fn((_input: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new Error("secret in transport error")));
+    }));
+    const client = new MetaClient({ accessToken: "secret", apiVersion: "v26.0", timeoutMs: 5, retryDelayMs: 0, fetchImpl: fetchImpl as typeof fetch });
+    await expect(client.listPermissions()).rejects.toMatchObject({ httpStatus: 504, transient: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("solicita alcance único agregado na janela completa sem somar dias", async () => {
+    let requested: URL | null = null;
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      requested = input instanceof URL ? input : new URL(String(input));
+      return jsonResponse({ data: [] });
+    });
+    const client = new MetaClient({ accessToken: "secret", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    await client.getPeriodInsights({ adAccountId: "act_1", since: "2025-10-01", until: "2026-09-30" });
+    const url = requested as unknown as URL;
+    expect(url.searchParams.get("time_increment")).toBe("all_days");
+    expect(url.searchParams.get("fields")).toContain("reach,frequency,unique_clicks");
+  });
+
+  it("rejeita datas impossíveis antes da rede", async () => {
+    const fetchImpl = vi.fn();
+    const client = new MetaClient({ accessToken: "secret", apiVersion: "v26.0", fetchImpl });
+    await expect(client.getDailyInsights({ adAccountId: "act_1", since: "2026-02-30", until: "2026-03-01" })).rejects.toThrow("Data da consulta Meta inválida.");
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

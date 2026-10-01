@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { getCompletePortalPeriod } from "@/modules/client-portal/metrics";
 import { MetaApiError } from "./client";
+import { validateCollectionRange } from "./collection";
 import { collectMetaClientInsights, connectMetaForClient, MetaSetupError, syncMetaAccountsForClient } from "./server";
 
 const accountLinkSchema = z.object({
@@ -112,7 +113,10 @@ const collectionSchema = z.object({
   agencyId: z.uuid(),
   clientId: z.uuid(),
   period: z.enum(["7d", "30d"]).default("30d"),
-});
+  since: z.string().optional(),
+  until: z.string().optional(),
+  forceRefresh: z.boolean().default(false),
+}).refine((value) => Boolean(value.since) === Boolean(value.until));
 
 function safeMetaOperationError(error: unknown) {
   if (error instanceof MetaSetupError) return error.message;
@@ -181,6 +185,8 @@ export async function collectClientMetaData(
   input: unknown,
 ): Promise<MetaAdminActionResult & {
   insightCount?: number;
+  completedSliceCount?: number;
+  failedSliceCount?: number;
   dateFrom?: string;
   dateTo?: string;
 }> {
@@ -201,20 +207,27 @@ export async function collectClientMetaData(
   if (contextError || !dataContext) {
     return { error: "Não foi possível validar as contas Meta deste cliente." };
   }
-  if (dataContext.data_status !== "ok" || !dataContext.timezone_name) {
+  if (dataContext.ad_account_count < 1
+    || (dataContext.data_status !== "ok" && dataContext.compatibility_issue !== "multiple_currencies")) {
     return {
-      error: dataContext.compatibility_issue === "multiple_currencies"
-        ? "As contas do cliente usam moedas diferentes e não podem ser consolidadas."
-        : dataContext.compatibility_issue === "multiple_timezones"
-          ? "As contas do cliente usam fusos diferentes e não podem ser consolidadas."
-          : "Associe ao menos uma conta Meta válida antes de atualizar os dados.",
+      error: "Associe ao menos uma conta Meta válida antes de atualizar os dados.",
     };
   }
 
-  const { dateFrom, dateTo } = getCompletePortalPeriod(
+  const defaultPeriod = getCompletePortalPeriod(
     parsed.data.period,
-    dataContext.timezone_name,
+    dataContext.timezone_name ?? context.agency.timezone,
   );
+  const dateFrom = parsed.data.since ?? defaultPeriod.dateFrom;
+  const dateTo = parsed.data.until ?? defaultPeriod.dateTo;
+  try {
+    validateCollectionRange(dateFrom, dateTo);
+    if (dateTo > defaultPeriod.dateTo) {
+      return { error: "Escolha dias completos, até ontem no fuso do painel." };
+    }
+  } catch {
+    return { error: "Escolha datas válidas e um período de até 370 dias." };
+  }
 
   try {
     const result = await collectMetaClientInsights({
@@ -223,12 +236,26 @@ export async function collectClientMetaData(
       actorId: context.user.id,
       since: dateFrom,
       until: dateTo,
+      forceRefresh: parsed.data.forceRefresh,
     });
     revalidatePath("/dashboard/clientes");
+    revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
     revalidatePath(`/cliente/${parsed.data.clientId}`);
+    if (result.failures.length) {
+      return {
+        error: `${result.completedSliceCount} lotes concluídos; ${result.failures.length} falhas. Os dados salvos foram preservados. Atualize novamente para concluir a coleta.`,
+        insightCount: result.insightCount,
+        completedSliceCount: result.completedSliceCount,
+        failedSliceCount: result.failures.length,
+        dateFrom,
+        dateTo,
+      };
+    }
     return {
       success: true,
       insightCount: result.insightCount,
+      completedSliceCount: result.completedSliceCount,
+      failedSliceCount: 0,
       dateFrom,
       dateTo,
     };

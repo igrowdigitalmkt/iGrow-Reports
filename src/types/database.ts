@@ -69,6 +69,17 @@ type MetaDailyActionRow = {
   level: "account" | "campaign" | "adset" | "ad"; external_entity_id: string;
   action_type: string; action_value: number; value_amount: number | null; collected_at: string;
 };
+type MetaCollectionRunRow = {
+  agency_id: string; client_id: string; ad_account_id: string;
+  date_from: string; date_to: string; status: "complete" | "failed";
+  insight_count: number; action_count: number; collected_at: string;
+  levels: string[]; error_code: string | null;
+};
+type MetaPeriodInsightRow = {
+  agency_id: string; client_id: string; ad_account_id: string; date_from: string; date_to: string;
+  reach: number | null; frequency: number | null; unique_clicks: number | null;
+  metadata: Json; api_version: string; collected_at: string;
+};
 type MetricDefinitionRow = {
   key: string; label: string; description: string;
   unit: "currency" | "integer" | "percent" | "ratio";
@@ -174,6 +185,8 @@ export type Database = {
       client_ad_accounts: Table<ClientAdAccountRow, Pick<ClientAdAccountRow, "agency_id" | "client_id" | "ad_account_id"> & Partial<ClientAdAccountRow>, Partial<ClientAdAccountRow>>;
       meta_daily_insights: Table<MetaDailyInsightRow, Pick<MetaDailyInsightRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "spend" | "impressions" | "api_version"> & Partial<MetaDailyInsightRow>, Partial<MetaDailyInsightRow>>;
       meta_daily_actions: Table<MetaDailyActionRow, Pick<MetaDailyActionRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "action_type"> & Partial<MetaDailyActionRow>, Partial<MetaDailyActionRow>>;
+      meta_collection_runs: Table<MetaCollectionRunRow, Pick<MetaCollectionRunRow, "agency_id" | "client_id" | "ad_account_id" | "date_from" | "date_to" | "status"> & Partial<MetaCollectionRunRow>, Partial<MetaCollectionRunRow>>;
+      meta_period_insights: Table<MetaPeriodInsightRow, Pick<MetaPeriodInsightRow, "agency_id" | "client_id" | "ad_account_id" | "date_from" | "date_to" | "api_version"> & Partial<MetaPeriodInsightRow>, Partial<MetaPeriodInsightRow>>;
       metric_definitions: Table<MetricDefinitionRow, never, never>;
       client_metric_mappings: Table<ClientMetricMappingRow, never, never>;
       report_templates: Table<ReportTemplateRow, Pick<ReportTemplateRow, "agency_id" | "name"> & Partial<ReportTemplateRow>, Partial<ReportTemplateRow>>;
@@ -186,6 +199,14 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      get_client_analytics: {
+        Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };
+        Returns: Json;
+      };
+      persist_meta_insight_slice: {
+        Args: { p_agency_id: string; p_client_id: string; p_ad_account_id: string; p_date_from: string; p_date_to: string; p_insights: Json; p_actions: Json };
+        Returns: { insight_count: number; action_count: number }[];
+      };
       list_client_portal_clients: {
         Args: Record<PropertyKey, never>;
         Returns: { id: string; agency_id: string; name: string; logo_path: string | null; archived_at: string | null }[];

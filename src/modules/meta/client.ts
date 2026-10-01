@@ -103,7 +103,19 @@ export type MetaInsight = {
   spend?: string;
   impressions?: string;
   reach?: string;
+  frequency?: string;
+  clicks?: string;
+  unique_clicks?: string;
   inline_link_clicks?: string;
+  inline_post_engagement?: string;
+  outbound_clicks?: MetaAction[];
+  unique_outbound_clicks?: MetaAction[];
+  video_play_actions?: MetaAction[];
+  video_p25_watched_actions?: MetaAction[];
+  video_p50_watched_actions?: MetaAction[];
+  video_p75_watched_actions?: MetaAction[];
+  video_p95_watched_actions?: MetaAction[];
+  video_p100_watched_actions?: MetaAction[];
   actions?: MetaAction[];
   action_values?: MetaAction[];
 };
@@ -134,6 +146,7 @@ export type MetaClientOptions = {
   apiVersion: string;
   timeoutMs?: number;
   fetchImpl?: MetaFetch;
+  retryDelayMs?: number;
 };
 
 function validateVersion(version: string) {
@@ -149,7 +162,9 @@ function validateAccountId(adAccountId: string) {
 }
 
 function validateDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)
+    || Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+    || new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) !== value) {
     throw new Error("Data da consulta Meta inválida.");
   }
 }
@@ -159,6 +174,7 @@ export class MetaClient {
   private readonly apiVersion: string;
   private readonly timeoutMs: number;
   private readonly fetchImpl: MetaFetch;
+  private readonly retryDelayMs: number;
   private readonly baseUrl = "https://graph.facebook.com";
 
   constructor(options: MetaClientOptions) {
@@ -168,9 +184,27 @@ export class MetaClient {
     this.apiVersion = options.apiVersion;
     this.timeoutMs = options.timeoutMs ?? 12_000;
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.retryDelayMs = options.retryDelayMs ?? 500;
   }
 
   private async getPage<T>(
+    path: string,
+    params: Record<string, string>,
+  ): Promise<MetaPage<T>> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.requestPage<T>(path, params);
+      } catch (error) {
+        const retryable = error instanceof MetaApiError && (error.transient
+          || error.httpStatus === 429 || error.httpStatus >= 500
+          || [1, 2, 4, 17, 32, 613].includes(error.code ?? 0));
+        if (!retryable || attempt >= 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * 2 ** attempt));
+      }
+    }
+  }
+
+  private async requestPage<T>(
     path: string,
     params: Record<string, string>,
   ): Promise<MetaPage<T>> {
@@ -210,6 +244,10 @@ export class MetaClient {
         });
       }
       return payload;
+    } catch (error) {
+      if (error instanceof MetaApiError) throw error;
+      // Network and abort errors never expose request URLs or credentials.
+      throw new MetaApiError({ httpStatus: 504, transient: true });
     } finally {
       clearTimeout(timer);
     }
@@ -228,9 +266,23 @@ export class MetaClient {
         ...params,
         ...(after ? { after } : {}),
       });
+      if (!Array.isArray(payload.data)) throw new MetaApiError({ httpStatus: 502 });
       result.push(...(payload.data ?? []));
-      const nextAfter = payload.paging?.cursors?.after;
-      if (!nextAfter || seenCursors.has(nextAfter)) return result;
+      if (!payload.paging?.next) return result;
+      let nextAfter = payload.paging.cursors?.after;
+      if (!nextAfter) {
+        try {
+          const nextUrl = new URL(payload.paging.next);
+          if (nextUrl.origin !== this.baseUrl) throw new Error("invalid origin");
+          nextAfter = nextUrl.searchParams.get("after") ?? undefined;
+        } catch {
+          throw new Error("Paginação Meta inválida.");
+        }
+      }
+      if (!nextAfter || seenCursors.has(nextAfter)) {
+        // A partial response must never be persisted as complete.
+        throw new Error("Paginação Meta não avançou.");
+      }
       seenCursors.add(nextAfter);
       after = nextAfter;
     }
@@ -333,10 +385,40 @@ export class MetaClient {
         "spend",
         "impressions",
         "reach",
+        "frequency",
+        "clicks",
+        "unique_clicks",
         "inline_link_clicks",
+        "inline_post_engagement",
+        "outbound_clicks",
+        "unique_outbound_clicks",
+        "video_play_actions",
+        "video_p25_watched_actions",
+        "video_p50_watched_actions",
+        "video_p75_watched_actions",
+        "video_p95_watched_actions",
+        "video_p100_watched_actions",
         "actions",
         "action_values",
       ].join(","),
+      limit: "500",
+    });
+  }
+
+  async getPeriodInsights(input: {
+    adAccountId: string;
+    since: string;
+    until: string;
+  }): Promise<MetaInsight[]> {
+    validateAccountId(input.adAccountId);
+    validateDate(input.since);
+    validateDate(input.until);
+    if (input.until < input.since) throw new Error("Período Meta inválido.");
+    return this.getAll<MetaInsight>(`${input.adAccountId}/insights`, {
+      level: "account",
+      time_increment: "all_days",
+      time_range: JSON.stringify({ since: input.since, until: input.until }),
+      fields: "date_start,date_stop,account_id,reach,frequency,unique_clicks",
       limit: "500",
     });
   }
