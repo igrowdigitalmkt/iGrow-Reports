@@ -8,7 +8,6 @@ import type {
   ClientAdAccountLink,
   ClientMetricMapping,
   MetaAdminAccount,
-  MetaIntegrationStatus,
 } from "./types";
 
 type Props = {
@@ -20,7 +19,7 @@ type Props = {
   accounts: MetaAdminAccount[];
   initialLinks: ClientAdAccountLink[];
   initialMapping: ClientMetricMapping | null;
-  integration: MetaIntegrationStatus | null;
+  connected: boolean;
 };
 
 const resultOptions = [
@@ -38,7 +37,7 @@ export function ClientMetaManager({
   accounts,
   initialLinks,
   initialMapping,
-  integration,
+  connected,
 }: Props) {
   const [links, setLinks] = useState(initialLinks);
   const [primaryMetricKey, setPrimaryMetricKey] = useState<
@@ -142,7 +141,7 @@ export function ClientMetaManager({
       <div className="info-banner mb-0">
         <Plug size={18} />
         <p>
-          {ready ? <>Configuração de dados de <strong>{clientName}</strong>. A coleta é somente leitura e usa as contas sincronizadas pela integração Meta da agência.</> : <>A fundação Meta ainda não foi habilitada no banco de produção. Esta configuração ficará disponível após a migration correspondente.</>}
+          {ready ? <>Configuração de dados de <strong>{clientName}</strong>. A coleta é somente leitura e usa exclusivamente a conexão Meta deste cliente.</> : <>A fundação Meta ainda não foi habilitada no banco de produção. Esta configuração ficará disponível após a migration correspondente.</>}
         </p>
       </div>
 
@@ -155,7 +154,7 @@ export function ClientMetaManager({
             </p>
           </div>
           <span className="badge neutral">
-            {integration?.connectionStatus === "connected" ? "Meta conectada" : "Meta não conectada"}
+            {connected ? "Meta conectada" : "Meta não conectada"}
           </span>
         </div>
 
@@ -271,8 +270,8 @@ export function ClientMetaManager({
               Coleta dados diários das contas associadas e recalcula os indicadores da Área do Cliente.
             </p>
           </div>
-          <span className={integration?.connectionStatus === "connected" ? "badge green" : "badge neutral"}>
-            {integration?.connectionStatus === "connected" ? "Meta conectada" : "Aguardando Meta"}
+          <span className={connected ? "badge green" : "badge neutral"}>
+            {connected ? "Meta conectada" : "Aguardando Meta"}
           </span>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -294,7 +293,7 @@ export function ClientMetaManager({
               pending ||
               archived ||
               !ready ||
-              integration?.connectionStatus !== "connected" ||
+              !connected ||
               activeLinks.size === 0 ||
               !mappingReady
             }
@@ -303,10 +302,10 @@ export function ClientMetaManager({
             {pending ? "Atualizando…" : "Atualizar dados"}
           </Button>
         </div>
-        {ready && integration?.connectionStatus === "connected" && activeLinks.size === 0 && (
+        {ready && connected && activeLinks.size === 0 && (
           <p className="muted mt-3 text-xs">Associe ao menos uma conta de anúncios antes da coleta.</p>
         )}
-        {ready && integration?.connectionStatus === "connected" && activeLinks.size > 0 && !mappingReady && (
+        {ready && connected && activeLinks.size > 0 && !mappingReady && (
           <p className="muted mt-3 text-xs">Salve o resultado principal antes da primeira coleta.</p>
         )}
       </section>
