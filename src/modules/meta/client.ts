@@ -245,11 +245,17 @@ export class MetaClient {
     return this.getAll<MetaPermission>("me/permissions", { limit: "200" });
   }
 
-  async listAdAccounts(): Promise<MetaAdAccount[]> {
-    return this.getAll<MetaAdAccount>("me/adaccounts", {
+  async listAdAccounts(systemUserId?: string): Promise<MetaAdAccount[]> {
+    const params = {
       fields: "id,account_id,name,currency,timezone_name,account_status,business{id,name}",
       limit: "200",
-    });
+    };
+    const accounts = await this.getAll<MetaAdAccount>("me/adaccounts", params);
+    if (accounts.length || !systemUserId) return accounts;
+    if (!/^\d+$/.test(systemUserId)) {
+      throw new Error("ID de usuário do sistema Meta inválido.");
+    }
+    return this.getAll<MetaAdAccount>(`${systemUserId}/assigned_ad_accounts`, params);
   }
 
   async listCampaigns(adAccountId: string): Promise<MetaCampaign[]> {

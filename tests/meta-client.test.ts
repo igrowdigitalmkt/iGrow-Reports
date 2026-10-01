@@ -61,6 +61,36 @@ describe("MetaClient", () => {
     expect(calls[1].url.toString()).not.toContain("segredo");
   });
 
+  it("usa contas atribuídas ao usuário do sistema quando me/adaccounts vier vazio", async () => {
+    const requested: URL[] = [];
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = input instanceof URL ? input : new URL(String(input));
+      requested.push(url);
+      if (requested.length === 1) return jsonResponse({ data: [] });
+      return jsonResponse({
+        data: [{
+          id: "act_123",
+          account_id: "123",
+          name: "Conta atribuída",
+          currency: "BRL",
+          timezone_name: "America/Sao_Paulo",
+        }],
+      });
+    });
+
+    const client = new MetaClient({
+      accessToken: "TOKEN_SUPER_SECRETO",
+      apiVersion: "v99.0",
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+
+    const accounts = await client.listAdAccounts("61594716222225");
+    expect(accounts).toHaveLength(1);
+    expect(requested[0].pathname).toContain("/v99.0/me/adaccounts");
+    expect(requested[1].pathname).toContain("/v99.0/61594716222225/assigned_ad_accounts");
+    expect(requested[1].searchParams.has("access_token")).toBe(false);
+  });
+
   it("sanitiza erros da Graph API", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({
       error: {

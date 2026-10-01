@@ -204,7 +204,7 @@ async function getStoredConnection(
 
   const { data: connections, error: connectionError } = await service
     .from("meta_connections")
-    .select("id")
+    .select("id,external_user_id")
     .eq("agency_id", agencyId)
     .eq("integration_id", integration.id)
     .eq("client_id", clientId)
@@ -251,11 +251,11 @@ export async function connectMetaForClient(input: {
     apiVersion,
   });
 
-  const [identity, permissions, accounts] = await Promise.all([
+  const [identity, permissions] = await Promise.all([
     client.validateConnection(),
     client.listPermissions(),
-    client.listAdAccounts(),
   ]);
+  const accounts = await client.listAdAccounts(identity.id);
   const grantedScopes = permissions
     .filter((permission) => permission.status === "granted")
     .map((permission) => permission.permission);
@@ -375,7 +375,7 @@ export async function syncMetaAccountsForClient(input: {
   const client = new MetaClient({ accessToken: token, apiVersion });
 
   try {
-    const accounts = await client.listAdAccounts();
+    const accounts = await client.listAdAccounts(connection.external_user_id ?? undefined);
     const synced = await syncAccounts(
       service,
       input.agencyId,
