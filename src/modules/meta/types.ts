@@ -28,6 +28,7 @@ export type MetaIntegrationStatus = {
   lastCheckedAt: string | null;
   lastSuccessAt: string | null;
   lastErrorAt: string | null;
+  scopes: string[];
 };
 
 export type MetaServerReadiness = {

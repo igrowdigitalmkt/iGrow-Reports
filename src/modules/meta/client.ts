@@ -32,6 +32,10 @@ export type MetaPermission = {
   status: string;
 };
 
+export function hasMetaAdsReadPermission(scopes: string[]) {
+  return scopes.includes("ads_read");
+}
+
 export type MetaAdAccount = {
   id: string;
   account_id?: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MetaApiError, MetaClient } from "@/modules/meta/client";
+import { hasMetaAdsReadPermission, MetaApiError, MetaClient } from "@/modules/meta/client";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -9,6 +9,12 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe("MetaClient", () => {
+  it("exige ads_read para conexão somente leitura", () => {
+    expect(hasMetaAdsReadPermission(["ads_read"])).toBe(true);
+    expect(hasMetaAdsReadPermission(["business_management"])).toBe(false);
+    expect(hasMetaAdsReadPermission(["ads_management"])).toBe(false);
+  });
+
   it("envia o token somente no header e pagina por cursor", async () => {
     const calls: Array<{ url: URL; init?: RequestInit }> = [];
     const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {

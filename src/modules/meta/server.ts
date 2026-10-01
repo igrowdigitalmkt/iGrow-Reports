@@ -11,6 +11,7 @@ import { getMetaApiConfig } from "@/lib/env";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/types/database";
 import {
+  hasMetaAdsReadPermission,
   MetaApiError,
   MetaClient,
   type MetaAdAccount,
@@ -218,6 +219,12 @@ export async function connectMetaForAgency(input: {
   const grantedScopes = permissions
     .filter((permission) => permission.status === "granted")
     .map((permission) => permission.permission);
+
+  if (!hasMetaAdsReadPermission(grantedScopes)) {
+    throw new MetaSetupError(
+      "A credencial Meta precisa da permissão ads_read para consultar o desempenho dos anúncios.",
+    );
+  }
 
   const now = new Date().toISOString();
   const { data: integration, error: integrationError } = await service

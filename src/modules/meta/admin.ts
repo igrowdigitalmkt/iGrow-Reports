@@ -10,7 +10,7 @@ export async function getMetaAdminSnapshot(
   supabase: SupabaseClient<Database>,
   agencyId: string,
 ): Promise<MetaAdminSnapshot> {
-  const [accountsResult, linksResult, mappingsResult, integrationResult] = await Promise.all([
+  const [accountsResult, linksResult, mappingsResult, integrationResult, connectionResult] = await Promise.all([
     supabase
       .from("meta_ad_accounts")
       .select("id,external_id,name,currency,timezone_name,archived_at,last_synced_at")
@@ -31,6 +31,11 @@ export async function getMetaAdminSnapshot(
       .eq("agency_id", agencyId)
       .eq("provider", "meta")
       .maybeSingle(),
+    supabase
+      .from("meta_connections")
+      .select("scopes")
+      .eq("agency_id", agencyId)
+      .maybeSingle(),
   ]);
 
   const privileged = getPrivilegedSupabaseConfig();
@@ -41,6 +46,7 @@ export async function getMetaAdminSnapshot(
     linksResult.error,
     mappingsResult.error,
     integrationResult.error,
+    connectionResult.error,
   ].filter(Boolean);
   const databaseReady = errors.length === 0;
 
@@ -93,6 +99,7 @@ export async function getMetaAdminSnapshot(
           lastCheckedAt: integrationResult.data.last_checked_at,
           lastSuccessAt: integrationResult.data.last_success_at,
           lastErrorAt: integrationResult.data.last_error_at,
+          scopes: connectionResult.data?.scopes ?? [],
         }
       : null,
     serverReadiness: {

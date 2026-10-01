@@ -114,6 +114,7 @@ export function MetaIntegrationManager({
       </div>
 
       {connected && (
+        <>
         <div className="meta-connection-summary">
           <div>
             <span>Saúde</span>
@@ -132,6 +133,13 @@ export function MetaIntegrationManager({
             </strong>
           </div>
         </div>
+        <div className="planned-note mt-3">
+          <ShieldCheck size={15} />
+          Permissões concedidas: {snapshot.integration?.scopes.length
+            ? snapshot.integration.scopes.join(", ")
+            : "não informadas"}
+        </div>
+        </>
       )}
 
       {canManage ? (
@@ -145,7 +153,7 @@ export function MetaIntegrationManager({
             </label>
             <p className="muted mt-1 text-xs leading-5">
               O token é validado na Meta e armazenado criptografado. Ele não é
-              exibido novamente.
+              exibido novamente. A permissão <strong>ads_read</strong> é obrigatória.
             </p>
             <input
               id="meta-access-token"
