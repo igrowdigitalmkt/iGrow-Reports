@@ -16,11 +16,12 @@ try {
   let ready = false;
   for (let attempt = 0; attempt < 30; attempt++) {
     if (server.exitCode !== null) throw new Error(output);
-    try { ready = (await fetch(`${origin}/api/health`)).ok; } catch { /* Server is starting. */ }
+    try { ready = [200, 503].includes((await fetch(`${origin}/api/health`)).status); } catch { /* Server is starting. */ }
     if (ready) break;
     await delay(300);
   }
   assert.ok(ready, "Servidor de produção precisa responder.");
+  assert.equal((await fetch(`${origin}/api/health`)).status, 503, "Sem credenciais, health deve informar configuração incompleta.");
   assert.equal((await fetch(`${origin}/demo`)).status, 404, "Demonstração desabilitada precisa retornar 404.");
   const protectedPage = await fetch(`${origin}/dashboard`, { redirect: "manual" });
   assert.equal(protectedPage.status, 307, "Dashboard exige contexto autenticado.");
