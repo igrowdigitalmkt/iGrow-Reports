@@ -31,7 +31,7 @@ export async function getAgencyReportPreview(input: unknown): Promise<
     currency: version.currency, dateFrom: version.date_from, dateTo: version.date_to,
     state: version.state, timezoneName: version.timezone_name,
     metrics: (metrics ?? []).map((row) => ({
-      metricKey: row.metric_key, label: row.label, unit: row.unit,
+      metricKey: row.metric_key, label: row.metric_key === "impressions" ? "Impressões" : row.label, unit: row.unit,
       numericValue: row.numeric_value, displayPrecision: row.display_precision,
     })),
   } };
