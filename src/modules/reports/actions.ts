@@ -67,6 +67,28 @@ export async function generateManualReport(
     dataContext.timezone_name,
   );
 
+  const { data: summary, error: summaryError } = await context.supabase
+    .rpc("get_client_portal_metric_summary", {
+      p_client_id: parsed.data.clientId,
+      p_date_from: dateFrom,
+      p_date_to: dateTo,
+    })
+    .single();
+
+  if (summaryError || !summary) {
+    return { error: "Não foi possível validar os dados do período selecionado." };
+  }
+
+  if (summary.data_status !== "ok") {
+    return {
+      error: summary.compatibility_issue === "multiple_currencies"
+        ? "As contas deste cliente usam moedas diferentes e não podem ser consolidadas."
+        : summary.compatibility_issue === "multiple_timezones"
+          ? "As contas deste cliente têm horários realmente diferentes neste período e não podem ser consolidadas com precisão."
+          : "Colete dados para o período selecionado antes de gerar o relatório.",
+    };
+  }
+
   const { data, error } = await context.supabase.rpc("create_manual_report_version", {
     p_agency_id: context.agency.id,
     p_client_id: parsed.data.clientId,

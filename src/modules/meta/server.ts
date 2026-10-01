@@ -491,10 +491,6 @@ export async function collectMetaClientInsights(input: {
   if (new Set(accounts.map((account) => account.currency)).size !== 1) {
     throw new MetaSetupError("A coleta consolidada foi bloqueada porque as contas usam moedas diferentes.");
   }
-  if (new Set(accounts.map((account) => account.timezone_name)).size !== 1) {
-    throw new MetaSetupError("A coleta consolidada foi bloqueada porque as contas usam fusos diferentes.");
-  }
-
   let insightCount = 0;
   let actionCount = 0;
 

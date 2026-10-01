@@ -202,6 +202,18 @@ function PerformanceContent({ view }: { view: ClientPortalMetricView }) {
     );
   }
 
+  if (summary.data_status === "incompatible") {
+    const issue = summary.compatibility_issue === "multiple_currencies"
+      ? "As contas associadas usam moedas diferentes."
+      : "As contas associadas têm deslocamentos de horário realmente diferentes neste período.";
+    return (
+      <PortalEmpty
+        title="Contas não podem ser consolidadas"
+        description={`${issue} Para preservar a precisão, o iGrow Reports não mistura esses dados em um único total.`}
+      />
+    );
+  }
+
   if (summary.data_status !== "ok") {
     return (
       <PortalEmpty
