@@ -52,7 +52,7 @@ export async function getMetaAdminSnapshot(
   const databaseReady = errors.length === 0;
 
   if (!databaseReady && !errors.every((error) => isMissingSchemaError(error))) {
-    throw new Error("Não foi possível consultar a configuração Meta da agência.");
+    throw new Error("Não foi possível consultar a configuração Meta deste espaço de trabalho.");
   }
 
   if (!databaseReady) {

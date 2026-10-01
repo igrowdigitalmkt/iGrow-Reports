@@ -35,7 +35,7 @@ export async function setClientPortalAccess(
     return { error: "Solicitação inválida. Atualize a página e tente novamente." };
   }
   if (parsed.data.agencyId !== context.agency.id) {
-    return { error: "A agência selecionada mudou. Recarregue a página." };
+    return { error: "O espaço de trabalho selecionado mudou. Recarregue a página." };
   }
 
   const { error } = await context.supabase.rpc("set_client_user_access", {
@@ -70,7 +70,7 @@ export async function setClientPortalAccessByEmail(
     return { error: "Informe um e-mail válido e tente novamente." };
   }
   if (parsed.data.agencyId !== context.agency.id) {
-    return { error: "A agência selecionada mudou. Recarregue a página." };
+    return { error: "O espaço de trabalho selecionado mudou. Recarregue a página." };
   }
 
   const { data, error } = await context.supabase.rpc("set_client_user_access_by_email", {

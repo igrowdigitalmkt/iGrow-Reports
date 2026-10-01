@@ -43,7 +43,7 @@ export async function setClientAdAccount(
     return { error: "Associação inválida. Atualize a página e tente novamente." };
   }
   if (parsed.data.agencyId !== context.agency.id) {
-    return { error: "A agência selecionada mudou. Recarregue a página." };
+    return { error: "O espaço de trabalho selecionado mudou. Recarregue a página." };
   }
 
   const { error } = await context.supabase.rpc("set_client_ad_account", {
@@ -78,7 +78,7 @@ export async function setClientMetricMapping(
     return { error: "Configure o resultado principal e a ação Meta correspondente." };
   }
   if (parsed.data.agencyId !== context.agency.id) {
-    return { error: "A agência selecionada mudou. Recarregue a página." };
+    return { error: "O espaço de trabalho selecionado mudou. Recarregue a página." };
   }
 
   const { error } = await context.supabase.rpc("set_client_metric_mapping", {
@@ -137,7 +137,7 @@ export async function connectMetaIntegration(
   }
   const parsed = connectionSchema.safeParse(input);
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
-    return { error: "Credencial ou agência inválida." };
+    return { error: "Credencial ou espaço de trabalho inválido." };
   }
 
   try {
@@ -164,7 +164,7 @@ export async function syncMetaAccounts(
   }
   const parsed = clientOperationSchema.safeParse(input);
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
-    return { error: "Agência inválida." };
+    return { error: "Espaço de trabalho inválido." };
   }
 
   try {

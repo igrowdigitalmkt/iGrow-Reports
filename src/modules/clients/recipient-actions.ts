@@ -8,7 +8,7 @@ const scope = z.object({ agencyId: z.uuid(), clientId: z.uuid() });
 export async function loadRecipients(input: unknown): Promise<RecipientResult> {
   const context = await requireAgencyContext();
   const parsed = scope.safeParse(input);
-  if (!parsed.success || parsed.data.agencyId !== context.agency.id) return { error: "A agência mudou. Atualize a página." };
+  if (!parsed.success || parsed.data.agencyId !== context.agency.id) return { error: "O espaço de trabalho mudou. Atualize a página." };
   const recipients = [];
   const events = [];
   for (let offset = 0; ; offset += 500) {
@@ -34,7 +34,7 @@ export async function saveRecipient(input: unknown): Promise<RecipientResult> {
   const parsed = scope.extend(recipientInputSchema.shape).extend({ id: z.uuid().nullable() }).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const value = parsed.data;
-  if (value.agencyId !== context.agency.id) return { error: "A agência mudou. Atualize a página." };
+  if (value.agencyId !== context.agency.id) return { error: "O espaço de trabalho mudou. Atualize a página." };
   const { error } = await context.supabase.rpc("save_client_recipient", { p_agency_id: context.agency.id, p_client_id: value.clientId, p_id: value.id, p_name: value.name, p_phone: value.phone, p_active: value.active });
   if (error) return { error: error.code === "23505" ? "Este telefone já está cadastrado para o cliente." : "Não foi possível salvar. Confira seu acesso e se o cliente está ativo." };
   revalidatePath("/dashboard/clientes");
@@ -47,7 +47,7 @@ export async function recordRecipientConsent(input: unknown): Promise<RecipientR
   const parsed = scope.extend({ id: z.uuid(), phone: recipientInputSchema.shape.phone }).safeParse(input);
   const consent = consentInputSchema.safeParse(input);
   if (!parsed.success || !consent.success) return { error: "Informe telefone, origem e uma data de autorização válida." };
-  if (parsed.data.agencyId !== context.agency.id) return { error: "A agência mudou. Atualize a página." };
+  if (parsed.data.agencyId !== context.agency.id) return { error: "O espaço de trabalho mudou. Atualize a página." };
   const { error } = await context.supabase.rpc("set_recipient_consent", { p_agency_id: context.agency.id, p_client_id: parsed.data.clientId, p_recipient_id: parsed.data.id, p_phone: parsed.data.phone, p_granted: consent.data.granted, p_source: consent.data.source, p_occurred_at: consent.data.occurredAt });
   if (error) return { error: "Registro recusado. Atualize os dados e confira se a autorização é posterior ao último descadastro e o destinatário está ativo." };
   revalidatePath("/dashboard/clientes");

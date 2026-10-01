@@ -47,7 +47,7 @@ export default async function ClientPortalPage({
           <div>
             <h2>Nenhum cliente vinculado</h2>
             <p>
-              Peça ao responsável da agência para liberar o acesso da sua conta. Nenhum dado de outro cliente fica disponível enquanto esse vínculo não existir.
+              Peça ao responsável pelo espaço de trabalho para liberar o acesso da sua conta. Nenhum dado de outro cliente fica disponível enquanto esse vínculo não existir.
             </p>
           </div>
         </section>

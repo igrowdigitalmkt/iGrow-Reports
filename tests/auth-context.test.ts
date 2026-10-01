@@ -68,6 +68,6 @@ describe("contexto da agência validado no servidor", () => {
 
   it("falha do banco interrompe o acesso em vez de mostrar dados de demonstração", async () => {
     authenticatedClient([], { message: "database unavailable" });
-    await expect(requireAgencyContext()).rejects.toThrow("Não foi possível consultar suas agências");
+    await expect(requireAgencyContext()).rejects.toThrow("Não foi possível consultar seus espaços de trabalho");
   });
 });

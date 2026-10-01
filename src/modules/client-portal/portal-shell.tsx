@@ -55,7 +55,7 @@ export function ClientPortalShell({
         <div className="client-page-heading">
           <span className="client-kicker">
             <ShieldCheck size={13} />
-            {agencyMode ? "Visão do cliente · Agência" : "Área do Cliente"}
+            {agencyMode ? "Visão do cliente · Espaço de trabalho" : "Área do Cliente"}
           </span>
           <h1>{title}</h1>
           <p>{description}</p>

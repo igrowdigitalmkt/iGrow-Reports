@@ -26,7 +26,7 @@ export async function getUserMemberships(supabase: SupabaseClient<Database>, use
   const { data, error } = await supabase.from("agency_users")
     .select("agency_id, role, agencies!inner(id, name, timezone)")
     .eq("user_id", userId);
-  if (error) throw new Error("Não foi possível consultar suas agências. Confira a migração e a conexão com o banco.");
+  if (error) throw new Error("Não foi possível consultar seus espaços de trabalho. Confira a migração e a conexão com o banco.");
   return (data ?? []).map((membership) => ({ agency: membership.agencies, role: membership.role }));
 }
 

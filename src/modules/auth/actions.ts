@@ -50,7 +50,7 @@ export async function setPasswordAction(_state: AuthActionState, formData: FormD
 
 export async function acceptInvitationAction(_state: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const parsed = invitationTokenSchema.safeParse(formData.get("token"));
-  if (!parsed.success) return { error: "Este convite é inválido. Solicite um novo link à agência." };
+  if (!parsed.success) return { error: "Este convite é inválido. Solicite um novo link ao responsável pelo espaço de trabalho." };
   const { supabase } = await requireUserSession(`/convite?token=${parsed.data}`);
   const { data: agencyId, error } = await supabase.rpc("accept_agency_invitation", { p_token: parsed.data });
   if (error || !agencyId) return { error: "Não foi possível aceitar o convite. Confira se este é o e-mail convidado e se o link ainda é válido." };
