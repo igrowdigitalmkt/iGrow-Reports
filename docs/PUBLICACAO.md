@@ -1,20 +1,37 @@
-# Primeira publicação da iGrow
+# Publicação da iGrow
 
-O código está preparado para configurar uma instalação na Vercel. Ainda não existe projeto remoto, banco configurado ou URL publicada. A entrega disponível inclui login, isolamento por agência, clientes, destinatários e registro de consentimento. Meta, geração de relatórios/PDF, QStash e envio WhatsApp continuam pendentes; publicar a fundação não ativa essas funcionalidades.
+## Estado atual do ambiente
 
-## 1. Criar as contas e o banco
+A infraestrutura principal já foi provisionada em 30/09/2026:
 
-Crie suas contas no [Supabase](https://supabase.com/dashboard) e na [Vercel](https://vercel.com/new). Guarde senhas e códigos de recuperação em seu gerenciador. Escolha os planos e a região conforme sua operação; o projeto não contrata serviços automaticamente.
+- Supabase do iGrow Reports criado e conectado;
+- usuário administrativo inicial criado e vinculado como proprietário da iGrow Digital;
+- repositório privado correto: `igrowdigitalmkt/iGrow-Reports`;
+- projeto Vercel `i-grow-reports` conectado ao repositório correto;
+- variáveis de produção do Supabase/Vercel configuradas;
+- branch de produção: `master`.
 
-No Supabase, crie um projeto dedicado à iGrow. No SQL Editor, execute os quatro arquivos de `supabase/migrations` na ordem dos nomes, uma única vez, confirmando sucesso em cada arquivo. Não execute os arquivos de testes no banco operacional. Para ambientes futuros, adote o fluxo de migrations com CLI descrito em BANCO.md.
+**Não recrie contas, não repita o bootstrap do primeiro proprietário e não execute novamente as migrations já aplicadas.**
 
-Em Authentication, desative novos cadastros públicos. Provisione o primeiro usuário administrativo com email confirmado. Execute o bootstrap de [BANCO.md](BANCO.md#primeiro-proprietário) uma única vez com o email dessa conta. Isso cria a agência e associa o proprietário.
+As quatro migrations originais foram usadas na instalação inicial. A atualização que tornou a **Área do Cliente um componente central da V1** acrescenta a quinta migration:
 
-Copie a URL do projeto e a chave **publishable** do painel Supabase. A aplicação não precisa de chave `service_role` para seu CRUD.
+`supabase/migrations/202609300005_client_portal_foundation.sql`
 
-## 2. Importar o código na Vercel
+Essa migration deve ser aplicada no projeto Supabase existente **antes do primeiro deploy que contenha as rotas da Área do Cliente**.
 
-Crie um repositório privado no GitHub e envie este projeto, respeitando `.gitignore`. Não inclua `.env.local`, tokens ou senhas. Na Vercel, importe esse repositório como Next.js, com raiz nesta pasta e Node.js 24.x. Mantenha o gerenciador definido em `package.json` e a instalação pelo lockfile.
+Meta, geração de relatórios/PDF, QStash e envio WhatsApp continuam pendentes; publicar esta atualização não ativa essas funcionalidades.
+
+## 1. Atualizar o banco existente
+
+No SQL Editor do Supabase do iGrow Reports, execute somente a migration nova `202609300005_client_portal_foundation.sql`, uma única vez, confirmando sucesso antes de publicar o commit correspondente. Não execute os arquivos de teste no banco operacional.
+
+Para um ambiente novo criado do zero, aplique todas as migrations em `supabase/migrations` na ordem dos nomes. Para evolução contínua, adote o fluxo de migrations com CLI descrito em BANCO.md.
+
+## 2. GitHub e Vercel
+
+O repositório e a Vercel já estão conectados. Um push para `master` dispara as verificações do GitHub e o fluxo de deploy configurado na Vercel. Não inclua `.env.local`, tokens ou senhas no Git.
+
+Na Vercel, mantenha Next.js, Node.js 24.x, o gerenciador definido em `package.json` e a instalação pelo lockfile.
 
 Para usar a versão de pnpm declarada pelo projeto, habilite `ENABLE_EXPERIMENTAL_COREPACK=1` no ambiente de build, conforme a [documentação de gerenciadores da Vercel](https://vercel.com/docs/package-managers). Não substitua a instalação por uma versão arbitrária de pnpm.
 
@@ -33,6 +50,8 @@ Configure estas variáveis no ambiente Production antes de implantar:
 Use o domínio atribuído ao projeto pela Vercel; domínio próprio pode ser configurado depois. `vercel.json` executa `pnpm check:deploy` antes do build e rejeita configuração incompleta. O validador não verifica se a chave pertence ao banco, se as migrations foram aplicadas ou se o serviço está disponível. Alterações de variáveis `NEXT_PUBLIC_` exigem novo build.
 
 Preview deve usar outro projeto Supabase e `APP_ENV=staging`, com sua própria URL e variáveis. A ausência dessa configuração bloqueia o build de Preview intencionalmente.
+
+Para a atualização atual, não altere as variáveis de produção já configuradas salvo se uma verificação concreta indicar necessidade.
 
 ## 3. Configurar autenticação
 

@@ -25,6 +25,10 @@ type ClientRow = {
   id: string; agency_id: string; name: string; logo_path: string | null; notes: string | null;
   archived_at: string | null; created_by: string | null; created_at: string; updated_at: string;
 };
+type ClientUserRow = {
+  agency_id: string; client_id: string; user_id: string; active: boolean;
+  created_by: string | null; created_at: string; updated_at: string;
+};
 type AuditRow = {
   id: string; agency_id: string; actor_id: string | null; action: string;
   entity_id: string | null; metadata: Json; created_at: string;
@@ -48,10 +52,19 @@ export type Database = {
       }]>;
       agency_invitations: Table<InvitationRow, Pick<InvitationRow, "agency_id" | "email" | "role" | "token_hash" | "expires_at"> & Partial<InvitationRow>, Partial<InvitationRow>>;
       clients: Table<ClientRow, Pick<ClientRow, "agency_id" | "name"> & Partial<ClientRow>, Partial<ClientRow>>;
+      client_users: Table<ClientUserRow, never, never, [{
+        foreignKeyName: "client_users_agency_id_client_id_fkey";
+        columns: ["agency_id", "client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["agency_id", "id"];
+      }]>;
       audit_logs: Table<AuditRow, Pick<AuditRow, "agency_id" | "action"> & Partial<AuditRow>, Partial<AuditRow>>;
     };
     Views: { [_ in never]: never };
     Functions: {
+      list_client_portal_clients: {
+        Args: Record<PropertyKey, never>;
+        Returns: { id: string; agency_id: string; name: string; logo_path: string | null; archived_at: string | null }[];
+      };
+      set_client_user_access: { Args: { p_agency_id: string; p_client_id: string; p_user_id: string; p_active: boolean }; Returns: undefined };
       save_client_recipient: { Args: { p_agency_id: string; p_client_id: string; p_id: string | null; p_name: string; p_phone: string; p_active: boolean }; Returns: string };
       set_recipient_consent: { Args: { p_agency_id: string; p_client_id: string; p_recipient_id: string; p_phone: string; p_granted: boolean; p_source: string; p_occurred_at: string | null }; Returns: string };
       accept_agency_invitation: { Args: { p_token: string }; Returns: string };

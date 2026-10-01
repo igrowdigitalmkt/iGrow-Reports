@@ -12,7 +12,7 @@ export async function proxy(request: NextRequest) {
     });
     return NextResponse.next();
   }
-  if ((path === "/dashboard" || path.startsWith("/dashboard/")) && !getSupabaseConfig()) {
+  if ((path === "/dashboard" || path.startsWith("/dashboard/") || path === "/cliente" || path.startsWith("/cliente/")) && !getSupabaseConfig()) {
     const response = NextResponse.redirect(new URL("/entrar?estado=nao-configurado", request.url));
     response.headers.set("Cache-Control", "private, no-store");
     return response;
@@ -21,6 +21,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/demo/:path*", "/dashboard/:path*", "/entrar", "/selecionar-agencia", "/sem-acesso", "/convite", "/auth/:path*"],
+  matcher: ["/demo/:path*", "/dashboard/:path*", "/cliente/:path*", "/entrar", "/selecionar-agencia", "/sem-acesso", "/convite", "/auth/:path*"],
 };
 

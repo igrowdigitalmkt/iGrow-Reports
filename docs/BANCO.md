@@ -1,14 +1,14 @@
 # Banco e autorização da fundação
 
-Atualização: a quarta migration acrescenta destinatários e histórico de consentimento; consulte [DESTINATARIOS.md](DESTINATARIOS.md). O executor agora aplica quatro migrations e roda 120 verificações pgTAP (90 da fundação/clientes e 30 de destinatários). As seções abaixo preservam o procedimento da fundação.
+Atualização: a quarta migration acrescenta destinatários e histórico de consentimento; a quinta cria a fundação autenticada da Área do Cliente. Consulte [DESTINATARIOS.md](DESTINATARIOS.md) e [AREA_CLIENTE.md](AREA_CLIENTE.md). O executor agora aplica cinco migrations e roda 146 verificações pgTAP (90 da fundação/clientes, 30 de destinatários e 26 da Área do Cliente).
 
 As migrations SQL são a fonte do schema. Esta entrega contém agências, equipe, convites, base de clientes, auditoria e Storage privado. As tabelas de integrações, relatórios, entregas e jobs entrarão com seus respectivos módulos. Não há seed de clientes reais nem fixtures de demonstração no banco da aplicação.
 
 ## Verificação executada
 
-Em 30/09/2026, `pnpm test:db` aplicou as três migrations em uma instância descartável de PostgreSQL WASM/PGlite e executou **90 verificações pgTAP, todas aprovadas**. O teste também pode ser iniciado por `node supabase/tests/rls-smoke.mjs`.
+Em 30/09/2026, `node supabase/tests/rls-smoke.mjs` aplicou as cinco migrations em uma instância descartável de PostgreSQL WASM/PGlite e executou **146 verificações pgTAP, todas aprovadas**. O mesmo fluxo é exposto pelo script `pnpm test:db` quando o pnpm está disponível.
 
-O executor usa o SQL real das migrations e da suíte `supabase/tests/foundation.test.sql`. Somente as estruturas pertencentes ao Supabase (`auth.users`, `auth.uid()`, `storage.buckets`, `storage.objects`) são representadas por estruturas mínimas de teste. A suíte executa com os papéis `anon` e `authenticated`; seus dados fictícios são revertidos ao terminar.
+O executor usa o SQL real das migrations e das suítes `foundation.test.sql`, `recipients.test.sql` e `client-portal.test.sql`. Somente as estruturas pertencentes ao Supabase (`auth.users`, `auth.uid()`, `storage.buckets`, `storage.objects`) são representadas por estruturas mínimas de teste. A suíte executa com os papéis `anon` e `authenticated`; seus dados fictícios são revertidos ao terminar.
 
 Isso verifica políticas, grants, funções e restrições SQL. Ainda não confirma os serviços HTTP Auth/PostgREST/Storage, upload de arquivos, JWTs reais, refresh de sessão, envio de convites por email nem concorrência entre conexões. Docker e Supabase CLI não estavam disponíveis nesta execução. A homologação em Supabase local ou staging continua pendente.
 
@@ -74,15 +74,24 @@ O aceite exige sessão Auth, email confirmado correspondente, convite não expir
 
 Alterações na equipe adquirem bloqueio na agência. O trigger de associação atualiza a mesma linha da agência para serializar mudanças de proprietário e rejeitar operações que deixariam a agência sem proprietário. A proteção sequencial foi testada; é necessário homologar transações simultâneas em PostgreSQL/Supabase com múltiplas conexões.
 
+## Área do Cliente
+
+`client_users` representa acesso do cliente final e não participação na equipe da agência. O vínculo é composto por agência, cliente e usuário Auth, possui estado ativo/inativo e não concede nenhum papel de `agency_users`.
+
+Usuários da Área do Cliente não recebem `SELECT` direto sobre `clients` nem `client_users`. A função `list_client_portal_clients()` retorna somente `id`, `agency_id`, `name`, `logo_path` e `archived_at` dos vínculos ativos do usuário atual, evitando exposição de notas, autoria e outros campos administrativos. O helper `private.has_client_access` fica disponível para as futuras políticas de métricas e relatórios. A RPC `set_client_user_access` exige proprietário ou administrador, rejeita referências entre agências e contas não confirmadas ao conceder acesso, preserva a linha ao revogar e registra auditoria.
+
+As futuras tabelas de métricas, relatórios e snapshots destinadas à Área do Cliente deverão reutilizar esse vínculo ou outra relação inequívoca com `client_id`, mantendo autorização próxima à fonte de dados. Consulte [AREA_CLIENTE.md](AREA_CLIENTE.md).
+
 ## Permissões e relacionamentos
 
-As cinco tabelas `agencies`, `agency_users`, `agency_invitations`, `clients` e `audit_logs` possuem RLS e grants explícitos. A autorização combina usuário Auth, associação e papel; receber um `agency_id` no navegador não concede acesso. Helpers de autorização ficam em `private`, com `security definer`, `search_path` fixo e execução concedida somente quando necessária. Esse desenho combina as duas camadas descritas no [guia oficial de RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
+As tabelas `agencies`, `agency_users`, `agency_invitations`, `clients`, `client_users`, `client_recipients`, `recipient_consent_events` e `audit_logs` possuem RLS e grants explícitos. A autorização combina usuário Auth, associação e papel; receber um `agency_id` no navegador não concede acesso. Helpers de autorização ficam em `private`, com `security definer`, `search_path` fixo e execução concedida somente quando necessária. Esse desenho combina as duas camadas descritas no [guia oficial de RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 | Operação na própria agência | Proprietário | Administrador | Editor | Leitor |
 | --- | --- | --- | --- | --- |
 | Consultar agência, equipe e clientes | Sim | Sim | Sim | Sim |
 | Alterar nome, logo e fuso da agência | Sim | Sim | Não | Não |
 | Criar, editar e arquivar clientes | Sim | Sim | Sim | Não |
+| Gerenciar vínculos da Área do Cliente | Sim | Sim | Não | Não |
 | Consultar convites sem hash e auditoria | Sim | Sim | Não | Não |
 | Administrar membros operacionais via RPC | Sim | Sim | Não | Não |
 | Administrar proprietários via RPC | Sim | Não | Não | Não |

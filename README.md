@@ -51,7 +51,7 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-`test:db` aplica as quatro migrations e executa pgTAP em um banco descartável PGlite, com estruturas mínimas de Auth/Storage para os testes. Ele verifica SQL, permissões e RLS; login remoto, API de Storage e concorrência precisam de homologação no Supabase.
+`test:db` aplica as cinco migrations e executa pgTAP em um banco descartável PGlite, com estruturas mínimas de Auth/Storage para os testes. Ele verifica SQL, permissões e RLS; login remoto, API de Storage e concorrência precisam de homologação no Supabase.
 
 ## Escopo entregue e limites
 
@@ -68,5 +68,6 @@ Meta, WhatsApp e QStash permanecem sem conexão. Ainda não há coleta de anúnc
 - [Definições de métricas](docs/METRICAS.md)
 - [Configuração das integrações](docs/INTEGRACOES.md)
 - [Diagnóstico, homologação e deploy](docs/OPERACAO.md)
+- [Fundação da Área do Cliente](docs/AREA_CLIENTE.md)
 
-Clientes possuem cadastro, edição, arquivamento, reativação e auditoria. O botão **Destinatários** permite gerenciar contatos, autorização de recebimento, descadastro e histórico. Experimente em `/demo/clientes` (alterações temporárias) ou configure Supabase e aplique as quatro migrations para persistir em `/dashboard/clientes`. Consulte [DESTINATARIOS.md](docs/DESTINATARIOS.md). Próximo passo: homologar no Supabase antes da integração Meta.
+Clientes possuem cadastro, edição, arquivamento, reativação e auditoria. O botão **Destinatários** permite gerenciar contatos, autorização de recebimento, descadastro e histórico. A **Área do Cliente** já possui vínculo autenticado separado da equipe da agência, RLS, revogação de acesso e rotas `/cliente` e `/cliente/[clientId]`. A interface não apresenta números fictícios; os blocos de desempenho serão preenchidos sobre métricas e relatórios reais. Experimente em `/demo/clientes` (alterações temporárias) ou configure Supabase e aplique as cinco migrations para persistir em `/dashboard/clientes`. Consulte [DESTINATARIOS.md](docs/DESTINATARIOS.md) e [AREA_CLIENTE.md](docs/AREA_CLIENTE.md). Próximo passo: homologar no Supabase antes da integração Meta.

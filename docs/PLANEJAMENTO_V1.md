@@ -27,8 +27,11 @@ Construir uma plataforma web que permita à agência:
 10. Entregar relatórios automaticamente por WhatsApp.
 11. Acompanhar geração, envio, entrega, leitura e acesso ao relatório.
 12. Monitorar falhas e permitir recuperação controlada.
+13. Oferecer a cada cliente uma **Área do Cliente autenticada**, com acesso contínuo aos próprios indicadores, períodos, comparações e histórico de relatórios.
 
 A plataforma deve ajudar a **comunicar a performance ao cliente**, além de organizar números.
+
+A **Área do Cliente é um componente central do produto**. O cliente não deve depender apenas do relatório enviado em um período específico: ele poderá entrar na plataforma, consultar seu desempenho, alterar o período de análise dentro dos dados disponíveis, acompanhar a evolução dos principais indicadores e acessar relatórios anteriores.
 
 O painel administrativo deverá transmitir tecnologia, precisão e confiança. O relatório recebido pelo cliente deverá priorizar clareza e facilidade de leitura.
 
@@ -68,13 +71,13 @@ Tudo abaixo pertence à V1, embora seja implementado em etapas.
 | Agendamentos  | Periodicidade, horário, fuso, destinatários e política de envio             |
 | Jobs          | Etapas independentes, tentativas, checkpoints e idempotência                |
 | Operação      | Dashboard, alertas, health checks, auditoria e recuperação                  |
+| Área do cliente | Login do cliente, dashboard próprio, períodos, métricas e histórico de relatórios |
 | Experiência   | Onboarding, responsividade, temas e estados completos                       |
 
 **Fora da V1:**
 
 * Google Ads.
 * IA generativa.
-* Portal do cliente com login.
 * Cobrança de assinaturas.
 * Planos comerciais e checkout.
 * White label completo com domínio por agência.
@@ -102,6 +105,8 @@ Um usuário pode participar de mais de uma agência. Sua permissão pode ser dif
 | Administrador | Gestão operacional, equipe, clientes, integrações, relatórios e agendamentos          |
 | Editor        | Clientes, destinatários, templates, relatórios, comentários, aprovação e agendamentos |
 | Leitor        | Consulta dos dados e relatórios da agência                                            |
+
+Os perfis acima pertencem à equipe da agência. **Usuários da Área do Cliente são uma categoria separada**: não recebem papel em `agency_users` e só podem acessar os clientes aos quais estejam explicitamente vinculados. Na V1, o acesso do cliente é essencialmente de leitura: indicadores, comparações, relatórios, PDFs e informações de atualização, sem permissão para alterar integrações, campanhas, configurações da agência ou dados de outros clientes.
 
 Somente proprietário e administrador podem gerenciar credenciais e integrações.
 
@@ -136,16 +141,28 @@ A gestão da equipe deve impedir:
 5. Acompanhar entregas.
 6. Corrigir integrações ou configurações com problema.
 
-**Jornada do cliente:**
+**Jornada do cliente — Área do Cliente:**
+
+1. Entrar com sua conta.
+2. Acessar um dashboard restrito aos clientes aos quais possui vínculo.
+3. Consultar os principais indicadores definidos pela agência.
+4. Alterar o período de análise dentro do histórico disponível.
+5. Comparar períodos quando houver base compatível.
+6. Consultar evolução, campanhas, conjuntos, anúncios ou outros blocos permitidos pela configuração.
+7. Visualizar a data da última atualização dos dados.
+8. Acessar o histórico de relatórios publicados.
+9. Abrir relatórios completos e baixar PDFs disponíveis.
+
+**Jornada do cliente — relatório recebido por link:**
 
 1. Receber a mensagem no WhatsApp.
 2. Tocar em “Ver relatório”.
-3. Abrir o relatório pelo navegador.
+3. Abrir diretamente aquela versão pelo navegador, sem exigir login quando o link individual estiver válido.
 4. Consultar indicadores, resultados e comentários.
 5. Baixar o PDF.
 6. Solicitar interrupção dos próximos envios, se desejar.
 
-O cliente não precisa criar uma conta na V1.
+A Área do Cliente exige autenticação. O link individual de uma versão continua sendo uma credencial independente e pode permitir acesso direto ao relatório sem login, conforme as regras da seção R.
 
 ---
 
@@ -211,6 +228,8 @@ flowchart TD
     G --> H["Endpoint de webhook"]
     H --> C
     I["Cliente com link individual"] --> B
+    J["Cliente autenticado"] --> K["Área do Cliente"]
+    K --> B
 ```
 
 **Responsabilidades:**
@@ -242,6 +261,7 @@ Usar uma estrutura semelhante à seguinte, adaptando apenas o necessário ao pro
 | `src/components/charts/`    | Componentes de gráficos                   |
 | `src/modules/agencies/`     | Agências, equipe e permissões             |
 | `src/modules/clients/`      | Clientes e destinatários                  |
+| `src/modules/client-portal/` | Área do Cliente, vínculos, dashboard e histórico |
 | `src/modules/integrations/` | Configuração e diagnóstico de integrações |
 | `src/modules/meta/`         | Cliente da API e coleta                   |
 | `src/modules/metrics/`      | Normalização e cálculos                   |
@@ -286,6 +306,7 @@ Usar UUIDs internos. IDs externos da Meta devem ser armazenados como texto.
 | `agency_users`              | Agência, usuário e papel                              |
 | `agency_invitations`        | Convite, email, papel, expiração e consumo            |
 | `clients`                   | Nome, logo, observações, arquivamento                 |
+| `client_users`              | Vínculo entre usuário autenticado e cliente, com estado e datas |
 | `client_recipients`         | Cliente, nome, telefone, autorização e descadastro    |
 | `recipient_consent_events`  | Histórico de autorização e revogação                  |
 | `integrations`              | Tipo, agência, estado e última verificação            |
@@ -387,6 +408,9 @@ O Supabase combina permissões de tabela com políticas RLS. A chave privilegiad
 * RLS nas tabelas expostas.
 * Permissões de tabela explicitamente definidas.
 * Testes de acesso permitido e negado.
+* Usuários da Área do Cliente só podem ler dados e relatórios dos clientes aos quais estejam explicitamente vinculados.
+* O vínculo de cliente não concede acesso à administração da agência, integrações, segredos, equipe ou outros clientes.
+* Operações administrativas sobre vínculos da Área do Cliente exigem papel autorizado da agência.
 * Políticas correspondentes no Storage.
 * Autorização em cada operação de servidor.
 * Cookies e sessões configurados corretamente.
@@ -773,7 +797,25 @@ Cada relatório possui identidade própria e uma ou mais versões.
 * Valores indisponíveis claramente identificados.
 * Data da coleta visível.
 * Sem necessidade de login para quem possui link válido.
+* Usuários autenticados na Área do Cliente também podem abrir as versões às quais seu vínculo autoriza acesso.
 * Sem depender de consultas à Meta para abrir um relatório já produzido.
+
+**Área do Cliente e dados correntes:**
+
+A Área do Cliente não deve ser apenas uma lista de PDFs. Ela deve oferecer uma visão navegável do desempenho do cliente usando os dados já coletados e normalizados pela plataforma.
+
+* Dashboard próprio por cliente.
+* Seleção de período dentro do histórico disponível.
+* Comparação entre períodos compatíveis.
+* Indicadores principais configurados pela agência.
+* Evolução temporal das métricas suportadas.
+* Detalhamento de campanhas, conjuntos, anúncios e criativos quando habilitado.
+* Data e hora da última atualização.
+* Histórico de relatórios publicados.
+* Acesso aos PDFs e versões liberadas.
+* Estados claros para dado ausente, desatualizado ou ainda não coletado.
+
+A Área do Cliente deve reutilizar o mesmo motor de métricas e as mesmas definições utilizadas na geração dos relatórios, evitando divergência entre o que o cliente vê no dashboard e o que recebe em uma versão publicada.
 
 **PDF:**
 
@@ -1294,6 +1336,21 @@ Detalhe com:
 * Políticas de links.
 * Preferências operacionais.
 
+**Área do Cliente**
+
+* Login próprio dentro da mesma base de autenticação.
+* Seleção do cliente quando o usuário possuir vínculo com mais de um.
+* Dashboard com indicadores principais.
+* Seletor de período.
+* Comparação.
+* Evolução temporal.
+* Detalhamento permitido pela agência.
+* Histórico de relatórios.
+* Download de PDFs liberados.
+* Informação de última atualização.
+* Perfil básico e saída da conta.
+* Nenhum acesso a configurações internas da agência.
+
 **Estados de interface:**
 
 * Carregando.
@@ -1359,7 +1416,7 @@ Os dados devem dominar a interface.
 
 O modo escuro será a apresentação principal da administração.
 
-**Relatório:**
+**Relatório e Área do Cliente:**
 
 * Fundo claro.
 * Identidade discreta da agência e cliente.
@@ -1371,7 +1428,7 @@ O modo escuro será a apresentação principal da administração.
 **Responsividade:**
 
 * Administração desktop-first.
-* Relatório mobile-first.
+* Relatório e Área do Cliente mobile-first.
 * Menu adaptado ao celular.
 * Tabelas em cards ou rolagem controlada.
 * Elementos funcionais com teclado.
@@ -1596,6 +1653,11 @@ Os testes devem proteger regras importantes, especialmente dados, permissões e 
 * Último proprietário não pode ser removido indevidamente.
 * Assets privados respeitam autorização.
 * Tokens revogados deixam de autorizar novas requisições.
+* Usuário-cliente não acessa outro cliente da mesma agência sem vínculo explícito.
+* Usuário-cliente não acessa clientes de outra agência.
+* Usuário-cliente não obtém privilégios administrativos por possuir conta autenticada.
+* Vínculo desativado remove acesso à Área do Cliente em novas requisições.
+* Histórico e relatórios mostrados na Área do Cliente pertencem somente ao cliente autorizado.
 
 **Métricas:**
 
@@ -1693,10 +1755,11 @@ Implementar na ordem abaixo, mantendo uma aplicação funcional a cada etapa.
 | 15. WhatsApp         | Templates, envio e eventos                         | Teste real confirma o fluxo                        |
 | 16. Automação        | Agendamentos, outbox e pipeline                    | Execuções duplicadas não duplicam operações locais |
 | 17. Operação         | Alertas, auditoria e recuperação                   | Falhas podem ser explicadas e tratadas             |
-| 18. Onboarding       | Fluxo guiado e primeiras configurações             | Usuário consegue completar a configuração          |
-| 19. Polimento        | Responsividade, acessibilidade e animações         | Telas e estados revisados                          |
-| 20. Homologação      | Piloto com um cliente autorizado                   | Relatório e entrega conferidos ponta a ponta       |
-| 21. Produção         | Deploy e documentação operacional                  | Dependências e verificações concluídas             |
+| 18. Área do Cliente  | Login do cliente, vínculos, dashboard, períodos e histórico | Cliente consulta apenas seus próprios dados e relatórios |
+| 19. Onboarding       | Fluxo guiado e primeiras configurações             | Usuário consegue completar a configuração          |
+| 20. Polimento        | Responsividade, acessibilidade e animações         | Telas e estados revisados                          |
+| 21. Homologação      | Piloto com um cliente autorizado                   | Agência e cliente conferem o fluxo ponta a ponta   |
+| 22. Produção         | Deploy e documentação operacional                  | Dependências e verificações concluídas             |
 
 **Primeiro incremento concreto esperado do Codex:**
 
@@ -1774,7 +1837,9 @@ Cole a instrução abaixo junto com este planejamento:
 >
 > Implemente jobs com checkpoints, outbox, restrições únicas e tratamento de tentativas. Trate resultados incertos de envio como um estado próprio.
 >
-> Não adicione recursos fora da V1. Não implemente cobrança, Google Ads, IA generativa ou portal do cliente neste momento.
+> Não adicione recursos fora da V1. Não implemente cobrança, Google Ads ou IA generativa neste momento.
+>
+> A **Área do Cliente autenticada faz parte da V1 e é um componente central do produto**. Implemente-a com vínculos explícitos entre usuário e cliente, isolamento por RLS, dashboard próprio, seleção de períodos, comparações, evolução de métricas e histórico de relatórios. Ela deve reutilizar o mesmo motor de métricas da plataforma e nunca conceder acesso às configurações internas da agência.
 >
 > Resolva escolhas rotineiras de implementação com julgamento técnico e continue sem pedir confirmação a cada etapa.
 >

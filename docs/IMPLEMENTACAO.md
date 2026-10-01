@@ -1,6 +1,14 @@
 # Progresso da implementação
 
-Atualizado em 30/09/2026. O escopo deste incremento é a fundação solicitada: projeto, design system, autenticação inicial, isolamento por agência e dashboard em português. A [V1 completa](PLANEJAMENTO_V1.md) continua em desenvolvimento incremental.
+Atualizado em 30/09/2026. A [V1 completa](PLANEJAMENTO_V1.md) continua em desenvolvimento incremental. A decisão de produto mais recente tornou a **Área do Cliente um componente central da V1**; sua fundação de acesso foi antecipada para que banco e autorização não precisem ser refeitos depois.
+
+## Quarto incremento — fundação da Área do Cliente
+
+A quinta migration cria `client_users`, separado de `agency_users`, com vínculo explícito entre conta Auth e cliente. O cliente autenticado permanece somente leitura, não recebe papel na agência e não acessa equipe, auditoria ou configurações internas. Proprietário e administrador podem conceder ou revogar o vínculo por RPC autorizada; editor e leitor não podem. Concessão e revogação são auditadas e a revogação retira o acesso aos dados em novas requisições.
+
+A aplicação ganhou `src/modules/client-portal/context.ts` como camada de acesso próxima aos dados, `actions.ts` para gestão administrativa e `/cliente/:path*` no proxy. As rotas `/cliente` e `/cliente/[clientId]` já existem: selecionam apenas vínculos reais, suportam mais de um cliente e apresentam uma visão autenticada sem números fictícios. Os blocos de desempenho permanecem em estado vazio até coleta, métricas e relatórios reais estarem disponíveis. Veja [AREA_CLIENTE.md](AREA_CLIENTE.md).
+
+Validação local atual: **56 testes de aplicação**, **146 verificações pgTAP** em cinco migrations e **8 testes Playwright** aprovados usando o Chrome local. TypeScript, ESLint e build de produção também aprovados. Supabase real continua pendente de homologação.
 
 ## Terceiro incremento — destinatários
 
@@ -31,25 +39,25 @@ Testes atuais: 34 testes de aplicação, 90 verificações pgTAP em PGlite e 7 t
 
 ## Dependências externas pendentes
 
-Verificações adicionais: teste HTTP do build de produção aprovado (demo desabilitada retorna 404; dashboard sem configuração redireciona com 307 e sem cache). O planejamento foi preservado integralmente, com SHA-256 igual ao anexo. As verificações de navegador usaram Chrome local via Playwright. Capturas locais estão em `artifacts/`, ignorado pelo Git. TypeScript 6 e ESLint 9 foram escolhidos por compatibilidade com os plugins atuais do Next.js.
+Verificações adicionais: teste HTTP do build de produção aprovado (demo desabilitada retorna 404; dashboard sem configuração redireciona com 307 e sem cache). O planejamento foi atualizado em 30/09/2026 para incorporar a Área do Cliente autenticada à V1; por isso, o antigo SHA-256 do texto inicial deixou de representar o planejamento vigente. As verificações de navegador usam Chrome local via Playwright. Capturas locais estão em `artifacts/`, ignorado pelo Git. TypeScript 6 e ESLint 9 foram escolhidos por compatibilidade com os plugins atuais do Next.js.
 
 - Projeto Supabase local ou de homologação, migrations aplicadas e suíte SQL reexecutada nesse ambiente.
 - Usuário Supabase de teste e bootstrap da agência/associação.
-- Homologação do fluxo de login, expiração/renovação de sessão, logout e isolamento entre agências.
+- Homologação do fluxo de login, expiração/renovação de sessão, logout, isolamento entre agências e isolamento dos usuários da Área do Cliente.
 - Repositório remoto e projeto Vercel configurados, caso se deseje publicar.
 - Credenciais, contas autorizadas e homologação dos provedores nas respectivas etapas futuras.
 
-A máquina inicial não dispõe de Docker, `psql` ou Supabase CLI nem de credenciais fornecidas. Para verificar o SQL nesta máquina, `pnpm test:db` aplica as migrations reais em um banco descartável PostgreSQL WASM/PGlite. As 83 verificações pgTAP passaram, cobrindo isolamento entre agências, papéis, convites, último proprietário, auditoria, bootstrap e políticas de Storage.
+A máquina inicial não dispõe de Docker, `psql` ou Supabase CLI nem de credenciais fornecidas. Para verificar o SQL nesta máquina, o executor PGlite aplica as migrations reais em um banco descartável PostgreSQL WASM/PGlite. As **146 verificações pgTAP** passaram, cobrindo isolamento entre agências, papéis, convites, último proprietário, clientes, destinatários, Área do Cliente, auditoria, bootstrap e políticas de Storage.
 
 Nesse executor, as estruturas pertencentes ao Supabase Auth/Storage e `auth.uid()` são substitutos mínimos de teste. O resultado confirma os cenários SQL/RLS executados; não homologa serviços Auth/Storage via HTTP, concorrência entre sessões nem um ambiente Supabase real.
 
 ## Continuação
 
-1. Aplicar as migrations e repetir a suíte SQL em Supabase descartável, gerar tipos do banco e homologar autenticação, Storage e concorrência.
-2. Homologar o cadastro de clientes no Supabase e acrescentar destinatários e histórico de autorização de recebimento.
-3. Implementar gestão controlada de equipe/convites e concluir onboarding.
+1. Aplicar as cinco migrations e repetir a suíte SQL em Supabase descartável, gerar tipos do banco e homologar Auth, Storage, RLS e concorrência com usuários de agência e cliente.
+2. Homologar clientes, destinatários e o vínculo `client_users` no Supabase real de teste.
+3. Implementar gestão controlada de equipe/convites e o fluxo de provisionamento/convite para usuários da Área do Cliente.
 4. Conectar uma conta Meta autorizada e validar acesso, contas, coleta e parâmetros.
-5. Avançar para métricas, templates, snapshots, relatórios e aprovação.
+5. Avançar para métricas, templates, snapshots, relatórios e aprovação; em seguida conectar esses dados ao dashboard da Área do Cliente.
 6. Acrescentar PDF, links, WhatsApp, automação QStash e operação conforme o planejamento.
 
 Nenhum relatório real foi coletado, gerado ou enviado. A V1 só será concluída após o fluxo completo, repetível e homologado descrito no planejamento.

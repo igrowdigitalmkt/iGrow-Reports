@@ -10,6 +10,7 @@ export function safeRedirect(value: unknown, fallback = "/dashboard"): string {
   if (/[\\\u0000-\u0020\u007f]/.test(decoded) || decoded.startsWith("//")) return fallback;
   const target = new URL(value, "https://igrow.invalid");
   const allowed = target.pathname === "/dashboard" || target.pathname.startsWith("/dashboard/") ||
+    target.pathname === "/cliente" || target.pathname.startsWith("/cliente/") ||
     ["/convite", "/selecionar-agencia", "/auth/definir-senha"].includes(target.pathname);
   return target.origin === "https://igrow.invalid" && allowed ? `${target.pathname}${target.search}` : fallback;
 }

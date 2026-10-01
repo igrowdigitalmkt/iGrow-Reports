@@ -12,7 +12,7 @@ Clientes arquivados permitem consulta e descadastro, mas não novos destinatári
 
 Aplique `202609300004_recipients.sql` após as migrations anteriores. As tabelas `client_recipients` e `recipient_consent_events` têm RLS, FKs compostas e leitura limitada à agência. Usuários não escrevem diretamente nessas tabelas. RPCs autorizadas serializam operações por cliente e gravam estado, histórico e auditoria na mesma transação. Não há exclusão pela interface nem permissão de exclusão para usuários. Telefone duplicado no mesmo cliente é rejeitado.
 
-Os tipos TypeScript seguem temporariamente mantidos à mão; regenere-os quando houver Supabase disponível. `pnpm test:db` aplica as quatro migrations e executa as duas suítes SQL no PGlite. Login e APIs Supabase reais continuam pendentes de homologação.
+Os tipos TypeScript seguem temporariamente mantidos à mão; regenere-os quando houver Supabase disponível. `pnpm test:db` aplica as cinco migrations e executa as três suítes SQL no PGlite. Login e APIs Supabase reais continuam pendentes de homologação.
 
 ## Demonstração e limites
 

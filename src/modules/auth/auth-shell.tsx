@@ -15,7 +15,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-xs font-medium text-cyan-300"><Sparkles size={13} /> Clareza para cada resultado</div>
           <h1 className="max-w-lg text-4xl leading-[1.15] font-semibold tracking-tight sm:text-5xl">Os números contam.<br /><span className="text-blue-400">A sua análise transforma.</span></h1>
           <p className="mt-6 max-w-md text-base leading-7 text-slate-400">Um espaço para acompanhar a operação e transformar performance em conversas melhores com seus clientes.</p>
-          <div className="mt-10 flex items-start gap-3 text-sm text-slate-400"><ShieldCheck className="mt-0.5 shrink-0 text-cyan-400" size={18} /><p>Acesso exclusivo da sua equipe.<br /><span className="text-slate-500">Cada agência com seu próprio ambiente de dados.</span></p></div>
+          <div className="mt-10 flex items-start gap-3 text-sm text-slate-400"><ShieldCheck className="mt-0.5 shrink-0 text-cyan-400" size={18} /><p>Acesso protegido por conta.<br /><span className="text-slate-500">Cada pessoa visualiza somente os ambientes autorizados.</span></p></div>
         </section>
         <section className="self-center rounded-3xl border border-white/10 bg-[#111723] p-6 shadow-2xl shadow-black/20 sm:p-9">{children}</section>
         <p className="text-xs text-slate-500 lg:col-span-2">iGrow Digital <span aria-hidden="true">·</span> Inteligência para crescer <ArrowUpRight className="ml-1 inline" size={12} /></p>

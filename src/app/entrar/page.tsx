@@ -14,7 +14,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return <AuthShell>
     <p className="text-xs font-medium uppercase tracking-[0.16em] text-blue-400">Seu espaço de trabalho</p>
     <h2 className="mt-3 text-2xl font-semibold tracking-tight">Bem-vindo de volta</h2>
-    <p className="mt-2 text-sm leading-6 text-slate-400">Entre para acompanhar os resultados da sua agência.</p>
+    <p className="mt-2 text-sm leading-6 text-slate-400">Entre para acessar os resultados e ambientes liberados para a sua conta.</p>
     {!configured && <div role="status" className="mt-6 rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm"><p className="flex items-center gap-2 font-medium text-amber-200"><Settings2 size={16} />Não configurado</p><p className="mt-2 leading-6 text-slate-400">A autenticação ainda precisa ser conectada ao Supabase. O responsável pelo ambiente deve concluir a configuração.</p></div>}
     {params.erro === "link-invalido" && <p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">Este link não é válido ou expirou. Solicite um novo convite ao responsável.</p>}
     <LoginForm configured={configured} next={safeRedirect(params.next)} />
