@@ -1,27 +1,44 @@
 -- Meta Ads V1: each client owns one Meta connection, which may expose multiple ad accounts.
 -- Ad accounts without a Meta Business Portfolio are intentionally unsupported.
+-- This migration is intentionally idempotent because it was first applied through SQL Editor.
 
 alter table public.meta_connections
-  add column client_id uuid,
-  add column label text;
+  add column if not exists client_id uuid,
+  add column if not exists label text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'meta_connections_client_fkey'
+      and conrelid = 'public.meta_connections'::regclass
+  ) then
+    alter table public.meta_connections
+      add constraint meta_connections_client_fkey
+      foreign key (agency_id, client_id)
+      references public.clients(agency_id, id) on delete restrict;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'meta_connections_label_length'
+      and conrelid = 'public.meta_connections'::regclass
+  ) then
+    alter table public.meta_connections
+      add constraint meta_connections_label_length
+      check (label is null or char_length(btrim(label)) between 1 and 120);
+  end if;
+end
+$$;
 
 alter table public.meta_connections
-  add constraint meta_connections_client_fkey
-  foreign key (agency_id, client_id)
-  references public.clients(agency_id, id) on delete restrict;
+  drop constraint if exists meta_connections_agency_id_integration_id_key;
 
-alter table public.meta_connections
-  add constraint meta_connections_label_length
-  check (label is null or char_length(btrim(label)) between 1 and 120);
-
-alter table public.meta_connections
-  drop constraint meta_connections_agency_id_integration_id_key;
-
-create unique index meta_connections_one_per_client_idx
+create unique index if not exists meta_connections_one_per_client_idx
   on public.meta_connections(agency_id, client_id)
   where client_id is not null;
 
-create index meta_connections_client_idx
+create index if not exists meta_connections_client_idx
   on public.meta_connections(agency_id, client_id, created_at);
 
 -- A provider account may only be linked to the client that owns its Meta connection.
@@ -90,5 +107,5 @@ begin
 end;
 $$;
 
--- Existing agency-level rows are intentionally left unassigned. No production Meta
--- credential was connected before this migration; new connections must always carry client_id.
+-- Existing agency-level rows are intentionally left unassigned. New connections
+-- created by the application always carry client_id.
