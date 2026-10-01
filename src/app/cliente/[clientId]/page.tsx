@@ -261,6 +261,16 @@ function PerformanceContent({ view }: { view: ClientPortalMetricView }) {
 
   return (
     <>
+      {(context.compatibilityIssue === "multiple_timezones" ||
+        summary.compatibility_issue === "multiple_timezones") && (
+        <div role="status" className="client-alert">
+          <Info size={16} />
+          <p>
+            As contas usam fusos horários diferentes. Os totais consideram as mesmas
+            datas no calendário local configurado em cada conta.
+          </p>
+        </div>
+      )}
       <div className="client-metrics-grid">
         {metrics.map(({ label, value, icon: Icon }) => (
           <div className="client-metric-card" key={label}>

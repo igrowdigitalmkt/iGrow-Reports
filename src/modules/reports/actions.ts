@@ -20,7 +20,7 @@ const publishSchema = z.object({
 });
 
 export type ReportActionResult =
-  | { success: true; reportVersionId?: string }
+  | { success: true; reportVersionId?: string; warning?: string }
   | { error: string };
 
 function canEditReports(role: string) {
@@ -107,7 +107,13 @@ export async function generateManualReport(
   }
 
   revalidatePath("/dashboard/relatorios");
-  return { success: true, reportVersionId: data };
+  return {
+    success: true,
+    reportVersionId: data,
+    warning: summary.compatibility_issue === "multiple_timezones"
+      ? "As contas usam fusos diferentes. A consolidação considera as mesmas datas no calendário local de cada conta."
+      : undefined,
+  };
 }
 
 export async function publishReportVersion(

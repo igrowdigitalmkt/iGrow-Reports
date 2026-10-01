@@ -34,7 +34,10 @@ export function ReportManager({
     startTransition(async () => {
       const result = await generateManualReport({ agencyId, clientId, period, title, reportId });
       if ("error" in result) { setError(result.error); return; }
-      setNotice(reportId ? "Nova versão gerada. Revise e publique quando estiver pronta." : "Versão gerada. Revise e publique quando estiver pronta.");
+      const baseNotice = reportId
+        ? "Nova versão gerada. Revise e publique quando estiver pronta."
+        : "Versão gerada. Revise e publique quando estiver pronta.";
+      setNotice(result.warning ? `${baseNotice} ${result.warning}` : baseNotice);
       setReportId(null);
       router.refresh();
     });
