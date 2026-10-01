@@ -49,7 +49,7 @@ type MetaConnectionRow = {
 };
 type MetaAdAccountRow = {
   id: string; agency_id: string; meta_connection_id: string; external_id: string; name: string;
-  currency: string; timezone_name: string; account_status: string | null; business_name: string | null;
+  currency: string; timezone_name: string; account_status: string | null; business_name: string | null; business_id: string | null;
   archived_at: string | null; last_synced_at: string | null; created_at: string; updated_at: string;
 };
 type ClientAdAccountRow = {

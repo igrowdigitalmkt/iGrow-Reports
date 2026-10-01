@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { hasMetaAdsReadPermission, MetaApiError, MetaClient } from "@/modules/meta/client";
+import { hasBusinessPortfolio, hasMetaAdsReadPermission, MetaApiError, MetaClient } from "@/modules/meta/client";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -9,6 +9,20 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe("MetaClient", () => {
+  it("exige um ID real de portfólio; nome empresarial sozinho não basta", () => {
+    const account = { id: "act_1", name: "Conta", currency: "BRL", timezone_name: "America/Sao_Paulo" };
+    expect(hasBusinessPortfolio(account)).toBe(false);
+    expect(hasBusinessPortfolio({ ...account, business: { name: "Empresa" } })).toBe(false);
+    expect(hasBusinessPortfolio({ ...account, business: { id: "123", name: "Empresa" } })).toBe(true);
+  });
+
+  it("consulta metadados atuais da conta e rejeita respostas de outra conta", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ id: "act_2" }));
+    const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    await expect(client.getAdAccount("act_1")).rejects.toBeInstanceOf(MetaApiError);
+    const requested = fetchImpl.mock.calls as unknown as Array<[URL, RequestInit]>;
+    expect(requested[0][0].searchParams.get("fields")).toContain("business{id,name}");
+  });
   it("exige ads_read para conexão somente leitura", () => {
     expect(hasMetaAdsReadPermission(["ads_read"])).toBe(true);
     expect(hasMetaAdsReadPermission(["business_management"])).toBe(false);

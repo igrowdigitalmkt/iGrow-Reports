@@ -46,6 +46,10 @@ export type MetaAdAccount = {
   business?: { id?: string; name?: string };
 };
 
+export function hasBusinessPortfolio(account: MetaAdAccount) {
+  return /^\d+$/.test(account.business?.id ?? "");
+}
+
 export type MetaCampaign = {
   id: string;
   name: string;
@@ -243,6 +247,15 @@ export class MetaClient {
 
   async listPermissions(): Promise<MetaPermission[]> {
     return this.getAll<MetaPermission>("me/permissions", { limit: "200" });
+  }
+
+  async getAdAccount(adAccountId: string): Promise<MetaAdAccount> {
+    validateAccountId(adAccountId);
+    const account = await this.getPage<never>(adAccountId, {
+      fields: "id,account_id,name,currency,timezone_name,account_status,business{id,name}",
+    }) as unknown as MetaAdAccount;
+    if (account.id !== adAccountId) throw new MetaApiError({ httpStatus: 502 });
+    return account;
   }
 
   async listAdAccounts(systemUserId?: string): Promise<MetaAdAccount[]> {

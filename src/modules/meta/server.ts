@@ -12,6 +12,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/types/database";
 import {
   hasMetaAdsReadPermission,
+  hasBusinessPortfolio,
   MetaApiError,
   MetaClient,
   type MetaAdAccount,
@@ -115,6 +116,9 @@ async function syncAccounts(
     if (!account.id || !account.name || !account.currency || !account.timezone_name) {
       throw new MetaSetupError("A Meta retornou uma conta de anúncios sem os metadados obrigatórios.");
     }
+    if (!hasBusinessPortfolio(account)) {
+      throw new MetaSetupError("Contas de anúncios sem portfólio empresarial não são permitidas.");
+    }
   }
 
   if (accounts.length) {
@@ -129,6 +133,7 @@ async function syncAccounts(
         ? null
         : String(account.account_status),
       business_name: account.business?.name ?? null,
+      business_id: account.business!.id!,
       archived_at: null,
       last_synced_at: syncedAt,
     }));
@@ -482,6 +487,7 @@ export async function collectMetaClientInsights(input: {
     .from("meta_ad_accounts")
     .select("id,external_id,currency,timezone_name")
     .eq("agency_id", input.agencyId)
+    .eq("meta_connection_id", connection.id)
     .in("id", accountIds)
     .is("archived_at", null);
   if (accountsError || !accounts?.length) {
@@ -496,6 +502,17 @@ export async function collectMetaClientInsights(input: {
 
   try {
     for (const account of accounts) {
+      const liveAccount = await client.getAdAccount(account.external_id);
+      if (!hasBusinessPortfolio(liveAccount)) {
+        throw new MetaSetupError("A Meta não confirmou um portfólio empresarial para esta conta. A coleta foi bloqueada.");
+      }
+      if (liveAccount.currency !== account.currency || liveAccount.timezone_name !== account.timezone_name) {
+        throw new MetaSetupError("Os metadados da conta mudaram na Meta. Sincronize as contas antes de coletar.");
+      }
+      const { error: metadataError } = await service.from("meta_ad_accounts")
+        .update({ business_id: liveAccount.business!.id!, business_name: liveAccount.business?.name ?? null })
+        .eq("agency_id", input.agencyId).eq("id", account.id);
+      if (metadataError) throw new MetaSetupError("Não foi possível registrar o portfólio empresarial da conta.");
       const insights = await client.getDailyInsights({
         adAccountId: account.external_id,
         since: input.since,
@@ -527,7 +544,7 @@ export async function collectMetaClientInsights(input: {
           api_version: apiVersion,
           attribution_setting: null,
           collected_at: new Date().toISOString(),
-          metadata: {},
+          metadata: { timezone_name: liveAccount.timezone_name, business_id: liveAccount.business!.id! },
         };
         const { error: insightError } = await service
           .from("meta_daily_insights")
