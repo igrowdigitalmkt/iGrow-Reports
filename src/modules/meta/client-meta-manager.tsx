@@ -304,8 +304,7 @@ export function ClientMetaManager({
               archived ||
               !ready ||
               !connected ||
-              activeLinks.size === 0 ||
-              !mappingReady
+              activeLinks.size === 0
             }
           >
             <RefreshCw className={pending ? "animate-spin" : ""} size={15} />
@@ -316,7 +315,7 @@ export function ClientMetaManager({
           <p className="muted mt-3 text-xs">Associe ao menos uma conta de anúncios antes da coleta.</p>
         )}
         {ready && connected && activeLinks.size > 0 && !mappingReady && (
-          <p className="muted mt-3 text-xs">Salve o resultado principal antes da primeira coleta.</p>
+          <p className="muted mt-3 text-xs">Colete os dados primeiro. Depois configure o resultado principal com uma ação retornada pela Meta para gerar relatórios.</p>
         )}
       </section>
 
