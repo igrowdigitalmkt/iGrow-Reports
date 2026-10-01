@@ -73,12 +73,18 @@ values('50000000-0000-4000-8000-000000000052','aaaaaaaa-0000-4000-8000-000000000
 insert into client_ad_accounts(agency_id,client_id,ad_account_id,active)
 values('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051','50000000-0000-4000-8000-000000000052',true);
 
+insert into meta_collection_runs(agency_id,client_id,ad_account_id,date_from,date_to,status,insight_count,levels) values
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051','50000000-0000-4000-8000-000000000051','2026-09-29','2026-09-30','complete',2,array['account','campaign']),
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051','50000000-0000-4000-8000-000000000052','2026-09-29','2026-09-30','complete',0,array['account','campaign']);
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000051',true);
 
 select is((select data_status from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30')), 'ok', 'Fusos diferentes permitem relatório por datas locais');
 select is((select compatibility_issue from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30')), 'multiple_timezones', 'Aviso de fuso usa os metadados reais das contas');
 select is((select data_status from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000051','2026-08-01','2026-08-02')), 'no_data', 'Ausência de dados não é tratada como bloqueio por fuso');
+select is((select data_status from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000051','2026-09-28','2026-09-30')), 'partial', 'Resumo não chama período parcialmente coletado de completo');
+select throws_ok($$select create_manual_report_version('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051','2026-09-28','2026-09-30',null,'Dados parciais')$$,'22023',null,'RPC rejeita relatório com um dia ainda sem cobertura');
 
 insert into report_test_ids(first_version)
 select create_manual_report_version(

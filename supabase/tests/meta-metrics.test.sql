@@ -61,6 +61,10 @@ insert into meta_daily_actions(
 ('aaaaaaaa-0000-4000-8000-000000000041','50000000-0000-4000-8000-000000000041','2026-09-29','account','act_1001','omni_purchase',2,400),
 ('aaaaaaaa-0000-4000-8000-000000000041','50000000-0000-4000-8000-000000000041','2026-09-30','account','act_1001','omni_purchase',3,600);
 
+insert into meta_collection_runs(agency_id,client_id,ad_account_id,date_from,date_to,status,insight_count,levels)
+values('aaaaaaaa-0000-4000-8000-000000000041','11111111-0000-4000-8000-000000000041',
+  '50000000-0000-4000-8000-000000000041','2026-09-29','2026-09-30','complete',2,array['account','campaign']);
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000041',true);
 

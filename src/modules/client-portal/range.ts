@@ -14,14 +14,17 @@ function shiftDate(value: string, days: number) {
 
 export function resolveAnalyticsRange(
   query: { periodo?: string; from?: string; to?: string },
-  timezone = "America/Sao_Paulo",
+  timezone: string | string[] = "America/Sao_Paulo",
   now = new Date(),
 ) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(now);
-  const local = Object.fromEntries(parts.map(part => [part.type, part.value]));
-  const today = `${local.year}-${local.month}-${local.day}`;
+  const timezones = Array.isArray(timezone) ? timezone : [timezone];
+  const today = (timezones.length ? timezones : ["America/Sao_Paulo"]).map(timeZone => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(now);
+    const local = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${local.year}-${local.month}-${local.day}`;
+  }).sort()[0];
   const presets: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90, "180d": 180, "365d": 365 };
   const period: AnalyticsPeriod = query.periodo === "custom" ? "custom" :
     Object.hasOwn(presets, query.periodo ?? "") ? query.periodo as AnalyticsPeriod : "30d";

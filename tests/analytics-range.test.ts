@@ -10,6 +10,9 @@ describe("dashboard date ranges", () => {
   it("supports one year across a leap day", () => {
     expect(resolveAnalyticsRange({ periodo: "365d" }, "UTC", new Date("2024-03-01T12:00:00Z"))).toMatchObject({ dateFrom: "2023-03-02", dateTo: "2024-02-29" });
   });
+  it("waits for the day to finish in every selected account timezone", () => {
+    expect(resolveAnalyticsRange({ periodo: "7d" }, ["America/Sao_Paulo", "America/Los_Angeles"], new Date("2026-10-01T03:30:00Z"))).toMatchObject({ dateFrom: "2026-09-23", dateTo: "2026-09-29" });
+  });
   it("compares a custom inclusive interval with equal previous days", () => {
     expect(resolveAnalyticsRange({ periodo: "custom", from: "2026-09-01", to: "2026-09-30" }, "UTC", new Date("2026-10-01"))).toMatchObject({ previousDateFrom: "2026-08-02", previousDateTo: "2026-08-31" });
   });

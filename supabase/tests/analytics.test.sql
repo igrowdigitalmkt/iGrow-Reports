@@ -38,6 +38,7 @@ insert into meta_daily_insights(agency_id,ad_account_id,insight_date,level,exter
 ('aaaaaaaa-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-29','campaign','campaign61','Campanha real',100,10000,9000,50,'v26.0','{}'),
 ('aaaaaaaa-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-30','campaign','campaign61','Campanha real',200,10000,9500,50,'v26.0','{}'),
 ('aaaaaaaa-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-30','ad','ad61','Anúncio real',999,999,999,999,'v26.0','{}'),
+('aaaaaaaa-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000064','2026-09-30','account','act_6104','Conta arquivada',777,777,777,777,'v26.0','{}'),
 ('aaaaaaaa-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000063','2026-09-30','account','act_6103','Outra conta',9999,9999,9999,9999,'v26.0','{}');
 insert into meta_daily_actions(agency_id,ad_account_id,insight_date,level,external_entity_id,action_type,action_value,value_amount) values
 ('aaaaaaaa-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-29','account','act_6101','lead',10,null),
@@ -48,7 +49,11 @@ insert into meta_daily_actions(agency_id,ad_account_id,insight_date,level,extern
 ('aaaaaaaa-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-30','campaign','campaign61','lead',20,null);
 insert into meta_collection_runs(agency_id,client_id,ad_account_id,date_from,date_to,status,insight_count,levels) values
 ('aaaaaaaa-0000-4000-8000-000000000061','11111111-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-28','2026-09-30','complete',4,array['account','campaign']),
+('aaaaaaaa-0000-4000-8000-000000000061','11111111-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-22','2026-09-24','complete',0,array['account','campaign']),
 ('aaaaaaaa-0000-4000-8000-000000000061','11111111-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-25','2026-09-27','complete',1,array['account','campaign']);
+insert into meta_collection_runs(agency_id,client_id,ad_account_id,date_from,date_to,status,insight_count,levels)
+values('aaaaaaaa-0000-4000-8000-000000000061','11111111-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061',
+  (now() at time zone 'America/Sao_Paulo')::date,(now() at time zone 'America/Sao_Paulo')::date,'complete',0,array['account','campaign']);
 insert into meta_period_insights(agency_id,client_id,ad_account_id,date_from,date_to,reach,frequency,unique_clicks,api_version) values
 ('aaaaaaaa-0000-4000-8000-000000000061','11111111-0000-4000-8000-000000000061','50000000-0000-4000-8000-000000000061','2026-09-28','2026-09-30',12000,1.6667,85,'v26.0');
 
@@ -74,6 +79,12 @@ select is((select data->>'previousDateFrom' from analytics_payload),'2026-09-25'
 select is((select (data->'previousSummary'->>'spend')::numeric from analytics_payload),50::numeric,'Dados anteriores preservam período separado');
 select is((select (data->'campaigns'->0->'values'->>'spend')::numeric from analytics_payload),300::numeric,'Tabela de campanhas usa exclusivamente granularidade campaign');
 select is((select data->'summary'->>'inline_post_engagement' from analytics_payload),null::text,'Campo não coletado permanece indisponível');
+select is((select spend from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000061','2026-09-28','2026-09-30')),300::numeric,'Resumo de relatório usa o mesmo escopo, excluindo conexão de outro cliente');
+select is((select ad_account_count from get_client_portal_data_context('11111111-0000-4000-8000-000000000061')),1,'Contexto do cliente exclui contas da conexão de outro cliente');
+select is((select spend from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000061','2026-09-22','2026-09-24')),0::numeric,'Coleta completa sem atividade permanece consultável como investimento zero');
+select is((select data_status from get_client_portal_metric_summary('11111111-0000-4000-8000-000000000061',
+  (now() at time zone 'America/Sao_Paulo')::date,(now() at time zone 'America/Sao_Paulo')::date)),
+  'partial','Um dia local ainda aberto nunca fica pronto para congelar em relatório');
 select throws_ok($$select get_client_analytics('11111111-0000-4000-8000-000000000061','2025-01-01','2026-09-30')$$,'22023',null,'Período excessivo é rejeitado');
 select throws_ok($$select get_client_analytics('11111111-0000-4000-8000-000000000061','2026-09-30','2026-09-29')$$,'22023',null,'Datas invertidas são rejeitadas');
 select throws_ok($$select get_client_analytics('11111111-0000-4000-8000-000000000061','2026-09-28','2026-09-30',array['50000000-0000-4000-8000-000000000063']::uuid[])$$,'42501',null,'Filtro não aceita conta da conexão de outro cliente');

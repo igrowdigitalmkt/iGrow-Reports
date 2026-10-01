@@ -34,10 +34,19 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     filterError = error instanceof Error && !(error instanceof z.ZodError) ? error.message : "Filtro de contas inválido.";
     accountIds = undefined;
   }
-  const [data, history] = await Promise.all([
+  const [initialData, history] = await Promise.all([
     getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds),
     listClientPortalReports(supabase, clientId),
   ]);
+  let data = initialData;
+  if (range.period !== "custom") {
+    const completeRange = resolveAnalyticsRange({ periodo: range.period }, data.accounts
+      .filter(account => data.selectedAccountIds.includes(account.id)).map(account => account.timezoneName));
+    if (completeRange.dateTo !== range.dateTo) {
+      range = completeRange;
+      data = await getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds);
+    }
+  }
   return <ClientPortalShell title={access.client.name}
     description="Explore os resultados, acompanhe a evolução e transforme seus dados em decisões."
     userEmail={user.email} agencyMode={agencyMode} showClientSwitcher={!agencyMode && accesses.length > 1}>
