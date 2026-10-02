@@ -132,7 +132,7 @@ export function ClientAnalyticsDashboard({
       .filter((key) => data.metrics.some((metric) => metric.key === key)),
   );
   const [draggedMetricKey, setDraggedMetricKey] = useState<string | null>(null);
-  const [tab, setTab] = useState<"overview" | "campaigns" | "metrics" | "reports">("overview");
+  const [tab, setTab] = useState<"overview" | "campaigns" | "metrics" | "reports">(query.get("aba") === "reports" ? "reports" : "overview");
   const [campaignQuery, setCampaignQuery] = useState("");
   const roots = entities.filter(entity => entity.level === "campaign");
   const allLeaves = roots.flatMap(entity => leafKeys(entity, entities));
@@ -218,7 +218,7 @@ export function ClientAnalyticsDashboard({
       updating = true;
       try {
         const result = await collectDashboardData({ clientId, from: data.dateFrom, to: data.dateTo, automatic: true });
-        if (result.error) setError(result.error);
+        if (result.error) setError(result.error ?? "Não foi possível concluir esta ação.");
         router.refresh();
       } finally { updating = false; }
     };
@@ -380,14 +380,29 @@ export function ClientAnalyticsDashboard({
     });
   }
 
-  async function exportPdf(orientation: "vertical" | "horizontal" = "vertical") {
-    try {
-      await downloadDashboardPdf({ title: reportTitle, clientName, workspaceName: headerName || workspaceName,
-        headerDetails, data: scopedData, metrics: overviewMetrics,
-        entityLabels: scopeData ? selectedEntities.map(entity => entity.name) : ["Todas as campanhas"],
-        accountLabels: data.accounts.filter(account => data.selectedAccountIds.includes(account.id)).map(account => account.name),
-        comparison, chartType, entityRows: selectedEntities, campaignMetrics, orientation });
-    } catch { setError("Não foi possível gerar o PDF. Tente novamente."); }
+  function exportPdf(orientation: "vertical" | "horizontal" = "vertical") {
+    setError(""); setNotice("");
+    startTransition(async () => {
+      try {
+        if (canManageReports) {
+          const result = await generateDashboardReport({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
+            accountIds: data.selectedAccountIds, metricKeys: overviewMetrics.map(metric => metric.key),
+            entityKeys: scopeData ? appliedEntityKeys : [], campaignMetricKeys, comparison, chartType, orientation,
+            header: { name: headerName, details: headerDetails }, title: reportTitle });
+          if ("error" in result) { setError(result.error ?? "Não foi possível concluir esta ação."); return; }
+          router.refresh();
+          try { await downloadSavedReportPdf(clientId, result.reportVersionId); }
+          catch { setError("O relatório foi salvo. Baixe o PDF pela seção Relatórios."); return; }
+          setNotice("Relatório salvo e baixado. Ele está em Relatórios, pronto para revisar e publicar para o cliente.");
+        } else {
+          await downloadDashboardPdf({ title: reportTitle, clientName, workspaceName: headerName || workspaceName,
+            headerDetails, data: scopedData, metrics: overviewMetrics,
+            entityLabels: scopeData ? selectedEntities.map(entity => entity.name) : ["Todas as campanhas"],
+            accountLabels: data.accounts.filter(account => data.selectedAccountIds.includes(account.id)).map(account => account.name),
+            comparison, chartType, entityRows: selectedEntities, campaignMetrics, orientation });
+        }
+      } catch { setError("Não foi possível gerar o relatório. Tente novamente."); }
+    });
   }
 
   function downloadReport(reportVersionId: string) {
@@ -400,28 +415,6 @@ export function ClientAnalyticsDashboard({
   function sortBy(key: string) {
     setSortDirection(sortKey === key && sortDirection === "desc" ? "asc" : "desc");
     setSortKey(key);
-  }
-
-  function generateReport() {
-    setError(""); setNotice("");
-    startTransition(async () => {
-      const result = await generateDashboardReport({
-        clientId,
-        dateFrom: data.dateFrom,
-        dateTo: data.dateTo,
-        accountIds: data.selectedAccountIds,
-        metricKeys: overviewMetrics.map((metric) => metric.key),
-        entityKeys: scopeData ? appliedEntityKeys : [],
-        header: { name: headerName, details: headerDetails }, comparison, chartType, campaignMetricKeys,
-        title: reportTitle,
-      });
-      if ("error" in result) {
-        setError(result.error ?? "Não foi possível concluir esta ação.");
-        return;
-      }
-      setNotice("Relatório gerado. Revise e publique quando estiver pronto.");
-      router.refresh();
-    });
   }
 
   function publishReport(reportVersionId: string) {
@@ -574,6 +567,17 @@ export function ClientAnalyticsDashboard({
     </div>
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
       {tab === "overview" && <>
+        <details className="analytics-card analytics-report-settings">
+          <summary><FileText size={15} />Personalizar cabeçalho do relatório<ChevronDown size={14} /></summary>
+          <div className="analytics-report-create-body">
+            <div className="analytics-report-header-fields">
+              <label>Título do relatório<input className="input" aria-label="Título do relatório" value={reportTitle} maxLength={200} onChange={event => setReportTitle(event.target.value)} /></label>
+              <label>Nome no cabeçalho<input className="input" value={headerName} maxLength={160} onChange={event => setHeaderName(event.target.value)} /></label>
+              <label>Informações do responsável<textarea className="input" rows={2} value={headerDetails} maxLength={500} placeholder="Empresa, gestor, site ou contato" onChange={event => setHeaderDetails(event.target.value)} /></label>
+            </div>
+            <small>{canManageReports ? "O PDF será baixado e salvo em Relatórios. Publique após revisar para liberar o acesso ao cliente." : "O PDF será baixado para o seu dispositivo."}</small>
+          </div>
+        </details>
         <div className="analytics-kpi-grid analytics-kpi-grid-fixed">
           {fixedMetrics.map((metric, index) => {
             const change = changeDescription(scopedData, metric);
@@ -750,59 +754,30 @@ export function ClientAnalyticsDashboard({
         })}
       </div>}
       {tab === "reports" && <div className="analytics-reports-space">
-        <section className="analytics-card analytics-report-create-card">
-          <div className="analytics-card-heading"><div><span className="analytics-card-kicker">RELATÓRIO DO ESCOPO ATUAL</span>
-            <h3>{canManageReports ? "Gerar e preservar relatório" : "Exportar análise em PDF"}</h3></div><FileText size={17} /></div>
-          <div className="analytics-report-create-body">
-            <p>Período: <strong>{displayDate(data.dateFrom)} – {displayDate(data.dateTo)}</strong> · {data.selectedAccountIds.length} conta(s) · {overviewMetrics.length} métricas.</p>
-            <div className="analytics-report-header-fields">
-              <label>Nome no cabeçalho<input className="input" value={headerName} maxLength={160} onChange={event => setHeaderName(event.target.value)} /></label>
-              <label>Informações do responsável<textarea className="input" rows={2} value={headerDetails} maxLength={500}
-                placeholder="Empresa, gestor, site ou contato" onChange={event => setHeaderDetails(event.target.value)} /></label>
-            </div>
-            {scopeDirty && <p role="status">Aplique a seleção na aba Campanhas antes de gerar o relatório.</p>}
-            <details className="analytics-filter-menu analytics-pdf-menu">
-              <summary><Download size={15} />Gerar Relatório em PDF<ChevronDown size={13} /></summary>
-              <div className="analytics-filter-popover">
-                <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("vertical"); }}><RectangleVertical size={19} /><span>Vertical<small>A4 · documento</small></span></button>
-                <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("horizontal"); }}><RectangleHorizontal size={19} /><span>Horizontal<small>1920 × 1080 · apresentação</small></span></button>
-              </div>
-            </details>
-            <div className="analytics-report-create-controls">
-              <input className="input" value={reportTitle} onChange={(event) => setReportTitle(event.target.value)}
-                maxLength={200} aria-label="Título do relatório" />
-              {canManageReports && <button type="button" className="analytics-button analytics-button-primary" onClick={generateReport}
-                disabled={pending || scopeDirty || reportTitle.trim().length < 2}><FileText size={14} />{pending ? "Gerando…" : "Gerar e salvar relatório"}</button>}
-            </div>
-            <small>{canManageReports
-              ? "A versão gerada fica salva e pode ser publicada para o cliente."
-              : "A exportação é local e não cria um relatório salvo no sistema."}</small>
-          </div>
-        </section>
         <section className="analytics-card analytics-report-list-card">
           <div className="analytics-card-heading"><div><span className="analytics-card-kicker">HISTÓRICO</span>
-            <h3>Relatórios {canManageReports ? "deste cliente" : "publicados"}</h3></div>
+            <h3>Relatórios {canManageReports ? "deste cliente" : "publicados"}</h3><p className="analytics-report-help">{canManageReports ? "Revise os arquivos gerados na Visão geral. Ao publicar, o relatório fica disponível na conta do cliente." : "Consulte e baixe os relatórios publicados para você."}</p></div>
             <select className="input" aria-label="Estado dos relatórios" value={reportState} onChange={event => setReportState(event.target.value)}>
-              <option value="all">Todos os estados</option><option value="published">Publicados</option>
-              {canManageReports && <option value="ready">Prontos para publicar</option>}<option value="superseded">Histórico</option>
+              <option value="all">Todos os status</option><option value="published">Publicados</option>
+              {canManageReports && <option value="ready">Não publicados</option>}<option value="superseded">Histórico</option>
             </select>
             <label className="analytics-search"><Search size={14} /><input type="search" value={reportSearch}
               onChange={(event) => setReportSearch(event.target.value)} placeholder="Buscar relatório…" /></label>
           </div>
           {reportRows.length ? <div className="analytics-report-list">{reportRows.map((report) => <div className="analytics-report-row" key={report.reportVersionId}>
-            <div><strong>{report.title} · v{report.versionNumber}</strong>
+            <div><strong>{report.title}</strong>
               <span>{displayDate(report.dateFrom)} – {displayDate(report.dateTo)}</span></div>
             <span className={`analytics-report-state is-${report.state}`}>
-              {report.state === "ready" ? "Pronto para publicar" : report.state === "published" ? "Publicado" : "Histórico"}
+              {report.state === "ready" ? "Não publicado" : report.state === "published" ? "Publicado" : "Histórico"}
             </span>
             <div className="analytics-report-actions">
-              <button type="button" className="analytics-button analytics-button-secondary" onClick={() => downloadReport(report.reportVersionId)} disabled={pending}><Download size={14} />PDF</button>
-              {(report.state === "published" || report.state === "superseded") && <Link className="analytics-button analytics-button-secondary"
+              <button type="button" className="analytics-button analytics-button-secondary" onClick={() => downloadReport(report.reportVersionId)} disabled={pending}><Download size={14} />Baixar PDF</button>
+              {<Link className="analytics-button analytics-button-secondary"
                 href={`/cliente/${clientId}/relatorios/${report.reportVersionId}`}>Visualizar</Link>}
               {canManageReports && report.state === "ready" && <button type="button" className="analytics-button analytics-button-primary"
                 onClick={() => publishReport(report.reportVersionId)} disabled={pending}>Publicar</button>}
               {canManageReports && <button type="button" className="analytics-icon-danger" onClick={() => deleteReport(report.reportId)}
-                aria-label={`Excluir ${report.title}`} disabled={pending}><Trash2 size={15} /></button>}
+                aria-label={`Excluir ${report.title}`} disabled={pending}><Trash2 size={15} /><span>Excluir</span></button>}
             </div>
           </div>)}</div> : <p className="analytics-empty-copy">Nenhum relatório encontrado.</p>}
         </section>

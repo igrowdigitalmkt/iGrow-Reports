@@ -30,13 +30,18 @@ describe("PDF do dashboard", () => {
       precision: 2, desirable: "up" as const,
     }));
     const data = normalizeClientAnalytics({ dateFrom: "2026-09-01", dateTo: "2026-09-30", currency: "BRL", accounts: [{id:"a",name:"Conta principal",timezoneName:"America/Sao_Paulo",currency:"BRL"}], selectedAccountIds:["a"],
-      summary: {spend:12345.67,impressions:987654,primary_results:123,reach:null,link_clicks:345,cpm:12.5,cost_per_result:100.37}, metrics,
+      accountTotals:[{id:"a",name:"Conta principal",currency:"BRL",values:{spend:12345.67}}], campaigns:[{id:"c",name:"Campanha destaque",accountId:"a",accountName:"Conta principal",currency:"BRL",values:{spend:12345.67}}], summary: {spend:12345.67,impressions:987654,primary_results:123,reach:null,link_clicks:345,cpm:12.5,cost_per_result:100.37,"action:custom_test":42}, metrics:[...metrics,{key:"action:custom_test",label:"Cadastros especiais",unit:"integer",precision:0,desirable:"up"}],
       daily:Array.from({length:30},(_,i)=>({date:`2026-09-${String(i+1).padStart(2,"0")}`,values:{spend:Math.sin(i)*100+400,primary_results:i%7}})),
       previousDaily:Array.from({length:30},(_,i)=>({date:`2026-08-${String(i+1).padStart(2,"0")}`,values:{spend:200+i,primary_results:i%4}})),
       coverage:{status:"complete",previousStatus:"complete",coveredDays:30,totalDays:30,latestCollectedAt:"2026-10-01T10:00:00Z"} });
     const doc = buildDashboardPdf({ title:"Relatório de performance",clientName:"Cliente demonstrativo",workspaceName:"Gestor de tráfego independente",headerDetails:"Contato: contato@example.test | www.example.test",data,metrics,
-      entityLabels:Array.from({length:60},(_,i)=>`Anúncio ${i+1}: campanha de demonstração com título extenso para verificar a paginação`), accountLabels:["Conta principal"],comparison:true,chartType:"bar" });
+      entityLabels:["Todas as campanhas",...Array.from({length:60},(_,i)=>`Anúncio ${i+1}: campanha de demonstração com título extenso para verificar a paginação`)], accountLabels:["Conta principal"],comparison:true,chartType:"bar" });
     expect(doc.getNumberOfPages()).toBeGreaterThan(2);
+    expect(doc.output()).toContain("Cadastros especiais");
+    expect(doc.output()).toContain("Investimento por conta");
+    expect(doc.output()).toContain("O que merece aten");
+    expect(doc.output()).toContain("Dados di");
+    expect(doc.output()).not.toContain("Comparação: período anterior | Gráfico: linhas");
     const pdf = Buffer.from(doc.output("arraybuffer"));
     expect(pdf.subarray(0,5).toString()).toBe("%PDF-");
     const horizontal = buildDashboardPdf({ title:"Relatório de performance",clientName:"Colégio Crescer",workspaceName:"iGrow Digital",headerDetails:"",data,metrics,
@@ -45,6 +50,7 @@ describe("PDF do dashboard", () => {
     expect(horizontal.internal.pageSize.getWidth() / horizontal.internal.pageSize.getHeight()).toBeCloseTo(16/9, 5);
     expect(horizontal.getNumberOfPages()).toBeGreaterThanOrEqual(6);
     expect(horizontal.output()).toContain("Obrigado.");
+    expect(horizontal.output()).not.toContain("Apresentação encerrada");
     if (process.env.IGROW_PDF_QA_DIR) {
       writeFileSync(`${process.env.IGROW_PDF_QA_DIR}/vertical.pdf`,pdf);
       writeFileSync(`${process.env.IGROW_PDF_QA_DIR}/horizontal.pdf`,Buffer.from(horizontal.output("arraybuffer")));

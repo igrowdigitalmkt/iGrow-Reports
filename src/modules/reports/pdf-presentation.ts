@@ -142,7 +142,7 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
       doc.setDrawColor(C.border); doc.line(100, y + 34, 1820, y + 34);
     });
   }
-  slide("Apresentação encerrada", "RELATÓRIO DE PERFORMANCE");
+  doc.addPage([1920, 1080], "landscape"); background();
   text("Obrigado.", 100, 465, 100, C.ink, 1700, true);
   text(input.clientName, 105, 560, 40, C.muted);
   text(input.workspaceName, 105, 655, 32, C.cyan);
