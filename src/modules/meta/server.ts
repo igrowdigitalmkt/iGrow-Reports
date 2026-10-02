@@ -1,4 +1,7 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import type { AnalyticsDashboardData, AnalyticsMetric, AnalyticsValues } from "@/modules/client-portal/analytics-types";
+import { metaMetricLabel } from "./metric-labels";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -20,6 +23,117 @@ import { normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, vali
 
 const TOKEN_KIND = "meta_access_token";
 
+// The caller first obtains data through the authenticated, client-scoped RPC.
+export async function refreshMetaDashboardScope(input: { agencyId: string; clientId: string; data: AnalyticsDashboardData; entityKeys?: string[] }) {
+  const { data } = input;
+  const keys = input.entityKeys ?? [];
+  if (!data.selectedAccountIds.length) return;
+  const scopeKey = createHash("md5").update([...data.selectedAccountIds].sort().join(",") + "|" + [...keys].sort().join(",")).digest("hex");
+  const { service, apiVersion } = operationalDependencies();
+  const { data: cached } = await service.from("meta_dashboard_scopes").select("collected_at")
+    .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("scope_key", scopeKey)
+    .eq("date_from", data.dateFrom).eq("date_to", data.dateTo).maybeSingle();
+  if (cached && Date.now() - Date.parse(cached.collected_at) < 300_000
+    && Date.parse(data.coverage.latestCollectedAt ?? "1970-01-01") <= Date.parse(cached.collected_at)) return;
+  const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+  const { data: links } = await service.from("client_ad_accounts").select("ad_account_id")
+    .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("active", true).in("ad_account_id", data.selectedAccountIds);
+  if (links?.length !== data.selectedAccountIds.length) throw new MetaSetupError("Contas fora do escopo autorizado.");
+  const { data: accounts } = await service.from("meta_ad_accounts").select("id,external_id")
+    .eq("agency_id", input.agencyId).eq("meta_connection_id", connection.id).in("id", data.selectedAccountIds).is("archived_at", null);
+  if (accounts?.length !== data.selectedAccountIds.length) throw new MetaSetupError("Contas indisponíveis.");
+  const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
+  const client = new MetaClient({ accessToken: token, apiVersion });
+  const periods = await Promise.all(accounts.map(async account => {
+    let adIds: string[] | undefined;
+    if (keys.length) {
+      const ads = await client.listAds(account.external_id);
+      for (let offset = 0; ; offset += 1000) {
+        const { data: history, error } = await service.from("meta_daily_insights").select("external_entity_id,parent_external_id,metadata")
+          .eq("agency_id", input.agencyId).eq("ad_account_id", account.id).eq("level", "ad")
+          .gte("insight_date", data.previousDateFrom).lte("insight_date", data.dateTo)
+          .order("insight_date").order("external_entity_id").range(offset, offset + 999);
+        if (error) throw new MetaSetupError("Não foi possível resolver anúncios históricos.");
+        for (const row of history ?? []) if (!ads.some(ad => ad.id === row.external_entity_id)) {
+          const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata) ? row.metadata : {};
+          ads.push({ id: row.external_entity_id, name: row.external_entity_id, adset_id: row.parent_external_id ?? undefined,
+            campaign_id: typeof metadata.campaign_id === "string" ? metadata.campaign_id : undefined });
+        }
+        if (!history || history.length < 1000) break;
+      }
+      adIds = ads.filter(ad => keys.includes(`ad:${ad.id}`) || keys.includes(`adset:${ad.adset_id}`) || keys.includes(`campaign:${ad.campaign_id}`)).map(ad => ad.id);
+      if (!adIds.length) return null;
+    }
+    const [current, previous] = await Promise.all([
+      client.getPeriodInsights({ adAccountId: account.external_id, since: data.dateFrom, until: data.dateTo, adIds }),
+      client.getPeriodInsights({ adAccountId: account.external_id, since: data.previousDateFrom, until: data.previousDateTo, adIds }),
+    ]);
+    if (current.length > 1 || previous.length > 1) throw new MetaSetupError("A Meta não retornou um agregado único por conta.");
+    if ([...current, ...previous].some(row => row.account_id && `act_${row.account_id}` !== account.external_id)) throw new MetaSetupError("Agregado fora da conta autorizada.");
+    return { current: current[0] ?? {}, previous: previous[0] ?? {} };
+  }));
+  const relevant = periods.filter((row): row is NonNullable<typeof row> => !!row);
+  if (!relevant.length) return;
+  const metrics: AnalyticsMetric[] = [];
+  const add = (key: string, label: string, unit: AnalyticsMetric["unit"] = "integer") => {
+    if (!metrics.some(metric => metric.key === key)) metrics.push({ key, label: metaMetricLabel(key, label), unit, precision: unit === "integer" ? 0 : 2, desirable: "neutral" });
+  };
+  const calculate = (period: "current" | "previous"): AnalyticsValues => {
+    const rows = relevant.map(row => row[period]);
+    const values: AnalyticsValues = {};
+    const scalar = (key: string) => rows.every(row => row[key] !== undefined && row[key] !== null)
+      ? rows.reduce((sum, row) => sum + Number(row[key]), 0) : null;
+    const spend = data.currency ? scalar("spend") : null;
+    const impressions = scalar("impressions"), clicks = scalar("clicks");
+    if (clicks !== null) values.clicks = clicks;
+    add("clicks", "Cliques (todos)");
+    if (rows.length === 1) for (const key of ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr"]) {
+      if (rows[0][key] !== undefined) values[key] = Number(rows[0][key]);
+      add(key, key, key.includes("ctr") ? "percent" : key === "frequency" ? "ratio" : "integer");
+    }
+    for (const key of ["inline_post_engagement", "social_spend"]) {
+      const amount = key === "social_spend" && !data.currency ? null : scalar(key);
+      if (amount !== null) values[key] = amount;
+      add(key, key, key === "social_spend" ? "currency" : "integer");
+    }
+    for (const [field, key] of [["outbound_clicks", "outbound_clicks"], ["unique_outbound_clicks", "unique_outbound_clicks"],
+      ["video_play_actions", "video_plays"], ["video_p25_watched_actions", "video_p25"], ["video_p50_watched_actions", "video_p50"],
+      ["video_p75_watched_actions", "video_p75"], ["video_p95_watched_actions", "video_p95"], ["video_p100_watched_actions", "video_p100"]]) {
+      if (field.startsWith("unique_") && rows.length !== 1) continue;
+      if (rows.every(row => Array.isArray(row[field]))) values[key] = rows.reduce((sum, row) => sum + (row[field] as Array<{ value: string }>).reduce((total, action) => total + Number(action.value), 0), 0);
+      add(key, key);
+    }
+    if (values.outbound_clicks != null && impressions) { values.outbound_clicks_ctr = values.outbound_clicks / impressions * 100; add("outbound_clicks_ctr", "CTR de saída", "percent"); }
+    for (const [key, amount] of Object.entries({ ctr: impressions ? (clicks ?? 0) / impressions * 100 : null,
+      cpc: clicks && spend !== null ? spend / clicks : null, cpp: rows.length === 1 && Number(rows[0].reach) && spend !== null ? spend / Number(rows[0].reach) * 1000 : null })) {
+      values[key] = amount; add(key, key, key === "ctr" ? "percent" : "currency");
+    }
+    const actionTotals = new Map<string, number>(), valueTotals = new Map<string, number>();
+    for (const row of rows) for (const field of ["actions", "action_values"] as const) {
+      const list = row[field];
+      if (!Array.isArray(list)) continue;
+      for (const action of list) {
+        const totals = field === "actions" ? actionTotals : valueTotals;
+        totals.set(action.action_type, (totals.get(action.action_type) ?? 0) + Number(action.value));
+      }
+    }
+    for (const [action, count] of actionTotals) {
+      const key = `action:${action}`;
+      const label = metaMetricLabel(key, action.replaceAll("_", " "));
+      values[key] = count; values[`cost:${key}`] = count && spend !== null ? spend / count : null;
+      add(key, label); add(`cost:${key}`, label, "currency");
+      if (valueTotals.has(action)) { values[`value:${key}`] = data.currency ? valueTotals.get(action)! : null; add(`value:${key}`, label, "currency"); }
+    }
+    if (values.inline_post_engagement == null && actionTotals.has("post_engagement")) values.inline_post_engagement = actionTotals.get("post_engagement")!;
+    return values;
+  };
+  const summary = calculate("current"), previousSummary = calculate("previous");
+  const { error } = await service.from("meta_dashboard_scopes").upsert({ agency_id: input.agencyId, client_id: input.clientId,
+    scope_key: scopeKey, date_from: data.dateFrom, date_to: data.dateTo, collected_at: new Date().toISOString(),
+    payload: { summary, previousSummary, metrics } as unknown as Json });
+  if (error) throw new MetaSetupError("Não foi possível preservar os agregados da Meta.");
+}
+
 // Called only after the dashboard has authorized access to this client.
 export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[] }): Promise<Record<string, string>> {
   const statuses: Record<string, string> = {};
@@ -30,17 +144,24 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
     const { data: links, error: linkError } = await service.from("client_ad_accounts").select("ad_account_id")
       .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("active", true).in("ad_account_id", input.accountIds);
     if (linkError || links?.length !== input.accountIds.length) return statuses;
-    const { data: accounts, error } = await service.from("meta_ad_accounts").select("id,external_id")
+    const { data: accounts, error } = await service.from("meta_ad_accounts").select("id,external_id,timezone_name")
       .eq("agency_id", input.agencyId).eq("meta_connection_id", connection.id).in("id", input.accountIds).is("archived_at", null);
     if (error || !accounts) return statuses;
     const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
     const client = new MetaClient({ accessToken: token, apiVersion });
     await Promise.allSettled(accounts.map(async account => {
-      const results = await Promise.allSettled([client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id)]);
+      const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: account.timezone_name, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map(part => [part.type, part.value]));
+      const today = `${parts.year}-${parts.month}-${parts.day}`;
+      const [campaigns, adsets, ads, delivery] = await Promise.all([client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id), client.getDailyInsights({ adAccountId: account.external_id, since: today, until: today, level: "ad" })]);
+      const deliveredAds = new Set(delivery.filter(row => Number(row.impressions ?? 0) > 0).map(row => row.ad_id));
+      const activeAds = ads.filter(ad => ad.effective_status === "ACTIVE" && deliveredAds.has(ad.id));
+      const deliveringSets = new Set(activeAds.map(ad => ad.adset_id));
+      const deliveringCampaigns = new Set(activeAds.map(ad => ad.campaign_id));
+      const results = [campaigns, adsets, ads];
       results.forEach((result, index) => {
-        if (result.status !== "fulfilled") return;
         const level = ["campaign", "adset", "ad"][index];
-        for (const entity of result.value) if (entity.effective_status) statuses[`${account.id}:${level}:${entity.id}`] = entity.effective_status;
+        const delivering = index === 0 ? deliveringCampaigns : index === 1 ? deliveringSets : deliveredAds;
+        for (const entity of result) if (entity.effective_status) statuses[`${account.id}:${level}:${entity.id}`] = entity.effective_status === "ACTIVE" && delivering.has(entity.id) ? "DELIVERING" : "NOT_DELIVERING";
       });
     }));
   } catch { /* A Meta outage must not mislabel entities or block historical analytics. */ }

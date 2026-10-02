@@ -8,7 +8,7 @@ import { resolveAnalyticsRange } from "@/modules/client-portal/range";
 import { listClientPortalReports } from "@/modules/reports/client";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
 import { normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
-import { getMetaEntityStatuses } from "@/modules/meta/server";
+import { getMetaEntityStatuses, refreshMetaDashboardScope } from "@/modules/meta/server";
 import type { AnalyticsReportItem } from "@/modules/client-portal/analytics-types";
 
 export const metadata: Metadata = {
@@ -63,6 +63,10 @@ export default async function ClientOverviewPage({ params, searchParams }: {
       data = await getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds);
     }
   }
+  try {
+    await refreshMetaDashboardScope({ agencyId: access.agencyId, clientId, data });
+    data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
+  } catch { data.warnings.push("Alguns agregados da Meta não puderam ser atualizados. Dados já coletados foram preservados."); }
   const [hierarchy, header] = await Promise.all([
     supabase.rpc("get_client_analytics_hierarchy", { p_client_id: clientId, p_date_from: data.dateFrom,
       p_date_to: data.dateTo, p_ad_account_ids: data.selectedAccountIds }),

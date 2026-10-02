@@ -20,7 +20,7 @@ export async function collectDashboardData(input: unknown) {
   }
   try {
     const result = await collectMetaClientInsights({ agencyId: context.access.agencyId,
-      clientId: parsed.data.clientId, actorId: context.user.id, since: parsed.data.from, until: parsed.data.to });
+      clientId: parsed.data.clientId, actorId: context.user.id, since: parsed.data.from, until: parsed.data.to, forceRefresh: true });
     revalidatePath(`/cliente/${parsed.data.clientId}`);
     revalidatePath("/dashboard/clientes");
     if (result.failures.length) return { error: `A coleta foi parcial: ${result.completedSliceCount} lotes concluídos e ${result.failures.length} pendências. Os dados concluídos foram preservados; atualize novamente para continuar.`, insightCount: result.insightCount };

@@ -1,4 +1,5 @@
 import type { AnalyticsDashboardData, AnalyticsMetric, AnalyticsValues } from "./analytics-types";
+import { metaMetricLabel } from "@/modules/meta/metric-labels";
 
 function object(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -44,7 +45,7 @@ export function normalizeClientAnalytics(value: unknown): AnalyticsDashboardData
   const metrics: AnalyticsMetric[] = array(payload.metrics).map((entry) => {
     const row = object(entry);
     return {
-      key: text(row.key), label: text(row.label),
+      key: text(row.key), label: metaMetricLabel(text(row.key), text(row.label)),
       unit: (row.unit === "currency" || row.unit === "percent" || row.unit === "ratio" ? row.unit : "integer") as AnalyticsMetric["unit"],
       precision: Math.max(0, Math.min(6, analyticsNumber(row.precision) ?? 0)),
       desirable: (row.desirable === "up" || row.desirable === "down" ? row.desirable : "neutral") as AnalyticsMetric["desirable"],

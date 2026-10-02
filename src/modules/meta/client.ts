@@ -89,6 +89,7 @@ export type MetaAction = {
 };
 
 export type MetaInsight = {
+  [key: string]: unknown;
   date_start: string;
   date_stop: string;
   account_id?: string;
@@ -326,6 +327,7 @@ export class MetaClient {
   async listCampaigns(adAccountId: string): Promise<MetaCampaign[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaCampaign>(`${adAccountId}/campaigns`, {
+      filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "WITH_ISSUES", "IN_PROCESS"] }]),
       fields: "id,name,objective,status,effective_status",
       limit: "500",
     });
@@ -334,6 +336,7 @@ export class MetaClient {
   async listAdSets(adAccountId: string): Promise<MetaAdSet[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAdSet>(`${adAccountId}/adsets`, {
+      filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "WITH_ISSUES", "IN_PROCESS"] }]),
       fields: "id,name,campaign_id,status,effective_status",
       limit: "500",
     });
@@ -342,6 +345,7 @@ export class MetaClient {
   async listAds(adAccountId: string): Promise<MetaAd[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAd>(`${adAccountId}/ads`, {
+      filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "DISAPPROVED", "PENDING_REVIEW", "WITH_ISSUES", "IN_PROCESS"] }]),
       fields: "id,name,adset_id,campaign_id,status,effective_status,creative{id}",
       limit: "500",
     });
@@ -369,6 +373,7 @@ export class MetaClient {
     return this.getAll<MetaInsight>(`${input.adAccountId}/insights`, {
       level: input.level ?? "account",
       time_increment: "1",
+      filtering: JSON.stringify([{ field: "ad.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "DISAPPROVED", "PENDING_REVIEW", "WITH_ISSUES", "IN_PROCESS"] }]),
       time_range: JSON.stringify({ since: input.since, until: input.until }),
       fields: [
         "date_start",
@@ -409,6 +414,7 @@ export class MetaClient {
     adAccountId: string;
     since: string;
     until: string;
+    adIds?: string[];
   }): Promise<MetaInsight[]> {
     validateAccountId(input.adAccountId);
     validateDate(input.since);
@@ -418,7 +424,11 @@ export class MetaClient {
       level: "account",
       time_increment: "all_days",
       time_range: JSON.stringify({ since: input.since, until: input.until }),
-      fields: "date_start,date_stop,account_id,reach,frequency,unique_clicks",
+      fields: "date_start,date_stop,account_id,spend,impressions,reach,frequency,clicks,unique_clicks,inline_link_clicks,inline_post_engagement,unique_inline_link_clicks,unique_inline_link_click_ctr,unique_ctr,outbound_clicks,unique_outbound_clicks,outbound_clicks_ctr,unique_outbound_clicks_ctr,actions,action_values,video_play_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p95_watched_actions,video_p100_watched_actions,social_spend",
+      filtering: JSON.stringify([
+        { field: "ad.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "DISAPPROVED", "PENDING_REVIEW", "WITH_ISSUES", "IN_PROCESS", "PENDING_BILLING_INFO", "PREAPPROVED"] },
+        ...(input.adIds?.length ? [{ field: "ad.id", operator: "IN", value: input.adIds }] : []),
+      ]),
       limit: "500",
     });
   }

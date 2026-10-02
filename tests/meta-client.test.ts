@@ -251,7 +251,7 @@ describe("MetaClient", () => {
     await client.getPeriodInsights({ adAccountId: "act_1", since: "2025-10-01", until: "2026-09-30" });
     const url = requested as unknown as URL;
     expect(url.searchParams.get("time_increment")).toBe("all_days");
-    expect(url.searchParams.get("fields")).toContain("reach,frequency,unique_clicks");
+    expect(url.searchParams.get("fields")?.split(",")).toEqual(expect.arrayContaining(["reach", "frequency", "unique_clicks", "inline_post_engagement"]));
   });
 
   it("rejeita datas impossíveis antes da rede", async () => {

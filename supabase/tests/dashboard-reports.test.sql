@@ -117,5 +117,17 @@ select is((select count(*) from list_client_portal_reports('11111111-0000-4000-8
 select is((select count(*) from report_metrics where report_version_id=(select first_version from report_test_ids)),7::bigint,'Exclusão preserva métricas imutáveis');
 select throws_ok($q$select get_dashboard_report_document((select first_version from report_test_ids))$q$,'42501',null,'PDF excluído deixa de estar acessível');
 select throws_ok($q$select get_client_portal_report_metrics((select first_version from report_test_ids))$q$,'22023',null,'Endpoint antigo também recusa relatório excluído');
+reset role;
+insert into meta_dashboard_scopes(agency_id,client_id,scope_key,date_from,date_to,payload) values
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|'),'2026-09-29','2026-09-30','{"summary":{"reach":12,"frequency":2},"metrics":[]}'),
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|ad:81'),'2026-09-29','2026-09-30','{"summary":{"reach":7,"frequency":1.5},"metrics":[]}');
+set local role authenticated;
+select is((get_client_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])->'summary'->>'reach')::numeric,12::numeric,'Alcance total utiliza o agregado exato da conta');
+select is((get_campaign_scoped_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[],array['ad:81'])->'summary'->>'reach')::numeric,7::numeric,'Alcance selecionado utiliza o agregado exato dos anúncios');
+select is(get_campaign_scoped_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[],array['ad:82'])->'summary'->>'reach',null::text,'Agregado de outro anúncio não é reutilizado');
+select throws_ok($q$update meta_dashboard_scopes set payload='{}'$q$,'42501',null,'Usuário não forja agregados retornados pela Meta');
+select throws_ok($q$select private.client_analytics_base('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',null)$q$,'42501',null,'Modelo privado permanece inacessível diretamente');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000055',true);
+select throws_ok($q$select get_client_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])$q$,'42501',null,'Agregados exatos não ampliam acesso entre organizações');
 select * from finish();
 rollback;

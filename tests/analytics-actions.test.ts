@@ -26,7 +26,7 @@ describe("dashboard collection authorization", () => {
   });
   it("uses the agency verified for the client, independent of the selected cookie", async () => {
     expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30" })).toEqual({ success: true, insightCount: 42 });
-    expect(mocks.collect).toHaveBeenCalledWith({ agencyId: "agency-from-verified-client", clientId, actorId: "verified-user", since: "2025-09-01", until: "2025-09-30" });
+    expect(mocks.collect).toHaveBeenCalledWith({ agencyId: "agency-from-verified-client", clientId, actorId: "verified-user", since: "2025-09-01", until: "2025-09-30", forceRefresh: true });
   });
   it("rejects invalid calendar dates before collection", async () => {
     expect(await collectDashboardData({ clientId, from: "2025-02-30", to: "2025-03-01" })).toHaveProperty("error");

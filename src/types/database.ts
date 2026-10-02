@@ -166,6 +166,7 @@ export type ClientMetricSummaryRow = {
 export type Database = {
   public: {
     Tables: {
+      meta_dashboard_scopes: Table<{ agency_id: string; client_id: string; scope_key: string; date_from: string; date_to: string; payload: Json; collected_at: string }, { agency_id: string; client_id: string; scope_key: string; date_from: string; date_to: string; payload: Json; collected_at?: string }, { payload?: Json; collected_at?: string }>;
       client_recipients: Table<RecipientRow, never, never>;
       recipient_consent_events: Table<ConsentEventRow, never, never>;
       agencies: Table<AgencyRow, Pick<AgencyRow, "name"> & Partial<AgencyRow>, Partial<AgencyRow>>;

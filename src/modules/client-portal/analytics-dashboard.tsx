@@ -40,14 +40,6 @@ const PERIODS = [
   { key: "365d", label: "1 ano" }, { key: "custom", label: "Personalizado" },
 ];
 const FIXED_METRICS = ["spend", "reach", "impressions", "cpm", "primary_results", "cost_per_result"];
-const FIXED_METRIC_LABELS: Record<string, string> = {
-  spend: "Investimento",
-  reach: "Alcance",
-  impressions: "Impressões",
-  cpm: "CPM",
-  primary_results: "Resultados",
-  cost_per_result: "Custo por resultado",
-};
 const DEFAULT_OPTIONAL_METRICS = ["link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
 const METRIC_ICONS = {
   spend: CircleDollarSign, impressions: TrendingUp, link_clicks: MousePointerClick,
@@ -79,12 +71,19 @@ function changeDescription(data: AnalyticsDashboardData, metric: AnalyticsMetric
 }
 
 function metricGroup(metric: AnalyticsMetric) {
-  if (["spend", "cpc_link", "cpm", "cost_per_result", "attributed_revenue", "roas"].includes(metric.key)) return "Investimento e eficiência";
+  if (["spend", "cpc_link", "cpm", "cost_per_result", "attributed_revenue", "roas", "cpc", "cpp"].includes(metric.key) || metric.key.startsWith("cost:") || metric.key.startsWith("value:")) return "Investimento e eficiência";
   if (["impressions", "reach", "frequency", "unique_clicks"].includes(metric.key)) return "Entrega e alcance";
-  if (["link_clicks", "ctr_link", "clicks", "outbound_clicks"].includes(metric.key)) return "Cliques e tráfego";
+  if (["link_clicks", "ctr_link", "clicks", "outbound_clicks", "ctr", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr", "outbound_clicks_ctr", "unique_outbound_clicks_ctr"].includes(metric.key)) return "Cliques e tráfego";
   if (metric.key.includes("video")) return "Vídeo";
   if (metric.key.startsWith("action:") || metric.key === "primary_results") return "Resultados e ações";
   return "Engajamento e outros";
+}
+function unavailableReason(data: AnalyticsDashboardData, metric: AnalyticsMetric) {
+  if (["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr", "unique_outbound_clicks"].includes(metric.key)
+    && data.selectedAccountIds.length > 1) return "Selecione uma conta de anúncios para consultar este agregado deduplicado da Meta.";
+  if (metric.unit === "currency" && !data.currency) return "As contas usam moedas diferentes. Selecione contas com a mesma moeda.";
+  if (data.coverage.status !== "complete") return "O período ainda tem dados sem coleta. Atualize os dados para completar a análise.";
+  return "A Meta não retornou este indicador para o escopo selecionado, ou não há resultados para calcular a taxa/custo.";
 }
 function makeObservations(data: AnalyticsDashboardData) {
   const observations: { title: string; text: string }[] = [];
@@ -150,6 +149,7 @@ export function ClientAnalyticsDashboard({
   const [headerDetails, setHeaderDetails] = useState("");
   const [reportTitle, setReportTitle] = useState("Relatório de performance");
   const [reportSearch, setReportSearch] = useState("");
+  const [metricSearch, setMetricSearch] = useState("");
   const [reportState, setReportState] = useState("all");
   const [pending, startTransition] = useTransition();
   const [navigating, startNavigation] = useTransition();
@@ -425,6 +425,8 @@ export function ClientAnalyticsDashboard({
         <p>Explore o período, personalize a análise e escolha exatamente o que deseja acompanhar.</p>
       </div>
       <div className="analytics-command-actions">
+        {tab === "overview" && <button type="button" className="analytics-button analytics-button-secondary"
+          disabled={pending || scopeDirty} onClick={exportPdf}><Download size={15} />Baixar PDF da análise atual</button>}
         {canCollect && <button type="button" className="analytics-button analytics-button-primary"
           onClick={() => collect()} disabled={pending || !data.accounts.length}>
           <RefreshCw size={15} className={pending ? "analytics-spin" : ""} />
@@ -539,8 +541,8 @@ export function ClientAnalyticsDashboard({
             const color = ANALYTICS_COLORS[index % ANALYTICS_COLORS.length];
             return <article className="analytics-kpi is-fixed" key={metric.key}
               style={{ "--metric-color": color } as CSSProperties}>
-              <div className="analytics-kpi-top"><span title={metric.key === "cpm" ? "Custo por mil impressões" : undefined}>{FIXED_METRIC_LABELS[metric.key] ?? metric.label}</span><span className="analytics-kpi-icon" title="Indicador fixo"><Lock size={14} /></span></div>
-              <strong className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
+              <div className="analytics-kpi-top"><span>{metric.label}</span><span className="analytics-kpi-icon" title="Indicador fixo"><Lock size={14} /></span></div>
+              <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
               </strong>
               <div className={`analytics-kpi-change is-${change.direction}`}>
@@ -563,7 +565,7 @@ export function ClientAnalyticsDashboard({
                   aria-label={`Remover ${metric.label} da visão geral`}><X size={14} /></button>
                 <span className="analytics-kpi-icon"><Icon size={16} /></span>
               </div>
-              <strong className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
+              <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
               </strong>
               <div className={`analytics-kpi-change is-${change.direction}`}>
@@ -674,8 +676,12 @@ export function ClientAnalyticsDashboard({
         </article>
       </>}
       {tab === "metrics" && <div className="analytics-metric-catalog">
+        <label className="analytics-search"><Search size={14} /><input type="search" aria-label="Pesquisar métricas"
+          value={metricSearch} onChange={event => setMetricSearch(event.target.value)} placeholder="Pesquisar métrica…" /></label>
         {["Investimento e eficiência", "Entrega e alcance", "Cliques e tráfego", "Resultados e ações", "Vídeo", "Engajamento e outros"].map((group) => {
-          const groupMetrics = data.metrics.filter((metric) => metricGroup(metric) === group);
+          const groupMetrics = data.metrics.filter((metric) => metricGroup(metric) === group
+            && `${metric.label} ${metric.key}`.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR")
+              .includes(metricSearch.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim()));
           if (!groupMetrics.length) return null;
           return <section className="analytics-metric-group" key={group}>
             <div className="analytics-metric-group-heading"><div><span className="analytics-card-kicker">META ADS</span><h3>{group}</h3></div>
@@ -687,10 +693,11 @@ export function ClientAnalyticsDashboard({
                 key={metric.key} style={{ "--metric-color": color } as CSSProperties}>
                 <div className="analytics-kpi-top"><span>{metric.label}</span><label className="analytics-metric-checkbox">
                   <input type="checkbox" checked={checked} disabled={FIXED_METRICS.includes(metric.key)}
+                    aria-label={`Adicionar ${metric.label} à Visão geral`}
                     onChange={() => toggleMetric(metric.key)} />
                   <span>{FIXED_METRICS.includes(metric.key) ? <Lock size={12} /> : <Check size={12} />}</span>
                 </label></div>
-                <strong className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
+                <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                   {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
                 </strong>
                 <p className="analytics-metric-card-note">{FIXED_METRICS.includes(metric.key) ? "Indicador fixo da Visão geral" : checked ? "Exibida na Visão geral" : "Marque para adicionar à Visão geral"}</p>

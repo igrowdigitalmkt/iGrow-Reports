@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { normalizeHierarchy } from "./analytics-hierarchy";
 import { normalizeClientAnalytics } from "./analytics-calculations";
+import { metaMetricLabel } from "@/modules/meta/metric-labels";
 import type { DashboardPdfInput } from "@/modules/reports/pdf-download";
 import { requireClientDashboardAccess } from "./context";
 
@@ -62,7 +63,7 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
   const header = configuration.header && typeof configuration.header === "object" && !Array.isArray(configuration.header) ? configuration.header : {};
   const rawMetrics = Array.isArray(data.metrics) ? data.metrics : [];
   const metrics = rawMetrics.filter((metric): metric is Record<string, import("@/types/database").Json> => !!metric && typeof metric === "object" && !Array.isArray(metric))
-    .map(metric => ({ key: String(metric.key), label: String(metric.label),
+    .map(metric => ({ key: String(metric.key), label: metaMetricLabel(String(metric.key), String(metric.label)),
       unit: metric.unit as "currency" | "integer" | "percent" | "ratio", precision: Number(metric.precision), desirable: "neutral" as const }));
   const analytics = normalizeClientAnalytics({ dateFrom: data.dateFrom, dateTo: data.dateTo, currency: data.currency,
     summary: data.summary, metrics, daily: configuration.daily, previousDaily: configuration.previous_daily,

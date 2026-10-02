@@ -31,9 +31,9 @@ export function CampaignTree({ entities, roots, metrics, selected, onChange, dis
               const remainder = selected.filter(key => !leaves.includes(key));
               onChange(checked ? remainder : [...remainder, ...leaves]);
             }} />
-          <span className={`analytics-entity-status ${entity.effectiveStatus === "ACTIVE" ? "is-active" : entity.effectiveStatus ? "is-inactive" : "is-unknown"}`}
-            role="img" aria-label={entity.effectiveStatus === "ACTIVE" ? "Ativo" : entity.effectiveStatus ? "Inativo" : "Status indisponível"}
-            title={entity.effectiveStatus === "ACTIVE" ? "Ativo" : entity.effectiveStatus ? `Inativo · ${entity.effectiveStatus}` : "Status indisponível"} />
+          <span className={`analytics-entity-status ${entity.effectiveStatus === "DELIVERING" ? "is-active" : entity.effectiveStatus ? "is-inactive" : "is-unknown"}`}
+            role="img" aria-label={entity.effectiveStatus === "DELIVERING" ? "Em veiculação" : entity.effectiveStatus ? "Sem veiculação" : "Veiculação indisponível"}
+            title={entity.effectiveStatus === "DELIVERING" ? "Em veiculação: anúncio habilitado com impressões registradas hoje no fuso da conta" : entity.effectiveStatus ? "Sem veiculação confirmada hoje ou pausado na Meta" : "A Meta não confirmou a veiculação"} />
           <div><strong>{entity.name}</strong><small>{entity.level === "campaign" ? entity.accountName
             : entity.level === "adset" ? "Conjunto de anúncios" : "Anúncio"}</small></div>
         </div></th>
