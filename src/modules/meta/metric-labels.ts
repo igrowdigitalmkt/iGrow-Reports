@@ -35,7 +35,7 @@ const labels: Record<string, string> = {
   "action:offsite_conversion.fb_pixel_view_content": "Visualizações de conteúdo no site",
 };
 export function metaMetricLabel(key: string, fallback: string): string {
-  if (key.startsWith("cost:action:")) return `Custo por ${metaMetricLabel(key.slice(5), fallback).toLocaleLowerCase("pt-BR")}`;
-  if (key.startsWith("value:action:")) return `Valor de conversão de ${metaMetricLabel(key.slice(6), fallback).toLocaleLowerCase("pt-BR")}`;
+  if (key.startsWith("cost:action:")) return `Custo por ${metaMetricLabel(key.slice(5), fallback.replace(/^Custo por /i, "")).toLocaleLowerCase("pt-BR")}`;
+  if (key.startsWith("value:action:")) return `Valor de conversão de ${metaMetricLabel(key.slice(6), fallback.replace(/^Valor de conversão de /i, "")).toLocaleLowerCase("pt-BR")}`;
   return labels[key] ?? fallback;
 }

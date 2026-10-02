@@ -104,7 +104,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
       add(key, key);
     }
     if (values.outbound_clicks != null && impressions) { values.outbound_clicks_ctr = values.outbound_clicks / impressions * 100; add("outbound_clicks_ctr", "CTR de saída", "percent"); }
-    for (const [key, amount] of Object.entries({ ctr: impressions ? (clicks ?? 0) / impressions * 100 : null,
+    for (const [key, amount] of Object.entries({ ctr: impressions && clicks !== null ? clicks / impressions * 100 : null,
       cpc: clicks && spend !== null ? spend / clicks : null, cpp: rows.length === 1 && Number(rows[0].reach) && spend !== null ? spend / Number(rows[0].reach) * 1000 : null })) {
       values[key] = amount; add(key, key, key === "ctr" ? "percent" : "currency");
     }
