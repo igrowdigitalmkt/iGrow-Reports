@@ -147,7 +147,9 @@ Aceite do onboarding: um usuário novo consegue configurar espaço, conectar Met
 
 ## Implementação iniciada
 
-Entrega inicial: checklist administrativo com progresso por cliente calculado a partir das contas vinculadas, atualizações concluídas e versões de relatório; retomada e seleção guardadas no navegador; correção dos estados da operação; comentários do administrador preservados no snapshot e nos dois formatos de PDF.
+O checklist por cliente foi retirado do dashboard após correção do escopo pelo usuário. O onboarding solicitado é um fluxo opcional de configuração inicial após criar a conta, com possibilidade de pular e retomar. Deve conduzir ao login oficial da Meta em janela, seleção de contas, primeiro cliente e primeira análise. Permanecem implementados os estados da operação e os comentários do administrador preservados no snapshot e nos dois formatos de PDF.
+
+Dependência confirmada para o login oficial: a produção ainda não possui META_APP_ID, META_APP_SECRET nem configuração do Facebook Login for Business. Não apresentar a integração manual por token como equivalente ao fluxo solicitado. Configurar o aplicativo e sua URL de retorno antes de ativar OAuth para usuários.
 
 Implementados também: modelos iniciais de análise (mensagens, leads, vendas e reconhecimento), reordenação dos indicadores opcionais preservada por cliente neste navegador e usada no PDF, e miniaturas de anúncios retornadas pela Meta na árvore de campanhas. Os modelos não alteram filtros nem comentários e não inventam indicadores ausentes. Miniaturas dependem da resposta atual da Meta e ainda não são incorporadas ao arquivo PDF congelado.
 

@@ -32,7 +32,6 @@ export default async function DashboardPage({
   let portalAccesses: ClientPortalAdminAccess[] = [];
   let clientPortalAdminReady = false;
   let metaSnapshot: MetaAdminSnapshot | undefined;
-  const analyzedClientIds: string[] = [];
   let reportsSnapshot: ReportsAdminSnapshot | undefined;
   const canManageClientAccess = canManageAgency(context.role);
   if (key === "" || key === "clientes" || key === "relatorios" || key === "integracoes") {
@@ -55,16 +54,7 @@ export default async function DashboardPage({
   if (key === "" || key === "relatorios") {
     reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
   }
-  if (key === "") {
-    for (let offset = 0; ; offset += 500) {
-      const result = await context.supabase.from("meta_collection_runs").select("client_id,collected_at,ad_account_id,date_from,date_to")
-        .eq("agency_id", context.agency.id).eq("status", "complete").order("collected_at").order("client_id").order("ad_account_id").order("date_from").order("date_to").range(offset, offset + 499);
-      if (result.error) break;
-      analyzedClientIds.push(...new Set((result.data ?? []).map(row => row.client_id)));
-      if (!result.data || result.data.length < 500) break;
-    }
-  }
   // A referência é capturada no servidor por requisição e enviada como valor estável ao cliente.
   // eslint-disable-next-line react-hooks/purity
-  return <DashboardWorkspace referenceTime={Date.now()} analyzedClientIds={analyzedClientIds} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
+  return <DashboardWorkspace referenceTime={Date.now()} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
 }

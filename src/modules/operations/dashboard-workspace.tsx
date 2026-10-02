@@ -19,16 +19,15 @@ import { MetaIntegrationManager } from "@/modules/meta/integration-manager";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import { ReportManager } from "@/modules/reports/report-manager";
 import type { ReportsAdminSnapshot } from "@/modules/reports/types";
-import { OnboardingChecklist } from "./onboarding-checklist";
 import { logoutAction } from "@/modules/auth/actions";
 
 const ActivityChart = dynamic(() => import("@/components/charts/activity-chart"), { ssr: false, loading: () => <div className="activity-chart skeleton" aria-label="Carregando gráfico" /> });
 
-interface Props { referenceTime?: number; analyzedClientIds?: string[]; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
+interface Props { referenceTime?: number; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const number = (value: number | null) => value === null ? "—" : value.toLocaleString("pt-BR");
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ referenceTime = 0, analyzedClientIds = [], demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], metaSnapshot, reportsSnapshot }: Props) {
+export function DashboardWorkspace({ referenceTime = 0, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], metaSnapshot, reportsSnapshot }: Props) {
   const [period, setPeriod] = useState<DashboardPeriod>("30d");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("Todos os estados");
@@ -48,7 +47,6 @@ export function DashboardWorkspace({ referenceTime = 0, analyzedClientIds = [], 
       <div className="page-heading"><div><div className="eyebrow"><span className="tiny-line" /> {section ? "SEU ESPAÇO DE TRABALHO" : "VISÃO GERAL DA OPERAÇÃO"}</div><h1>{section ? currentLabel : `Olá, ${identity.userName.split(/[ @.]+/)[0]}.`}<span className="heading-dot">{section ? "" : " ✦"}</span></h1><p>{section ? sectionDescription(section) : "Tudo o que importa para seus relatórios, em um só lugar."}</p></div><div className="heading-actions">{!section && <><label className="period-select"><CalendarDays size={16} /><select aria-label="Período do dashboard" value={period} onChange={event => setPeriod(event.target.value as DashboardPeriod)}><option value="30d">Últimos 30 dias</option><option value="7d">Últimos 7 dias</option></select></label><Button asChild><Link href={`${base}/relatorios`}><FileChartColumn size={16} />Ver relatórios<ArrowUpRight size={15} /></Link></Button></>}</div></div>
 
       {!section && <>
-        {!demo && agencyId && canEditClients && <OnboardingChecklist workspaceId={agencyId} clients={clients ?? []} meta={metaSnapshot} reports={reportsSnapshot} analyzedClientIds={analyzedClientIds} />}
         <div className="operation-strip"><div><span className={cn("pulse-icon", demo ? "cyan" : "amber")}><Radio size={16} /></span><strong>{demo ? "Sua operação, em perspectiva" : connected ? "Sua operação está conectada" : "Vamos preparar sua operação"}</strong><span className="operation-caption">{demo ? "Explore um cenário fictício da plataforma" : connected ? "Abra um cliente para analisar seus dados atuais" : "Vincule as contas de um cliente para começar"}</span></div><Link href={`${base}/integracoes`}>{demo ? "Integrações simuladas" : connected ? "Gerenciar integrações" : "Configurar integrações"}<ChevronRight size={15} /></Link></div>
         <div className="stats-grid">
           <Metric title="Clientes ativos" value={number(data.activeClients)} icon={Users} color="blue" note={demo ? "6 marcas no cenário demonstrativo" : "Clientes não arquivados do espaço de trabalho"} detail="Total de clientes não arquivados no espaço de trabalho selecionado." onInfo={setDetail} />
