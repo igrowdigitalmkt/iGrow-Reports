@@ -73,7 +73,7 @@ export type MetaAd = {
   campaign_id?: string;
   status?: string;
   effective_status?: string;
-  creative?: { id?: string };
+  creative?: { id?: string; thumbnail_url?: string };
 };
 
 export type MetaCreative = {
@@ -346,7 +346,7 @@ export class MetaClient {
     validateAccountId(adAccountId);
     return this.getAll<MetaAd>(`${adAccountId}/ads`, {
       filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "DISAPPROVED", "PENDING_REVIEW", "WITH_ISSUES", "IN_PROCESS"] }]),
-      fields: "id,name,adset_id,campaign_id,status,effective_status,creative{id}",
+      fields: "id,name,adset_id,campaign_id,status,effective_status,creative{id,thumbnail_url}",
       limit: "500",
     });
   }

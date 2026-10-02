@@ -6,6 +6,7 @@ export type AnalyticsEntity = {
   parentId: string | null; campaignId: string | null; accountId: string;
   accountName: string; currency: string; values: AnalyticsValues;
   effectiveStatus?: string | null;
+  thumbnailUrl?: string | null;
 };
 
 export function normalizeHierarchy(input: unknown): AnalyticsEntity[] {

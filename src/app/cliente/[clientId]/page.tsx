@@ -83,8 +83,12 @@ export default async function ClientOverviewPage({ params, searchParams }: {
   const workspaceName = header.data && typeof header.data === "object" && !Array.isArray(header.data)
     && typeof header.data.name === "string" ? header.data.name : "Espaço de trabalho";
   const entities = normalizeHierarchy(hierarchy.data);
-  const statuses = await getMetaEntityStatuses({ agencyId: access.agencyId, clientId, accountIds: data.selectedAccountIds });
-  for (const entity of entities) entity.effectiveStatus = statuses[`${entity.accountId}:${entity.key}`] ?? null;
+  const thumbnails: Record<string, string> = {};
+  const statuses = await getMetaEntityStatuses({ agencyId: access.agencyId, clientId, accountIds: data.selectedAccountIds }, thumbnails);
+  for (const entity of entities) {
+    entity.effectiveStatus = statuses[`${entity.accountId}:${entity.key}`] ?? null;
+    entity.thumbnailUrl = thumbnails[`${entity.accountId}:${entity.key}`] ?? null;
+  }
   return <ClientPortalShell title={access.client.name}
     description="Explore os resultados, acompanhe a evolução e transforme seus dados em decisões."
     userEmail={user.email} agencyMode={agencyMode} showClientSwitcher={!agencyMode && accesses.length > 1}>

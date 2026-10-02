@@ -9,6 +9,15 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe("MetaClient", () => {
+  it("associa a miniatura ao criativo do anúncio sem consultar outras contas", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ data: [{ id: "123", creative: { id: "456", thumbnail_url: "https://images.fbcdn.net/ad.jpg" } }] }));
+    const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    const ads = await client.listAds("act_1");
+    expect(ads[0].creative?.thumbnail_url).toBe("https://images.fbcdn.net/ad.jpg");
+    const requested = fetchImpl.mock.calls as unknown as Array<[URL, RequestInit]>;
+    expect(requested[0][0].pathname).toBe("/v26.0/act_1/ads");
+    expect(requested[0][0].searchParams.get("fields")).toContain("creative{id,thumbnail_url}");
+  });
   it("exige um ID real de portfólio; nome empresarial sozinho não basta", () => {
     const account = { id: "act_1", name: "Conta", currency: "BRL", timezone_name: "America/Sao_Paulo" };
     expect(hasBusinessPortfolio(account)).toBe(false);

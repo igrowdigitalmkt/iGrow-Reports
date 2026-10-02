@@ -397,3 +397,12 @@
 .analytics-report-actions { flex-wrap:wrap; justify-content:flex-end; }
 .analytics-report-actions .analytics-icon-danger { width:auto; padding:9px 12px; gap:6px; display:inline-flex; align-items:center; }
 @media(max-width:900px) { .analytics-report-list-card>.analytics-card-heading { grid-template-columns:1fr; } .analytics-report-actions { justify-content:flex-start; } }
+.analytics-model-options { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
+.analytics-metric-order { padding: 0; list-style: none; }
+.analytics-metric-order li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border, #263a4c); }
+.analytics-metric-order li > div { display: flex; gap: 8px; }
+.analytics-metric-order button { min-width: 36px; min-height: 36px; }
+.analytics-metric-order button:disabled { opacity: .35; cursor: default; }
+.analytics-ad-thumbnail { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; }
+.analytics-ad-thumbnail-placeholder { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; color: #8295a8; background: #182838; border-radius: 6px; }
+.analytics-dashboard:fullscreen { overflow: auto; padding: 32px; background: #0c1723; }

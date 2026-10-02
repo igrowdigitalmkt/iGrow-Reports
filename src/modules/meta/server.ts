@@ -164,7 +164,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
 }
 
 // Called only after the dashboard has authorized access to this client.
-export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[] }): Promise<Record<string, string>> {
+export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[] }, thumbnails?: Record<string, string>): Promise<Record<string, string>> {
   const statuses: Record<string, string> = {};
   if (!input.accountIds.length) return statuses;
   try {
@@ -184,6 +184,14 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
       const [campaigns, adsets, ads, delivery] = await Promise.all([client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id), client.getDailyInsights({ adAccountId: account.external_id, since: today, until: today, level: "ad" })]);
       const deliveredAds = new Set(delivery.filter(row => Number(row.impressions ?? 0) > 0).map(row => row.ad_id));
       const activeAds = ads.filter(ad => ad.effective_status === "ACTIVE" && deliveredAds.has(ad.id));
+      if (thumbnails) for (const ad of ads) {
+        const thumbnail = ad.creative?.thumbnail_url;
+        if (!thumbnail) continue;
+        try {
+          const url = new URL(thumbnail);
+          if (url.protocol === "https:" && (url.hostname.endsWith(".fbcdn.net") || url.hostname.endsWith(".facebook.com"))) thumbnails[`${account.id}:ad:${ad.id}`] = url.href;
+        } catch { /* Missing or invalid creative images do not block analytics. */ }
+      }
       const deliveringSets = new Set(activeAds.map(ad => ad.adset_id));
       const deliveringCampaigns = new Set(activeAds.map(ad => ad.campaign_id));
       const results = [campaigns, adsets, ads];

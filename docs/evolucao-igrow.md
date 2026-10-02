@@ -149,6 +149,10 @@ Aceite do onboarding: um usuário novo consegue configurar espaço, conectar Met
 
 Entrega inicial: checklist administrativo com progresso por cliente calculado a partir das contas vinculadas, atualizações concluídas e versões de relatório; retomada e seleção guardadas no navegador; correção dos estados da operação; comentários do administrador preservados no snapshot e nos dois formatos de PDF.
 
-Ainda pendentes: wizard de cadastro mínimo; login OAuth oficial Meta; modelos compartilhados/versionados; composição completa de blocos; miniaturas; detalhamentos de público/posicionamento; metas/alertas; agenda e entrega; visão consolidada e integrações adicionais. Estes recursos não devem ser apresentados como disponíveis até implementação e validação.
+Implementados também: modelos iniciais de análise (mensagens, leads, vendas e reconhecimento), reordenação dos indicadores opcionais preservada por cliente neste navegador e usada no PDF, e miniaturas de anúncios retornadas pela Meta na árvore de campanhas. Os modelos não alteram filtros nem comentários e não inventam indicadores ausentes. Miniaturas dependem da resposta atual da Meta e ainda não são incorporadas ao arquivo PDF congelado.
+
+Ainda pendentes: wizard de cadastro mínimo; login OAuth oficial Meta; modelos compartilhados/versionados; composição completa de blocos; miniaturas no PDF; detalhamentos de público/posicionamento; metas/alertas; agenda e entrega; visão consolidada e integrações adicionais. Estes recursos não devem ser apresentados como disponíveis até implementação e validação.
 
 Dependências externas: aplicativo Meta configurado para OAuth e permissões aprovadas; configuração de provedor de entrega e credenciais para WhatsApp; serviço de execução de agendamentos. O assistente inicial usa os fluxos reais existentes, sem simular essas dependências.
+
+O botão Apresentar análise abre o dashboard em tela cheia, conservando os filtros e permitindo encerrar por botão ou Esc. Este modo usa a análise ao vivo; o PDF horizontal continua sendo o documento congelado.

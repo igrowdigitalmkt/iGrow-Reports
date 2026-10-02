@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
 import { CampaignTree } from "./campaign-tree";
 import { compactEntitySelection, leafKeys, type AnalyticsEntity } from "./analytics-hierarchy";
 import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
@@ -151,6 +152,13 @@ export function ClientAnalyticsDashboard({
   const [headerName, setHeaderName] = useState(workspaceName);
   const [headerDetails, setHeaderDetails] = useState("");
   const [analysisNote, setAnalysisNote] = useState("");
+  const [presenting, setPresenting] = useState(false);
+
+  useEffect(() => {
+    const changed = () => setPresenting(document.fullscreenElement === dashboardRef.current);
+    document.addEventListener("fullscreenchange", changed);
+    return () => document.removeEventListener("fullscreenchange", changed);
+  }, []);
   const [reportTitle, setReportTitle] = useState("Relatório de performance");
   const [reportSearch, setReportSearch] = useState("");
   const [metricSearch, setMetricSearch] = useState("");
@@ -253,7 +261,10 @@ export function ClientAnalyticsDashboard({
   })) };
   const fixedMetrics = FIXED_METRICS.map((key) => data.metrics.find((metric) => metric.key === key))
     .filter((metric): metric is AnalyticsMetric => !!metric);
-  const optionalMetrics = data.metrics.filter((metric) => optionalMetricKeys.includes(metric.key) && !FIXED_METRICS.includes(metric.key));
+  const optionalMetrics = optionalMetricKeys.flatMap(key => {
+    const metric = data.metrics.find(item => item.key === key);
+    return metric && !FIXED_METRICS.includes(key) ? [metric] : [];
+  });
   const overviewMetrics = [...fixedMetrics, ...optionalMetrics];
   const campaignMetrics = campaignMetricKeys
     .map((key) => data.metrics.find((metric) => metric.key === key))
@@ -455,6 +466,12 @@ export function ClientAnalyticsDashboard({
         <p>{tab === "reports" ? "Visualize os arquivos salvos e acompanhe quais estão disponíveis para o cliente." : "Explore o período, personalize a análise e escolha exatamente o que deseja acompanhar."}</p>
       </div>
       <div className="analytics-command-actions">
+        {tab === "overview" && <button type="button" className="analytics-button" onClick={async () => {
+          try {
+            if (document.fullscreenElement === dashboardRef.current) await document.exitFullscreen();
+            else await dashboardRef.current?.requestFullscreen();
+          } catch { setNotice("Este navegador não permitiu a tela cheia. Você pode usar o relatório horizontal para apresentar."); }
+        }}>{presenting ? <X size={15} /> : <RectangleHorizontal size={15} />}{presenting ? "Encerrar apresentação" : "Apresentar análise"}</button>}
         {tab === "overview" && <details className="analytics-filter-menu analytics-pdf-menu">
           <summary><Download size={15} />Gerar Relatório em PDF<ChevronDown size={13} /></summary>
           <div className="analytics-filter-popover">
@@ -572,6 +589,15 @@ export function ClientAnalyticsDashboard({
     </div>
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
       {tab === "overview" && <>
+        <details className="analytics-card analytics-report-settings">
+          <summary><Layers3 size={15} />Modelos de análise e ordem dos indicadores<ChevronDown size={14} /></summary>
+          <div className="analytics-report-create-body">
+            <p>Escolha um ponto de partida. Os filtros, os indicadores fixos e seus comentários serão preservados.</p>
+            <div className="analytics-model-options">{ANALYSIS_MODELS.map(model => <button type="button" className="analytics-text-button" key={model.key} onClick={() => setOptionalMetricKeys(modelMetrics(model.metrics, data.metrics.map(metric => metric.key)))}>{model.name}</button>)}</div>
+            <p className="analytics-footnote">Cada modelo inclui somente métricas retornadas pela plataforma. A seleção e a ordem são salvas neste navegador para este cliente e usadas no PDF.</p>
+            <ol className="analytics-metric-order">{optionalMetrics.map((metric, index) => <li key={metric.key}><span>{metric.label}</span><div><button type="button" className="analytics-text-button" disabled={index === 0} aria-label={`Mover ${metric.label} para antes`} onClick={() => setOptionalMetricKeys(keys => moveMetric(keys, metric.key, -1))}>↑</button><button type="button" className="analytics-text-button" disabled={index === optionalMetrics.length - 1} aria-label={`Mover ${metric.label} para depois`} onClick={() => setOptionalMetricKeys(keys => moveMetric(keys, metric.key, 1))}>↓</button></div></li>)}</ol>
+          </div>
+        </details>
         <details className="analytics-card analytics-report-settings">
           <summary><FileText size={15} />Personalizar cabeçalho do relatório<ChevronDown size={14} /></summary>
           <div className="analytics-report-create-body">
