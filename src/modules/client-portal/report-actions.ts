@@ -16,7 +16,7 @@ const generateSchema = z.object({
   campaignMetricKeys: z.array(z.string().min(1).max(240)).max(200).default([]),
   comparison: z.boolean().default(false), chartType: z.enum(["line", "bar"]).default("line"),
   orientation: z.enum(["vertical", "horizontal"]).default("vertical"),
-  header: z.object({ name: z.string().trim().max(160), details: z.string().trim().max(500) }),
+  header: z.object({ name: z.string().trim().max(160), details: z.string().trim().max(500), analysisNote: z.string().trim().max(5000).default("") }),
   title: z.string().trim().min(2).max(200),
 });
 
@@ -78,6 +78,7 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
     accounts: configuration.accounts, selectedAccountIds: configuration.account_ids, coverage: configuration.coverage });
   const labels = Array.isArray(configuration.scope_labels) ? configuration.scope_labels.filter((v): v is string => typeof v === "string") : [];
   return { document: { title: String(data.title), clientName: String(data.clientName), workspaceName: String(header.name ?? data.workspaceName),
+    analysisNote: typeof header.analysisNote === "string" ? header.analysisNote : "",
     headerDetails: typeof header.details === "string" ? header.details : "", data: analytics, metrics,
     entityLabels: labels.length ? labels : ["Todas as campanhas"], accountLabels: analytics.accounts.filter(a => analytics.selectedAccountIds.includes(a.id)).map(a => a.name),
     orientation: configuration.orientation === "horizontal" ? "horizontal" : "vertical",

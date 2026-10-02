@@ -150,6 +150,7 @@ export function ClientAnalyticsDashboard({
   const [collectingComparison, setCollectingComparison] = useState(false);
   const [headerName, setHeaderName] = useState(workspaceName);
   const [headerDetails, setHeaderDetails] = useState("");
+  const [analysisNote, setAnalysisNote] = useState("");
   const [reportTitle, setReportTitle] = useState("Relatório de performance");
   const [reportSearch, setReportSearch] = useState("");
   const [metricSearch, setMetricSearch] = useState("");
@@ -184,7 +185,8 @@ export function ClientAnalyticsDashboard({
       try {
         const saved = window.localStorage.getItem(`igrow:analytics:${preferenceKey}`);
         if (saved) {
-          const parsed = JSON.parse(saved) as { overview?: string[]; campaign?: string[] };
+          const parsed = JSON.parse(saved) as { overview?: string[]; campaign?: string[]; analysisNote?: string };
+          if (canManageReports && typeof parsed.analysisNote === "string") setAnalysisNote(parsed.analysisNote.slice(0, 5000));
           const available = new Set(data.metrics.map((metric) => metric.key));
           if (Array.isArray(parsed.overview)) {
             setOptionalMetricKeys([...new Set([...parsed.overview.filter((key) => available.has(key) && !FIXED_METRICS.includes(key)), "frequency"])].filter(key => available.has(key)));
@@ -201,15 +203,16 @@ export function ClientAnalyticsDashboard({
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [data.metrics, preferenceKey]);
+  }, [data.metrics, preferenceKey, canManageReports]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
     try { window.localStorage.setItem(`igrow:analytics:${preferenceKey}`, JSON.stringify({
       overview: optionalMetricKeys,
       campaign: campaignMetricKeys,
+      analysisNote: canManageReports ? analysisNote : undefined,
     })); } catch { /* Armazenamento local bloqueado não impede a análise. */ }
-  }, [campaignMetricKeys, optionalMetricKeys, preferenceKey, preferencesLoaded]);
+  }, [analysisNote, canManageReports, campaignMetricKeys, optionalMetricKeys, preferenceKey, preferencesLoaded]);
 
   useEffect(() => {
     let updating = false;
@@ -388,7 +391,7 @@ export function ClientAnalyticsDashboard({
           const result = await generateDashboardReport({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
             accountIds: data.selectedAccountIds, metricKeys: overviewMetrics.map(metric => metric.key),
             entityKeys: scopeData ? appliedEntityKeys : [], campaignMetricKeys, comparison, chartType, orientation,
-            header: { name: headerName, details: headerDetails }, title: reportTitle });
+            header: { name: headerName, details: headerDetails, analysisNote }, title: reportTitle });
           if ("error" in result) { setError(result.error ?? "Não foi possível concluir esta ação."); return; }
           router.refresh();
           try { await downloadSavedReportPdf(clientId, result.reportVersionId); }
@@ -396,7 +399,7 @@ export function ClientAnalyticsDashboard({
           setNotice("Relatório salvo e baixado. Ele está em Relatórios, pronto para revisar e publicar para o cliente.");
         } else {
           await downloadDashboardPdf({ title: reportTitle, clientName, workspaceName: headerName || workspaceName,
-            headerDetails, data: scopedData, metrics: overviewMetrics,
+            headerDetails, analysisNote, data: scopedData, metrics: overviewMetrics,
             entityLabels: scopeData ? selectedEntities.map(entity => entity.name) : ["Todas as campanhas"],
             accountLabels: data.accounts.filter(account => data.selectedAccountIds.includes(account.id)).map(account => account.name),
             comparison, chartType, entityRows: selectedEntities, campaignMetrics, orientation });
@@ -580,6 +583,7 @@ export function ClientAnalyticsDashboard({
             <small>{canManageReports ? "O PDF será baixado e salvo em Relatórios. Publique após revisar para liberar o acesso ao cliente." : "O PDF será baixado para o seu dispositivo."}</small>
           </div>
         </details>
+        {canManageReports && <article className="analytics-card" style={{ marginBottom: 16 }}><div className="analytics-card-heading"><div><span className="analytics-card-kicker">SUA ANÁLISE</span><h3>Comentários e próximos passos</h3></div></div><label htmlFor="analysis-note">Contextualize os resultados para o cliente</label><textarea id="analysis-note" className="input" rows={4} maxLength={5000} value={analysisNote} onChange={event => setAnalysisNote(event.target.value)} placeholder="O que aconteceu, o que merece atenção e quais serão as próximas ações." /><p className="analytics-footnote">Rascunho salvo neste navegador. Ao gerar, o comentário será preservado no relatório vertical ou horizontal.</p></article>}
         <div className="analytics-kpi-grid analytics-kpi-grid-fixed">
           {fixedMetrics.map((metric, index) => {
             const change = changeDescription(scopedData, metric);

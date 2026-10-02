@@ -142,6 +142,15 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
       doc.setDrawColor(C.border); doc.line(100, y + 34, 1820, y + 34);
     });
   }
+  if (input.analysisNote?.trim()) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(24 * .75);
+    const lines: string[] = doc.splitTextToSize(input.analysisNote.trim(), 1680);
+    for (let offset = 0; offset < lines.length; offset += 22) {
+      slide(offset ? "Comentários e próximos passos · continuação" : "Comentários e próximos passos");
+      panel(80, 235, 1760, 720);
+      lines.slice(offset, offset + 22).forEach((line, index) => text(line, 120, 285 + index * 29, 24, C.ink, 1680));
+    }
+  }
   doc.addPage([1920, 1080], "landscape"); background();
   text("Obrigado.", 100, 465, 100, C.ink, 1700, true);
   text(input.clientName, 105, 560, 40, C.muted);

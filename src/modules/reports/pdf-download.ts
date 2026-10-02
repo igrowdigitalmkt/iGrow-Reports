@@ -12,6 +12,7 @@ export type DashboardPdfInput = {
   comparison: boolean; chartType: "line" | "bar";
   entityRows?: AnalyticsEntity[]; campaignMetrics?: AnalyticsMetric[];
   orientation?: "vertical" | "horizontal";
+  analysisNote?: string;
 };
 
 export function buildDashboardPdf(input: DashboardPdfInput) {
@@ -146,6 +147,7 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
     const keys=["spend","impressions","link_clicks","primary_results"].filter(key=>input.data.metrics.some(m=>m.key===key));
     table(["Data",...keys.map(key=>input.data.metrics.find(m=>m.key===key)!.label)],input.data.daily.map(day=>[reportDate(day.date),...keys.map(key=>metricValue(key,day.values[key]))]),[30,...keys.map(()=>144/keys.length)]);
   }
+  if (input.analysisNote?.trim()) { section("Comentários e próximos passos"); doc.setFont("helvetica", "normal"); doc.setFontSize(10); const lines: string[] = doc.splitTextToSize(input.analysisNote.trim(), 174); for (const line of lines) text(line || " ", 10); }
   section("Informações sobre os dados");
   text("Dados fornecidos pela Meta Ads. Cada conta respeita seu calendário e fuso local. As configurações, a seleção e os valores foram preservados no momento da geração.",9,C.muted);
   if(input.data.selectedAccountIds.length>1)text("Alcance e cliques únicos entre contas são estimados pela soma dos agregados da Meta; pessoas podem se repetir. Frequência = impressões / alcance estimado.",9,C.muted);
