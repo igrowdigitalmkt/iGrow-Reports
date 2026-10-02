@@ -11,6 +11,7 @@ export type AdminReportVersion = {
   state: "ready" | "published" | "superseded";
   dataCollectedAt: string | null;
   generatedAt: string;
+  orientation?: "vertical" | "horizontal";
   publishedAt: string | null;
 };
 

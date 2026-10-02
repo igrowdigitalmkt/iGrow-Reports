@@ -22,7 +22,7 @@ export async function getReportsAdminSnapshot(
   const [versionsResult, reportsResult, clientsResult] = await Promise.all([
     allRows((from,to) => supabase
       .from("report_versions")
-      .select("id,report_id,client_id,version_number,date_from,date_to,currency,state,data_collected_at,generated_at,published_at")
+      .select("id,report_id,client_id,version_number,date_from,date_to,currency,state,data_collected_at,generated_at,published_at,orientation:configuration_snapshot->>orientation")
       .eq("agency_id", agencyId)
       .order("generated_at", { ascending: false })
       .order("id").range(from,to)),
@@ -66,6 +66,7 @@ export async function getReportsAdminSnapshot(
       state: row.state,
       dataCollectedAt: row.data_collected_at,
       generatedAt: row.generated_at,
+      orientation: row.orientation === "horizontal" ? "horizontal" : "vertical",
       publishedAt: row.published_at,
     })),
   };

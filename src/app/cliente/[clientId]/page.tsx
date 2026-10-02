@@ -45,7 +45,7 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     reportHistory = history.versions.filter((version) => version.clientId === clientId).map((version) => ({
       reportVersionId: version.id, reportId: version.reportId, title: version.title,
       versionNumber: version.versionNumber, dateFrom: version.dateFrom, dateTo: version.dateTo,
-      state: version.state, publishedAt: version.publishedAt,
+      state: version.state, publishedAt: version.publishedAt, generatedAt: version.generatedAt, orientation: version.orientation,
     }));
   } else {
     const history = await listClientPortalReports(supabase, clientId);

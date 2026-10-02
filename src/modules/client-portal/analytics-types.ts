@@ -25,6 +25,8 @@ export type AnalyticsReportItem = {
   dateTo: string;
   state: "ready" | "published" | "superseded";
   publishedAt: string | null;
+  generatedAt?: string;
+  orientation?: "vertical" | "horizontal";
 };
 
 export type AnalyticsDashboardData = {

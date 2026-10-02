@@ -63,7 +63,7 @@ export function ReportManager({ agencyId, clients, snapshot, canEdit }: {
     </section>
     <div className="reports-library">
       {rows.map(version => <article className="panel report-library-item" key={version.id}>
-        <div className="report-library-info"><span className="reports-client-name">{version.clientName}</span><h3>{version.title}</h3><p>{formatDate(version.dateFrom)} a {formatDate(version.dateTo)}</p><small>Gerado em {formatDateTime(version.generatedAt)} · versão {version.versionNumber}</small></div>
+        <div className="report-library-info"><span className="reports-client-name">{version.clientName}</span><h3>{version.title}</h3><p>{formatDate(version.dateFrom)} a {formatDate(version.dateTo)}</p><small>{version.orientation === "horizontal" ? "Horizontal · apresentação" : "Vertical · A4"} · gerado em {formatDateTime(version.generatedAt)}</small></div>
         <div className="report-library-status"><span className={version.state === "published" ? "badge green" : version.state === "ready" ? "badge amber" : "badge neutral"}>{version.state === "published" ? "Publicado" : version.state === "ready" ? "Não publicado" : "Histórico"}</span><small>{version.state === "ready" ? "Somente sua equipe" : "Disponível para o cliente"}</small></div>
         <div className="report-library-actions">
           <Link className="button button-secondary button-sm" href={`/cliente/${version.clientId}/relatorios/${version.id}`}><Eye size={14} />Visualizar</Link>

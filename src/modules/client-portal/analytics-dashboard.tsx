@@ -762,11 +762,12 @@ export function ClientAnalyticsDashboard({
               {canManageReports && <option value="ready">Não publicados</option>}<option value="superseded">Histórico</option>
             </select>
             <label className="analytics-search"><Search size={14} /><input type="search" value={reportSearch}
-              onChange={(event) => setReportSearch(event.target.value)} placeholder="Buscar relatório…" /></label>
+              onChange={(event) => setReportSearch(event.target.value)} placeholder="Buscar relatório…" aria-label="Buscar relatório" /></label>
           </div>
           {reportRows.length ? <div className="analytics-report-list">{reportRows.map((report) => <div className="analytics-report-row" key={report.reportVersionId}>
             <div><strong>{report.title}</strong>
-              <span>{displayDate(report.dateFrom)} – {displayDate(report.dateTo)}</span></div>
+              <span>{displayDate(report.dateFrom)} – {displayDate(report.dateTo)}</span>
+              {report.orientation && <span>{report.orientation === "horizontal" ? "Horizontal · apresentação" : "Vertical · A4"}{report.generatedAt ? ` · Gerado em ${new Intl.DateTimeFormat("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}).format(new Date(report.generatedAt))}` : ""}</span>}</div>
             <span className={`analytics-report-state is-${report.state}`}>
               {report.state === "ready" ? "Não publicado" : report.state === "published" ? "Publicado" : "Histórico"}
             </span>
