@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ access: vi.fn(), collect: vi.fn(), revalidate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ access: vi.fn(), collect: vi.fn(), revalidate: vi.fn(), analytics: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/modules/client-portal/context", () => ({ requireClientDashboardAccess: mocks.access }));
 vi.mock("@/modules/meta/server", () => ({ collectMetaClientInsights: mocks.collect, MetaSetupError: class extends Error {} }));
 vi.mock("@/modules/meta/client", () => ({ MetaApiError: class extends Error {} }));
+vi.mock("@/modules/client-portal/analytics", () => ({ getClientAnalytics: mocks.analytics }));
 import { collectDashboardData } from "@/modules/client-portal/analytics-actions";
 
 const clientId = "94e033bc-1fe7-4ddb-868d-e2f07b998dae";
@@ -17,8 +18,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.access.mockResolvedValue(access());
   mocks.collect.mockResolvedValue({ insightCount: 42, completedSliceCount: 4, failures: [] });
+  mocks.analytics.mockResolvedValue({ coverage: { status: "complete", latestCollectedAt: new Date().toISOString() } });
 });
 describe("dashboard collection authorization", () => {
+  it("checks freshness for an authorized reader without allowing forced refresh", async () => {
+    mocks.access.mockResolvedValue(access(false));
+    expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30", automatic: true })).toEqual({ success: true, insightCount: 0 });
+    expect(mocks.collect).not.toHaveBeenCalled();
+    mocks.analytics.mockResolvedValue({ coverage: { status: "partial", latestCollectedAt: new Date().toISOString() } });
+    expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30", automatic: true })).toHaveProperty("success", true);
+    expect(mocks.collect).toHaveBeenCalledWith(expect.objectContaining({ agencyId: "agency-from-verified-client", clientId, forceRefresh: false }));
+  });
   it("refuses a client reader before privileged collection", async () => {
     mocks.access.mockResolvedValue(access(false));
     expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30" })).toHaveProperty("error");
@@ -34,7 +44,7 @@ describe("dashboard collection authorization", () => {
   });
   it("reports partial completion and invalidates the persisted view", async () => {
     mocks.collect.mockResolvedValue({ insightCount: 42, completedSliceCount: 3, failures: [{ code: "4" }] });
-    expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30" })).toMatchObject({ error: expect.stringContaining("3 lotes concluídos"), insightCount: 42 });
+    expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30" })).toMatchObject({ error: expect.stringContaining("preservados"), insightCount: 42 });
     expect(mocks.revalidate).toHaveBeenCalledWith(`/cliente/${clientId}`);
   });
 });

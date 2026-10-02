@@ -66,6 +66,9 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
     .map(metric => ({ key: String(metric.key), label: metaMetricLabel(String(metric.key), String(metric.label)),
       unit: metric.unit as "currency" | "integer" | "percent" | "ratio", precision: Number(metric.precision), desirable: "neutral" as const }));
   const analytics = normalizeClientAnalytics({ dateFrom: data.dateFrom, dateTo: data.dateTo, currency: data.currency,
+    primaryMetricKey: configuration.primary_metric_key,
+    primaryActionType: configuration.primary_action_type,
+    estimatedMetricKeys: configuration.estimated_metric_keys,
     summary: data.summary, metrics, daily: configuration.daily, previousDaily: configuration.previous_daily,
     accounts: configuration.accounts, selectedAccountIds: configuration.account_ids, coverage: configuration.coverage });
   const labels = Array.isArray(configuration.scope_labels) ? configuration.scope_labels.filter((v): v is string => typeof v === "string") : [];

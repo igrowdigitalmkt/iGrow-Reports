@@ -28,5 +28,5 @@ export async function getCampaignScopedAnalytics(input: unknown) {
     p_date_from: parsed.data.dateFrom, p_date_to: parsed.data.dateTo, p_ad_account_ids: parsed.data.accountIds, p_entity_keys: parsed.data.entityKeys });
   const analytics = normalizeClientAnalytics(refreshed.data ?? data);
   return { success: true as const, summary: analytics.summary, previousSummary: analytics.previousSummary,
-    daily: analytics.daily, previousDaily: analytics.previousDaily, coverage: analytics.coverage };
+    daily: analytics.daily, previousDaily: analytics.previousDaily, coverage: analytics.coverage, estimatedMetricKeys: analytics.estimatedMetricKeys };
 }

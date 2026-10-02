@@ -3,15 +3,19 @@ import { formatAnalyticsValue } from "@/modules/client-portal/analytics-charts";
 import type { AnalyticsDashboardData, AnalyticsMetric } from "@/modules/client-portal/analytics-types";
 import type { AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 import { getSavedReportDocument } from "@/modules/client-portal/report-actions";
+import { buildPresentationPdf } from "./pdf-presentation";
+import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric } from "./report-presentation";
 
 export type DashboardPdfInput = {
   title: string; clientName: string; workspaceName: string; headerDetails: string;
   data: AnalyticsDashboardData; metrics: AnalyticsMetric[]; entityLabels: string[]; accountLabels: string[];
   comparison: boolean; chartType: "line" | "bar";
   entityRows?: AnalyticsEntity[]; campaignMetrics?: AnalyticsMetric[];
+  orientation?: "vertical" | "horizontal";
 };
 
 export function buildDashboardPdf(input: DashboardPdfInput) {
+  if (input.orientation === "horizontal") return buildPresentationPdf(input);
   const doc = new jsPDF({ format: "a4", unit: "mm" });
   const colors = { ink: "#142137", muted: "#65748b", blue: "#2563eb", paper: "#f4f7fc", border: "#dce4f0" };
   let y = 18;
@@ -31,24 +35,28 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
   pageHeader();
   doc.setFont("helvetica", "bold"); line(input.title, 23); line(input.clientName, 14);
   doc.setFont("helvetica", "normal");
-  line(`${input.data.dateFrom} a ${input.data.dateTo}  |  Meta Ads  |  ${input.data.currency ?? "Moedas por conta"}`, 10, colors.muted);
+  line(`${reportDate(input.data.dateFrom)} a ${reportDate(input.data.dateTo)}  |  Meta Ads`, 10, colors.muted);
+  line(`Cobertura: ${input.data.coverage.coveredDays}/${input.data.coverage.totalDays} dias`, 9, colors.muted);
   line(`Contas: ${input.accountLabels.join("; ")}`, 9, colors.muted);
+  line(`Última atualização: ${reportUpdatedAt(input.data)} (horário de Brasília)`, 9, colors.muted);
   const zones = [...new Set(input.data.accounts.filter(a => input.data.selectedAccountIds.includes(a.id)).map(a => a.timezoneName))];
   line(`Fusos: ${zones.join("; ")}  |  Comparação: ${input.comparison ? "período anterior" : "desativada"}  |  Gráfico: ${input.chartType === "bar" ? "barras" : "linhas"}`, 9, colors.muted);
-  line(`Cobertura: ${input.data.coverage.coveredDays}/${input.data.coverage.totalDays} dias  |  Última coleta: ${input.data.coverage.latestCollectedAt ?? "indisponível"}`, 9, colors.muted);
   y += 5;
   for (let index = 0; index < input.metrics.length; index += 3) {
-    ensure(31);
+    ensure(38);
     input.metrics.slice(index, index + 3).forEach((metric, column) => {
       const x = 18 + column * 59;
-      doc.setFillColor(colors.paper); doc.setDrawColor(colors.border); doc.roundedRect(x, y, 56, 27, 2, 2, "FD");
+      doc.setFillColor(colors.paper); doc.setDrawColor(colors.border); doc.roundedRect(x, y, 56, 34, 2, 2, "FD");
       doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(colors.muted);
       const label: string[] = doc.splitTextToSize(metric.label, 49); doc.text(label.slice(0, 2), x + 4, y + 6);
       const value = formatAnalyticsValue(input.data.summary[metric.key], metric, input.data.currency);
       doc.setFont("helvetica", "bold"); doc.setFontSize(value.length > 18 ? 10 : 15); doc.setTextColor(colors.ink);
       doc.text(value, x + 4, y + 20);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(colors.muted);
+      if (["primary_results", "cost_per_result"].includes(metric.key)) doc.text(doc.splitTextToSize(resultDescription(input.data), 48).slice(0, 2), x + 4, y + 26);
+      else if (estimatedMetric(input.data, metric.key)) doc.text("Estimado entre contas", x + 4, y + 28);
     });
-    y += 31;
+    y += 38;
   }
   for (const key of ["spend", "primary_results"]) {
     const metric = input.metrics.find(m => m.key === key);
@@ -103,7 +111,7 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
       doc.setDrawColor(colors.border); doc.line(18, y + rowHeight - 3, 192, y + rowHeight - 3); y += rowHeight;
     }
   }
-  if (input.data.summary.reach == null) { y += 3; line("Alcance, frequência e cliques únicos não são somados entre entidades. Campos sem deduplicação exata ficam indisponíveis.", 8, colors.muted); }
+  if (input.data.selectedAccountIds.length > 1) { y += 3; line("Alcance e cliques únicos entre contas são estimados pela soma dos agregados da Meta; pessoas podem se repetir. Frequência = impressões / alcance estimado.", 8, colors.muted); }
   const total = doc.getNumberOfPages();
   for (let page = 1; page <= total; page++) {
     doc.setPage(page); doc.setFontSize(8); doc.setTextColor(colors.muted);
@@ -114,7 +122,7 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
 
 export async function downloadDashboardPdf(input: DashboardPdfInput) {
   const safeName = input.clientName.replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 80);
-  buildDashboardPdf(input).save(`${safeName}-${input.data.dateFrom}-${input.data.dateTo}.pdf`);
+  buildDashboardPdf(input).save(`${safeName}-${input.data.dateFrom}-${input.data.dateTo}${input.orientation === "horizontal" ? "-apresentacao" : ""}.pdf`);
 }
 
 export async function downloadSavedReportPdf(clientId: string, versionId: string) {

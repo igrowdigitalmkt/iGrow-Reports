@@ -39,6 +39,15 @@ describe("PDF do dashboard", () => {
     expect(doc.getNumberOfPages()).toBeGreaterThan(2);
     const pdf = Buffer.from(doc.output("arraybuffer"));
     expect(pdf.subarray(0,5).toString()).toBe("%PDF-");
-    if (process.env.IGROW_PDF_QA === "1") writeFileSync("work/dashboard-pdf-qa.pdf",pdf);
+    const horizontal = buildDashboardPdf({ title:"Relatório de performance",clientName:"Colégio Crescer",workspaceName:"iGrow Digital",headerDetails:"",data,metrics,
+      entityRows: entities.map(entity => ({...entity, values:{spend:123.45,reach:1000,impressions:1500}})), campaignMetrics:metrics.slice(0,4),
+      entityLabels:["Todas as campanhas"], accountLabels:["Conta principal"],comparison:true,chartType:"bar",orientation:"horizontal" });
+    expect(horizontal.internal.pageSize.getWidth() / horizontal.internal.pageSize.getHeight()).toBeCloseTo(16/9, 5);
+    expect(horizontal.getNumberOfPages()).toBeGreaterThanOrEqual(6);
+    expect(horizontal.output()).toContain("Obrigado.");
+    if (process.env.IGROW_PDF_QA_DIR) {
+      writeFileSync(`${process.env.IGROW_PDF_QA_DIR}/vertical.pdf`,pdf);
+      writeFileSync(`${process.env.IGROW_PDF_QA_DIR}/horizontal.pdf`,Buffer.from(horizontal.output("arraybuffer")));
+    }
   });
 });

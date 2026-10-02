@@ -62,4 +62,5 @@ export type AnalyticsDashboardData = {
     totalDays: number;
   };
   warnings: string[];
+  estimatedMetricKeys?: string[];
 };

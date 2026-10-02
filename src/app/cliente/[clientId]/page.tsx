@@ -8,7 +8,8 @@ import { resolveAnalyticsRange } from "@/modules/client-portal/range";
 import { listClientPortalReports } from "@/modules/reports/client";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
 import { normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
-import { getMetaEntityStatuses, refreshMetaDashboardScope } from "@/modules/meta/server";
+import { collectMetaClientInsights, getMetaEntityStatuses, refreshMetaDashboardScope } from "@/modules/meta/server";
+import { needsAnalyticsAccessRefresh } from "@/modules/client-portal/analytics-freshness";
 import type { AnalyticsReportItem } from "@/modules/client-portal/analytics-types";
 
 export const metadata: Metadata = {
@@ -64,6 +65,12 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     }
   }
   try {
+    if (data.selectedAccountIds.length && needsAnalyticsAccessRefresh(data)) {
+      const updated = await collectMetaClientInsights({ agencyId: access.agencyId, clientId, actorId: user.id,
+        since: data.dateFrom, until: data.dateTo });
+      data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
+      if (updated.failures.length) data.warnings.push("A atualização não terminou para todas as contas. Os valores anteriores foram preservados.");
+    }
     await refreshMetaDashboardScope({ agencyId: access.agencyId, clientId, data });
     data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
   } catch { data.warnings.push("Alguns agregados da Meta não puderam ser atualizados. Dados já coletados foram preservados."); }
@@ -84,7 +91,7 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     {filterError && <p role="alert" className="client-alert">{filterError} Exibindo os últimos 30 dias completos.</p>}
     {access.client.archivedAt && <p className="client-alert">Cliente arquivado. Histórico preservado para consulta.</p>}
     <ClientAnalyticsDashboard
-      key={JSON.stringify([data.dateFrom, data.dateTo, data.selectedAccountIds, data.coverage.latestCollectedAt])}
+      key={JSON.stringify([data.dateFrom, data.dateTo, data.selectedAccountIds])}
       entities={entities} workspaceName={workspaceName} clientName={access.client.name}
       data={data} clientId={clientId} workspaceId={access.agencyId}
       canCollect={canCollect} canManageReports={canManageReports}

@@ -10,13 +10,15 @@ import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
   CircleDollarSign, Clock3, Download, FileText, Filter, Info, Layers3, Lock,
   MousePointerClick, RefreshCw, Search, Sparkles, Target, Trash2, TrendingUp,
-  WalletCards, X,
+  WalletCards, X, RectangleHorizontal, RectangleVertical,
 } from "lucide-react";
 import { collectDashboardData } from "./analytics-actions";
 import { getCampaignScopedAnalytics } from "./analytics-scope-actions";
 import { deleteDashboardReport, generateDashboardReport } from "./report-actions";
 import { publishReportVersion } from "@/modules/reports/actions";
 import { resolveAnalyticsRange } from "./range";
+import { ANALYTICS_REFRESH_MS } from "./analytics-freshness";
+import { resultDescription, estimatedMetric } from "@/modules/reports/report-presentation";
 import type { AnalyticsDashboardData, AnalyticsReportItem } from "./analytics-types";
 import {
   ANALYTICS_COLORS, AnalyticsAccountChart, AnalyticsSparkline, AnalyticsTrendChart,
@@ -41,6 +43,7 @@ const PERIODS = [
 ];
 const FIXED_METRICS = ["spend", "reach", "impressions", "cpm", "primary_results", "cost_per_result"];
 const DEFAULT_OPTIONAL_METRICS = ["link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
+const isPinned = (key: string) => FIXED_METRICS.includes(key) || key === "frequency";
 const METRIC_ICONS = {
   spend: CircleDollarSign, impressions: TrendingUp, link_clicks: MousePointerClick,
   primary_results: Target, reach: Activity, cpm: BarChart3, cost_per_result: CircleDollarSign,
@@ -80,7 +83,7 @@ function metricGroup(metric: AnalyticsMetric) {
 }
 function unavailableReason(data: AnalyticsDashboardData, metric: AnalyticsMetric) {
   if (["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr", "unique_outbound_clicks"].includes(metric.key)
-    && data.selectedAccountIds.length > 1) return "Selecione uma conta de anúncios para consultar este agregado deduplicado da Meta.";
+    && data.selectedAccountIds.length > 1) return "A Meta não retornou os valores necessários para estimar este indicador entre contas.";
   if (metric.unit === "currency" && !data.currency) return "As contas usam moedas diferentes. Selecione contas com a mesma moeda.";
   if (data.coverage.status !== "complete") return "O período ainda tem dados sem coleta. Atualize os dados para completar a análise.";
   return "A Meta não retornou este indicador para o escopo selecionado, ou não há resultados para calcular a taxa/custo.";
@@ -137,7 +140,7 @@ export function ClientAnalyticsDashboard({
   const [appliedEntityKeys, setAppliedEntityKeys] = useState(roots.map(entity => entity.key));
   const draftEntityKeys = compactEntitySelection(entities, selectedLeaves);
   const scopeDirty = [...draftEntityKeys].sort().join(",") !== [...appliedEntityKeys].sort().join(",");
-  const [scopeData, setScopeData] = useState<Pick<AnalyticsDashboardData, "summary" | "previousSummary" | "daily" | "previousDaily" | "coverage"> | null>(null);
+  const [scopeData, setScopeData] = useState<Pick<AnalyticsDashboardData, "summary" | "previousSummary" | "daily" | "previousDaily" | "coverage" | "estimatedMetricKeys"> | null>(null);
   const [sortKey, setSortKey] = useState("spend");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [comparison, setComparison] = useState(true);
@@ -184,7 +187,7 @@ export function ClientAnalyticsDashboard({
           const parsed = JSON.parse(saved) as { overview?: string[]; campaign?: string[] };
           const available = new Set(data.metrics.map((metric) => metric.key));
           if (Array.isArray(parsed.overview)) {
-            setOptionalMetricKeys(parsed.overview.filter((key) => available.has(key) && !FIXED_METRICS.includes(key)));
+            setOptionalMetricKeys([...new Set([...parsed.overview.filter((key) => available.has(key) && !FIXED_METRICS.includes(key)), "frequency"])].filter(key => available.has(key)));
           }
           if (Array.isArray(parsed.campaign)) {
             const valid = parsed.campaign.filter((key) => available.has(key));
@@ -207,6 +210,38 @@ export function ClientAnalyticsDashboard({
       campaign: campaignMetricKeys,
     })); } catch { /* Armazenamento local bloqueado não impede a análise. */ }
   }, [campaignMetricKeys, optionalMetricKeys, preferenceKey, preferencesLoaded]);
+
+  useEffect(() => {
+    let updating = false;
+    const refresh = async () => {
+      if (updating || document.visibilityState !== "visible") return;
+      updating = true;
+      try {
+        const result = await collectDashboardData({ clientId, from: data.dateFrom, to: data.dateTo, automatic: true });
+        if (result.error) setError(result.error);
+        router.refresh();
+      } finally { updating = false; }
+    };
+    const updated = Date.parse(data.coverage.latestCollectedAt ?? "");
+    const delay = Number.isFinite(updated) ? Math.max(1000, ANALYTICS_REFRESH_MS - (Date.now() - updated)) : ANALYTICS_REFRESH_MS;
+    const timer = window.setTimeout(() => { void refresh(); }, delay);
+    const interval = window.setInterval(() => { void refresh(); }, ANALYTICS_REFRESH_MS);
+    const resumed = () => { if (Date.now() - updated >= ANALYTICS_REFRESH_MS) void refresh(); };
+    document.addEventListener("visibilitychange", resumed);
+    return () => { window.clearTimeout(timer); window.clearInterval(interval); document.removeEventListener("visibilitychange", resumed); };
+  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, router]);
+
+  useEffect(() => {
+    if (!scopeData) return;
+    let cancelled = false;
+    void getCampaignScopedAnalytics({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
+      accountIds: data.selectedAccountIds, entityKeys: appliedEntityKeys }).then(result => {
+      if (!cancelled && result.success === true) setScopeData(result);
+    });
+    return () => { cancelled = true; };
+    // Reapply the existing selection after refresh without changing the analysis.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.coverage.latestCollectedAt]);
 
   const selectedEntities = entities.filter(entity => appliedEntityKeys.includes(entity.key));
   const scopedData = { ...data, ...(scopeData ?? {}), campaigns: selectedEntities.map(entity => ({
@@ -231,7 +266,7 @@ export function ClientAnalyticsDashboard({
         day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
         timeZone: data.timezoneName ?? "America/Sao_Paulo",
       }).format(new Date(data.coverage.latestCollectedAt))
-    : "Ainda não coletado";
+    : "Ainda não atualizado";
   const visibleCampaigns = roots.filter(entity => {
     const descendants = entities.filter(item => item.campaignId === entity.id || item.key === entity.key);
     return [entity, ...descendants].some(item => item.name.toLocaleLowerCase("pt-BR").includes(campaignQuery.toLocaleLowerCase("pt-BR")));
@@ -299,13 +334,12 @@ export function ClientAnalyticsDashboard({
       setNotice(range === "previous"
         ? "Período anterior atualizado."
         : "Dados atualizados para o período selecionado.");
-      setScopeData(null);
       router.refresh();
     });
   }
 
   function toggleMetric(key: string) {
-    if (FIXED_METRICS.includes(key)) return;
+    if (isPinned(key)) return;
     setOptionalMetricKeys((current) =>
       current.includes(key) ? current.filter((item) => item !== key) : [...current, key]
     );
@@ -341,18 +375,18 @@ export function ClientAnalyticsDashboard({
       const result = await getCampaignScopedAnalytics({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
         accountIds: data.selectedAccountIds, entityKeys: nextKeys });
       if ("error" in result) { setError(result.error ?? "Não foi possível aplicar a seleção."); return; }
-      setScopeData({ summary: result.summary, previousSummary: result.previousSummary, daily: result.daily, previousDaily: result.previousDaily, coverage: result.coverage });
+      setScopeData(result);
       setAppliedEntityKeys(nextKeys); setTab("overview");
     });
   }
 
-  async function exportPdf() {
+  async function exportPdf(orientation: "vertical" | "horizontal" = "vertical") {
     try {
       await downloadDashboardPdf({ title: reportTitle, clientName, workspaceName: headerName || workspaceName,
         headerDetails, data: scopedData, metrics: overviewMetrics,
         entityLabels: scopeData ? selectedEntities.map(entity => entity.name) : ["Todas as campanhas"],
         accountLabels: data.accounts.filter(account => data.selectedAccountIds.includes(account.id)).map(account => account.name),
-        comparison, chartType, entityRows: selectedEntities, campaignMetrics });
+        comparison, chartType, entityRows: selectedEntities, campaignMetrics, orientation });
     } catch { setError("Não foi possível gerar o PDF. Tente novamente."); }
   }
 
@@ -425,8 +459,13 @@ export function ClientAnalyticsDashboard({
         <p>Explore o período, personalize a análise e escolha exatamente o que deseja acompanhar.</p>
       </div>
       <div className="analytics-command-actions">
-        {tab === "overview" && <button type="button" className="analytics-button analytics-button-secondary"
-          disabled={pending || scopeDirty} onClick={exportPdf}><Download size={15} />Baixar PDF da análise atual</button>}
+        {tab === "overview" && <details className="analytics-filter-menu analytics-pdf-menu">
+          <summary><Download size={15} />Gerar Relatório em PDF<ChevronDown size={13} /></summary>
+          <div className="analytics-filter-popover">
+            <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("vertical"); }}><RectangleVertical size={19} /><span>Vertical<small>A4 · documento</small></span></button>
+            <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("horizontal"); }}><RectangleHorizontal size={19} /><span>Horizontal<small>1920 × 1080 · apresentação</small></span></button>
+          </div>
+        </details>}
         {canCollect && <button type="button" className="analytics-button analytics-button-primary"
           onClick={() => collect()} disabled={pending || !data.accounts.length}>
           <RefreshCw size={15} className={pending ? "analytics-spin" : ""} />
@@ -478,7 +517,7 @@ export function ClientAnalyticsDashboard({
         <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
         <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
       </details>}
-      <span className="analytics-last-update"><span className="analytics-status-dot" />Última coleta: {latest}</span>
+      <span className="analytics-last-update"><span className="analytics-status-dot" />Última atualização: {latest}</span>
     </div>
 
     {error && <div className="analytics-notice analytics-notice-error" role="alert"><Info size={17} /><p>{error}</p></div>}
@@ -488,11 +527,11 @@ export function ClientAnalyticsDashboard({
     </div>}
     {scopedData.coverage.status !== "complete" && <div className="analytics-coverage-banner">
       <div><span className="analytics-coverage-icon"><Layers3 size={17} /></span><p>
-        <strong>{scopedData.coverage.status === "empty" ? "Histórico ainda não coletado" : "Histórico parcial"}</strong>
-        <span>{scopedData.coverage.coveredDays} de {scopedData.coverage.totalDays} dias com cobertura.</span>
+        <strong>A atualização destas datas ainda não terminou</strong>
+        <span>Recebemos dados de {scopedData.coverage.coveredDays} de {scopedData.coverage.totalDays} dias. A Meta não confirmou os dias restantes; os valores disponíveis foram preservados.</span>
       </p></div>
       {canCollect && <button className="analytics-text-button" type="button" onClick={() => collect()} disabled={pending}>
-        Coletar este período <ArrowUpRight size={14} />
+        Tentar atualizar novamente <ArrowUpRight size={14} />
       </button>}
     </div>}
     <div className="analytics-section-toolbar">
@@ -515,7 +554,7 @@ export function ClientAnalyticsDashboard({
           </div>
           {data.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
             <label><input type="checkbox" checked={FIXED_METRICS.includes(metric.key) || optionalMetricKeys.includes(metric.key)}
-              disabled={FIXED_METRICS.includes(metric.key)} onChange={() => toggleMetric(metric.key)} />
+              disabled={isPinned(metric.key)} onChange={() => toggleMetric(metric.key)} />
               <span>{metric.label}{FIXED_METRICS.includes(metric.key) && <small>Fixa</small>}</span></label>
           </div>)}
         </div>
@@ -545,6 +584,8 @@ export function ClientAnalyticsDashboard({
               <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
               </strong>
+              {["primary_results", "cost_per_result"].includes(metric.key) && <p className="analytics-result-description">{resultDescription(scopedData)}</p>}
+              {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate" title="Estimativa pela soma dos alcances ou cliques únicos das contas. Pessoas presentes em mais de uma conta podem ser contadas novamente. Frequência = impressões ÷ alcance estimado.">Estimado entre contas</small>}
               <div className={`analytics-kpi-change is-${change.direction}`}>
                 {"up" in change ? change.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} /> : <span className="analytics-change-dash">—</span>}
                 <span>{change.text}</span>
@@ -561,13 +602,14 @@ export function ClientAnalyticsDashboard({
             return <article className="analytics-kpi is-removable" key={metric.key}
               style={{ "--metric-color": color } as CSSProperties}>
               <div className="analytics-kpi-top"><span>{metric.label}</span>
-                <button className="analytics-kpi-remove" type="button" onClick={() => toggleMetric(metric.key)}
-                  aria-label={`Remover ${metric.label} da visão geral`}><X size={14} /></button>
+                {!isPinned(metric.key) && <button className="analytics-kpi-remove" type="button" onClick={() => toggleMetric(metric.key)}
+                  aria-label={`Remover ${metric.label} da visão geral`}><X size={14} /></button>}
                 <span className="analytics-kpi-icon"><Icon size={16} /></span>
               </div>
               <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
               </strong>
+              {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate" title="Estimativa matemática entre contas; pode incluir pessoas repetidas.">Estimado entre contas</small>}
               <div className={`analytics-kpi-change is-${change.direction}`}>
                 {"up" in change ? change.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} /> : <span className="analytics-change-dash">—</span>}
                 <span>{change.text}</span>
@@ -692,7 +734,7 @@ export function ClientAnalyticsDashboard({
               return <article className={`analytics-kpi analytics-metric-select-card${checked ? " is-selected" : ""}`}
                 key={metric.key} style={{ "--metric-color": color } as CSSProperties}>
                 <div className="analytics-kpi-top"><span>{metric.label}</span><label className="analytics-metric-checkbox">
-                  <input type="checkbox" checked={checked} disabled={FIXED_METRICS.includes(metric.key)}
+                  <input type="checkbox" checked={checked} disabled={isPinned(metric.key)}
                     aria-label={`Adicionar ${metric.label} à Visão geral`}
                     onChange={() => toggleMetric(metric.key)} />
                   <span>{FIXED_METRICS.includes(metric.key) ? <Lock size={12} /> : <Check size={12} />}</span>
@@ -700,6 +742,7 @@ export function ClientAnalyticsDashboard({
                 <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                   {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
                 </strong>
+                {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate">Estimado entre contas</small>}
                 <p className="analytics-metric-card-note">{FIXED_METRICS.includes(metric.key) ? "Indicador fixo da Visão geral" : checked ? "Exibida na Visão geral" : "Marque para adicionar à Visão geral"}</p>
               </article>;
             })}</div>
@@ -718,8 +761,13 @@ export function ClientAnalyticsDashboard({
                 placeholder="Empresa, gestor, site ou contato" onChange={event => setHeaderDetails(event.target.value)} /></label>
             </div>
             {scopeDirty && <p role="status">Aplique a seleção na aba Campanhas antes de gerar o relatório.</p>}
-            <button type="button" className="analytics-button analytics-button-secondary" disabled={pending || scopeDirty} onClick={exportPdf}>
-              <Download size={14} />Baixar PDF da análise atual</button>
+            <details className="analytics-filter-menu analytics-pdf-menu">
+              <summary><Download size={15} />Gerar Relatório em PDF<ChevronDown size={13} /></summary>
+              <div className="analytics-filter-popover">
+                <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("vertical"); }}><RectangleVertical size={19} /><span>Vertical<small>A4 · documento</small></span></button>
+                <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("horizontal"); }}><RectangleHorizontal size={19} /><span>Horizontal<small>1920 × 1080 · apresentação</small></span></button>
+              </div>
+            </details>
             <div className="analytics-report-create-controls">
               <input className="input" value={reportTitle} onChange={(event) => setReportTitle(event.target.value)}
                 maxLength={200} aria-label="Título do relatório" />

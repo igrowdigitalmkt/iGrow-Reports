@@ -84,5 +84,6 @@ export function normalizeClientAnalytics(value: unknown): AnalyticsDashboardData
       totalDays: analyticsNumber(coverage.totalDays) ?? 0,
     },
     warnings: array(payload.warnings).map(text).filter(Boolean),
+    estimatedMetricKeys: array(payload.estimatedMetricKeys).map(text).filter(Boolean),
   };
 }

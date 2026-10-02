@@ -129,5 +129,13 @@ select throws_ok($q$update meta_dashboard_scopes set payload='{}'$q$,'42501',nul
 select throws_ok($q$select private.client_analytics_base('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',null)$q$,'42501',null,'Modelo privado permanece inacessível diretamente');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000055',true);
 select throws_ok($q$select get_client_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])$q$,'42501',null,'Agregados exatos não ampliam acesso entre organizações');
+reset role;
+update meta_dashboard_scopes set payload=payload||'{"entityValues":{"50000000-0000-4000-8000-000000000051:ad:81":{"reach":7,"frequency":1.5}},"estimatedMetricKeys":["unique_clicks"]}'
+  where scope_key=md5('50000000-0000-4000-8000-000000000051|');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000051',true);
+select is((select (e->'values'->>'reach')::numeric from jsonb_array_elements(get_client_analytics_hierarchy('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])) e where e->>'key'='ad:81'),7::numeric,'Linha da seleção recebe alcance do período exato do anúncio');
+select is((get_client_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])->'estimatedMetricKeys')->>0,'unique_clicks','Estimativas preservam identificação explícita');
+select throws_ok($q$select private.analytics_hierarchy_base('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])$q$,'42501',null,'Agregados de entidades não liberam acesso direto ao modelo privado');
 select * from finish();
 rollback;
