@@ -19,7 +19,7 @@ import {
   MetaClient,
   type MetaAdAccount,
 } from "./client";
-import { normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, validateCollectionRange } from "./collection";
+import { normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "./collection";
 
 const TOKEN_KIND = "meta_access_token";
 
@@ -34,7 +34,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
     .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("scope_key", scopeKey)
     .eq("date_from", data.dateFrom).eq("date_to", data.dateTo).maybeSingle();
   if (cached && Date.now() - Date.parse(cached.collected_at) < 3_600_000
-    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === 2
+    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === 3
     && Date.parse(data.coverage.latestCollectedAt ?? "1970-01-01") <= Date.parse(cached.collected_at)) return;
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const { data: links } = await service.from("client_ad_accounts").select("ad_account_id")
@@ -97,14 +97,16 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
   const calculate = (period: "current" | "previous"): AnalyticsValues => {
     const rows = relevant.map(row => row[period]);
     const values: AnalyticsValues = {};
-    const scalar = (key: string) => rows.every(row => row[key] !== undefined && row[key] !== null)
-      ? rows.reduce((sum, row) => sum + Number(row[key]), 0) : null;
+    const scalar = (key: string) => {
+      const amounts = rows.map(row => periodScalarValue(row, key));
+      return amounts.every(amount => amount !== null) ? amounts.reduce<number>((sum, amount) => sum + amount!, 0) : null;
+    };
     const spend = data.currency ? scalar("spend") : null;
     const impressions = scalar("impressions"), clicks = scalar("clicks");
     if (clicks !== null) values.clicks = clicks;
     add("clicks", "Cliques (todos)");
     if (rows.length === 1) for (const key of ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr"]) {
-      if (rows[0][key] !== undefined) values[key] = Number(rows[0][key]);
+      values[key] = periodScalarValue(rows[0], key);
       add(key, key, key.includes("ctr") ? "percent" : key === "frequency" ? "ratio" : "integer");
     }
     if (rows.length > 1) {
@@ -124,12 +126,14 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
     for (const [field, key] of [["outbound_clicks", "outbound_clicks"], ["unique_outbound_clicks", "unique_outbound_clicks"],
       ["video_play_actions", "video_plays"], ["video_p25_watched_actions", "video_p25"], ["video_p50_watched_actions", "video_p50"],
       ["video_p75_watched_actions", "video_p75"], ["video_p95_watched_actions", "video_p95"], ["video_p100_watched_actions", "video_p100"]]) {
-      if (rows.every(row => Array.isArray(row[field]))) values[key] = rows.reduce((sum, row) => sum + (row[field] as Array<{ value: string }>).reduce((total, action) => total + Number(action.value), 0), 0);
+      const lists = rows.map(row => Array.isArray(row[field]) ? row[field] as Array<{ value: string }>
+        : Number(row.impressions ?? 0) === 0 && Number(row.spend ?? 0) === 0 ? [] : null);
+      if (lists.every(list => list !== null)) values[key] = lists.reduce((sum, list) => sum + list!.reduce((total, action) => total + Number(action.value), 0), 0);
       add(key, key);
     }
     if (values.outbound_clicks != null && impressions) { values.outbound_clicks_ctr = values.outbound_clicks / impressions * 100; add("outbound_clicks_ctr", "CTR de saída", "percent"); }
     for (const [key, amount] of Object.entries({ ctr: impressions && clicks !== null ? clicks / impressions * 100 : null,
-      cpc: clicks && spend !== null ? spend / clicks : null, cpp: rows.length === 1 && Number(rows[0].reach) && spend !== null ? spend / Number(rows[0].reach) * 1000 : null })) {
+      cpc: clicks && spend !== null ? spend / clicks : null, cpp: values.reach && spend !== null ? spend / values.reach * 1000 : null })) {
       values[key] = amount; add(key, key, key === "ctr" ? "percent" : "currency");
     }
     const actionTotals = new Map<string, number>(), valueTotals = new Map<string, number>();
@@ -154,7 +158,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
   const summary = calculate("current"), previousSummary = calculate("previous");
   const { error } = await service.from("meta_dashboard_scopes").upsert({ agency_id: input.agencyId, client_id: input.clientId,
     scope_key: scopeKey, date_from: data.dateFrom, date_to: data.dateTo, collected_at: new Date().toISOString(),
-    payload: { version: 2, summary, previousSummary, metrics, entityValues,
+    payload: { version: 3, summary, previousSummary, metrics, entityValues,
       estimatedMetricKeys: relevant.length > 1 ? ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks", "unique_ctr", "unique_inline_link_click_ctr"] : [] } as unknown as Json });
   if (error) throw new MetaSetupError("Não foi possível preservar os agregados da Meta.");
 }

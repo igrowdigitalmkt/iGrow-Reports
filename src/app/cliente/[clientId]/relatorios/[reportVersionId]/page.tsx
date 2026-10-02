@@ -151,5 +151,5 @@ function formatMetric(
     minimumFractionDigits: precision,
     maximumFractionDigits: precision,
   }).format(numeric);
-  return unit === "percent" ? `${formatted}%` : `${formatted}×`;
+  return unit === "percent" ? `${formatted}%` : formatted;
 }

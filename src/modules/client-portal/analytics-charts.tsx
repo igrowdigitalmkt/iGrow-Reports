@@ -16,7 +16,7 @@ export function formatAnalyticsValue(value: number | null | undefined, metric: A
       minimumFractionDigits: metric.precision,
       maximumFractionDigits: metric.precision,
     }).format(value);
-    return metric.unit === "percent" ? `${number}%` : metric.unit === "ratio" ? `${number}×` : number;
+    return metric.unit === "percent" ? `${number}%` : number;
   } catch {
     return "Indisponível";
   }

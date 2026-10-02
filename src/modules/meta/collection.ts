@@ -4,6 +4,13 @@ import type { MetaAction, MetaInsight } from "./client";
 
 const DAY_MS = 86_400_000;
 
+export function periodScalarValue(row: Record<string, unknown>, key: string): number | null {
+  if (row[key] != null) return Number(row[key]);
+  // Meta can return only attributed actions for accounts with no delivery.
+  // These accounts contribute zero exposure, rather than hiding other accounts.
+  return Number(row.impressions ?? 0) === 0 && Number(row.spend ?? 0) === 0 ? 0 : null;
+}
+
 export function parseCollectionDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("Data inválida.");
   const parsed = new Date(`${value}T00:00:00Z`);

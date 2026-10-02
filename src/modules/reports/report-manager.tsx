@@ -187,5 +187,5 @@ function formatPreviewMetric(metric: ClientPortalReportMetric, currency: string 
     minimumFractionDigits: metric.unit === "integer" ? 0 : metric.displayPrecision,
     maximumFractionDigits: metric.unit === "integer" ? 0 : metric.displayPrecision,
   }).format(value);
-  return metric.unit === "percent" ? `${formatted}%` : metric.unit === "ratio" ? `${formatted}×` : formatted;
+  return metric.unit === "percent" ? `${formatted}%` : formatted;
 }

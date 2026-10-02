@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, validateCollectionRange } from "@/modules/meta/collection";
+import { normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "@/modules/meta/collection";
 
 const input = {
   agencyId: "agency", accountId: "account", externalAccountId: "act_1",
@@ -10,6 +10,12 @@ const input = {
 };
 
 describe("coleta histórica Meta", () => {
+  it("keeps exposure totals available when an account has only attributed actions", () => {
+    expect(periodScalarValue({ actions: [{ action_type: "lead", value: "1" }] }, "reach")).toBe(0);
+    expect(periodScalarValue({ impressions: "0", spend: "0" }, "clicks")).toBe(0);
+    expect(periodScalarValue({ impressions: "100", spend: "10" }, "reach")).toBeNull();
+    expect(periodScalarValue({ reach: "50", impressions: "100" }, "reach")).toBe(50);
+  });
   it("divide um ano sem lacunas nem sobreposição em lotes de até 30 dias", () => {
     const slices = splitCollectionRange("2025-10-01", "2026-09-30");
     expect(slices).toHaveLength(13);
