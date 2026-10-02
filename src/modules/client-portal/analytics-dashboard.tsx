@@ -448,8 +448,8 @@ export function ClientAnalyticsDashboard({
     <div className="analytics-command-bar">
       <div className="analytics-title-block">
         <span className="analytics-eyebrow"><span className="analytics-live-dot" /> DESEMPENHO · META ADS</span>
-        <h2>Os números por trás<br className="analytics-mobile-break" /> dos seus resultados<span>.</span></h2>
-        <p>Explore o período, personalize a análise e escolha exatamente o que deseja acompanhar.</p>
+        <h2>{tab === "reports" ? <>Relatórios do cliente<span>.</span></> : <>Os números por trás<br className="analytics-mobile-break" /> dos seus resultados<span>.</span></>}</h2>
+        <p>{tab === "reports" ? "Visualize os arquivos salvos e acompanhe quais estão disponíveis para o cliente." : "Explore o período, personalize a análise e escolha exatamente o que deseja acompanhar."}</p>
       </div>
       <div className="analytics-command-actions">
         {tab === "overview" && <details className="analytics-filter-menu analytics-pdf-menu">
@@ -459,7 +459,7 @@ export function ClientAnalyticsDashboard({
             <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("horizontal"); }}><RectangleHorizontal size={19} /><span>Horizontal<small>1920 × 1080 · apresentação</small></span></button>
           </div>
         </details>}
-        {canCollect && <button type="button" className="analytics-button analytics-button-primary"
+        {canCollect && tab !== "reports" && <button type="button" className="analytics-button analytics-button-primary"
           onClick={() => collect()} disabled={pending || !data.accounts.length}>
           <RefreshCw size={15} className={pending ? "analytics-spin" : ""} />
           {pending ? "Atualizando…" : "Atualizar dados"}
@@ -467,6 +467,7 @@ export function ClientAnalyticsDashboard({
       </div>
     </div>
 
+    {tab !== "reports" && <>
     <form className="analytics-filter-bar" onSubmit={applyFilters}>
       <div className="analytics-period-options" aria-label="Período de análise">
         {PERIODS.map((item) => <button type="button" key={item.key}
@@ -513,12 +514,13 @@ export function ClientAnalyticsDashboard({
       <span className="analytics-last-update"><span className="analytics-status-dot" />Última atualização: {latest}</span>
     </div>
 
+    </>}
     {error && <div className="analytics-notice analytics-notice-error" role="alert"><Info size={17} /><p>{error}</p></div>}
     {notice && <div className="analytics-notice analytics-notice-success" role="status"><Check size={17} /><p>{notice}</p></div>}
     {pending && collectingComparison && <div className="analytics-notice" role="status">
       <RefreshCw size={17} className="analytics-spin" /><p>Atualizando o período anterior para comparação.</p>
     </div>}
-    {scopedData.coverage.status !== "complete" && <div className="analytics-coverage-banner">
+    {tab !== "reports" && scopedData.coverage.status !== "complete" && <div className="analytics-coverage-banner">
       <div><span className="analytics-coverage-icon"><Layers3 size={17} /></span><p>
         <strong>A atualização destas datas ainda não terminou</strong>
         <span>Recebemos dados de {scopedData.coverage.coveredDays} de {scopedData.coverage.totalDays} dias. A Meta não confirmou os dias restantes; os valores disponíveis foram preservados.</span>
@@ -785,7 +787,7 @@ export function ClientAnalyticsDashboard({
       </div>}
     </div>
 
-    <footer className="analytics-data-footer"><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
-      <span>Sem estimativas para datas não coletadas</span></footer>
+    {tab !== "reports" && <footer className="analytics-data-footer"><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
+      <span>Sem estimativas para datas não coletadas</span></footer>}
   </section>;
 }
