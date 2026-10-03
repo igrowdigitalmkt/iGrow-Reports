@@ -45,9 +45,10 @@ const PERIODS = [
   { key: "90d", label: "3 meses" }, { key: "180d", label: "6 meses" },
   { key: "365d", label: "1 ano" }, { key: "custom", label: "Personalizado" },
 ];
-const FIXED_METRICS = ["spend", "primary_results", "cost_per_result", "reach", "impressions", "cpm"];
-const DEFAULT_OPTIONAL_METRICS = ["link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
-const isPinned = (key: string) => FIXED_METRICS.includes(key) || key === "frequency";
+const FIXED_METRICS = ["spend", "primary_results", "cost_per_result"];
+const DEFAULT_OPTIONAL_METRICS = ["reach", "impressions", "cpm", "link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
+const OVERVIEW_PREFERENCE_VERSION = 2;
+const isPinned = (key: string) => FIXED_METRICS.includes(key);
 const METRIC_ICONS = {
   spend: CircleDollarSign, impressions: TrendingUp, link_clicks: MousePointerClick,
   primary_results: Target, reach: Activity, cpm: BarChart3, cost_per_result: CircleDollarSign,
@@ -196,11 +197,17 @@ export function ClientAnalyticsDashboard({
       try {
         const saved = window.localStorage.getItem(`igrow:analytics:${preferenceKey}`);
         if (saved) {
-          const parsed = JSON.parse(saved) as { overview?: string[]; campaign?: string[]; analysisNote?: string };
+          const parsed = JSON.parse(saved) as { overview?: string[]; campaign?: string[]; analysisNote?: string; overviewLayoutVersion?: number };
           if (canManageReports && typeof parsed.analysisNote === "string") setAnalysisNote(parsed.analysisNote.slice(0, 5000));
           const available = new Set(data.metrics.map((metric) => metric.key));
           if (Array.isArray(parsed.overview)) {
-            setOptionalMetricKeys([...new Set([...parsed.overview.filter((key) => available.has(key) && !FIXED_METRICS.includes(key)), "frequency"])].filter(key => available.has(key)));
+            const migratedDefaults = parsed.overviewLayoutVersion === OVERVIEW_PREFERENCE_VERSION
+              ? []
+              : ["reach", "impressions", "cpm"];
+            setOptionalMetricKeys([...new Set([
+              ...migratedDefaults,
+              ...parsed.overview.filter((key) => available.has(key) && !FIXED_METRICS.includes(key)),
+            ])].filter(key => available.has(key)));
           }
           if (Array.isArray(parsed.campaign)) {
             const valid = parsed.campaign.filter((key) => available.has(key));
@@ -220,6 +227,7 @@ export function ClientAnalyticsDashboard({
     if (!preferencesLoaded) return;
     try { window.localStorage.setItem(`igrow:analytics:${preferenceKey}`, JSON.stringify({
       overview: optionalMetricKeys,
+      overviewLayoutVersion: OVERVIEW_PREFERENCE_VERSION,
       campaign: campaignMetricKeys,
       analysisNote: canManageReports ? analysisNote : undefined,
     })); } catch { /* Armazenamento local bloqueado não impede a análise. */ }
@@ -627,12 +635,13 @@ export function ClientAnalyticsDashboard({
               "--metric-color": color,
               ...(showResultRows ? {
                 "--result-rows": resultLayout.rows,
+                "--result-columns": resultLayout.columns,
+                "--result-card-span": resultLayout.cardSpan,
                 "--result-value-size": `${resultLayout.valueSize}px`,
                 "--result-label-size": `${resultLayout.labelSize}px`,
-                "--result-row-gap": `${resultLayout.rowGap}px`,
               } : {}),
             } as CSSProperties;
-            return <article className={`analytics-kpi is-fixed${showResultRows ? " has-result-rows" : ""}${showResultRows && resultLayout.wide ? " is-result-wide" : ""}`} key={metric.key}
+            return <article className={`analytics-kpi is-fixed${showResultRows ? " has-result-rows is-result-adaptive" : ""}`} key={metric.key}
               style={cardStyle}>
               <div className="analytics-kpi-top"><span>{metric.label}</span><span className="analytics-kpi-icon" title="Indicador fixo"><Lock size={14} /></span></div>
               {showResultRows ? <div className="analytics-result-metric-list">
@@ -654,8 +663,6 @@ export function ClientAnalyticsDashboard({
               <AnalyticsSparkline values={scopedData.daily.map((day) => day.values[metric.key])} color={color} />
             </article>;
           })}
-        </div>
-        {!!optionalMetrics.length && <div className="analytics-kpi-grid analytics-kpi-grid-optional">
           {optionalMetrics.map((metric, index) => {
             const change = changeDescription(scopedData, metric);
             const Icon = METRIC_ICONS[metric.key as keyof typeof METRIC_ICONS] ?? BarChart3;
@@ -679,7 +686,7 @@ export function ClientAnalyticsDashboard({
               <AnalyticsSparkline values={scopedData.daily.map((day) => day.values[metric.key])} color={color} />
             </article>;
           })}
-        </div>}
+        </div>
         <div className="analytics-primary-grid">
           <article className="analytics-card analytics-evolution-card">
             <div className="analytics-card-heading"><div><span className="analytics-card-kicker">EVOLUÇÃO NO TEMPO</span>
