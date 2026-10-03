@@ -16,6 +16,7 @@ const labels: Record<string, string> = {
   instagram_profile_follow: "Seguidores do Instagram", estimated_ad_recallers: "Aumento estimado da lembrança do anúncio (pessoas)",
   attributed_revenue: "Valor de conversão", roas: "Retorno sobre o investimento em publicidade (ROAS)",
   "action:link_click": "Cliques no link", "action:landing_page_view": "Visualizações da página de destino",
+  "action:profile_visit_view": "Visitas ao perfil do Instagram",
   "action:post_engagement": "Engajamento com a publicação", "action:page_engagement": "Engajamento com a Página",
   "action:post_reaction": "Reações à publicação", "action:comment": "Comentários na publicação",
   "action:post": "Compartilhamentos da publicação", "action:onsite_conversion.post_save": "Salvamentos da publicação",

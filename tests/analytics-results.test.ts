@@ -42,4 +42,12 @@ describe("resultados automáticos", () => {
     ]);
     expect(rows[0]?.cost).toBe(2);
   });
+  it("usa o investimento consolidado quando não há distribuição por entidade para o resultado", () => {
+    const rows = resultCostBreakdown({
+      spend: 100,
+      "result:provider_known": 1,
+      "result:provider:action:link_click": 25,
+    }, []);
+    expect(rows[0]).toMatchObject({ label: "Cliques no link", cost: 4 });
+  });
 });

@@ -62,6 +62,11 @@ export function resultCostBreakdown(summary: AnalyticsValues, sources: Array<{ v
   }
   return resultBreakdown(summary).map(result => {
     const total = totals.get(resultFamilyKey(result.key));
-    return { ...result, cost: total && total.results > 0 ? total.spend / total.results : null };
+    const cost = total && total.results > 0
+      ? total.spend / total.results
+      : summary.spend != null && result.value > 0
+        ? summary.spend / result.value
+        : null;
+    return { ...result, cost };
   });
 }
