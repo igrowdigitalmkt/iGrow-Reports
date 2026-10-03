@@ -209,7 +209,10 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
       const results = [campaigns, adsets, ads];
       results.forEach((result, index) => {
         const level = ["campaign", "adset", "ad"][index];
-        for (const entity of result) if (entity.effective_status) statuses[`${account.id}:${level}:${entity.id}`] = entity.effective_status;
+        for (const entity of result) {
+          const status = entity.status || entity.effective_status;
+          if (status) statuses[`${account.id}:${level}:${entity.id}`] = status;
+        }
       });
     }));
   } catch { /* A Meta outage must not mislabel entities or block historical analytics. */ }
