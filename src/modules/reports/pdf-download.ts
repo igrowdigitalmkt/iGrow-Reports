@@ -1,11 +1,12 @@
 import { resultBreakdown } from "@/modules/client-portal/analytics-results";
+import { changeDescription } from "@/modules/client-portal/analytics-comparison";
 import { jsPDF } from "jspdf";
 import { formatAnalyticsValue } from "@/modules/client-portal/analytics-charts";
 import type { AnalyticsDashboardData, AnalyticsMetric } from "@/modules/client-portal/analytics-types";
 import type { AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 import { getSavedReportDocument } from "@/modules/client-portal/report-actions";
 import { buildPresentationPdf } from "./pdf-presentation";
-import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric } from "./report-presentation";
+import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts } from "./report-presentation";
 
 export type DashboardPdfInput = {
   title: string; clientName: string; workspaceName: string; headerDetails: string;
@@ -16,7 +17,8 @@ export type DashboardPdfInput = {
   analysisNote?: string;
 };
 
-export function buildDashboardPdf(input: DashboardPdfInput) {
+export function buildDashboardPdf(originalInput: DashboardPdfInput) {
+  const input = { ...originalInput, data: confirmedReportData(originalInput.data) };
   if (input.data.coverage.status !== "complete") {
     throw new Error("Relatórios exigem cobertura completa do período.");
   }
@@ -79,24 +81,28 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
   if(input.headerDetails) {y+=4;text(input.headerDetails,9,C.muted);}
   section("Visão geral dos resultados");
   const resultRows = resultBreakdown(input.data.summary);
-  if(resultRows.length) table(["Tipo de resultado", "Quantidade"],resultRows.map(row=>[row.label,row.value.toLocaleString("pt-BR")]),[132,42]);
+  const resultCosts = reportResultCosts(input.data, input.entityRows);
+  if(resultRows.length) table(["Tipo de resultado", "Quantidade", "Custo por resultado"],resultCosts.map(row=>[row.label,row.value.toLocaleString("pt-BR"),metricValue("cost_per_result",row.cost)]),[96,36,42]);
   for(let index=0;index<input.metrics.length;index+=3){
     doc.setFont("helvetica","normal");doc.setFontSize(7);
-    const descriptionLines = doc.splitTextToSize(resultDescription(input.data),48);
-    const hasResults = input.metrics.slice(index,index+3).some(metric=>metric.key==="primary_results");
-    const rowHeight = hasResults ? Math.max(52, descriptionLines.length * 3.2 + 46) : 52;
+    const resultLines = (metric: AnalyticsMetric): string[] => resultCosts.flatMap(result => doc.splitTextToSize(
+      `${formatAnalyticsValue(metric.key === "primary_results" ? result.value : result.cost,metric,input.data.currency)} ${result.label.toLocaleLowerCase("pt-BR")}`,48));
+    const hasResults = resultRows.length > 0 && input.metrics.slice(index,index+3).some(metric=>["primary_results","cost_per_result"].includes(metric.key));
+    const resultLineCount = Math.max(0,...input.metrics.slice(index,index+3).filter(metric=>["primary_results","cost_per_result"].includes(metric.key)).map(metric=>resultLines(metric).length));
+    const rowHeight = hasResults ? Math.max(52, resultLineCount * 3.4 + 46) : 52;
     ensure(rowHeight+5);
     input.metrics.slice(index,index+3).forEach((metric,column)=>{
       const x=18+column*59;
       doc.setFillColor(C.paper);doc.setDrawColor(C.border);doc.roundedRect(x,y,56,rowHeight,2,2,"FD");
       doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(C.muted);doc.text(doc.splitTextToSize(metric.label,48).slice(0,2),x+4,y+6);
-      const value=formatAnalyticsValue(input.data.summary[metric.key],metric,input.data.currency);
-      doc.setFont("helvetica","bold");doc.setFontSize(15);doc.setFontSize(Math.min(15,15*48/Math.max(48,doc.getTextWidth(value))));doc.setTextColor(C.ink);doc.text(value,x+4,y+20);
+      const showResultRows=resultRows.length > 0 && ["primary_results","cost_per_result"].includes(metric.key);
+      if(showResultRows){doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(C.ink);doc.text(resultLines(metric),x+4,y+19,{lineHeightFactor:1.4});}
+      else {const value=formatAnalyticsValue(input.data.summary[metric.key],metric,input.data.currency);
+        doc.setFont("helvetica","bold");doc.setFontSize(15);doc.setFontSize(Math.min(15,15*48/Math.max(48,doc.getTextWidth(value))));doc.setTextColor(C.ink);doc.text(value,x+4,y+20);}
       doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(C.muted);
-      if(metric.key==="primary_results") doc.text(descriptionLines,x+4,y+26);
+      if(metric.key==="primary_results" && !showResultRows) doc.text(doc.splitTextToSize(resultDescription(input.data),48),x+4,y+26);
       else if(estimatedMetric(input.data,metric.key)) doc.text("Estimado entre contas",x+4,y+27);
-      const current=input.data.summary[metric.key],previous=input.data.previousSummary[metric.key];
-      const change=input.comparison ? input.data.coverage.previousStatus!=="complete" ? "Comparação sem cobertura completa" : current==null || previous==null ? "Comparação indisponível" : previous===0 ? "Anterior igual a zero" : `${((current-previous)/Math.abs(previous)*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% vs. anterior` : "";
+      const change=input.comparison ? changeDescription(input.data,metric).text : "";
       doc.text(doc.splitTextToSize(change,48).slice(0,2),x+4,y+rowHeight-16);
       const values=input.data.daily.map(day=>day.values[metric.key]); const max=Math.max(1,...values.map(value=>value??0));
       doc.setDrawColor(C.blue);doc.setLineWidth(.35);values.forEach((amount,i)=>{
@@ -125,7 +131,7 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
         else doc.circle(px,py,.5,"F");
       });
     };
-    if(input.comparison)plot(previous,"#a5b4fc",false);plot(current,C.blue,input.chartType==="bar");
+    if(input.comparison && input.data.coverage.previousStatus === "complete")plot(previous,"#a5b4fc",false);plot(current,C.blue,input.chartType==="bar");
     y=top+height+5;doc.setFontSize(8);doc.setTextColor(C.muted);doc.text(reportDate(input.data.dateFrom),left,y);doc.text(reportDate(input.data.dateTo),left+width,y,{align:"right"});y+=7;
     if(input.comparison)text("Azul: período atual. Lilás: período anterior.",8,C.muted);y+=5;
   }
@@ -133,7 +139,8 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
   if(input.data.campaigns.length) {
   section("O que merece atenção","Observações descritivas calculadas sobre a seleção desta análise.");
   const campaigns=[...input.data.campaigns].sort((a,b)=>(b.values.spend??0)-(a.values.spend??0));const spend=input.data.summary.spend??0;
-  text("Distribuição dos resultados",11,C.ink,true);text(`${resultDescription(input.data)}. Custo por resultado: ${metricValue("cost_per_result",input.data.summary.cost_per_result)}.`,10,C.muted);y+=4;
+  text("Distribuição dos resultados",11,C.ink,true);text(resultDescription(input.data),10,C.muted);
+  for(const result of resultCosts)text(`${result.label}: custo por resultado ${metricValue("cost_per_result",result.cost)}.`,10,C.muted);y+=4;
   text("Concentração do investimento",11,C.ink,true);text(campaigns[0]&&spend?`${campaigns[0].name} concentrou ${((campaigns[0].values.spend??0)/spend*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% do investimento do período.`:"Sem investimento registrado para a seleção.",10,C.muted);y+=4;
   text("Resposta aos anúncios",11,C.ink,true);text(`${metricValue("link_clicks",input.data.summary.link_clicks)} cliques no link em ${metricValue("impressions",input.data.summary.impressions)} impressões.`,10,C.muted);
   }

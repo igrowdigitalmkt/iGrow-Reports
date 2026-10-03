@@ -212,6 +212,22 @@ describe("MetaClient", () => {
       .toEqual({ since: "2026-09-01", until: "2026-09-30" });
     expect(url.searchParams.get("level")).toBe("account");
     expect(url.searchParams.has("filtering")).toBe(false);
+    expect(url.searchParams.get("use_unified_attribution_setting")).toBe("true");
+    expect(url.searchParams.get("fields")).toContain("cost_per_action_type");
+  });
+
+  it("uses the same native metric contract for daily and exact-period requests", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ data: [] }));
+    const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    const range = { adAccountId: "act_1", since: "2026-09-03", until: "2026-10-02", level: "campaign" as const };
+    await client.getDailyInsights(range);
+    await client.getPeriodInsights(range);
+    const calls = fetchImpl.mock.calls as unknown as Array<[URL, RequestInit]>;
+    expect(calls[1][0].searchParams.get("fields")).toBe(calls[0][0].searchParams.get("fields"));
+    expect(calls[1][0].searchParams.get("use_unified_attribution_setting")).toBe("true");
+    expect(calls[1][0].searchParams.get("time_increment")).toBe("all_days");
+    expect(calls[1][0].searchParams.get("fields")).toContain("campaign_name");
+    expect(calls[1][0].searchParams.get("fields")).toContain("results");
   });
 
   it("bloqueia identificador de conta inválido antes da rede", async () => {

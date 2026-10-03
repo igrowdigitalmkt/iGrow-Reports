@@ -129,8 +129,8 @@ select is(
   (select primary_results from get_client_portal_metric_summary(
     '11111111-0000-4000-8000-000000000041','2026-09-29','2026-09-30'
   )),
-  30::numeric,
-  'Resultados somam as conversões sem exigir ação principal'
+  null::numeric,
+  'Resultados nativos ausentes permanecem indisponíveis'
 );
 select is(
   round((select ctr_link from get_client_portal_metric_summary(
@@ -143,8 +143,8 @@ select is(
   round((select cost_per_result from get_client_portal_metric_summary(
     '11111111-0000-4000-8000-000000000041','2026-09-29','2026-09-30'
   )),2),
-  8.33::numeric,
-  'Custo por resultado usa investimento e total de resultados do mesmo escopo'
+  null::numeric,
+  'Custo por resultado desconhecido não usa ações secundárias'
 );
 select is(
   round((select roas from get_client_portal_metric_summary(

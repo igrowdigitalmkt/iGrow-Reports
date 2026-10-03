@@ -12,21 +12,21 @@ export const RESULT_GROUPS = [
 
 export function aggregateResults(values: AnalyticsValues, complete: boolean): AnalyticsValues {
   const next = { ...values };
-  if (values["result:provider_known"] === 1) {
-    const total = Object.entries(values).filter(([key]) => key.startsWith("result:provider:")).reduce((sum, [, amount]) => sum + (amount ?? 0), 0);
-    next.primary_results = total;
-    next.cost_per_result = total > 0 && values.spend != null ? values.spend / total : null;
-    return next;
-  }
-  let total = 0, available = false;
+  // Secondary conversion families remain useful detail, but do not identify
+  // the outcome chosen by Meta for the campaign's optimization goal.
   for (const group of RESULT_GROUPS) {
     const existing = values[`result:${group.key}`];
     const amount = existing ?? group.fields.map(key => values[key]).find(value => value != null);
     next[`result:${group.key}`] = amount ?? null;
-    if (amount != null) { total += amount; available = true; }
   }
-  next.primary_results = available || complete || values.primary_results === 0 ? total : null;
-  next.cost_per_result = next.primary_results && values.spend != null ? values.spend / next.primary_results : null;
+  const results = providerResultEntries(values);
+  const total = results?.reduce((sum, result) => sum + result.value, 0) ?? null;
+  next.primary_results = complete && results != null && results.length <= 1 ? total : null;
+  // Different optimization outcomes have different denominators. A single
+  // blended cost would imply that those outcomes were interchangeable.
+  next.cost_per_result = complete && results?.length === 1 && total != null && total > 0
+    && values.spend != null && Number.isFinite(values.spend) && values.spend >= 0
+    ? values.spend / total : null;
   return next;
 }
 
@@ -45,43 +45,72 @@ function resultFamilyLabel(key: string) {
   return metaMetricLabel(providerKey, providerKey);
 }
 
-export function resultBreakdown(values: AnalyticsValues) {
-  if (values["result:provider_known"] === 1) {
-    const totals = new Map<string, number>();
-    for (const [key, value] of Object.entries(values)) {
-      if (!key.startsWith("result:provider:") || value == null || value <= 0) continue;
-      const familyKey = resultFamilyKey(key);
-      totals.set(familyKey, (totals.get(familyKey) ?? 0) + value);
-    }
-    return [...totals].map(([key, value]) => ({ key, label: resultFamilyLabel(key), value }));
+function providerResultEntries(values: AnalyticsValues) {
+  if (values["result:provider_known"] !== 1) return null;
+  const totals = new Map<string, number>();
+  for (const [key, value] of Object.entries(values)) {
+    if (!key.startsWith("result:provider:")) continue;
+    if (value == null || !Number.isFinite(value) || value < 0) return null;
+    const familyKey = resultFamilyKey(key);
+    totals.set(familyKey, (totals.get(familyKey) ?? 0) + value);
   }
-  return RESULT_GROUPS.flatMap(group => {
-    const amount = values[`result:${group.key}`];
-    return amount != null && amount > 0 ? [{ key: group.key, label: group.label, value: amount }] : [];
+  return [...totals].map(([key, value]) => ({ key, label: resultFamilyLabel(key), value }));
+}
+
+export function resultBreakdown(values: AnalyticsValues) {
+  return providerResultEntries(values)?.filter(result => result.value > 0) ?? [];
+}
+
+export function resultTypes(values: AnalyticsValues) {
+  return providerResultEntries(values)?.map(result => result.key).sort() ?? [];
+}
+
+type ResultSource = {
+  values: AnalyticsValues;
+  level?: "campaign" | "adset" | "ad";
+  id?: string; accountId?: string; parentId?: string | null; campaignId?: string | null;
+};
+
+// Saved reports can contain a parent and all its descendants. Use the same
+// disjoint entity scope as the dashboard rather than double-counting spend.
+export function disjointResultSources<T extends ResultSource>(sources: T[]): T[] {
+  const campaigns = new Set(sources.filter(source => source.level === "campaign")
+    .map(source => `${source.accountId}:${source.id}`));
+  const adsets = new Set(sources.filter(source => source.level === "adset")
+    .map(source => `${source.accountId}:${source.id}`));
+  return sources.filter(source => {
+    if (source.level !== "campaign" && source.campaignId && campaigns.has(`${source.accountId}:${source.campaignId}`)) return false;
+    return source.level !== "ad" || !source.parentId || !adsets.has(`${source.accountId}:${source.parentId}`);
   });
 }
 
-export function resultCostBreakdown(summary: AnalyticsValues, sources: Array<{ values: AnalyticsValues }>) {
+export function resultCostBreakdown(summary: AnalyticsValues, sources: ResultSource[]) {
   const totals = new Map<string, { spend: number; results: number }>();
-  for (const source of sources) {
-    const values = aggregateResults(source.values, true);
-    const spend = values.spend;
-    if (spend == null || spend < 0) continue;
-    for (const result of resultBreakdown(values)) {
-      const familyKey = resultFamilyKey(result.key);
-      const current = totals.get(familyKey) ?? { spend: 0, results: 0 };
-      current.spend += spend;
-      current.results += result.value;
-      totals.set(familyKey, current);
+  let complete = sources.length > 0 && summary.spend != null && Number.isFinite(summary.spend) && summary.spend >= 0;
+  let sourceSpend = 0;
+  for (const source of disjointResultSources(sources)) {
+    const spend = source.values.spend;
+    if (spend == null || !Number.isFinite(spend) || spend < 0) { complete = false; continue; }
+    sourceSpend += spend;
+    const results = providerResultEntries(source.values);
+    if (!results || results.length !== 1) {
+      // A confirmed zero-spend source cannot change any cost denominator.
+      if (spend > 0) complete = false;
+      continue;
     }
+    const result = results[0];
+    const current = totals.get(result.key) ?? { spend: 0, results: 0 };
+    current.spend += spend;
+    current.results += result.value;
+    totals.set(result.key, current);
   }
+  if (summary.spend == null || Math.abs(sourceSpend - summary.spend) > Math.max(.005, Math.abs(summary.spend) * 1e-10)) complete = false;
   return resultBreakdown(summary).map(result => {
-    const total = totals.get(resultFamilyKey(result.key));
-    const cost = total && total.results > 0
+    const total = totals.get(result.key);
+    const reconciled = total && Math.abs(total.results - result.value) <= Math.max(1e-8, result.value * 1e-10);
+    const cost = complete && reconciled && total.results > 0
       ? total.spend / total.results
-      : summary.spend != null && result.value > 0
-        ? summary.spend / result.value
-        : null;
+      : null;
     return { ...result, cost };
   });
 }

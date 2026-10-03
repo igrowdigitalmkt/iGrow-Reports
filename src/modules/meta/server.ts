@@ -1,5 +1,4 @@
-import { aggregateResults } from "@/modules/client-portal/analytics-results";
-import { campaignResultTotals, providerResultValues } from "./result-values";
+import { campaignResultTotals } from "./result-values";
 import "server-only";
 import { selectedMetaAccounts } from "./login-config";
 import { createHash } from "node:crypto";
@@ -21,26 +20,33 @@ import {
   MetaApiError,
   MetaClient,
   type MetaAdAccount,
+  type MetaInsight,
 } from "./client";
-import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "./collection";
+import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, validateCollectionRange } from "./collection";
 
 import { liveDeliveryStatuses } from "./delivery";
+import { META_ANALYTICS_MAX_AGE_MS, META_ANALYTICS_VERSION, META_ATTRIBUTION_REFRESH_DAYS } from "./analytics-contract";
+import { applyProviderResults, hasOverlappingMetaSelection, insightActionTypes, periodInsightValues, selectedPeriodInsightRows, sumPeriodInsightValues } from "./insight-values";
 
 const TOKEN_KIND = "meta_access_token";
 
 // The caller first obtains data through the authenticated, client-scoped RPC.
 export async function refreshMetaDashboardScope(input: { agencyId: string; clientId: string; data: AnalyticsDashboardData; entityKeys?: string[] }) {
   const { data } = input;
-  const keys = input.entityKeys ?? [];
-  if (!data.selectedAccountIds.length) return;
+  const keys = [...new Set(input.entityKeys ?? [])];
+  if (!data.selectedAccountIds.length) return { confirmed: false as const };
   const scopeKey = createHash("md5").update([...data.selectedAccountIds].sort().join(",") + "|" + [...keys].sort().join(",")).digest("hex");
   const { service, apiVersion } = operationalDependencies();
-  const { data: cached } = await service.from("meta_dashboard_scopes").select("collected_at,payload")
+  const { data: cached, error: cacheError } = await service.from("meta_dashboard_scopes").select("collected_at,payload")
     .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("scope_key", scopeKey)
     .eq("date_from", data.dateFrom).eq("date_to", data.dateTo).maybeSingle();
-  if (cached && Date.now() - Date.parse(cached.collected_at) < 3_600_000
-    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === 6
-    && Date.parse(data.coverage.latestCollectedAt ?? "1970-01-01") <= Date.parse(cached.collected_at)) return;
+  if (cacheError) throw new MetaSetupError("Não foi possível validar os agregados da Meta.");
+  if (cached && Date.now() >= Date.parse(cached.collected_at) && Date.now() - Date.parse(cached.collected_at) < META_ANALYTICS_MAX_AGE_MS
+    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === META_ANALYTICS_VERSION
+    && Date.parse(data.coverage.latestCollectedAt ?? "1970-01-01") <= Date.parse(cached.collected_at)) {
+    const actionTypes = Array.isArray(cached.payload.actionTypes) ? cached.payload.actionTypes.filter((value): value is string => typeof value === "string") : [];
+    return { confirmed: true as const, version: META_ANALYTICS_VERSION, collectedAt: cached.collected_at, actionTypes };
+  }
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const { data: links } = await service.from("client_ad_accounts").select("ad_account_id")
     .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("active", true).in("ad_account_id", data.selectedAccountIds);
@@ -49,9 +55,26 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
     .eq("agency_id", input.agencyId).eq("meta_connection_id", connection.id).in("id", data.selectedAccountIds).is("archived_at", null);
   if (accounts?.length !== data.selectedAccountIds.length) throw new MetaSetupError("Contas indisponíveis.");
   const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
-  const client = new MetaClient({ accessToken: token, apiVersion });
-  const entityValues: Record<string, Record<string, number>> = {};
+  const client = new MetaClient({ accessToken: token, apiVersion, timeoutMs: 25_000, retryDelayMs: 1_000 });
   const resolvedKeys = new Set<string>();
+  const levels = ["campaign", "adset", "ad"] as const;
+  const validateRows = (rows: MetaInsight[], externalAccountId: string, since: string, until: string, level: "account" | typeof levels[number]) => {
+    const ids = new Set<string>();
+    for (const row of rows) {
+      const id = level === "account" ? row.account_id : row[level + "_id"];
+      if (!id || typeof id !== "string" || !/^\d+$/.test(id)
+        || "act_" + row.account_id !== externalAccountId || row.date_start !== since || row.date_stop !== until || ids.has(id)) {
+        throw new MetaSetupError("A Meta retornou um agregado fora da conta, do nível ou do período solicitado.");
+      }
+      if (level === "adset" && (typeof row.campaign_id !== "string" || !/^\d+$/.test(row.campaign_id))
+        || level === "ad" && (typeof row.adset_id !== "string" || !/^\d+$/.test(row.adset_id)
+          || typeof row.campaign_id !== "string" || !/^\d+$/.test(row.campaign_id))) {
+        throw new MetaSetupError("A Meta não confirmou a hierarquia deste agregado.");
+      }
+      ids.add(id);
+    }
+    if (level === "account" && rows.length > 1) throw new MetaSetupError("A Meta não retornou um agregado único por conta.");
+  };
   const periods = await Promise.all(accounts.map(async account => {
     let adIds: string[] | undefined;
     if (keys.length) {
@@ -69,118 +92,82 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
         }
         if (!history || history.length < 1000) break;
       }
-      adIds = ads.filter(ad => keys.includes(`ad:${ad.id}`) || keys.includes(`adset:${ad.adset_id}`) || keys.includes(`campaign:${ad.campaign_id}`)).map(ad => ad.id);
-      for (const ad of ads) for (const key of [`ad:${ad.id}`, `adset:${ad.adset_id}`, `campaign:${ad.campaign_id}`]) if (keys.includes(key)) resolvedKeys.add(key);
+      adIds = ads.filter(ad => keys.includes("ad:" + ad.id) || keys.includes("adset:" + ad.adset_id) || keys.includes("campaign:" + ad.campaign_id)).map(ad => ad.id);
+      if (hasOverlappingMetaSelection(ads, keys)) throw new MetaSetupError("Selecione campanhas, conjuntos ou anúncios sem incluir também os seus descendentes.");
+      for (const ad of ads) for (const key of ["ad:" + ad.id, "adset:" + ad.adset_id, "campaign:" + ad.campaign_id]) if (keys.includes(key)) resolvedKeys.add(key);
       if (!adIds.length) return null;
     }
     const [current, previous, previousCampaigns, ...detail] = await Promise.all([
       client.getPeriodInsights({ adAccountId: account.external_id, since: data.dateFrom, until: data.dateTo, adIds }),
       client.getPeriodInsights({ adAccountId: account.external_id, since: data.previousDateFrom, until: data.previousDateTo, adIds }),
       client.getPeriodInsights({ adAccountId: account.external_id, since: data.previousDateFrom, until: data.previousDateTo, adIds, level: "campaign" }),
-      ...(["campaign", "adset", "ad"] as const).map(level => client.getPeriodInsights({
+      ...levels.map(level => client.getPeriodInsights({
         adAccountId: account.external_id, since: data.dateFrom, until: data.dateTo, adIds, level,
       })),
     ]);
-    for (const [index, rows] of detail.entries()) for (const row of rows) {
-      const level = (["campaign", "adset", "ad"] as const)[index];
-      const id = row[`${level}_id`];
-      if (!id) continue;
-      const values: Record<string, number> = {};
-      for (const key of ["reach", "frequency", "unique_clicks"]) if (row[key] != null) values[key] = Number(row[key]);
-      const result = providerResultValues(row);
-      if (result) Object.assign(values, aggregateResults({ ...result, spend: Number(row.spend ?? 0) }, true));
-      entityValues[`${account.id}:${level}:${id}`] = values;
-    }
-    if (current.length > 1 || previous.length > 1) throw new MetaSetupError("A Meta não retornou um agregado único por conta.");
-    if ([...current, ...previous].some(row => row.account_id && `act_${row.account_id}` !== account.external_id)) throw new MetaSetupError("Agregado fora da conta autorizada.");
-    return {
-      current: current[0] ?? {},
-      previous: previous[0] ?? {},
-      currentResults: campaignResultTotals(detail[0]),
-      previousResults: campaignResultTotals(previousCampaigns),
-    };
+    validateRows(current, account.external_id, data.dateFrom, data.dateTo, "account");
+    validateRows(previous, account.external_id, data.previousDateFrom, data.previousDateTo, "account");
+    validateRows(previousCampaigns, account.external_id, data.previousDateFrom, data.previousDateTo, "campaign");
+    for (const [index, rows] of detail.entries()) validateRows(rows, account.external_id, data.dateFrom, data.dateTo, levels[index]);
+    const previousChildren = await Promise.all((["adset", "ad"] as const).map(async level => {
+      if (!keys.some(key => key.startsWith(level + ":"))) return [];
+      const rows = await client.getPeriodInsights({ adAccountId: account.external_id, since: data.previousDateFrom, until: data.previousDateTo, adIds, level });
+      validateRows(rows, account.external_id, data.previousDateFrom, data.previousDateTo, level);
+      return rows;
+    }));
+    return { account, current, previous, previousCampaigns, detail, previousDetail: [previousCampaigns, ...previousChildren] };
   }));
   const relevant = periods.filter((row): row is NonNullable<typeof row> => !!row);
   if (keys.some(key => !resolvedKeys.has(key))) throw new MetaSetupError("A Meta não confirmou todos os anúncios desta seleção. Atualize os dados e tente novamente.");
-  if (!relevant.length) return;
+  if (!relevant.length) throw new MetaSetupError("A Meta não confirmou os anúncios desta seleção.");
+  const actionTypes = insightActionTypes(relevant.flatMap(period => [...period.current, ...period.previous, ...period.previousDetail.flat(), ...period.detail.flat()]));
+  const accountValues: Record<string, AnalyticsValues> = {};
+  const entityValues: Record<string, AnalyticsValues> = {};
+  const entityCatalog: Array<Record<string, unknown>> = [];
+  const accountPeriodValues = (period: typeof relevant[number], current: boolean) => {
+    const detail = current ? period.detail : period.previousDetail;
+    const resultRows = keys.length ? selectedPeriodInsightRows(levels.map((level, index) => ({ level, rows: detail[index] })), keys) : detail[0];
+    return applyProviderResults(periodInsightValues((current ? period.current : period.previous)[0], { confirmedEmpty: true, actionTypes }),
+      campaignResultTotals(resultRows));
+  };
+  for (const period of relevant) {
+    accountValues[period.account.id] = accountPeriodValues(period, true);
+    const account = data.accounts.find(item => item.id === period.account.id);
+    if (!account) throw new MetaSetupError("Conta fora do catálogo autorizado.");
+    for (const [index, rows] of period.detail.entries()) for (const row of rows) {
+      const level = levels[index];
+      const id = String(row[level + "_id"]);
+      const key = level + ":" + id;
+      const values = periodInsightValues(row, { actionTypes });
+      entityValues[account.id + ":" + key] = values;
+      entityCatalog.push({ key, id, level, name: String(row[level + "_name"] ?? id),
+        parentId: level === "campaign" ? null : String(level === "adset" ? row.campaign_id : row.adset_id),
+        campaignId: String(row.campaign_id), accountId: account.id, accountName: account.name, currency: account.currency, values });
+    }
+  }
+  const summary = sumPeriodInsightValues(relevant.map(period => accountPeriodValues(period, true)), !!data.currency);
+  const previousSummary = sumPeriodInsightValues(relevant.map(period => accountPeriodValues(period, false)), !!data.currency);
   const metrics: AnalyticsMetric[] = [];
-  const add = (key: string, label: string, unit: AnalyticsMetric["unit"] = "integer") => {
-    if (!metrics.some(metric => metric.key === key)) metrics.push({ key, label: metaMetricLabel(key, label), unit, precision: unit === "integer" ? 0 : 2, desirable: "neutral" });
-  };
-  const calculate = (period: "current" | "previous"): AnalyticsValues => {
-    const rows = relevant.map(row => row[period]);
-    const values: AnalyticsValues = {};
-    const scalar = (key: string) => {
-      const amounts = rows.map(row => periodScalarValue(row, key));
-      return amounts.every(amount => amount !== null) ? amounts.reduce<number>((sum, amount) => sum + amount!, 0) : null;
-    };
-    const spend = data.currency ? scalar("spend") : null;
-    const impressions = scalar("impressions"), clicks = scalar("clicks");
-    if (clicks !== null) values.clicks = clicks;
-    add("clicks", "Cliques (todos)");
-    if (rows.length === 1) for (const key of ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr"]) {
-      values[key] = periodScalarValue(rows[0], key);
-      add(key, key, key.includes("ctr") ? "percent" : key === "frequency" ? "ratio" : "integer");
-    }
-    if (rows.length > 1) {
-      for (const key of ["reach", "unique_clicks", "unique_inline_link_clicks"]) {
-        values[key] = scalar(key); add(key, key);
-      }
-      values.frequency = values.reach && impressions !== null ? impressions / values.reach : null;
-      values.unique_ctr = impressions && values.unique_clicks != null ? values.unique_clicks / impressions * 100 : null;
-      values.unique_inline_link_click_ctr = impressions && values.unique_inline_link_clicks != null ? values.unique_inline_link_clicks / impressions * 100 : null;
-      add("frequency", "Frequência", "ratio"); add("unique_ctr", "CTR único (todos)", "percent"); add("unique_inline_link_click_ctr", "CTR único (taxa de cliques no link)", "percent");
-    }
-    for (const key of ["inline_post_engagement", "social_spend", "instagram_profile_visits"]) {
-      const amount = key === "social_spend" && !data.currency ? null : scalar(key);
-      if (amount !== null) values[key] = amount;
-      add(key, key, key === "social_spend" ? "currency" : "integer");
-    }
-    for (const [field, key] of [["outbound_clicks", "outbound_clicks"], ["unique_outbound_clicks", "unique_outbound_clicks"],
-      ["video_play_actions", "video_plays"], ["video_p25_watched_actions", "video_p25"], ["video_p50_watched_actions", "video_p50"],
-      ["video_p75_watched_actions", "video_p75"], ["video_p95_watched_actions", "video_p95"], ["video_p100_watched_actions", "video_p100"]]) {
-      const lists = rows.map(row => Array.isArray(row[field]) ? row[field] as Array<{ value: string }>
-        : Number(row.impressions ?? 0) === 0 && Number(row.spend ?? 0) === 0 ? [] : null);
-      if (lists.every(list => list !== null)) values[key] = lists.reduce((sum, list) => sum + list!.reduce((total, action) => total + Number(action.value), 0), 0);
-      add(key, key);
-    }
-    if (values.outbound_clicks != null && impressions) { values.outbound_clicks_ctr = values.outbound_clicks / impressions * 100; add("outbound_clicks_ctr", "CTR de saída", "percent"); }
-    for (const [key, amount] of Object.entries({ ctr: impressions && clicks !== null ? clicks / impressions * 100 : null,
-      cpc: clicks && spend !== null ? spend / clicks : null, cpp: values.reach && spend !== null ? spend / values.reach * 1000 : null })) {
-      values[key] = amount; add(key, key, key === "ctr" ? "percent" : "currency");
-    }
-    const actionTotals = new Map<string, number>(), valueTotals = new Map<string, number>();
-    for (const row of rows) for (const field of ["actions", "action_values"] as const) {
-      const list = row[field];
-      if (!Array.isArray(list)) continue;
-      for (const action of list) {
-        const totals = field === "actions" ? actionTotals : valueTotals;
-        totals.set(action.action_type, (totals.get(action.action_type) ?? 0) + Number(action.value));
-      }
-    }
-    for (const [action, count] of actionTotals) {
-      const key = `action:${action}`;
-      const label = metaMetricLabel(key, action.replaceAll("_", " "));
-      values[key] = count; values[`cost:${key}`] = count && spend !== null ? spend / count : null;
-      add(key, label); add(`cost:${key}`, label, "currency");
-      if (valueTotals.has(action)) { values[`value:${key}`] = data.currency ? valueTotals.get(action)! : null; add(`value:${key}`, label, "currency"); }
-    }
-    if (values.inline_post_engagement == null && actionTotals.has("post_engagement")) values.inline_post_engagement = actionTotals.get("post_engagement")!;
-    const nativeResults = relevant.map(account => account[period === "current" ? "currentResults" : "previousResults"]);
-    if (nativeResults.every((result): result is AnalyticsValues => result !== null)) {
-      values["result:provider_known"] = 1;
-      for (const result of nativeResults) for (const [key, amount] of Object.entries(result)) {
-        if (key.startsWith("result:provider:")) values[key] = (values[key] ?? 0) + (amount ?? 0);
-      }
-    }
-    return aggregateResults({ ...values, spend }, true);
-  };
-  const summary = calculate("current"), previousSummary = calculate("previous");
+  const metricKeys = new Set([...Object.keys(summary), ...Object.keys(previousSummary), ...Object.values(entityValues).flatMap(value => Object.keys(value))]);
+  const currencyKeys = new Set(["spend", "social_spend", "cpc", "cpp", "cpc_link", "cpm", "cost_per_result", "attributed_revenue"]);
+  const percentKeys = new Set(["ctr", "ctr_link", "unique_ctr", "unique_inline_link_click_ctr", "outbound_clicks_ctr", "unique_outbound_clicks_ctr"]);
+  for (const key of metricKeys) {
+    if (key.startsWith("result:")) continue;
+    const unit = currencyKeys.has(key) || key.startsWith("cost:") || key.startsWith("value:") ? "currency"
+      : percentKeys.has(key) ? "percent" : ["frequency", "roas"].includes(key) ? "ratio" : "integer";
+    metrics.push({ key, label: metaMetricLabel(key, key), unit, precision: unit === "integer" ? 0 : 2,
+      desirable: key.startsWith("cost:") || ["cpc", "cpp", "cpc_link", "cpm", "cost_per_result"].includes(key) ? "down"
+        : ["spend", "social_spend", "frequency"].includes(key) ? "neutral" : "up" });
+  }
+  const collectedAt = new Date().toISOString();
   const { error } = await service.from("meta_dashboard_scopes").upsert({ agency_id: input.agencyId, client_id: input.clientId,
-    scope_key: scopeKey, date_from: data.dateFrom, date_to: data.dateTo, collected_at: new Date().toISOString(),
-    payload: { version: 6, summary, previousSummary, metrics, entityValues,
-      estimatedMetricKeys: relevant.length > 1 ? ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks", "unique_ctr", "unique_inline_link_click_ctr"] : [] } as unknown as Json });
+    scope_key: scopeKey, date_from: data.dateFrom, date_to: data.dateTo, collected_at: collectedAt,
+    payload: { version: META_ANALYTICS_VERSION, summary, previousSummary, metrics, entityValues, entityCatalog, accountValues, actionTypes,
+      source: { apiVersion, timeIncrement: "all_days", attribution: "provider_adset", dateFrom: data.dateFrom, dateTo: data.dateTo,
+        previousDateFrom: data.previousDateFrom, previousDateTo: data.previousDateTo, accountIds: data.selectedAccountIds, entityKeys: keys },
+      estimatedMetricKeys: relevant.length > 1 ? ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks", "unique_ctr", "unique_inline_link_click_ctr", "unique_outbound_clicks_ctr"] : [] } as unknown as Json });
   if (error) throw new MetaSetupError("Não foi possível preservar os agregados da Meta.");
+  return { confirmed: true as const, version: META_ANALYTICS_VERSION, collectedAt, actionTypes };
 }
 
 export type LiveCampaignIdentity = { accountId: string; id: string; name: string };
@@ -685,7 +672,7 @@ export async function collectMetaClientInsights(input: {
   let reusedSliceCount = 0;
   const failures: Array<{ accountId: string; since: string; until: string; scope: "daily" | "period" | "account"; code: string }> = [];
   const slices = splitCollectionRange(input.since, input.until);
-  const historicalCutoff = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
+  const historicalCutoff = new Date(Date.now() - META_ATTRIBUTION_REFRESH_DAYS * 86_400_000).toISOString().slice(0, 10);
 
   async function recordFailure(accountId: string, slice: { since: string; until: string }, error: unknown, scope: "daily" | "account") {
     const code = error instanceof MetaApiError ? String(error.code ?? error.httpStatus) : "persistence_or_validation";

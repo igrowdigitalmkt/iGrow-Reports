@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { requireClientDashboardAccess } from "./context";
 import { normalizeClientAnalytics } from "./analytics-calculations";
-import { getClientAnalytics } from "./analytics";
+import { getFreshClientAnalytics } from "./analytics-live";
+import { confirmedEmptyPeriodValues } from "@/modules/meta/insight-values";
 import { normalizeHierarchy, relevantCampaignHierarchy } from "./analytics-hierarchy";
 import { getMetaEntityStatuses, refreshMetaDashboardScope, type LiveCampaignIdentity } from "@/modules/meta/server";
 
@@ -31,9 +32,12 @@ export async function getCampaignScopedAnalytics(input: unknown) {
   catch { return { error: "A Meta não confirmou os agregados desta seleção. Tente atualizar os dados e aplicar novamente." }; }
   const refreshed = await supabase.rpc("get_campaign_scoped_analytics", { p_client_id: parsed.data.clientId,
     p_date_from: parsed.data.dateFrom, p_date_to: parsed.data.dateTo, p_ad_account_ids: parsed.data.accountIds, p_entity_keys: parsed.data.entityKeys });
-  const analytics = normalizeClientAnalytics(refreshed.data ?? data);
+  if (refreshed.error || !refreshed.data) return { error: "Não foi possível ler os agregados confirmados desta seleção." };
+  const analytics = normalizeClientAnalytics(refreshed.data);
+  if (!analytics.metaAggregate?.confirmed) return { error: "A seleção não possui um agregado confirmado e não pode ser aplicada." };
   return { success: true as const, summary: analytics.summary, previousSummary: analytics.previousSummary,
-    daily: analytics.daily, previousDaily: analytics.previousDaily, coverage: analytics.coverage, estimatedMetricKeys: analytics.estimatedMetricKeys };
+    daily: analytics.daily, previousDaily: analytics.previousDaily, coverage: analytics.coverage,
+    metrics: analytics.metrics, metaAggregate: analytics.metaAggregate, estimatedMetricKeys: analytics.estimatedMetricKeys };
 }
 
 const hierarchyInputSchema = z.object({
@@ -45,7 +49,9 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
   const parsed = hierarchyInputSchema.safeParse(input);
   if (!parsed.success) return { error: "Período ou contas inválidos para carregar campanhas." };
   const { supabase, access } = await requireClientDashboardAccess(parsed.data.clientId);
-  const analytics = await getClientAnalytics(supabase, parsed.data.clientId, parsed.data.dateFrom, parsed.data.dateTo, parsed.data.accountIds);
+  const analytics = await getFreshClientAnalytics({ supabase, agencyId: access.agencyId,
+    clientId: parsed.data.clientId, dateFrom: parsed.data.dateFrom, dateTo: parsed.data.dateTo,
+    accountIds: parsed.data.accountIds });
   if (analytics.coverage.status !== "complete") {
     return { error: "Campanhas e métricas permanecem ocultas até a coleta do período estar completa." };
   }
@@ -71,7 +77,9 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
       if (!account || entities.some(e => e.accountId === campaign.accountId && e.level === "campaign" && e.id === campaign.id)) continue;
       entities.push({ key: `campaign:${campaign.id}`, id: campaign.id, name: campaign.name, level: "campaign",
         accountId: account.id, accountName: account.name, currency: account.currency, parentId: null,
-        campaignId: campaign.id, values: {}, effectiveStatus: null });
+        campaignId: campaign.id, values: analytics.metaAggregate?.confirmed
+          ? confirmedEmptyPeriodValues(analytics.metrics.filter(m => m.key.startsWith("action:")).map(m => m.key.slice(7)))
+          : {}, effectiveStatus: null });
     }
     return { success: true as const, entities: relevantCampaignHierarchy(entities.map(entity => ({
       ...entity,

@@ -32,7 +32,8 @@ function query(result: () => { data: unknown; error: unknown }, terminal: "singl
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.agencyFilters.length = 0;
-  mocks.versionResult = { data: { report_id: "report-1", currency: "BRL", date_from: "2026-09-01", date_to: "2026-09-30", state: "ready", timezone_name: "America/Sao_Paulo" }, error: null };
+  mocks.versionResult = { data: { report_id: "report-1", currency: "BRL", date_from: "2026-09-01", date_to: "2026-09-30", state: "ready", timezone_name: "America/Sao_Paulo",
+    configuration_snapshot: { snapshot_version: 5, analytics: { metaAggregate: { confirmed: true, version: 7 } } } }, error: null };
   mocks.reportResult = { data: { id: "report-1" }, error: null };
   mocks.snapshotResult = { data: { quality_status: "complete" }, error: null };
   mocks.metricsResult = { data: [{ metric_key: "spend", label: "Investimento", unit: "currency", numeric_value: 3565.16, display_precision: 2 }], error: null };
@@ -54,6 +55,11 @@ it("permite prévia somente de snapshot completo e limita todas as consultas à 
 
 it("bloqueia prévia quando o snapshot não comprova dados completos", async () => {
   mocks.snapshotResult = { data: { quality_status: "warning" }, error: null };
+  expect(await getAgencyReportPreview(id)).toHaveProperty("error");
+  expect(mocks.from).not.toHaveBeenCalledWith("report_metrics");
+});
+it("bloqueia prévia antiga mesmo quando a coleta diária foi marcada como completa", async () => {
+  mocks.versionResult = { data: { report_id: "report-1", configuration_snapshot: { snapshot_version: 4 } }, error: null };
   expect(await getAgencyReportPreview(id)).toHaveProperty("error");
   expect(mocks.from).not.toHaveBeenCalledWith("report_metrics");
 });

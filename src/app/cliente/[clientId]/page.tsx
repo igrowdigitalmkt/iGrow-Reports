@@ -4,6 +4,7 @@ import { requireClientDashboardAccess } from "@/modules/client-portal/context";
 import { ClientPortalShell } from "@/modules/client-portal/portal-shell";
 import { ClientAnalyticsDashboard } from "@/modules/client-portal/analytics-dashboard";
 import { getClientAnalytics } from "@/modules/client-portal/analytics";
+import { getFreshClientAnalytics } from "@/modules/client-portal/analytics-live";
 import { resolveAnalyticsRange } from "@/modules/client-portal/range";
 import { listClientPortalReports } from "@/modules/reports/client";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
@@ -62,6 +63,8 @@ export default async function ClientOverviewPage({ params, searchParams }: {
       data = await getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds);
     }
   }
+  data = await getFreshClientAnalytics({ supabase, agencyId: access.agencyId, clientId,
+    dateFrom: range.dateFrom, dateTo: range.dateTo, accountIds });
   if (data.coverage.status !== "complete") {
     data.warnings.push("Os resultados deste período ficam bloqueados até a coleta confirmar todos os dias e contas selecionadas.");
   }

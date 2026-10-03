@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ access: vi.fn(), collect: vi.fn(), revalidate: vi.fn(), analytics: vi.fn() }));
+const mocks = vi.hoisted(() => ({ access: vi.fn(), collect: vi.fn(), revalidate: vi.fn(), analytics: vi.fn(), fresh: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/modules/client-portal/context", () => ({ requireClientDashboardAccess: mocks.access }));
 vi.mock("@/modules/meta/server", () => ({ collectMetaClientInsights: mocks.collect, MetaSetupError: class extends Error {} }));
 vi.mock("@/modules/meta/client", () => ({ MetaApiError: class extends Error {} }));
 vi.mock("@/modules/client-portal/analytics", () => ({ getClientAnalytics: mocks.analytics }));
+vi.mock("@/modules/client-portal/analytics-live", () => ({ getFreshClientAnalytics: mocks.fresh }));
 import { collectDashboardData } from "@/modules/client-portal/analytics-actions";
 
 const clientId = "94e033bc-1fe7-4ddb-868d-e2f07b998dae";
@@ -29,8 +30,14 @@ beforeEach(() => {
   mocks.access.mockResolvedValue(access());
   mocks.collect.mockResolvedValue({ insightCount: 42, completedSliceCount: 4, failures: [] });
   mocks.analytics.mockResolvedValue(coverage("complete"));
+  mocks.fresh.mockResolvedValue({ ...coverage("complete"), metaAggregate: { confirmed: true } });
 });
 describe("dashboard collection authorization", () => {
+  it("does not claim success when daily collection finishes without exact period confirmation", async () => {
+    mocks.fresh.mockResolvedValue({ ...coverage("complete"), metaAggregate: { confirmed: false } });
+    expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30" }))
+      .toMatchObject({ error: expect.stringContaining("agregados do período"), insightCount: 42 });
+  });
   it("checks freshness for an authorized reader without allowing forced refresh", async () => {
     mocks.access.mockResolvedValue(access(false));
     expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30", automatic: true })).toEqual({ success: true, insightCount: 0 });

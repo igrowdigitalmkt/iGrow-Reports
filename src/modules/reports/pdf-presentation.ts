@@ -2,12 +2,18 @@ import { resultBreakdown } from "@/modules/client-portal/analytics-results";
 import { jsPDF } from "jspdf";
 import type { DashboardPdfInput } from "./pdf-download";
 import { formatAnalyticsValue } from "@/modules/client-portal/analytics-charts";
-import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric } from "./report-presentation";
+import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts } from "./report-presentation";
 
 const C = { background: "#0d1724", panel: "#152536", border: "#2b4055", ink: "#e5edf8", muted: "#97afc8", cyan: "#55d7eb", purple: "#948aee", gold: "#e4bf78" };
 const accents = [C.cyan, C.purple, "#55c7a1", C.gold, "#df8ab6", "#7aa2ee"];
 
-export function buildPresentationPdf(input: DashboardPdfInput) {
+export function buildPresentationPdf(originalInput: DashboardPdfInput) {
+  const input = { ...originalInput, data: confirmedReportData(originalInput.data) };
+  const resultCosts = reportResultCosts(input.data, input.entityRows);
+  const metricValue = (key: string, value: number | null | undefined) => {
+    const metric = input.data.metrics.find(metric => metric.key === key);
+    return metric ? formatAnalyticsValue(value, metric, input.data.currency) : value == null ? "Indisponível" : value.toLocaleString("pt-BR");
+  };
   const doc = new jsPDF({ orientation: "landscape", unit: "px", format: [1920, 1080], hotfixes: ["px_scaling"] });
   const text = (value: string, x: number, y: number, size = 24, color = C.ink, width = 1720, bold = false) => {
     doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size * .75); doc.setTextColor(color);
@@ -47,11 +53,21 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
       const x = 80 + i % 3 * 596, y = 240 + Math.floor(i / 3) * 340;
       panel(x, y, 570, 305); doc.setDrawColor(accents[(i + offset) % 6]); doc.setLineWidth(3); doc.line(x + 12, y + 2, x + 558, y + 2);
       text(metric.label, x + 20, y + 42, 20, C.muted, 530);
-      const value = formatAnalyticsValue(input.data.summary[metric.key], metric, input.data.currency);
-      text(value, x + 20, y + 147, valueSize(value, 530), C.ink, 530, true);
-      if (metric.key === "primary_results") text(resultDescription(input.data), x + 20, y + 191, 17, C.muted, 530);
+      const showResultRows = resultCosts.length > 0 && ["primary_results", "cost_per_result"].includes(metric.key);
+      if (showResultRows && resultCosts.length > 5) {
+        text(`${resultCosts.length} tipos de resultado`, x + 20, y + 147, 30, C.ink, 530, true);
+        text("Valores por tipo nas próximas páginas.", x + 20, y + 191, 17, C.muted, 530);
+      }
+      else if (showResultRows) resultCosts.forEach((result, row) => {
+        const value = formatAnalyticsValue(metric.key === "primary_results" ? result.value : result.cost, metric, input.data.currency);
+        const size = Math.max(12, Math.min(21, 140 / resultCosts.length));
+        text(`${value} ${result.label.toLocaleLowerCase("pt-BR")}`, x + 20, y + 92 + row * Math.min(49, 185 / resultCosts.length), size, C.ink, 530, true);
+      });
+      else { const value = formatAnalyticsValue(input.data.summary[metric.key], metric, input.data.currency);
+        text(value, x + 20, y + 147, valueSize(value, 530), C.ink, 530, true); }
+      if (metric.key === "primary_results" && !showResultRows) text(resultDescription(input.data), x + 20, y + 191, 17, C.muted, 530);
       else if (estimatedMetric(input.data, metric.key)) text("Estimado entre contas", x + 20, y + 191, 17, C.gold, 236);
-      if (metric.key === "primary_results") return;
+      if (["primary_results", "cost_per_result"].includes(metric.key) && showResultRows) return;
       const values = input.data.daily.map(day => day.values[metric.key]);
       const max = Math.max(1, ...values.map(value => value ?? 0));
       doc.setDrawColor(accents[(i + offset) % 6]); doc.setLineWidth(2);
@@ -67,13 +83,16 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
 
   const resultRows = resultBreakdown(input.data.summary);
   if (resultRows.length) {
-    slide("Distribuição dos resultados");
-    resultRows.forEach((row, index) => {
+    for (let offset = 0; offset < resultCosts.length; offset += 5) {
+    slide(offset ? "Distribuição dos resultados · continuação" : "Distribuição dos resultados");
+    resultCosts.slice(offset, offset + 5).forEach((row, index) => {
       const y = 270 + index * 125;
       panel(80, y, 1760, 105);
-      text(row.label, 115, y + 65, 28, C.ink, 1330);
-      text(row.value.toLocaleString("pt-BR"), 1500, y + 65, 32, C.cyan, 300, true);
+      text(row.label, 115, y + 65, 26, C.ink, 970);
+      text(row.value.toLocaleString("pt-BR"), 1120, y + 65, 30, C.cyan, 230, true);
+      text(`Custo: ${metricValue("cost_per_result", row.cost)}`, 1400, y + 65, 24, C.muted, 385);
     });
+    }
   }
   slide("Evolução no tempo");
   for (const [index, key] of ["spend", "primary_results"].entries()) {
@@ -99,7 +118,7 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
         else doc.circle(px, py, 3, "F");
       });
     };
-    if (input.comparison) plot(previous, C.purple, false);
+    if (input.comparison && input.data.coverage.previousStatus === "complete") plot(previous, C.purple, false);
     plot(current, C.cyan, input.chartType === "bar");
     text(reportDate(input.data.dateFrom), left, 800, 18, C.muted);
     text(reportDate(input.data.dateTo), left + width - 132, 800, 18, C.muted);
@@ -111,9 +130,9 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
   const campaigns = [...input.data.campaigns].sort((a, b) => (b.values.spend ?? 0) - (a.values.spend ?? 0));
   const spend = input.data.summary.spend ?? 0;
   const observations = [
-    { title: "Distribuição dos resultados", body: `${resultDescription(input.data)}. Custo por resultado: ${formatAnalyticsValue(input.data.summary.cost_per_result, input.data.metrics.find(m => m.key === "cost_per_result")!, input.data.currency)}.` },
+    { title: "Distribuição dos resultados", body: `${resultDescription(input.data)}. ${resultCosts.map(result => `${result.label}: custo ${metricValue("cost_per_result", result.cost)}`).join("; ")}` },
     { title: "Concentração do investimento", body: campaigns[0] && spend ? `${campaigns[0].name} concentrou ${((campaigns[0].values.spend ?? 0) / spend * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do valor usado.` : "Sem investimento registrado para a seleção." },
-    { title: "Resposta aos anúncios", body: `${(input.data.summary.link_clicks ?? 0).toLocaleString("pt-BR")} cliques no link em ${(input.data.summary.impressions ?? 0).toLocaleString("pt-BR")} impressões.` },
+    { title: "Resposta aos anúncios", body: `${metricValue("link_clicks", input.data.summary.link_clicks)} cliques no link em ${metricValue("impressions", input.data.summary.impressions)} impressões.` },
   ];
   observations.forEach((observation, i) => { panel(80, 245 + i * 215, 1760, 185); text(`0${i + 1}`, 110, 310 + i * 215, 28, C.cyan); text(observation.title, 185, 300 + i * 215, 28, C.ink, 1600, true); text(observation.body, 185, 350 + i * 215, 24, C.muted, 1590); });
   text("Observações descritivas calculadas sobre o escopo da análise.", 80, 970, 18, C.muted);

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { normalizeHierarchy } from "./analytics-hierarchy";
 import { normalizeClientAnalytics } from "./analytics-calculations";
-import { getClientAnalytics } from "./analytics";
+import { getFreshClientAnalytics } from "./analytics-live";
+import { refreshMetaDashboardScope } from "@/modules/meta/server";
 import { metaMetricLabel } from "@/modules/meta/metric-labels";
 import type { DashboardPdfInput } from "@/modules/reports/pdf-download";
 import { requireClientDashboardAccess } from "./context";
@@ -26,17 +27,24 @@ export async function generateDashboardReport(input: unknown) {
   if (!parsed.success) return { error: "Configuração do relatório inválida." };
   const context = await requireClientDashboardAccess(parsed.data.clientId);
   if (!context.canManageReports) return { error: "Seu perfil não pode salvar relatórios." };
-  const analytics = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.dateFrom, parsed.data.dateTo, parsed.data.accountIds);
+  const analytics = await getFreshClientAnalytics({ supabase: context.supabase,
+    agencyId: context.access.agencyId, clientId: parsed.data.clientId,
+    dateFrom: parsed.data.dateFrom, dateTo: parsed.data.dateTo, accountIds: parsed.data.accountIds });
   if (analytics.coverage.status !== "complete") {
     return { error: "O relatório não pode ser gerado enquanto houver qualquer dia sem confirmação completa da Meta." };
   }
+  try {
+    if (parsed.data.entityKeys.length) await refreshMetaDashboardScope({ agencyId: context.access.agencyId,
+      clientId: parsed.data.clientId, data: analytics, entityKeys: parsed.data.entityKeys });
+    else if (!analytics.metaAggregate?.confirmed) return { error: "A Meta precisa confirmar os agregados deste período antes de salvar o relatório." };
+  } catch { return { error: "A Meta não confirmou os dados da seleção. Atualize o período antes de salvar o relatório." }; }
   const { data, error } = await context.supabase.rpc("create_dashboard_report", {
     p_client_id: parsed.data.clientId, p_date_from: parsed.data.dateFrom, p_date_to: parsed.data.dateTo,
     p_ad_account_ids: parsed.data.accountIds, p_entity_keys: parsed.data.entityKeys,
     p_metric_keys: parsed.data.metricKeys, p_title: parsed.data.title, p_header: { ...parsed.data.header, comparison: parsed.data.comparison, chart_type: parsed.data.chartType, campaign_metric_keys: parsed.data.campaignMetricKeys, orientation: parsed.data.orientation },
   });
   if (error || !data) return { error: error?.code === "22023"
-    ? "Para gerar o relatório, configure o resultado principal, atualize o período e selecione contas da mesma moeda."
+    ? "Para gerar o relatório, confirme os dados do período e selecione contas da mesma moeda."
     : "Não foi possível gerar o relatório. Confira a seleção e tente novamente." };
   revalidatePath(`/cliente/${parsed.data.clientId}`);
   revalidatePath("/dashboard/relatorios");
@@ -63,7 +71,9 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
   const context = await requireClientDashboardAccess(parsed.data.clientId);
   const { data, error } = await context.supabase.rpc("get_dashboard_report_document", { p_report_version_id: parsed.data.versionId });
   if (error || !data || typeof data !== "object" || Array.isArray(data) || data.clientId !== parsed.data.clientId) {
-    return { error: "Relatório indisponível." };
+    return { error: error?.code === "22023"
+      ? "Este relatório foi criado antes da auditoria de dados. Gere uma nova versão para usar os valores confirmados pela Meta."
+      : "Relatório indisponível." };
   }
   const configuration = data.configuration && typeof data.configuration === "object" && !Array.isArray(data.configuration) ? data.configuration : {};
   const header = configuration.header && typeof configuration.header === "object" && !Array.isArray(configuration.header) ? configuration.header : {};

@@ -21,7 +21,10 @@ describe("Meta campaign results", () => {
       { date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "instagram_profile_visits", values: [{ value: "425" }] }] },
     ]);
     expect(aggregateResults({ ...campaign, spend: 1557.8 }, true).primary_results).toBe(103);
-    expect(aggregateResults({ ...childAds, spend: 1557.8 }, true).primary_results).toBe(528);
+    expect(aggregateResults({ ...childAds, spend: 1557.8 }, true).primary_results).toBeNull();
+    expect(resultBreakdown(childAds!)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: 103 }), expect.objectContaining({ value: 425 }),
+    ]));
   });
   it("does not publish a partial strict provider total when any campaign lacks results", () => {
     expect(providerResultTotals([
@@ -29,18 +32,13 @@ describe("Meta campaign results", () => {
       { date_start: "2026-07-05", date_stop: "2026-10-02" },
     ])).toBeNull();
   });
-  it("keeps native campaign types and resolves only the campaign missing provider results", () => {
+  it("does not guess the result type for campaigns missing provider results", () => {
     const totals = campaignResultTotals([
       { date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "actions:onsite_conversion.messaging_conversation_started_7d", values: [{ value: "103" }] }] },
       { date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "actions:post_engagement", values: [{ value: "38150" }] }] },
       { date_start: "2026-07-05", date_stop: "2026-10-02", actions: [{ action_type: "onsite_conversion.messaging_conversation_started_7d", value: "76" }] },
     ]);
-    const summary = aggregateResults({ ...totals, spend: 2000 }, true);
-    expect(summary.primary_results).toBe(38329);
-    expect(resultBreakdown(summary)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ label: "Conversas por mensagem iniciadas", value: 179 }),
-      expect.objectContaining({ label: "Engajamento com a publicação", value: 38150 }),
-    ]));
+    expect(totals).toBeNull();
   });
   it("does not invent a campaign result when provider and compatible actions are both absent", () => {
     expect(campaignResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02", spend: "10", impressions: "100" })).toBeNull();
@@ -48,5 +46,6 @@ describe("Meta campaign results", () => {
   it("does not add alternative attribution windows or invent an unknown result", () => {
     expect(providerResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02" })).toBeNull();
     expect(providerResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "actions:lead", values: [{ value: "5" }, { value: "7" }] }] })).toBeNull();
+    expect(providerResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "actions:lead", values: [{ value: null }] }] })).toBeNull();
   });
 });

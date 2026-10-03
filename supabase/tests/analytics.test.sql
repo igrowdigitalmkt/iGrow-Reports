@@ -63,7 +63,7 @@ create temporary table analytics_payload as select get_client_analytics('1111111
 select is((select jsonb_array_length(data->'accounts') from analytics_payload),1,'Escopo exclui contas inativas, arquivadas e da conexão de outro cliente');
 select is((select (data->'summary'->>'spend')::numeric from analytics_payload),300::numeric,'Totais usam somente account, sem duplicar campaign e ad');
 select is((select (data->'summary'->>'impressions')::numeric from analytics_payload),20000::numeric,'Impressões respeitam o mesmo escopo da conta');
-select is((select (data->'summary'->>'primary_results')::numeric from analytics_payload),33::numeric,'Resultados somam leads e compras, independentemente do mapeamento legado');
+select is((select (data->'summary'->>'primary_results')::numeric from analytics_payload),null::numeric,'Ações secundárias não confirmam o resultado nativo ausente');
 select is((select (data->'summary'->>'action:landing_page_view')::numeric from analytics_payload),130::numeric,'Ações adicionais são descobertas dinamicamente');
 select is((select (data->'summary'->>'clicks')::numeric from analytics_payload),150::numeric,'Campos escalares adicionais preservam dados coletados');
 select is((select (data->'summary'->>'cpc_link')::numeric from analytics_payload),3::numeric,'CPC usa totais e não média das razões diárias');

@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { resolveAnalyticsRange } from "@/modules/client-portal/range";
-import { getClientAnalytics } from "@/modules/client-portal/analytics";
+import { getFreshClientAnalytics } from "@/modules/client-portal/analytics-live";
 import { isMissingSchemaError } from "@/lib/supabase/schema";
 import type { AdminReportPreview } from "./types";
+import { confirmedReportConfiguration } from "./report-contract";
 
 export async function getAgencyReportPreview(input: unknown): Promise<
   { success: true; preview: AdminReportPreview } | { error: string }
@@ -16,11 +17,14 @@ export async function getAgencyReportPreview(input: unknown): Promise<
   if (!parsed.success) return { error: "Versão de relatório inválida." };
   const { data: version, error: versionError } = await context.supabase
     .from("report_versions")
-    .select("report_id,currency,date_from,date_to,state,timezone_name")
+    .select("report_id,currency,date_from,date_to,state,timezone_name,configuration_snapshot")
     .eq("agency_id", context.agency.id)
     .eq("id", parsed.data)
     .maybeSingle();
   if (versionError || !version) return { error: "Relatório indisponível neste espaço de trabalho." };
+  if (!confirmedReportConfiguration(version.configuration_snapshot)) {
+    return { error: "Este relatório foi criado antes da auditoria de dados. Gere uma nova versão com os valores confirmados pela Meta." };
+  }
   const { data: report } = await context.supabase.from("reports")
     .select("id").eq("agency_id", context.agency.id)
     .eq("id", version.report_id).is("archived_at", null).maybeSingle();
@@ -113,9 +117,13 @@ export async function generateManualReport(
   }
   const { dateFrom, dateTo } = range;
 
-  const analytics = await getClientAnalytics(context.supabase, parsed.data.clientId, dateFrom, dateTo);
+  const analytics = await getFreshClientAnalytics({ supabase: context.supabase,
+    agencyId: context.agency.id, clientId: parsed.data.clientId, dateFrom, dateTo });
   if (analytics.coverage.status !== "complete") {
     return { error: "Atualize os dados deste período no dashboard do cliente antes de gerar o resumo. A coleta ainda está incompleta." };
+  }
+  if (!analytics.metaAggregate?.confirmed) {
+    return { error: "A Meta precisa confirmar os agregados do período antes de gerar o relatório." };
   }
 
   const { data: summary, error: summaryError } = await context.supabase
@@ -195,7 +203,9 @@ export async function publishReportVersion(
     return {
       error: isMissingSchemaError(error)
         ? "A fundação de relatórios ainda não foi habilitada no banco de produção."
-        : "Não foi possível publicar esta versão.",
+        : error.code === "22023"
+          ? "Esta versão não passou pela confirmação de dados da auditoria. Gere um novo relatório antes de publicar."
+          : "Não foi possível publicar esta versão.",
     };
   }
 

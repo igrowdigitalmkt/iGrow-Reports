@@ -1,10 +1,13 @@
 begin;
 set local search_path=public,extensions;
-select extensions.plan(5);
-select extensions.is((private.result_values('{"spend":500,"action:onsite_conversion.messaging_conversation_started_7d":150,"instagram_profile_visits":50,"action:lead":50}',true)->>'primary_results')::numeric,250::numeric,'Tipos de resultados somam 250');
-select extensions.is((private.result_values('{"spend":500,"action:onsite_conversion.messaging_conversation_started_7d":150,"instagram_profile_visits":50,"action:lead":50}',true)->>'cost_per_result')::numeric,2::numeric,'Custo usa o total de resultados');
-select extensions.is((private.result_values('{"action:lead":50,"action:onsite_conversion.lead_grouped":50,"action:like":300}',true)->>'primary_results')::numeric,50::numeric,'Aliases e curtidas não duplicam resultados');
+select extensions.plan(8);
+select extensions.is((private.result_values('{"spend":500,"action:onsite_conversion.messaging_conversation_started_7d":150,"instagram_profile_visits":50,"action:lead":50}',true)->>'primary_results')::numeric,null::numeric,'Ações secundárias não inventam o resultado escolhido pela Meta');
+select extensions.is((private.result_values('{"spend":500,"action:onsite_conversion.messaging_conversation_started_7d":150,"instagram_profile_visits":50,"action:lead":50}',true)->>'cost_per_result')::numeric,null::numeric,'Custo por resultado desconhecido permanece indisponível');
+select extensions.is((private.result_values('{"action:lead":50,"action:onsite_conversion.lead_grouped":50,"action:like":300}',true)->>'result:leads')::numeric,50::numeric,'Aliases preservam o indicador secundário sem duplicação');
 select extensions.is((private.result_values('{}',false)->>'primary_results')::numeric,null::numeric,'Ausência de coleta não fabrica resultados');
-select extensions.is((private.analytics_values('[{"actions":{"lead":20}},{"actions":{"onsite_conversion.lead_grouped":50}}]',null,null,null,array['lead','onsite_conversion.lead_grouped'],true,true,null)->>'primary_results')::numeric,70::numeric,'Aliases diferentes de entidades diferentes não perdem resultados');
+select extensions.is((private.analytics_values('[{"actions":{"lead":20}},{"actions":{"onsite_conversion.lead_grouped":50}}]',null,null,null,array['lead','onsite_conversion.lead_grouped'],true,true,null)->>'primary_results')::numeric,null::numeric,'Nenhuma entidade sem resultado nativo confirma um total');
+select extensions.is((private.result_values('{"spend":500,"result:provider_known":1,"result:provider:action:lead":50,"action:onsite_conversion.messaging_conversation_started_7d":150}',true)->>'primary_results')::numeric,50::numeric,'O resultado nativo prevalece sobre ações secundárias');
+select extensions.is((private.result_values('{"spend":500,"result:provider_known":1,"result:provider:action:lead":50}',true)->>'cost_per_result')::numeric,10::numeric,'Custo divide gasto pelo resultado nativo confirmado');
+select extensions.is((private.analytics_values('[]',null,null,null,array[]::text[],true,true,null)->>'primary_results')::numeric,0::numeric,'Resposta vazia completa confirma zero resultados');
 select * from extensions.finish();
 rollback;

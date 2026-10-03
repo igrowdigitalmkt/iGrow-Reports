@@ -126,7 +126,20 @@ export type MetaInsight = {
   video_p100_watched_actions?: MetaAction[];
   actions?: MetaAction[];
   action_values?: MetaAction[];
+  cost_per_action_type?: MetaAction[];
 };
+
+const INSIGHT_FIELDS = [
+  "date_start", "date_stop", "account_id", "account_name", "campaign_id", "campaign_name",
+  "adset_id", "adset_name", "ad_id", "ad_name", "objective", "results", "spend", "impressions",
+  "reach", "frequency", "clicks", "unique_clicks", "inline_link_clicks", "inline_link_click_ctr",
+  "cost_per_inline_link_click", "inline_post_engagement", "unique_inline_link_clicks",
+  "unique_inline_link_click_ctr", "unique_ctr", "ctr", "cpc", "cpm", "cpp",
+  "outbound_clicks", "unique_outbound_clicks", "outbound_clicks_ctr", "unique_outbound_clicks_ctr",
+  "actions", "action_values", "cost_per_action_type", "video_play_actions",
+  "video_p25_watched_actions", "video_p50_watched_actions", "video_p75_watched_actions",
+  "video_p95_watched_actions", "video_p100_watched_actions", "social_spend", "instagram_profile_visits",
+].join(",");
 
 export class MetaApiError extends Error {
   readonly httpStatus: number;
@@ -403,39 +416,8 @@ export class MetaClient {
       level: input.level ?? "account",
       time_increment: "1",
       time_range: JSON.stringify({ since: input.since, until: input.until }),
-      fields: [
-        "date_start",
-        "date_stop",
-        "account_id",
-        "account_name",
-        "campaign_id",
-        "campaign_name",
-        "adset_id",
-        "adset_name",
-        "ad_id",
-        "ad_name",
-        "objective",
-        "results",
-        "instagram_profile_visits",
-        "spend",
-        "impressions",
-        "reach",
-        "frequency",
-        "clicks",
-        "unique_clicks",
-        "inline_link_clicks",
-        "inline_post_engagement",
-        "outbound_clicks",
-        "unique_outbound_clicks",
-        "video_play_actions",
-        "video_p25_watched_actions",
-        "video_p50_watched_actions",
-        "video_p75_watched_actions",
-        "video_p95_watched_actions",
-        "video_p100_watched_actions",
-        "actions",
-        "action_values",
-      ].join(","),
+      fields: INSIGHT_FIELDS,
+      use_unified_attribution_setting: "true",
       limit: "500",
     });
   }
@@ -455,7 +437,7 @@ export class MetaClient {
       level: input.level ?? "account",
       time_increment: "all_days",
       time_range: JSON.stringify({ since: input.since, until: input.until }),
-      fields: "date_start,date_stop,account_id,campaign_id,adset_id,ad_id,results,spend,impressions,reach,frequency,clicks,unique_clicks,inline_link_clicks,inline_post_engagement,unique_inline_link_clicks,unique_inline_link_click_ctr,unique_ctr,outbound_clicks,unique_outbound_clicks,outbound_clicks_ctr,unique_outbound_clicks_ctr,actions,action_values,video_play_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p95_watched_actions,video_p100_watched_actions,social_spend,instagram_profile_visits",
+      fields: INSIGHT_FIELDS,
       use_unified_attribution_setting: "true",
       ...(input.adIds?.length ? {
         filtering: JSON.stringify([{ field: "ad.id", operator: "IN", value: input.adIds }]),

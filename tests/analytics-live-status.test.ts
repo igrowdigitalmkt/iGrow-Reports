@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ access: vi.fn(), analytics: vi.fn(), statuses: vi.fn(), rpc: vi.fn() }));
 vi.mock("@/modules/client-portal/context", () => ({ requireClientDashboardAccess: mocks.access }));
-vi.mock("@/modules/client-portal/analytics", () => ({ getClientAnalytics: mocks.analytics }));
+vi.mock("@/modules/client-portal/analytics-live", () => ({ getFreshClientAnalytics: mocks.analytics }));
 vi.mock("@/modules/meta/server", () => ({ getMetaEntityStatuses: mocks.statuses, refreshMetaDashboardScope: vi.fn() }));
 import { getClientAnalyticsHierarchy } from "@/modules/client-portal/analytics-scope-actions";
 const input = { clientId: "75b59204-8145-441f-91ec-4d7cc5be9109", accountIds: ["eca7861e-9817-4456-8758-432c747e45e6"], dateFrom: "2026-09-03", dateTo: "2026-10-02" };
@@ -29,6 +29,17 @@ it("adds live campaigns without period movement and maps statuses by account and
   const result = await getClientAnalyticsHierarchy(input);
   expect(result).toMatchObject({ entities: [{ id: "1", effectiveStatus: null }, { id: "2", effectiveStatus: "ACTIVE", values: {} }] });
   expect(mocks.statuses.mock.calls[0][0]).toMatchObject({ agencyId: "verified-agency", clientId: input.clientId, accountIds: input.accountIds });
+});
+it("shows confirmed zero activity only after the complete Meta period response", async () => {
+  mocks.analytics.mockResolvedValue({ coverage: { status: "complete" }, metaAggregate: { confirmed: true }, metrics: [],
+    accounts: [{ id: accountId, name: "Ronaldo Moreira", currency: "BRL" }] });
+  mocks.statuses.mockImplementation(async (_input, _thumbs, catalog) => {
+    catalog.push({ accountId, id: "2", name: "New live campaign" });
+    return { [`${accountId}:campaign:2`]: "ACTIVE" };
+  });
+  expect(await getClientAnalyticsHierarchy(input)).toMatchObject({ entities: [
+    { id: "1" }, { id: "2", values: { spend: 0, impressions: 0, primary_results: 0, cost_per_result: null } },
+  ] });
 });
 
 it("omits paused and unconfirmed campaigns from the live catalog when they have no period spend", async () => {

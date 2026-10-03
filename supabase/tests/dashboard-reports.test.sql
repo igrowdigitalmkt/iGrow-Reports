@@ -85,6 +85,9 @@ insert into meta_daily_insights(agency_id,ad_account_id,insight_date,level,exter
 ('aaaaaaaa-0000-4000-8000-000000000051','50000000-0000-4000-8000-000000000051','2026-09-29','ad','81','71','Anúncio A',30,300,3,'v-test','{"campaign_id":"61","adset_id":"71"}'),
 ('aaaaaaaa-0000-4000-8000-000000000051','50000000-0000-4000-8000-000000000051','2026-09-29','ad','82','71','Anúncio B',70,700,7,'v-test','{"campaign_id":"61","adset_id":"71"}');
 update meta_collection_runs set levels=array['account','campaign','adset','ad'];
+insert into meta_dashboard_scopes(agency_id,client_id,scope_key,date_from,date_to,payload) values
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|ad:81'),'2026-09-29','2026-09-30',
+ '{"version":7,"summary":{"spend":30,"impressions":300,"link_clicks":3,"result:provider_known":1},"previousSummary":{},"metrics":[]}');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000051',true);
 select is((get_campaign_scoped_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[],array['ad:81'])->'summary'->>'spend')::numeric,30::numeric,'Seleção de um anúncio usa somente seu investimento');
@@ -123,8 +126,9 @@ select throws_ok($q$select get_dashboard_report_document((select first_version f
 select throws_ok($q$select get_client_portal_report_metrics((select first_version from report_test_ids))$q$,'22023',null,'Endpoint antigo também recusa relatório excluído');
 reset role;
 insert into meta_dashboard_scopes(agency_id,client_id,scope_key,date_from,date_to,payload) values
-('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|'),'2026-09-29','2026-09-30','{"summary":{"reach":12,"frequency":2},"metrics":[]}'),
-('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|ad:81'),'2026-09-29','2026-09-30','{"summary":{"reach":7,"frequency":1.5},"metrics":[]}');
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|'),'2026-09-29','2026-09-30','{"version":7,"summary":{"reach":12,"frequency":2},"previousSummary":{},"metrics":[]}'),
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|ad:81'),'2026-09-29','2026-09-30','{"version":7,"summary":{"reach":7,"frequency":1.5},"previousSummary":{},"metrics":[]}')
+on conflict(agency_id,client_id,scope_key,date_from,date_to) do update set payload=excluded.payload,collected_at=now();
 set local role authenticated;
 select is((get_client_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])->'summary'->>'reach')::numeric,12::numeric,'Alcance total utiliza o agregado exato da conta');
 select is((get_campaign_scoped_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[],array['ad:81'])->'summary'->>'reach')::numeric,7::numeric,'Alcance selecionado utiliza o agregado exato dos anúncios');
@@ -134,7 +138,7 @@ select throws_ok($q$select private.client_analytics_base('11111111-0000-4000-800
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000055',true);
 select throws_ok($q$select get_client_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])$q$,'42501',null,'Agregados exatos não ampliam acesso entre organizações');
 reset role;
-update meta_dashboard_scopes set payload=payload||'{"entityValues":{"50000000-0000-4000-8000-000000000051:ad:81":{"reach":7,"frequency":1.5}},"estimatedMetricKeys":["unique_clicks"]}'
+update meta_dashboard_scopes set payload=payload||'{"entityValues":{"50000000-0000-4000-8000-000000000051:ad:81":{"reach":7,"frequency":1.5}},"entityCatalog":[{"key":"ad:81","id":"81","level":"ad","accountId":"50000000-0000-4000-8000-000000000051","name":"Anúncio A"}],"estimatedMetricKeys":["unique_clicks"]}'
   where scope_key=md5('50000000-0000-4000-8000-000000000051|');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000051',true);

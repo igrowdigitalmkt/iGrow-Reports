@@ -2,6 +2,8 @@ import Decimal from "decimal.js";
 import type { Database } from "@/types/database";
 import type { MetaAction, MetaInsight } from "./client";
 import { providerResultValues } from "./result-values";
+import { periodInsightValues } from "./insight-values";
+import { META_ANALYTICS_VERSION } from "./analytics-contract";
 
 const DAY_MS = 86_400_000;
 export const COLLECTION_SLICE_DAYS = 7;
@@ -22,10 +24,11 @@ export function coveringCollectionRun<T extends CollectionCoverageRun>(
 }
 
 export function periodScalarValue(row: Record<string, unknown>, key: string): number | null {
-  if (row[key] != null) return Number(row[key]);
-  // Meta can return only attributed actions for accounts with no delivery.
-  // These accounts contribute zero exposure, rather than hiding other accounts.
-  return Number(row.impressions ?? 0) === 0 && Number(row.spend ?? 0) === 0 ? 0 : null;
+  if (row[key] != null) return numeric(String(row[key]));
+  // Missing exposure is zero only when the provider explicitly confirms zero
+  // spend and zero impressions, never merely because both fields were omitted.
+  return row.impressions != null && row.spend != null
+    && numeric(String(row.impressions)) === 0 && numeric(String(row.spend)) === 0 ? 0 : null;
 }
 
 export function parseCollectionDate(value: string) {
@@ -155,6 +158,10 @@ export function normalizeInsightSlice(input: {
         link_clicks: numeric(insight.inline_link_clicks),
         api_version: input.apiVersion,
         metadata: {
+          analytics_version: META_ANALYTICS_VERSION,
+          actions_confirmed: Array.isArray(insight.actions),
+          action_values_confirmed: Array.isArray(insight.action_values),
+          canonical_values: periodInsightValues(insight) as import("@/types/database").Json,
           provider_results: providerResultValues(insight) as import("@/types/database").Json,
           timezone_name: input.timezoneName,
           business_id: input.businessId,

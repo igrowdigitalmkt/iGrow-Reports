@@ -10,8 +10,8 @@ const input = {
 };
 
 describe("coleta histórica Meta", () => {
-  it("keeps exposure totals available when an account has only attributed actions", () => {
-    expect(periodScalarValue({ actions: [{ action_type: "lead", value: "1" }] }, "reach")).toBe(0);
+  it("keeps omitted exposure unknown unless the provider explicitly proves no delivery", () => {
+    expect(periodScalarValue({ actions: [{ action_type: "lead", value: "1" }] }, "reach")).toBeNull();
     expect(periodScalarValue({ impressions: "0", spend: "0" }, "clicks")).toBe(0);
     expect(periodScalarValue({ impressions: "100", spend: "10" }, "reach")).toBeNull();
     expect(periodScalarValue({ reach: "50", impressions: "100" }, "reach")).toBe(50);
@@ -57,6 +57,8 @@ describe("coleta histórica Meta", () => {
     expect(normalized.insights.map((row) => row.level)).toEqual(["account", "campaign"]);
     expect(normalized.insights[1].parent_external_id).toBe("act_1");
     expect(normalized.insights[0].metadata).toMatchObject({ clicks: 15, outbound_clicks: 8, video_play_actions: null });
+    expect(normalized.insights[0].metadata).toMatchObject({ analytics_version: 7, actions_confirmed: true,
+      action_values_confirmed: true, canonical_values: { "action:lead": 5, primary_results: null } });
     expect(normalized.actions).toHaveLength(2);
     expect(normalized.actions.find((action) => action.action_type === "lead")?.action_value).toBe(5);
     expect(normalized.actions.find((action) => action.action_type === "purchase")).toMatchObject({ action_value: 0, value_amount: 200.5 });

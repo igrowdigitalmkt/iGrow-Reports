@@ -38,6 +38,7 @@ function coverageStatus(value: unknown): "complete" | "partial" | "empty" {
 export function normalizeClientAnalytics(value: unknown, automaticResults = true): AnalyticsDashboardData {
   const payload = object(value);
   const coverage = object(payload.coverage);
+  const metaAggregate = object(payload.metaAggregate);
   const currentComplete = coverageStatus(coverage.status) === "complete";
   const previousComplete = coverageStatus(coverage.previousStatus) === "complete";
   const liveValues = (input: unknown, complete: boolean) => {
@@ -93,5 +94,7 @@ export function normalizeClientAnalytics(value: unknown, automaticResults = true
     },
     warnings: array(payload.warnings).map(text).filter(Boolean),
     estimatedMetricKeys: array(payload.estimatedMetricKeys).map(text).filter(Boolean),
+    metaAggregate: { confirmed: metaAggregate.confirmed === true,
+      collectedAt: nullableText(metaAggregate.collectedAt), version: analyticsNumber(metaAggregate.version) },
   };
 }

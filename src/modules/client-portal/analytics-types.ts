@@ -65,4 +65,5 @@ export type AnalyticsDashboardData = {
   };
   warnings: string[];
   estimatedMetricKeys?: string[];
+  metaAggregate?: { confirmed: boolean; collectedAt: string | null; version: number | null };
 };

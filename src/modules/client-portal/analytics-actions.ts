@@ -7,6 +7,7 @@ import { MetaApiError } from "@/modules/meta/client";
 import { requireClientDashboardAccess } from "./context";
 import { resolveAnalyticsRange } from "./range";
 import { getClientAnalytics } from "./analytics";
+import { getFreshClientAnalytics } from "./analytics-live";
 import { needsAnalyticsRefresh } from "./analytics-freshness";
 
 export async function collectDashboardData(input: unknown) {
@@ -28,7 +29,12 @@ export async function collectDashboardData(input: unknown) {
     if (parsed.data.includeComparison !== false && current.coverage.previousStatus !== "complete") {
       periods.push({ since: range.previousDateFrom, until: range.previousDateTo, forceRefresh: false });
     }
-    if (!periods.length) return { success: true as const, insightCount: 0 };
+    if (!periods.length) {
+      const exact = await getFreshClientAnalytics({ supabase: context.supabase, agencyId: context.access.agencyId,
+        clientId: parsed.data.clientId, dateFrom: parsed.data.from, dateTo: parsed.data.to });
+      if (!exact.metaAggregate?.confirmed) return { error: "A Meta não confirmou os agregados deste período. Tente atualizar novamente." };
+      return { success: true as const, insightCount: 0 };
+    }
     let insightCount = 0;
     let failed = false;
     try {
@@ -48,6 +54,11 @@ export async function collectDashboardData(input: unknown) {
         error: `A coleta ainda não fechou o período completo (${verified.coverage.coveredDays}/${verified.coverage.totalDays} dias confirmados). O dashboard continuará bloqueado e tentará novamente.`,
         insightCount,
       };
+    }
+    const exact = await getFreshClientAnalytics({ supabase: context.supabase, agencyId: context.access.agencyId,
+      clientId: parsed.data.clientId, dateFrom: parsed.data.from, dateTo: parsed.data.to });
+    if (!exact.metaAggregate?.confirmed) {
+      return { error: "A coleta diária terminou, mas a Meta ainda não confirmou os agregados do período. As métricas sem confirmação permanecem indisponíveis.", insightCount };
     }
     if (failed) {
       return { error: "O período atual foi concluído, mas a Meta não terminou todos os dados auxiliares ou de comparação. Os números atuais estão completos; tente novamente para concluir o restante.", insightCount };

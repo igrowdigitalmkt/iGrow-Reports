@@ -1,6 +1,8 @@
 "use client";
 
 import { resultBreakdown, resultCostBreakdown } from "./analytics-results";
+import { changeDescription } from "./analytics-comparison";
+import { reconcileHierarchySelection } from "./analytics-selection";
 import { resultCardLayout, wrapResultLabel } from "./result-card-layout";
 
 import Link from "next/link";
@@ -59,25 +61,6 @@ function displayDate(value: string, includeYear = true) {
     day: "2-digit", month: "short", ...(includeYear ? { year: "numeric" } : {}), timeZone: "UTC",
   }).format(new Date(`${value}T12:00:00Z`));
 }
-function changeDescription(data: AnalyticsDashboardData, metric: AnalyticsMetric) {
-  if (data.coverage.status !== "complete" || data.coverage.previousStatus !== "complete") {
-    return { text: "Comparação sem cobertura completa", direction: "neutral" };
-  }
-  const current = data.summary[metric.key];
-  const previous = data.previousSummary[metric.key];
-  if (current == null || previous == null) return { text: "Comparação indisponível", direction: "neutral" };
-  if (previous === 0) return { text: current === 0 ? "Sem variação no período" : "Anterior igual a zero", direction: "neutral" };
-  const change = (current - previous) / Math.abs(previous) * 100;
-  if (Math.abs(change) < .05) return { text: "Sem variação no período", direction: "neutral" };
-  const desirable = metric.desirable === "neutral"
-    ? "neutral"
-    : (change > 0) === (metric.desirable === "up") ? "positive" : "negative";
-  return {
-    text: `${change > 0 ? "+" : ""}${change.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs. anterior`,
-    direction: desirable, up: change > 0,
-  };
-}
-
 function metricGroup(metric: AnalyticsMetric) {
   if (["spend", "cpc_link", "cpm", "cost_per_result", "attributed_revenue", "roas", "cpc", "cpp"].includes(metric.key) || metric.key.startsWith("cost:") || metric.key.startsWith("value:")) return "Investimento e eficiência";
   if (["impressions", "reach", "frequency", "unique_clicks"].includes(metric.key)) return "Entrega e alcance";
@@ -96,15 +79,14 @@ function unavailableReason(data: AnalyticsDashboardData, metric: AnalyticsMetric
 
 function sumAccountMetric(data: AnalyticsDashboardData, key: string) {
   let total = 0;
-  let found = false;
-  for (const account of data.accountTotals) {
-    if (!data.selectedAccountIds.includes(account.id)) continue;
+  const accounts = data.accountTotals.filter(account => data.selectedAccountIds.includes(account.id));
+  if (!accounts.length || accounts.length !== data.selectedAccountIds.length) return null;
+  for (const account of accounts) {
     const value = account.values[key];
-    if (value == null) continue;
+    if (value == null || !Number.isFinite(value)) return null;
     total += value;
-    found = true;
   }
-  return found ? total : null;
+  return total;
 }
 
 function compareCampaignEntities(a: AnalyticsEntity, b: AnalyticsEntity, key: string, direction: "asc" | "desc") {
@@ -128,14 +110,6 @@ function normalizeEssentialMetrics(data: AnalyticsDashboardData): AnalyticsDashb
   const summary: AnalyticsValues = { ...data.summary };
   const estimatedMetricKeys = new Set(data.estimatedMetricKeys ?? []);
   let changed = false;
-
-  if (summary.inline_post_engagement == null) {
-    const engagement = summary["action:post_engagement"] ?? summary["action:page_engagement"] ?? null;
-    if (engagement != null) {
-      summary.inline_post_engagement = engagement;
-      changed = true;
-    }
-  }
 
   if (data.selectedAccountIds.length > 1) {
     for (const key of ["reach", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks"]) {
@@ -205,14 +179,21 @@ export function ClientAnalyticsDashboard({
   const [hierarchyEntities, setHierarchyEntities] = useState<AnalyticsEntity[]>(() => relevantCampaignHierarchy(entities));
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [hierarchyError, setHierarchyError] = useState("");
-  const hierarchySelectionInitialized = useRef(false);
+  const dataSnapshotKey = JSON.stringify([data.dateFrom, data.dateTo, data.selectedAccountIds,
+    data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt, data.metaAggregate?.version]);
+  const [hierarchySnapshotKey, setHierarchySnapshotKey] = useState(dataSnapshotKey);
   const roots = hierarchyEntities.filter(entity => entity.level === "campaign");
   const allLeaves = roots.flatMap(entity => leafKeys(entity, hierarchyEntities));
   const [selectedLeaves, setSelectedLeaves] = useState(allLeaves);
   const [appliedEntityKeys, setAppliedEntityKeys] = useState(roots.map(entity => entity.key));
   const draftEntityKeys = compactEntitySelection(hierarchyEntities, selectedLeaves);
   const scopeDirty = [...draftEntityKeys].sort().join(",") !== [...appliedEntityKeys].sort().join(",");
-  const [scopeData, setScopeData] = useState<Pick<AnalyticsDashboardData, "summary" | "previousSummary" | "daily" | "previousDaily" | "coverage" | "estimatedMetricKeys"> | null>(null);
+  const [scopeData, setScopeData] = useState<Pick<AnalyticsDashboardData, "summary" | "previousSummary" | "daily" | "previousDaily" | "coverage" | "estimatedMetricKeys" | "metrics" | "metaAggregate"> | null>(null);
+  const [scopeSnapshotKey, setScopeSnapshotKey] = useState<string | null>(null);
+  const selectionRef = useRef({ entities: hierarchyEntities, selectedLeaves, appliedEntityKeys, unrestricted: scopeData === null });
+  useEffect(() => {
+    selectionRef.current = { entities: hierarchyEntities, selectedLeaves, appliedEntityKeys, unrestricted: scopeData === null };
+  }, [hierarchyEntities, selectedLeaves, appliedEntityKeys, scopeData]);
   const [sortKey, setSortKey] = useState("status");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [comparison, setComparison] = useState(true);
@@ -312,7 +293,7 @@ export function ClientAnalyticsDashboard({
         router.refresh();
       } finally { updating = false; }
     };
-    const updated = Date.parse(data.coverage.latestCollectedAt ?? "");
+    const updated = Math.max(Date.parse(data.coverage.latestCollectedAt ?? "") || 0, Date.parse(data.metaAggregate?.collectedAt ?? "") || 0);
     const incomplete = data.coverage.status !== "complete";
     const cadence = incomplete ? ANALYTICS_PARTIAL_RETRY_MS : ANALYTICS_REFRESH_MS;
     const delay = incomplete
@@ -325,52 +306,48 @@ export function ClientAnalyticsDashboard({
     };
     document.addEventListener("visibilitychange", resumed);
     return () => { window.clearTimeout(timer); window.clearInterval(interval); document.removeEventListener("visibilitychange", resumed); };
-  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.coverage.status, router]);
-
-  useEffect(() => {
-    if (!scopeData || data.coverage.status !== "complete") return;
-    let cancelled = false;
-    void getCampaignScopedAnalytics({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
-      accountIds: data.selectedAccountIds, entityKeys: appliedEntityKeys }).then(result => {
-      if (!cancelled && result.success === true) setScopeData(result);
-    });
-    return () => { cancelled = true; };
-    // Reapply the existing selection after refresh without changing the analysis.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.coverage.latestCollectedAt]);
+  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt, data.coverage.status, router]);
 
   const selectedEntities = hierarchyEntities.filter(entity => appliedEntityKeys.includes(entity.key));
-  const activeScopeData = data.coverage.status === "complete" ? scopeData : null;
-  const scopedData = normalizeEssentialMetrics({ ...data, ...(activeScopeData ?? {}), campaigns: selectedEntities.map(entity => ({
-    id: entity.id, name: entity.name, accountId: entity.accountId, accountName: entity.accountName,
-    currency: entity.currency, status: null, values: entity.values,
-  })) });
+  const scopeCurrent = scopeData === null || scopeSnapshotKey === dataSnapshotKey;
+  const activeScopeData = data.coverage.status === "complete" && scopeCurrent ? scopeData : null;
+  const scopedData = normalizeEssentialMetrics(scopeData && !scopeCurrent
+    ? { ...data, summary: {}, previousSummary: {}, daily: [], previousDaily: [], campaigns: [],
+      coverage: { ...data.coverage, status: "partial", previousStatus: "partial" } }
+    : { ...data, ...(activeScopeData ?? {}), campaigns: scopeData ? selectedEntities.map(entity => ({
+      id: entity.id, name: entity.name, accountId: entity.accountId, accountName: entity.accountName,
+      currency: entity.currency, status: null, values: entity.values,
+    })) : data.campaigns });
   const analyticsReady = !navigating && data.coverage.status === "complete" && scopedData.coverage.status === "complete";
   const resultRows = resultBreakdown(scopedData.summary);
-  const resultCostRows = resultCostBreakdown(scopedData.summary, selectedEntities);
+  const resultCostRows = resultCostBreakdown(scopedData.summary, scopeData
+    ? hierarchySnapshotKey === dataSnapshotKey && scopeCurrent ? selectedEntities : []
+    : data.campaigns);
   const resultCostByKey = new Map(resultCostRows.map(result => [result.key, result.cost]));
   const resultLayout = resultCardLayout(resultRows.length);
-  const fixedMetrics = FIXED_METRICS.map((key) => data.metrics.find((metric) => metric.key === key))
+  const fixedMetrics = FIXED_METRICS.map((key) => scopedData.metrics.find((metric) => metric.key === key))
     .filter((metric): metric is AnalyticsMetric => !!metric);
   const optionalMetrics = optionalMetricKeys.flatMap(key => {
-    const metric = data.metrics.find(item => item.key === key);
+    const metric = scopedData.metrics.find(item => item.key === key);
     return metric && !FIXED_METRICS.includes(key) ? [metric] : [];
   });
   const overviewMetrics = [...fixedMetrics, ...optionalMetrics];
   const campaignMetrics = campaignMetricKeys
-    .map((key) => data.metrics.find((metric) => metric.key === key))
+    .map((key) => scopedData.metrics.find((metric) => metric.key === key))
     .filter((metric): metric is AnalyticsMetric => !!metric);
   const mainMetrics = [
-    data.metrics.find((metric) => metric.key === "spend"),
-    data.metrics.find((metric) => metric.key === "primary_results"),
+    scopedData.metrics.find((metric) => metric.key === "spend"),
+    scopedData.metrics.find((metric) => metric.key === "primary_results"),
   ].filter((metric): metric is AnalyticsMetric => !!metric);
-  const spendMetric = data.metrics.find((metric) => metric.key === "spend");
-  const actions = data.metrics.filter((metric) => metric.key.startsWith("action:"));
-  const latest = data.coverage.latestCollectedAt
+  const spendMetric = scopedData.metrics.find((metric) => metric.key === "spend");
+  const actions = scopedData.metrics.filter((metric) => metric.key.startsWith("action:"));
+  const latestTimestamp = [scopedData.coverage.latestCollectedAt, scopedData.metaAggregate?.collectedAt].filter((value): value is string => !!value)
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+  const latest = latestTimestamp
     ? new Intl.DateTimeFormat("pt-BR", {
         day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
         timeZone: data.timezoneName ?? "America/Sao_Paulo",
-      }).format(new Date(data.coverage.latestCollectedAt))
+      }).format(new Date(latestTimestamp))
     : "Ainda não atualizado";
   const visibleCampaigns = roots.filter(entity => {
     const descendants = hierarchyEntities.filter(item => item.campaignId === entity.id || item.key === entity.key);
@@ -473,17 +450,18 @@ export function ClientAnalyticsDashboard({
 
   function applyCampaignScope() {
     setError(""); setNotice("");
-    if (!analyticsReady) { setError("A seleção só pode ser aplicada quando a coleta do período estiver completa."); return; }
+    if (navigating || data.coverage.status !== "complete" || hierarchyLoading) { setError("A seleção só pode ser aplicada quando a coleta do período estiver completa."); return; }
     if (!draftEntityKeys.length) { setError("Selecione ao menos uma campanha, conjunto ou anúncio."); return; }
     const nextKeys = [...draftEntityKeys];
     if (selectedLeaves.length === allLeaves.length) {
-      setScopeData(null); setAppliedEntityKeys(nextKeys); setTab("overview"); return;
+      setScopeData(null); setScopeSnapshotKey(null); setAppliedEntityKeys(nextKeys); setTab("overview"); return;
     }
     startTransition(async () => {
       const result = await getCampaignScopedAnalytics({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
         accountIds: data.selectedAccountIds, entityKeys: nextKeys });
       if ("error" in result) { setError(result.error ?? "Não foi possível aplicar a seleção."); return; }
       setScopeData(result);
+      setScopeSnapshotKey(dataSnapshotKey);
       setAppliedEntityKeys(nextKeys); setTab("overview");
     });
   }
@@ -511,7 +489,7 @@ export function ClientAnalyticsDashboard({
             headerDetails, analysisNote, data: scopedData, metrics: overviewMetrics,
             entityLabels: scopeData ? selectedEntities.map(entity => entity.name) : ["Todas as campanhas"],
             accountLabels: data.accounts.filter(account => data.selectedAccountIds.includes(account.id)).map(account => account.name),
-            comparison, chartType, entityRows: selectedEntities, campaignMetrics, orientation });
+            comparison, chartType, entityRows: scopeData ? selectedEntities : entities, campaignMetrics, orientation });
         }
       } catch { setError("Não foi possível gerar o relatório. Tente novamente."); }
     });
@@ -534,44 +512,65 @@ export function ClientAnalyticsDashboard({
   }
 
   useEffect(() => {
-    if (tab !== "campaigns" || !analyticsReady || !data.selectedAccountIds.length) return;
+    if (data.coverage.status !== "complete" || !data.selectedAccountIds.length) return;
     let cancelled = false;
     let loading = false;
-    const refresh = () => {
+    const refresh = async () => {
       if (loading || document.visibilityState !== "visible") return;
       loading = true;
       setHierarchyLoading(true);
       setHierarchyError("");
-      setHierarchyEntities(current => relevantCampaignHierarchy(current.map(entity => ({ ...entity, effectiveStatus: null }))));
-      void getClientAnalyticsHierarchy({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds })
-      .then((result) => {
+      setHierarchyEntities(current => current.map(entity => ({ ...entity, effectiveStatus: null })));
+      try {
+        const result = await getClientAnalyticsHierarchy({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds });
         if (cancelled) return;
         if ("error" in result) {
           setHierarchyError(result.error ?? "Não foi possível carregar conjuntos e anúncios.");
           return;
         }
-        setHierarchyEntities(result.entities);
-        if (!hierarchySelectionInitialized.current) {
-          const nextRoots = result.entities.filter(entity => entity.level === "campaign");
-          setSelectedLeaves(nextRoots.flatMap(entity => leafKeys(entity, result.entities)));
-          setAppliedEntityKeys(nextRoots.map(entity => entity.key));
-          hierarchySelectionInitialized.current = true;
-        } else {
-          const nextLeaves = new Set(result.entities.filter(entity => entity.level === "campaign")
-            .flatMap(entity => leafKeys(entity, result.entities)));
-          const nextKeys = new Set(result.entities.map(entity => entity.key));
-          setSelectedLeaves(current => current.filter(key => nextLeaves.has(key)));
-          setAppliedEntityKeys(current => current.filter(key => nextKeys.has(key)));
+        const current = selectionRef.current;
+        const selectionRequestKey = JSON.stringify([current.unrestricted, current.appliedEntityKeys]);
+        const selection = reconcileHierarchySelection({ previous: current.entities, next: result.entities,
+          selectedLeaves: current.selectedLeaves, appliedEntityKeys: current.appliedEntityKeys, unrestricted: current.unrestricted });
+        if (!current.unrestricted) {
+          if (!selection.appliedEntityKeys.length) {
+            setScopeSnapshotKey(null);
+            setError("A seleção anterior não tem dados confirmados neste período. Escolha campanhas novamente.");
+            return;
+          }
+          const refreshed = await getCampaignScopedAnalytics({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
+            accountIds: data.selectedAccountIds, entityKeys: selection.appliedEntityKeys });
+          if (cancelled) return;
+          if ("error" in refreshed) {
+            setScopeSnapshotKey(null);
+            setError(refreshed.error ?? "Não foi possível confirmar a seleção atualizada.");
+            return;
+          }
+          if (selectionRequestKey !== JSON.stringify([selectionRef.current.unrestricted, selectionRef.current.appliedEntityKeys])) return;
+          setScopeData(refreshed);
+          setScopeSnapshotKey(dataSnapshotKey);
         }
-      })
-      .catch(() => { if (!cancelled) setHierarchyError("Não foi possível confirmar a veiculação atual na Meta."); })
-      .finally(() => { loading = false; if (!cancelled) setHierarchyLoading(false); });
+        const latest = selectionRef.current;
+        if (selectionRequestKey !== JSON.stringify([latest.unrestricted, latest.appliedEntityKeys])) return;
+        const latestSelection = reconcileHierarchySelection({ previous: latest.entities, next: result.entities,
+          selectedLeaves: latest.selectedLeaves, appliedEntityKeys: latest.appliedEntityKeys, unrestricted: latest.unrestricted });
+        setHierarchyEntities(result.entities);
+        setHierarchySnapshotKey(dataSnapshotKey);
+        setSelectedLeaves(latestSelection.selectedLeaves);
+        setAppliedEntityKeys(latestSelection.appliedEntityKeys);
+      } catch {
+        if (!cancelled) setHierarchyError("Não foi possível confirmar a veiculação atual na Meta.");
+      } finally {
+        loading = false;
+        if (!cancelled) setHierarchyLoading(false);
+      }
     };
-    refresh();
-    const timer = window.setInterval(refresh, 60_000);
-    document.addEventListener("visibilitychange", refresh);
-    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
-  }, [tab, analyticsReady, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds, data.coverage.latestCollectedAt]);
+    void refresh();
+    const timer = window.setInterval(() => { void refresh(); }, 60_000);
+    const resumed = () => { void refresh(); };
+    document.addEventListener("visibilitychange", resumed);
+    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", resumed); };
+  }, [clientId, data.dateFrom, data.dateTo, data.selectedAccountIds, data.coverage.latestCollectedAt, data.coverage.status, dataSnapshotKey]);
 
   function publishReport(reportVersionId: string) {
     setError(""); setNotice("");
@@ -717,9 +716,9 @@ export function ClientAnalyticsDashboard({
         <summary><Filter size={14} />Métricas <span className="analytics-count">{overviewMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
           <div className="analytics-metric-picker-heading"><strong>Métricas da Visão geral</strong>
-            <button type="button" onClick={() => setOptionalMetricKeys(DEFAULT_OPTIONAL_METRICS.filter((key) => data.metrics.some((metric) => metric.key === key)))}>Padrão</button>
+            <button type="button" onClick={() => setOptionalMetricKeys(DEFAULT_OPTIONAL_METRICS.filter((key) => scopedData.metrics.some((metric) => metric.key === key)))}>Padrão</button>
           </div>
-          {data.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
+          {scopedData.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
             <label><input type="checkbox" checked={FIXED_METRICS.includes(metric.key) || optionalMetricKeys.includes(metric.key)}
               disabled={isPinned(metric.key)} onChange={() => toggleMetric(metric.key)} />
               <span>{metric.label}{FIXED_METRICS.includes(metric.key) && <small>Fixa</small>}</span></label>
@@ -732,7 +731,7 @@ export function ClientAnalyticsDashboard({
           <div className="analytics-metric-picker-heading"><strong>Métricas da tabela</strong>
             <span className="muted text-[9px]">Arraste os cabeçalhos para reordenar</span>
           </div>
-          {data.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
+          {scopedData.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
             <label><input type="checkbox" checked={campaignMetricKeys.includes(metric.key)}
               onChange={() => toggleCampaignMetric(metric.key)} /><span>{metric.label}</span></label>
           </div>)}
@@ -745,7 +744,7 @@ export function ClientAnalyticsDashboard({
           <summary><Layers3 size={15} />Modelos de análise e ordem dos indicadores<ChevronDown size={14} /></summary>
           <div className="analytics-report-create-body">
             <p>Escolha um ponto de partida. Os filtros, os indicadores fixos e seus comentários serão preservados.</p>
-            <div className="analytics-model-options">{ANALYSIS_MODELS.map(model => <button type="button" className="analytics-text-button" key={model.key} onClick={() => setOptionalMetricKeys(modelMetrics(model.metrics, data.metrics.map(metric => metric.key)))}>{model.name}</button>)}</div>
+            <div className="analytics-model-options">{ANALYSIS_MODELS.map(model => <button type="button" className="analytics-text-button" key={model.key} onClick={() => setOptionalMetricKeys(modelMetrics(model.metrics, scopedData.metrics.map(metric => metric.key)))}>{model.name}</button>)}</div>
             <p className="analytics-footnote">Cada modelo inclui somente métricas retornadas pela plataforma. A seleção e a ordem são salvas neste navegador para este cliente e usadas no PDF.</p>
             <ol className="analytics-metric-order">{optionalMetrics.map((metric, index) => <li key={metric.key}><span>{metric.label}</span><div><button type="button" className="analytics-text-button" disabled={index === 0} aria-label={`Mover ${metric.label} para antes`} onClick={() => setOptionalMetricKeys(keys => moveMetric(keys, metric.key, -1))}>↑</button><button type="button" className="analytics-text-button" disabled={index === optionalMetrics.length - 1} aria-label={`Mover ${metric.label} para depois`} onClick={() => setOptionalMetricKeys(keys => moveMetric(keys, metric.key, 1))}>↓</button></div></li>)}</ol>
           </div>
@@ -947,7 +946,7 @@ export function ClientAnalyticsDashboard({
         <label className="analytics-search"><Search size={14} /><input type="search" aria-label="Pesquisar métricas"
           value={metricSearch} onChange={event => setMetricSearch(event.target.value)} placeholder="Pesquisar métrica…" /></label>
         {["Investimento e eficiência", "Entrega e alcance", "Cliques e tráfego", "Resultados e ações", "Vídeo", "Engajamento e outros"].map((group) => {
-          const groupMetrics = data.metrics.filter((metric) => metricGroup(metric) === group
+          const groupMetrics = scopedData.metrics.filter((metric) => metricGroup(metric) === group
             && `${metric.label} ${metric.key}`.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR")
               .includes(metricSearch.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim()));
           if (!groupMetrics.length) return null;

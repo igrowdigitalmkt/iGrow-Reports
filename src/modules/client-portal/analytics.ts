@@ -29,11 +29,28 @@ function splitRange(from: string, to: string) {
   return ranges;
 }
 
-function addValues(target: AnalyticsValues, source: AnalyticsValues) {
-  for (const [key, value] of Object.entries(source)) {
-    if (value == null || !Number.isFinite(value)) continue;
-    target[key] = (target[key] ?? 0) + value;
+const ADDITIVE_FIELDS = new Set([
+  "spend", "impressions", "link_clicks", "clicks", "inline_post_engagement", "outbound_clicks",
+  "instagram_profile_visits", "social_spend", "attributed_revenue", "video_plays", "video_p25",
+  "video_p50", "video_p75", "video_p95", "video_p100",
+]);
+
+// Ratios and distinct people cannot be added across dates. Unknown chunks
+// remain unknown instead of silently publishing only their available portion.
+export function mergeAnalyticsValues(sources: AnalyticsValues[], complete: boolean): AnalyticsValues {
+  const values: AnalyticsValues = {};
+  const nativeResults = sources.length > 0 && sources.every(source => source["result:provider_known"] === 1);
+  const keys = new Set(sources.flatMap(source => Object.keys(source)));
+  for (const key of keys) {
+    if (!ADDITIVE_FIELDS.has(key) && !key.startsWith("action:") && !key.startsWith("value:")
+      && !key.startsWith("result:provider:")) continue;
+    const amounts = sources.map(source => Object.hasOwn(source, key) ? source[key]
+      : nativeResults && key.startsWith("result:provider:") ? 0 : null);
+    values[key] = amounts.every((amount): amount is number => amount != null && Number.isFinite(amount))
+      ? amounts.reduce((sum, amount) => sum + amount, 0) : null;
   }
+  if (nativeResults) values["result:provider_known"] = 1;
+  return finalizeValues(values, complete);
 }
 
 function finalizeValues(values: AnalyticsValues, complete: boolean) {
@@ -41,14 +58,19 @@ function finalizeValues(values: AnalyticsValues, complete: boolean) {
   const spend = next.spend;
   const impressions = next.impressions;
   const linkClicks = next.link_clicks;
-  const revenue = next.attributed_revenue ?? next["value:purchase"] ?? next["value:omni_purchase"];
-  next.reach = null;
-  next.frequency = null;
-  next.unique_clicks = null;
-  next.ctr_link = impressions && linkClicks != null ? linkClicks / impressions : null;
+  const revenue = next.attributed_revenue ?? next["value:action:omni_purchase"] ?? next["value:action:purchase"];
+  for (const key of ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks",
+    "unique_ctr", "unique_inline_link_click_ctr", "unique_outbound_clicks_ctr", "cpp"]) next[key] = null;
+  next.ctr_link = impressions && linkClicks != null ? linkClicks / impressions * 100 : null;
   next.cpc_link = linkClicks && spend != null ? spend / linkClicks : null;
   next.cpm = impressions && spend != null ? spend / impressions * 1000 : null;
   next.roas = spend && revenue != null ? revenue / spend : null;
+  next.ctr = impressions && next.clicks != null ? next.clicks / impressions * 100 : null;
+  next.cpc = next.clicks && spend != null ? spend / next.clicks : null;
+  next.outbound_clicks_ctr = impressions && next.outbound_clicks != null ? next.outbound_clicks / impressions * 100 : null;
+  for (const [key, amount] of Object.entries(next)) if (key.startsWith("action:")) {
+    next[`cost:${key}`] = amount && spend != null ? spend / amount : null;
+  }
   return next;
 }
 
@@ -59,23 +81,20 @@ function coverageStatus(statuses: AnalyticsDashboardData["coverage"]["status"][]
 }
 
 function mergeRowsById<T extends { id: string; values: AnalyticsValues }>(rows: T[], complete: boolean): T[] {
-  const byId = new Map<string, T>();
+  const byId = new Map<string, { row: T; sources: AnalyticsValues[] }>();
   for (const row of rows) {
-    const current = byId.get(row.id);
+    const key = `${"accountId" in row ? row.accountId : row.id}:${row.id}`;
+    const current = byId.get(key);
     if (!current) {
-      byId.set(row.id, { ...row, values: { ...row.values } });
+      byId.set(key, { row, sources: [row.values] });
     } else {
-      addValues(current.values, row.values);
+      current.sources.push(row.values);
     }
   }
-  return [...byId.values()].map(row => ({ ...row, values: finalizeValues(row.values, complete) }));
+  return [...byId.values()].map(({ row, sources }) => ({ ...row, values: mergeAnalyticsValues(sources, complete) }));
 }
 
 function mergeAnalytics(chunks: AnalyticsDashboardData[], dateFrom: string, dateTo: string): AnalyticsDashboardData {
-  const summary: AnalyticsValues = {};
-  for (const chunk of chunks) {
-    addValues(summary, chunk.summary);
-  }
   const status = coverageStatus(chunks.map(chunk => chunk.coverage.status));
   const totalDays = daysBetween(dateFrom, dateTo);
   const previousDateTo = shiftDate(dateFrom, -1);
@@ -87,8 +106,9 @@ function mergeAnalytics(chunks: AnalyticsDashboardData[], dateFrom: string, date
   warnings.add("A comparação anterior fica indisponível na visualização anual em blocos. Use Atualizar dados ou um período menor para comparar variações.");
   return {
     ...chunks[0],
+    metaAggregate: { confirmed: false, collectedAt: null, version: null },
     dateFrom, dateTo, previousDateFrom, previousDateTo,
-    summary: finalizeValues(summary, status === "complete"),
+    summary: mergeAnalyticsValues(chunks.map(chunk => chunk.summary), status === "complete"),
     previousSummary: {},
     daily: chunks.flatMap(chunk => chunk.daily).sort((a, b) => a.date.localeCompare(b.date)),
     previousDaily: [],
