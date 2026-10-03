@@ -37,22 +37,22 @@ describe("descrições legíveis dos resultados", () => {
     for (const count of [1, 3, 5, 7, 10, 20]) expect(resultCardLayout(count).labelSize).toBe(10.5);
   });
 
-  it("quebra os rótulos reais em palavras até 25 caracteres", () => {
-    expect(wrapResultLabel("conversas por mensagem iniciadas")).toEqual(["conversas por mensagem", "iniciadas"]);
-    expect(wrapResultLabel("visitas ao perfil do instagram")).toEqual(["visitas ao perfil do", "instagram"]);
+  it("equilibra os rótulos reais em no máximo duas linhas", () => {
+    expect(wrapResultLabel("conversas por mensagem iniciadas")).toEqual(["conversas por", "mensagem iniciadas"]);
+    expect(wrapResultLabel("visitas ao perfil do instagram")).toEqual(["visitas ao perfil", "do instagram"]);
     expect(wrapResultLabel("cliques no link")).toEqual(["cliques no link"]);
   });
 
   it("hifeniza palavras longas sem perder caracteres", () => {
     const word = "a".repeat(52);
     const lines = wrapResultLabel(word);
-    expect(lines).toEqual([`${"a".repeat(24)}-`, `${"a".repeat(24)}-`, "aaaa"]);
-    expect(lines.every(line => line.length <= 25)).toBe(true);
+    expect(lines).toEqual([`${"a".repeat(17)}-`, "a".repeat(35)]);
+    expect(lines).toHaveLength(2);
     expect(lines.join("").replaceAll("-", "")).toBe(word);
   });
 
   it("normaliza espaços e aceita descrições vazias", () => {
-    expect(wrapResultLabel("  engajamento   com a publicação  ")).toEqual(["engajamento com a", "publicação"]);
+    expect(wrapResultLabel("  engajamento   com a publicação  ")).toEqual(["engajamento com", "a publicação"]);
     expect(wrapResultLabel("  ")).toEqual([]);
   });
 });

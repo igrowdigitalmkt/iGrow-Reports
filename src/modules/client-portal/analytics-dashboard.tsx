@@ -23,7 +23,7 @@ import { publishReportVersion } from "@/modules/reports/actions";
 import { resolveAnalyticsRange } from "./range";
 import { ANALYTICS_REFRESH_MS } from "./analytics-freshness";
 import { estimatedMetric } from "@/modules/reports/report-presentation";
-import type { AnalyticsDashboardData, AnalyticsReportItem } from "./analytics-types";
+import type { AnalyticsDashboardData, AnalyticsReportItem, AnalyticsValues } from "./analytics-types";
 import {
   ANALYTICS_COLORS, AnalyticsAccountChart, AnalyticsSparkline, AnalyticsTrendChart,
   formatAnalyticsValue, type AnalyticsMetric,
@@ -93,6 +93,52 @@ function unavailableReason(data: AnalyticsDashboardData, metric: AnalyticsMetric
   if (data.coverage.status !== "complete") return "O período ainda tem dados sem coleta. Atualize os dados para completar a análise.";
   return "A Meta não retornou este indicador para o escopo selecionado, ou não há resultados para calcular a taxa/custo.";
 }
+
+function sumAccountMetric(data: AnalyticsDashboardData, key: string) {
+  let total = 0;
+  let found = false;
+  for (const account of data.accountTotals) {
+    if (!data.selectedAccountIds.includes(account.id)) continue;
+    const value = account.values[key];
+    if (value == null) continue;
+    total += value;
+    found = true;
+  }
+  return found ? total : null;
+}
+
+function normalizeEssentialMetrics(data: AnalyticsDashboardData): AnalyticsDashboardData {
+  const summary: AnalyticsValues = { ...data.summary };
+  const estimatedMetricKeys = new Set(data.estimatedMetricKeys ?? []);
+  let changed = false;
+
+  if (summary.inline_post_engagement == null) {
+    const engagement = summary["action:post_engagement"] ?? summary["action:page_engagement"] ?? null;
+    if (engagement != null) {
+      summary.inline_post_engagement = engagement;
+      changed = true;
+    }
+  }
+
+  if (data.selectedAccountIds.length > 1) {
+    for (const key of ["reach", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks"]) {
+      if (summary[key] != null) continue;
+      const total = sumAccountMetric(data, key);
+      if (total == null) continue;
+      summary[key] = total;
+      estimatedMetricKeys.add(key);
+      changed = true;
+    }
+    if (summary.frequency == null && summary.reach && summary.impressions != null) {
+      summary.frequency = summary.impressions / summary.reach;
+      estimatedMetricKeys.add("frequency");
+      changed = true;
+    }
+  }
+
+  return changed ? { ...data, summary, estimatedMetricKeys: [...estimatedMetricKeys] } : data;
+}
+
 function makeObservations(data: AnalyticsDashboardData) {
   const observations: { title: string; text: string }[] = [];
   if (data.coverage.status === "empty") {
@@ -271,10 +317,10 @@ export function ClientAnalyticsDashboard({
   }, [data.coverage.latestCollectedAt]);
 
   const selectedEntities = hierarchyEntities.filter(entity => appliedEntityKeys.includes(entity.key));
-  const scopedData = { ...data, ...(scopeData ?? {}), campaigns: selectedEntities.map(entity => ({
+  const scopedData = normalizeEssentialMetrics({ ...data, ...(scopeData ?? {}), campaigns: selectedEntities.map(entity => ({
     id: entity.id, name: entity.name, accountId: entity.accountId, accountName: entity.accountName,
     currency: entity.currency, status: null, values: entity.values,
-  })) };
+  })) });
   const resultRows = resultBreakdown(scopedData.summary);
   const resultCostRows = resultCostBreakdown(scopedData.summary, selectedEntities);
   const resultCostByKey = new Map(resultCostRows.map(result => [result.key, result.cost]));
@@ -585,8 +631,10 @@ export function ClientAnalyticsDashboard({
     </>}
     {error && <div className="analytics-notice analytics-notice-error" role="alert"><Info size={17} /><p>{error}</p></div>}
     {notice && <div className="analytics-notice analytics-notice-success" role="status"><Check size={17} /><p>{notice}</p></div>}
-    {pending && collectingComparison && <div className="analytics-notice" role="status">
-      <RefreshCw size={17} className="analytics-spin" /><p>Atualizando o período anterior para comparação.</p>
+    {pending && <div className="analytics-notice" role="status" aria-live="polite">
+      <RefreshCw size={17} className="analytics-spin" /><p>{collectingComparison
+        ? "Atualizando o período anterior para comparação."
+        : "Atualizando dados deste período. Os números visíveis ainda são da última atualização concluída até a Meta terminar de responder."}</p>
     </div>}
     {tab !== "reports" && scopedData.coverage.status !== "complete" && <div className="analytics-coverage-banner">
       <div><span className="analytics-coverage-icon"><Layers3 size={17} /></span><p>
@@ -683,7 +731,7 @@ export function ClientAnalyticsDashboard({
                     ? result.value.toLocaleString("pt-BR")
                     : formatAnalyticsValue(resultCostByKey.get(result.key) ?? null, metric, data.currency)}</strong>
                   <span className="analytics-result-metric-label">
-                    {wrapResultLabel(result.label.toLocaleLowerCase("pt-BR")).map((line, index) =>
+                    {wrapResultLabel(result.label.toLocaleLowerCase("pt-BR"), 18, 2).map((line, index) =>
                       <span className="analytics-result-metric-label-line" key={index}>{line}</span>)}
                   </span>
                 </div>)}

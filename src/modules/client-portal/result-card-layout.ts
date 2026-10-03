@@ -10,13 +10,51 @@ const BASE_VALUE_SIZE = 23;
 const COMPACT_LABEL_SIZE = 10.5;
 const WIDE_LABEL_SIZE = 10.5;
 
-/** Wrap at word boundaries, hyphenating only words longer than a line. */
-export function wrapResultLabel(text: string, limit = 25): string[] {
+function compactToTwoLines(words: string[], limit: number) {
+  if (!words.length) return [];
+  const full = words.join(" ");
+  if (Array.from(full).length <= limit) return [full];
+  if (words.length === 1) {
+    const letters = Array.from(words[0]);
+    if (letters.length <= limit) return [words[0]];
+    return [`${letters.slice(0, limit - 1).join("")}-`, letters.slice(limit - 1).join("")];
+  }
+
+  let best: string[] | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < words.length; index++) {
+    const first = words.slice(0, index).join(" ");
+    const second = words.slice(index).join(" ");
+    const firstLength = Array.from(first).length;
+    const secondLength = Array.from(second).length;
+    const overflow = Math.max(0, firstLength - limit) + Math.max(0, secondLength - limit);
+    const balance = Math.abs(firstLength - secondLength);
+    const score = overflow * 100 + balance;
+    if (score < bestScore) {
+      best = [first, second];
+      bestScore = score;
+    }
+  }
+
+  if (!best) return [];
+  return best.map((line) => {
+    const letters = Array.from(line);
+    return letters.length > limit ? `${letters.slice(0, limit - 1).join("")}-` : line;
+  });
+}
+
+/** Wrap at word boundaries, balancing real labels into at most two readable lines. */
+export function wrapResultLabel(text: string, limit = 18, maxLines = 2): string[] {
   const width = Math.max(2, Math.floor(limit));
+  const lineLimit = Math.max(1, Math.floor(maxLines));
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  if (lineLimit === 2) return compactToTwoLines(words, width);
+
   const lines: string[] = [];
   let current = "";
 
-  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
+  for (const word of words) {
     let remaining = Array.from(word);
     if (remaining.length > width) {
       if (current) lines.push(current);
