@@ -20,6 +20,14 @@
 .analytics-dashboard button, .analytics-dashboard input { font: inherit; }
 .analytics-dashboard button, .analytics-dashboard input, .analytics-dashboard a, .analytics-dashboard summary { outline-offset: 4px; }
 .analytics-dashboard input:focus-visible, .analytics-dashboard button:focus-visible, .analytics-dashboard a:focus-visible, .analytics-dashboard summary:focus-visible { outline: 2px solid var(--ad-cyan); }
+.analytics-route-loading { min-height: 480px; }
+.analytics-loading-panel { display: flex; align-items: center; gap: 16px; padding: 22px; border: 1px solid #2e4961; border-radius: 12px; background: #111d2c; }
+.analytics-loading-panel > svg { color: var(--ad-cyan); flex-shrink: 0; }
+.analytics-loading-panel h2 { margin: 2px 0 6px; color: #f4f8ff; font-size: 22px; font-weight: 650; letter-spacing: -.35px; }
+.analytics-loading-panel p { color: var(--ad-muted); font-size: 12px; line-height: 1.6; }
+.analytics-loading-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.analytics-loading-grid span { min-height: 120px; border: 1px solid var(--ad-border); border-radius: 10px; background: linear-gradient(100deg, #121d2b, #1b3043, #121d2b); background-size: 220% 100%; animation: analytics-shimmer 1.25s linear infinite; }
+@keyframes analytics-shimmer { from { background-position: 220% 0; } to { background-position: -220% 0; } }
 .analytics-command-bar { display: flex; align-items: center; justify-content: space-between; gap: 25px; margin-bottom: 24px; }
 .analytics-eyebrow { display: flex; align-items: center; gap: 8px; color: #9fb9cd; font-size: 10px; font-weight: 650; letter-spacing: 1.65px; margin-bottom: 11px; }
 .analytics-live-dot { width: 6px; height: 6px; background: #53e6af; border-radius: 50%; box-shadow: 0 0 9px #53e6af66; }
@@ -43,6 +51,7 @@
 .analytics-button-secondary:hover, .analytics-button-apply:hover { border-color: #7292b0; background: #21334b; }
 .analytics-button-apply { color: #eaf3ff; background: #1c3047; min-height: 32px; padding: 6px 12px; }
 .analytics-filter-bar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; border: 1px solid var(--ad-border); background: #111d2c; padding: 11px; border-radius: 10px; }
+.analytics-dashboard.is-navigating .analytics-filter-bar { border-color: #5acfe54d; box-shadow: 0 0 0 1px #48d5f01f, 0 14px 35px #07111c55; }
 .analytics-period-options { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; }
 .analytics-period-options button { min-height: 32px; padding: 7px 10px; border: 1px solid transparent; border-radius: 6px; color: #a5b5c9; font-size: 11px; background: transparent; }
 .analytics-period-options button:hover { color: #e8f4ff; background: #1b2c40; }
@@ -80,6 +89,12 @@
 .analytics-notice-error > svg { color: #f49c9c; }
 .analytics-notice-success { border-color: #386c5c; background: #143b3066; color: #a0edcb; }
 .analytics-notice-success > svg { color: #72ddb1; }
+.analytics-loading-banner { display: flex; align-items: center; gap: 11px; margin: 12px 0 0; padding: 12px 14px; border: 1px solid #4bbdd74d; border-radius: 9px; color: #ccebf4; background: linear-gradient(90deg, #163248, #122436); box-shadow: 0 12px 35px #07111c33; }
+.analytics-loading-banner p { font-size: 11px; line-height: 1.55; }
+.analytics-loading-banner strong, .analytics-loading-banner span { display: block; }
+.analytics-loading-banner strong { color: #eaf8ff; font-weight: 650; }
+.analytics-loading-banner span { color: #9fc2d1; }
+.analytics-dashboard.is-navigating .analytics-kpi-grid, .analytics-dashboard.is-navigating .analytics-primary-grid, .analytics-dashboard.is-navigating .analytics-insights-grid, .analytics-dashboard.is-navigating .analytics-campaign-card { opacity: .54; transition: opacity .16s ease; }
 .analytics-coverage-banner { display: flex; gap: 15px; align-items: center; justify-content: space-between; border: 1px solid #c3984133; padding: 13px 15px; background: #66532916; border-radius: 9px; margin-bottom: 18px; }
 .analytics-coverage-banner > div { display: flex; align-items: center; gap: 12px; }
 .analytics-coverage-icon { display: grid; place-items: center; height: 32px; width: 32px; flex-shrink: 0; color: #e8bc6d; background: #f2bc6910; border: 1px solid #f2bc6923; border-radius: 8px; }

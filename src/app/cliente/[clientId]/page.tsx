@@ -8,8 +8,6 @@ import { resolveAnalyticsRange } from "@/modules/client-portal/range";
 import { listClientPortalReports } from "@/modules/reports/client";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
 import { normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
-import { collectMetaClientInsights, getMetaEntityStatuses, refreshMetaDashboardScope } from "@/modules/meta/server";
-import { needsAnalyticsAccessRefresh } from "@/modules/client-portal/analytics-freshness";
 import type { AnalyticsReportItem } from "@/modules/client-portal/analytics-types";
 
 export const metadata: Metadata = {
@@ -64,22 +62,9 @@ export default async function ClientOverviewPage({ params, searchParams }: {
       data = await getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds);
     }
   }
-  try {
-    if (data.selectedAccountIds.length && needsAnalyticsAccessRefresh(data)) {
-      const updated = await collectMetaClientInsights({ agencyId: access.agencyId, clientId, actorId: user.id,
-        since: data.dateFrom, until: data.dateTo });
-      data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
-      if (updated.failures.length) data.warnings.push("A atualização não terminou para todas as contas. Os valores anteriores foram preservados.");
-    }
-    if (data.selectedAccountIds.length && data.coverage.previousStatus !== "complete") {
-      const updated = await collectMetaClientInsights({ agencyId: access.agencyId, clientId, actorId: user.id,
-        since: data.previousDateFrom, until: data.previousDateTo });
-      data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
-      if (updated.failures.length) data.warnings.push("A Meta não concluiu a atualização do período anterior. Os dados atuais foram preservados.");
-    }
-    await refreshMetaDashboardScope({ agencyId: access.agencyId, clientId, data });
-    data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
-  } catch { data.warnings.push("Alguns agregados da Meta não puderam ser atualizados. Dados já coletados foram preservados."); }
+  if (data.coverage.status !== "complete" || data.coverage.previousStatus !== "complete") {
+    data.warnings.push("Este período abriu com os dados já salvos. Use Atualizar dados para buscar datas pendentes na Meta sem bloquear a troca de visualização.");
+  }
   const [hierarchy, header] = await Promise.all([
     supabase.rpc("get_client_analytics_hierarchy", { p_client_id: clientId, p_date_from: data.dateFrom,
       p_date_to: data.dateTo, p_ad_account_ids: data.selectedAccountIds }),
@@ -89,12 +74,6 @@ export default async function ClientOverviewPage({ params, searchParams }: {
   const workspaceName = header.data && typeof header.data === "object" && !Array.isArray(header.data)
     && typeof header.data.name === "string" ? header.data.name : "Espaço de trabalho";
   const entities = normalizeHierarchy(hierarchy.data);
-  const thumbnails: Record<string, string> = {};
-  const statuses = await getMetaEntityStatuses({ agencyId: access.agencyId, clientId, accountIds: data.selectedAccountIds }, thumbnails);
-  for (const entity of entities) {
-    entity.effectiveStatus = statuses[`${entity.accountId}:${entity.key}`] ?? null;
-    entity.thumbnailUrl = thumbnails[`${entity.accountId}:${entity.key}`] ?? null;
-  }
   return <ClientPortalShell title={access.client.name}
     description="Explore os resultados, acompanhe a evolução e transforme seus dados em decisões."
     userEmail={user.email} agencyMode={agencyMode} showClientSwitcher={!agencyMode && accesses.length > 1}>

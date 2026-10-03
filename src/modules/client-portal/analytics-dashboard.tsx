@@ -169,6 +169,7 @@ export function ClientAnalyticsDashboard({
   const [reportState, setReportState] = useState("all");
   const [pending, startTransition] = useTransition();
   const [navigating, startNavigation] = useTransition();
+  const [applyingPeriodLabel, setApplyingPeriodLabel] = useState("");
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const dashboardRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -327,6 +328,10 @@ export function ClientAnalyticsDashboard({
     if (selectedAccounts.length && selectedAccounts.length < data.accounts.length) {
       next.set("accounts", selectedAccounts.join(","));
     }
+    const selectedLabel = PERIODS.find((item) => item.key === nextPeriod)?.label ?? "período selecionado";
+    setApplyingPeriodLabel(nextPeriod === "custom"
+      ? `${displayDate(customFrom)} a ${displayDate(customTo)}`
+      : selectedLabel);
     startNavigation(() => router.push(`${pathname}?${next.toString()}`, { scroll: false }));
   }
 
@@ -473,7 +478,7 @@ export function ClientAnalyticsDashboard({
     });
   }
 
-  return <section ref={dashboardRef} className="analytics-dashboard" aria-label="Painel de desempenho" aria-busy={pending || navigating}>
+  return <section ref={dashboardRef} className={`analytics-dashboard${navigating ? " is-navigating" : ""}`} aria-label="Painel de desempenho" aria-busy={pending || navigating}>
     <div className="analytics-command-bar">
       <div className="analytics-title-block">
         <span className="analytics-eyebrow"><span className="analytics-live-dot" /> DESEMPENHO · META ADS</span>
@@ -538,6 +543,10 @@ export function ClientAnalyticsDashboard({
         </button>
       </div>
     </form>
+    {navigating && <div className="analytics-loading-banner" role="status" aria-live="polite">
+      <RefreshCw size={16} className="analytics-spin" />
+      <p><strong>Carregando {applyingPeriodLabel || "o período selecionado"}.</strong><span>Os números abaixo ainda são do período anterior até a atualização terminar.</span></p>
+    </div>}
     <div className="analytics-context-strip">
       <span><CalendarRange size={13} /><strong>{displayDate(data.dateFrom)} – {displayDate(data.dateTo)}</strong></span>
       <span title={[...selectedTimezones].join(" · ")}><Clock3 size={13} />{timezoneLabel}</span>
