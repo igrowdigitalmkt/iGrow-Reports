@@ -1,4 +1,5 @@
 import { aggregateResults } from "@/modules/client-portal/analytics-results";
+import { providerResultValues } from "./result-values";
 import "server-only";
 import { selectedMetaAccounts } from "./login-config";
 import { createHash } from "node:crypto";
@@ -36,7 +37,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
     .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("scope_key", scopeKey)
     .eq("date_from", data.dateFrom).eq("date_to", data.dateTo).maybeSingle();
   if (cached && Date.now() - Date.parse(cached.collected_at) < 3_600_000
-    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === 3
+    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === 4
     && Date.parse(data.coverage.latestCollectedAt ?? "1970-01-01") <= Date.parse(cached.collected_at)) return;
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const { data: links } = await service.from("client_ad_accounts").select("ad_account_id")
@@ -70,12 +71,13 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
       for (const ad of ads) for (const key of [`ad:${ad.id}`, `adset:${ad.adset_id}`, `campaign:${ad.campaign_id}`]) if (keys.includes(key)) resolvedKeys.add(key);
       if (!adIds.length) return null;
     }
-    const [current, previous, ...detail] = await Promise.all([
+    const [current, previous, previousResults, ...detail] = await Promise.all([
       client.getPeriodInsights({ adAccountId: account.external_id, since: data.dateFrom, until: data.dateTo, adIds }),
       client.getPeriodInsights({ adAccountId: account.external_id, since: data.previousDateFrom, until: data.previousDateTo, adIds }),
-      ...(!keys.length ? (["campaign", "adset", "ad"] as const).map(level => client.getPeriodInsights({
-        adAccountId: account.external_id, since: data.dateFrom, until: data.dateTo, level,
-      })) : []),
+      client.getPeriodInsights({ adAccountId: account.external_id, since: data.previousDateFrom, until: data.previousDateTo, adIds, level: "ad" }),
+      ...(["campaign", "adset", "ad"] as const).map(level => client.getPeriodInsights({
+        adAccountId: account.external_id, since: data.dateFrom, until: data.dateTo, adIds, level,
+      })),
     ]);
     for (const [index, rows] of detail.entries()) for (const row of rows) {
       const level = (["campaign", "adset", "ad"] as const)[index];
@@ -85,9 +87,27 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
       for (const key of ["reach", "frequency", "unique_clicks"]) if (row[key] != null) values[key] = Number(row[key]);
       entityValues[`${account.id}:${level}:${id}`] = values;
     }
+    const resultTotals = (rows: typeof current) => {
+      const totals: AnalyticsValues = { "result:provider_known": 1 };
+      for (const row of rows) {
+        const result = providerResultValues(row);
+        if (!result) throw new MetaSetupError("A Meta não confirmou o tipo de resultado de um anúncio.");
+        for (const [key, amount] of Object.entries(result)) if (key.startsWith("result:provider:")) totals[key] = (totals[key] ?? 0) + (amount ?? 0);
+      }
+      return totals;
+    };
+    const ads = detail[2];
+    for (const [index, rows] of detail.entries()) for (const row of rows) {
+      const level = (["campaign", "adset", "ad"] as const)[index];
+      const id = row[`${level}_id`];
+      if (!id) continue;
+      const selected = level === "ad" ? [row] : ads.filter(ad => ad[`${level}_id`] === id);
+      const values = entityValues[`${account.id}:${level}:${id}`];
+      Object.assign(values, aggregateResults({ ...resultTotals(selected), spend: Number(row.spend ?? 0) }, true));
+    }
     if (current.length > 1 || previous.length > 1) throw new MetaSetupError("A Meta não retornou um agregado único por conta.");
     if ([...current, ...previous].some(row => row.account_id && `act_${row.account_id}` !== account.external_id)) throw new MetaSetupError("Agregado fora da conta autorizada.");
-    return { current: current[0] ?? {}, previous: previous[0] ?? {} };
+    return { current: current[0] ?? {}, previous: previous[0] ?? {}, currentResults: resultTotals(ads), previousResults: resultTotals(previousResults) };
   }));
   const relevant = periods.filter((row): row is NonNullable<typeof row> => !!row);
   if (keys.some(key => !resolvedKeys.has(key))) throw new MetaSetupError("A Meta não confirmou todos os anúncios desta seleção. Atualize os dados e tente novamente.");
@@ -155,20 +175,16 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
       if (valueTotals.has(action)) { values[`value:${key}`] = data.currency ? valueTotals.get(action)! : null; add(`value:${key}`, label, "currency"); }
     }
     if (values.inline_post_engagement == null && actionTotals.has("post_engagement")) values.inline_post_engagement = actionTotals.get("post_engagement")!;
-    const outcomes = rows.map(row => aggregateResults({
-      ...Object.fromEntries((row.actions ?? []).map(action => [`action:${action.action_type}`, Number(action.value)])),
-      instagram_profile_visits: periodScalarValue(row, "instagram_profile_visits"),
-    }, true));
-    for (const key of ["messages", "profile_visits", "leads", "registrations", "purchases"]) {
-      const amounts = outcomes.map(row => row[`result:${key}`]);
-      values[`result:${key}`] = amounts.some(amount => amount != null) ? amounts.reduce<number>((total, amount) => total + (amount ?? 0), 0) : null;
+    values["result:provider_known"] = 1;
+    for (const account of relevant) for (const [key, amount] of Object.entries(account[period === "current" ? "currentResults" : "previousResults"])) {
+      if (key.startsWith("result:provider:")) values[key] = (values[key] ?? 0) + (amount ?? 0);
     }
     return aggregateResults({ ...values, spend }, true);
   };
   const summary = calculate("current"), previousSummary = calculate("previous");
   const { error } = await service.from("meta_dashboard_scopes").upsert({ agency_id: input.agencyId, client_id: input.clientId,
     scope_key: scopeKey, date_from: data.dateFrom, date_to: data.dateTo, collected_at: new Date().toISOString(),
-    payload: { version: 3, summary, previousSummary, metrics, entityValues,
+    payload: { version: 4, summary, previousSummary, metrics, entityValues,
       estimatedMetricKeys: relevant.length > 1 ? ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks", "unique_ctr", "unique_inline_link_click_ctr"] : [] } as unknown as Json });
   if (error) throw new MetaSetupError("Não foi possível preservar os agregados da Meta.");
 }

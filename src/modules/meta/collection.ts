@@ -1,6 +1,7 @@
 import Decimal from "decimal.js";
 import type { Database } from "@/types/database";
 import type { MetaAction, MetaInsight } from "./client";
+import { providerResultValues } from "./result-values";
 
 const DAY_MS = 86_400_000;
 
@@ -138,6 +139,7 @@ export function normalizeInsightSlice(input: {
         link_clicks: numeric(insight.inline_link_clicks),
         api_version: input.apiVersion,
         metadata: {
+          provider_results: providerResultValues(insight) as import("@/types/database").Json,
           timezone_name: input.timezoneName,
           business_id: input.businessId,
           campaign_id: insight.campaign_id ?? null,

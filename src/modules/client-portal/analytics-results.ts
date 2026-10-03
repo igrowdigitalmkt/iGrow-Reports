@@ -1,4 +1,5 @@
 import type { AnalyticsValues } from "./analytics-types";
+import { metaMetricLabel } from "@/modules/meta/metric-labels";
 
 // Use one provider aggregate per outcome family, never add its aliases.
 export const RESULT_GROUPS = [
@@ -11,6 +12,12 @@ export const RESULT_GROUPS = [
 
 export function aggregateResults(values: AnalyticsValues, complete: boolean): AnalyticsValues {
   const next = { ...values };
+  if (values["result:provider_known"] === 1) {
+    const total = Object.entries(values).filter(([key]) => key.startsWith("result:provider:")).reduce((sum, [, amount]) => sum + (amount ?? 0), 0);
+    next.primary_results = total;
+    next.cost_per_result = total > 0 && values.spend != null ? values.spend / total : null;
+    return next;
+  }
   let total = 0, available = false;
   for (const group of RESULT_GROUPS) {
     const existing = values[`result:${group.key}`];
@@ -24,6 +31,8 @@ export function aggregateResults(values: AnalyticsValues, complete: boolean): An
 }
 
 export function resultBreakdown(values: AnalyticsValues) {
+  if (values["result:provider_known"] === 1) return Object.entries(values).flatMap(([key, value]) => key.startsWith("result:provider:") && value != null && value > 0
+    ? [{ key, label: metaMetricLabel(key.slice("result:provider:".length), key.slice("result:provider:".length)), value }] : []);
   return RESULT_GROUPS.flatMap(group => {
     const amount = values[`result:${group.key}`];
     return amount != null && amount > 0 ? [{ key: group.key, label: group.label, value: amount }] : [];
