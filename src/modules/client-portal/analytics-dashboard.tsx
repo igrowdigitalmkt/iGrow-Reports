@@ -1,6 +1,7 @@
 "use client";
 
 import { resultBreakdown, resultCostBreakdown } from "./analytics-results";
+import { resultCardLayout } from "./result-card-layout";
 
 import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
@@ -44,7 +45,7 @@ const PERIODS = [
   { key: "90d", label: "3 meses" }, { key: "180d", label: "6 meses" },
   { key: "365d", label: "1 ano" }, { key: "custom", label: "Personalizado" },
 ];
-const FIXED_METRICS = ["spend", "reach", "impressions", "cpm", "primary_results", "cost_per_result"];
+const FIXED_METRICS = ["spend", "primary_results", "cost_per_result", "reach", "impressions", "cpm"];
 const DEFAULT_OPTIONAL_METRICS = ["link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
 const isPinned = (key: string) => FIXED_METRICS.includes(key) || key === "frequency";
 const METRIC_ICONS = {
@@ -264,6 +265,7 @@ export function ClientAnalyticsDashboard({
   const resultRows = resultBreakdown(scopedData.summary);
   const resultCostRows = resultCostBreakdown(scopedData.summary, selectedEntities);
   const resultCostByKey = new Map(resultCostRows.map(result => [result.key, result.cost]));
+  const resultLayout = resultCardLayout(resultRows.length);
   const fixedMetrics = FIXED_METRICS.map((key) => data.metrics.find((metric) => metric.key === key))
     .filter((metric): metric is AnalyticsMetric => !!metric);
   const optionalMetrics = optionalMetricKeys.flatMap(key => {
@@ -621,8 +623,17 @@ export function ClientAnalyticsDashboard({
             const color = ANALYTICS_COLORS[index % ANALYTICS_COLORS.length];
             const resultMetric = metric.key === "primary_results" || metric.key === "cost_per_result";
             const showResultRows = resultMetric && resultRows.length > 0;
-            return <article className={`analytics-kpi is-fixed${showResultRows ? " has-result-rows" : ""}`} key={metric.key}
-              style={{ "--metric-color": color } as CSSProperties}>
+            const cardStyle = {
+              "--metric-color": color,
+              ...(showResultRows ? {
+                "--result-rows": resultLayout.rows,
+                "--result-value-size": `${resultLayout.valueSize}px`,
+                "--result-label-size": `${resultLayout.labelSize}px`,
+                "--result-row-gap": `${resultLayout.rowGap}px`,
+              } : {}),
+            } as CSSProperties;
+            return <article className={`analytics-kpi is-fixed${showResultRows ? " has-result-rows" : ""}${showResultRows && resultLayout.wide ? " is-result-wide" : ""}`} key={metric.key}
+              style={cardStyle}>
               <div className="analytics-kpi-top"><span>{metric.label}</span><span className="analytics-kpi-icon" title="Indicador fixo"><Lock size={14} /></span></div>
               {showResultRows ? <div className="analytics-result-metric-list">
                 {resultRows.map(result => <div className="analytics-result-metric-row" key={result.key}>
