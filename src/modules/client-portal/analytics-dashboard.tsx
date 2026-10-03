@@ -341,7 +341,7 @@ export function ClientAnalyticsDashboard({
     const collectFrom = range === "previous" ? data.previousDateFrom : data.dateFrom;
     const collectTo = range === "previous" ? data.previousDateTo : data.dateTo;
     startTransition(async () => {
-      const result = await collectDashboardData({ clientId, from: collectFrom, to: collectTo });
+      const result = await collectDashboardData({ clientId, from: collectFrom, to: collectTo, includeComparison: range === "current" });
       if (result.error) {
         setError(result.error ?? "Não foi possível concluir esta ação.");
         router.refresh();

@@ -71,6 +71,12 @@ export default async function ClientOverviewPage({ params, searchParams }: {
       data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
       if (updated.failures.length) data.warnings.push("A atualização não terminou para todas as contas. Os valores anteriores foram preservados.");
     }
+    if (data.selectedAccountIds.length && data.coverage.previousStatus !== "complete") {
+      const updated = await collectMetaClientInsights({ agencyId: access.agencyId, clientId, actorId: user.id,
+        since: data.previousDateFrom, until: data.previousDateTo });
+      data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
+      if (updated.failures.length) data.warnings.push("A Meta não concluiu a atualização do período anterior. Os dados atuais foram preservados.");
+    }
     await refreshMetaDashboardScope({ agencyId: access.agencyId, clientId, data });
     data = await getClientAnalytics(supabase, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds);
   } catch { data.warnings.push("Alguns agregados da Meta não puderam ser atualizados. Dados já coletados foram preservados."); }
