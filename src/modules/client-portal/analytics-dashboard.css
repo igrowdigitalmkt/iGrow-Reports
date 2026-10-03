@@ -100,7 +100,7 @@
 .analytics-kpi-value { display: block; color: #f1f6fe; font-variant-numeric: tabular-nums; letter-spacing: -.65px; font-size: clamp(17px, 1.6vw, 23px); font-weight: 630; margin-top: 12px; white-space: nowrap; }
 .analytics-kpi-value.is-unavailable { font-size: 13px; color: #a7b8cd; letter-spacing: 0; }
 .analytics-kpi.is-result-adaptive { grid-column: span var(--result-card-span, 2); }
-.analytics-result-metric-list { display: grid; grid-template-columns: repeat(var(--result-columns, 1), minmax(0, 1fr)); grid-template-rows: repeat(var(--result-rows), auto); grid-auto-flow: column; column-gap: 18px; row-gap: 7px; margin-top: 9px; }
+.analytics-result-metric-list { display: grid; grid-template-columns: repeat(var(--result-columns, 1), minmax(0, 1fr)); grid-template-rows: repeat(var(--result-rows), auto); grid-auto-flow: column; column-gap: 12px; row-gap: 7px; margin-top: 9px; }
 .analytics-result-metric-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .analytics-result-metric-value { color: #f1f6fe; font-variant-numeric: tabular-nums; letter-spacing: -.65px; font-size: var(--result-value-size, 23px); font-weight: 630; line-height: 1.05; white-space: nowrap; flex-shrink: 0; }
 .analytics-result-metric-label { color: #a6bdd1; font-size: var(--result-label-size, 10.5px); line-height: 1.1; min-width: 0; white-space: nowrap; }

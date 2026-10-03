@@ -8,7 +8,7 @@ export type ResultCardLayout = {
 
 const BASE_VALUE_SIZE = 23;
 const COMPACT_LABEL_SIZE = 9;
-const WIDE_LABEL_SIZE = 10.5;
+const WIDE_LABEL_SIZE = 9;
 
 export function resultCardLayout(resultCount: number): ResultCardLayout {
   const count = Math.max(0, Math.floor(resultCount));
