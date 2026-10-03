@@ -17,6 +17,9 @@ export type DashboardPdfInput = {
 };
 
 export function buildDashboardPdf(input: DashboardPdfInput) {
+  if (input.data.coverage.status !== "complete") {
+    throw new Error("Relatórios exigem cobertura completa do período.");
+  }
   if (input.orientation === "horizontal") return buildPresentationPdf(input);
   const doc = new jsPDF({ format: "a4", unit: "mm" });
   const C = { ink:"#142137", muted:"#65748b", blue:"#2563eb", paper:"#f4f7fc", border:"#dce4f0" };

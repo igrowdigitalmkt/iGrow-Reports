@@ -191,6 +191,7 @@ describe("MetaClient", () => {
     expect(JSON.parse(url.searchParams.get("time_range") ?? "{}"))
       .toEqual({ since: "2026-09-01", until: "2026-09-30" });
     expect(url.searchParams.get("level")).toBe("account");
+    expect(url.searchParams.has("filtering")).toBe(false);
   });
 
   it("bloqueia identificador de conta inválido antes da rede", async () => {
@@ -284,6 +285,7 @@ describe("MetaClient", () => {
     await client.getPeriodInsights({ adAccountId: "act_1", since: "2025-10-01", until: "2026-09-30" });
     const url = requested as unknown as URL;
     expect(url.searchParams.get("time_increment")).toBe("all_days");
+    expect(url.searchParams.has("filtering")).toBe(false);
     expect(url.searchParams.get("fields")?.split(",")).toEqual(expect.arrayContaining(["reach", "frequency", "unique_clicks", "inline_post_engagement"]));
   });
 

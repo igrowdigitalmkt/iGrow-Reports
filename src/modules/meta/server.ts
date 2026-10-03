@@ -22,7 +22,7 @@ import {
   MetaClient,
   type MetaAdAccount,
 } from "./client";
-import { normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "./collection";
+import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "./collection";
 
 const TOKEN_KIND = "meta_access_token";
 
@@ -683,7 +683,9 @@ export async function collectMetaClientInsights(input: {
   const { service, apiVersion } = operationalDependencies();
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
-  const client = new MetaClient({ accessToken: token, apiVersion });
+  // Insight queries can be materially heavier than metadata/status requests on large accounts.
+  // Keep bounded retries, but give the provider enough time to return all pages before treating the slice as failed.
+  const client = new MetaClient({ accessToken: token, apiVersion, timeoutMs: 25_000, retryDelayMs: 1_000 });
 
   const { data: links, error: linksError } = await service
     .from("client_ad_accounts")
@@ -713,11 +715,12 @@ export async function collectMetaClientInsights(input: {
   let actionCount = 0;
   let granularInsightCount = 0;
   let granularActionCount = 0;
+  let granularFailureCount = 0;
   let completedSliceCount = 0;
   let reusedSliceCount = 0;
   const failures: Array<{ accountId: string; since: string; until: string; scope: "daily" | "period" | "account"; code: string }> = [];
   const slices = splitCollectionRange(input.since, input.until);
-  const historicalCutoff = new Date(Date.now() - 31 * 86_400_000).toISOString().slice(0, 10);
+  const historicalCutoff = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
 
   async function recordFailure(accountId: string, slice: { since: string; until: string }, error: unknown, scope: "daily" | "account") {
     const code = error instanceof MetaApiError ? String(error.code ?? error.httpStatus) : "persistence_or_validation";
@@ -726,7 +729,9 @@ export async function collectMetaClientInsights(input: {
     const { data: existing } = await service.from("meta_collection_runs").select("status,collected_at")
       .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("ad_account_id", accountId)
       .eq("date_from", slice.since).eq("date_to", slice.until).maybeSingle();
-    if (existing?.status === "complete" && Date.now() - Date.parse(existing.collected_at) < 3_600_000) return;
+    // A transient refresh failure must never downgrade a previously complete slice.
+    // Keep the last complete snapshot valid until another complete collection replaces it.
+    if (existing?.status === "complete") return;
     const { error: runError } = await service.from("meta_collection_runs").upsert({
       agency_id: input.agencyId,
       client_id: input.clientId,
@@ -769,27 +774,31 @@ export async function collectMetaClientInsights(input: {
       const { data: previousRuns, error: runError } = await service.from("meta_collection_runs")
         .select("date_from,date_to,insight_count,action_count,levels")
         .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("ad_account_id", account.id)
-        .eq("status", "complete").gte("date_from", input.since).lte("date_to", input.until);
+        .eq("status", "complete").lte("date_from", input.until).gte("date_to", input.since);
       if (runError) throw new MetaSetupError("Não foi possível consultar o histórico das coletas.");
-      const completeRuns = new Map((previousRuns ?? []).map((run) => [`${run.date_from}:${run.date_to}`, run]));
+      const completeRuns = (previousRuns ?? []).map(run => ({ ...run, levels: run.levels ?? [] }));
+      const missingCoreSlice = slices.some(slice => !coveringCollectionRun(completeRuns, slice));
       let allDailyComplete = true;
       for (const slice of slices) {
-        const previous = completeRuns.get(`${slice.since}:${slice.until}`);
-        const canReuse = !input.forceRefresh && previous && slice.until < historicalCutoff
-          && ['account', 'campaign', 'adset', 'ad'].every(level => previous.levels.includes(level));
+        const previous = coveringCollectionRun(completeRuns, slice);
+        // During recovery, preserve every slice already confirmed by Meta and request only gaps.
+        // Once coverage is complete, automatic refreshes revisit only the recent attribution window.
+        const canReuse = !input.forceRefresh && previous && (missingCoreSlice || slice.until < historicalCutoff);
         if (canReuse && previous) {
-          insightCount += previous.insight_count;
-          actionCount += previous.action_count;
+          if (previous.date_from === slice.since && previous.date_to === slice.until) {
+            insightCount += previous.insight_count;
+            actionCount += previous.action_count;
+          }
           completedSliceCount += 1;
           reusedSliceCount += 1;
           continue;
         }
         try {
-          const [accountInsights, campaignInsights, adsetInsights, adInsights] = await Promise.all([
+          // Core dashboard integrity depends only on account + campaign data.
+          // Persist those first so a heavier adset/ad request can never discard a complete period.
+          const [accountInsights, campaignInsights] = await Promise.all([
             client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "account" }),
             client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "campaign" }),
-            client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "adset" }),
-            client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "ad" }),
           ]);
           const collectedAt = new Date().toISOString();
           const normalized = normalizeInsightSlice({
@@ -803,10 +812,8 @@ export async function collectMetaClientInsights(input: {
             collectedAt,
             accountInsights,
             campaignInsights,
-            adsetInsights,
-            adInsights,
           });
-          const { data: persisted, error: persistError } = await service.rpc("persist_meta_detailed_slice", {
+          const { data: persisted, error: persistError } = await service.rpc("persist_meta_insight_slice", {
             p_agency_id: input.agencyId,
             p_client_id: input.clientId,
             p_ad_account_id: account.id,
@@ -819,14 +826,52 @@ export async function collectMetaClientInsights(input: {
 
           insightCount += persisted.insight_count;
           actionCount += persisted.action_count;
-          granularInsightCount += normalized.insights.filter(row => row.level === "adset" || row.level === "ad").length;
-          granularActionCount += normalized.actions.filter(row => row.level === "adset" || row.level === "ad").length;
           completedSliceCount += 1;
+
+          // When core coverage has gaps, finish account/campaign recovery first. Heavy adset/ad
+          // queries must never consume the execution window before the requested period is complete.
+          if (!missingCoreSlice) {
+            try {
+              const [adsetInsights, adInsights] = await Promise.all([
+                client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "adset" }),
+                client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "ad" }),
+              ]);
+              const detailed = normalizeInsightSlice({
+                agencyId: input.agencyId,
+                accountId: account.id,
+                externalAccountId: account.external_id,
+                ...slice,
+                timezoneName: liveAccount.timezone_name,
+                businessId: liveAccount.business!.id!,
+                apiVersion,
+                collectedAt: new Date().toISOString(),
+                accountInsights,
+                campaignInsights,
+                adsetInsights,
+                adInsights,
+              });
+              const { error: detailedPersistError } = await service.rpc("persist_meta_detailed_slice", {
+                p_agency_id: input.agencyId,
+                p_client_id: input.clientId,
+                p_ad_account_id: account.id,
+                p_date_from: slice.since,
+                p_date_to: slice.until,
+                p_insights: detailed.insights as Json,
+                p_actions: detailed.actions as Json,
+              }).single();
+              if (detailedPersistError) throw new MetaSetupError("Não foi possível persistir o detalhamento de conjuntos e anúncios.");
+              granularInsightCount += detailed.insights.filter(row => row.level === "adset" || row.level === "ad").length;
+              granularActionCount += detailed.actions.filter(row => row.level === "adset" || row.level === "ad").length;
+            } catch {
+              granularFailureCount += 1;
+            }
+          }
         } catch (error) {
           await recordFailure(account.id, slice, error, "daily");
-          allDailyComplete = false;
-          // The next retry reuses old completed slices and resumes this account.
-          break;
+          // A failed refresh does not invalidate an older complete snapshot that still covers this slice.
+          // Missing slices stay incomplete, but the collector keeps going so one failure cannot block the rest.
+          if (!previous) allDailyComplete = false;
+          continue;
         }
       }
       if (allDailyComplete) {
@@ -874,6 +919,7 @@ export async function collectMetaClientInsights(input: {
         action_count: actionCount,
         granular_insight_count: granularInsightCount,
         granular_action_count: granularActionCount,
+        granular_failure_count: granularFailureCount,
         completed_slice_count: completedSliceCount,
         reused_slice_count: reusedSliceCount,
         failed_slice_count: failures.length,
@@ -887,6 +933,7 @@ export async function collectMetaClientInsights(input: {
       actionCount,
       granularInsightCount,
       granularActionCount,
+      granularFailureCount,
       completedSliceCount,
       reusedSliceCount,
       failures,

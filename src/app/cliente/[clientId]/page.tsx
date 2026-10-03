@@ -62,8 +62,11 @@ export default async function ClientOverviewPage({ params, searchParams }: {
       data = await getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds);
     }
   }
-  if (data.coverage.status !== "complete" || data.coverage.previousStatus !== "complete") {
-    data.warnings.push("Este período abriu com os dados já salvos. Use Atualizar dados para buscar datas pendentes na Meta sem bloquear a troca de visualização.");
+  if (data.coverage.status !== "complete") {
+    data.warnings.push("Os resultados deste período ficam bloqueados até a coleta confirmar todos os dias e contas selecionadas.");
+  }
+  if (data.coverage.previousStatus !== "complete") {
+    data.warnings.push("A comparação anterior permanece indisponível até a cobertura desse período também ficar completa.");
   }
   const { data: headerData, error: headerError } = await supabase.rpc("get_client_report_header", { p_client_id: clientId });
   if (headerError) throw new Error("Não foi possível consultar a seleção de anúncios.");

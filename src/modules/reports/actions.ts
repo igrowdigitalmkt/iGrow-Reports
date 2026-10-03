@@ -25,6 +25,11 @@ export async function getAgencyReportPreview(input: unknown): Promise<
     .select("id").eq("agency_id", context.agency.id)
     .eq("id", version.report_id).is("archived_at", null).maybeSingle();
   if (!report) return { error: "Relatório indisponível neste espaço de trabalho." };
+  const { data: snapshot, error: snapshotError } = await context.supabase.from("report_data_snapshots")
+    .select("quality_status").eq("agency_id", context.agency.id).eq("report_version_id", parsed.data).maybeSingle();
+  if (snapshotError || !snapshot || snapshot.quality_status !== "complete") {
+    return { error: "Este relatório não possui um snapshot de dados completamente confirmado e não pode ser exibido." };
+  }
   const { data: metrics, error: metricsError } = await context.supabase
     .from("report_metrics")
     .select("metric_key,label,unit,numeric_value,display_precision")
@@ -173,6 +178,12 @@ export async function publishReportVersion(
   const parsed = publishSchema.safeParse(input);
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
     return { error: "Versão ou espaço de trabalho inválido." };
+  }
+
+  const { data: snapshot, error: snapshotError } = await context.supabase.from("report_data_snapshots")
+    .select("quality_status").eq("agency_id", context.agency.id).eq("report_version_id", parsed.data.reportVersionId).maybeSingle();
+  if (snapshotError || !snapshot || snapshot.quality_status !== "complete") {
+    return { error: "Este relatório não pode ser publicado porque o snapshot não comprova dados completos." };
   }
 
   const { error } = await context.supabase.rpc("publish_report_version", {

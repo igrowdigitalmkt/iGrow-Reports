@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { normalizeHierarchy } from "./analytics-hierarchy";
 import { normalizeClientAnalytics } from "./analytics-calculations";
+import { getClientAnalytics } from "./analytics";
 import { metaMetricLabel } from "@/modules/meta/metric-labels";
 import type { DashboardPdfInput } from "@/modules/reports/pdf-download";
 import { requireClientDashboardAccess } from "./context";
@@ -25,6 +26,10 @@ export async function generateDashboardReport(input: unknown) {
   if (!parsed.success) return { error: "Configuração do relatório inválida." };
   const context = await requireClientDashboardAccess(parsed.data.clientId);
   if (!context.canManageReports) return { error: "Seu perfil não pode salvar relatórios." };
+  const analytics = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.dateFrom, parsed.data.dateTo, parsed.data.accountIds);
+  if (analytics.coverage.status !== "complete") {
+    return { error: "O relatório não pode ser gerado enquanto houver qualquer dia sem confirmação completa da Meta." };
+  }
   const { data, error } = await context.supabase.rpc("create_dashboard_report", {
     p_client_id: parsed.data.clientId, p_date_from: parsed.data.dateFrom, p_date_to: parsed.data.dateTo,
     p_ad_account_ids: parsed.data.accountIds, p_entity_keys: parsed.data.entityKeys,
@@ -76,6 +81,9 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
     estimatedMetricKeys: configuration.estimated_metric_keys,
     summary: data.summary, metrics: catalog.length ? catalog : metrics, daily: configuration.daily, previousDaily: configuration.previous_daily,
     accounts: configuration.accounts, selectedAccountIds: configuration.account_ids, coverage: configuration.coverage }, false);
+  if (analytics.coverage.status !== "complete") {
+    return { error: "Este relatório foi salvo sem comprovação de cobertura completa e não pode ser exibido." };
+  }
   const labels = Array.isArray(configuration.scope_labels) ? configuration.scope_labels.filter((v): v is string => typeof v === "string") : [];
   return { document: { title: String(data.title), clientName: String(data.clientName), workspaceName: String(header.name ?? data.workspaceName),
     analysisNote: typeof header.analysisNote === "string" ? header.analysisNote : "",

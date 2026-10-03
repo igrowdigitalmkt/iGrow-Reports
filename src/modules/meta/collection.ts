@@ -4,6 +4,22 @@ import type { MetaAction, MetaInsight } from "./client";
 import { providerResultValues } from "./result-values";
 
 const DAY_MS = 86_400_000;
+export const COLLECTION_SLICE_DAYS = 7;
+
+export type CollectionCoverageRun = {
+  date_from: string;
+  date_to: string;
+  levels: string[];
+};
+
+export function coveringCollectionRun<T extends CollectionCoverageRun>(
+  runs: T[],
+  slice: { since: string; until: string },
+  requiredLevels: string[] = ["account", "campaign"],
+): T | undefined {
+  return runs.find(run => run.date_from <= slice.since && run.date_to >= slice.until
+    && requiredLevels.every(level => run.levels.includes(level)));
+}
 
 export function periodScalarValue(row: Record<string, unknown>, key: string): number | null {
   if (row[key] != null) return Number(row[key]);
@@ -33,10 +49,10 @@ export function splitCollectionRange(since: string, until: string) {
   validateCollectionRange(since, until);
   const end = parseCollectionDate(until).getTime();
   const slices: Array<{ since: string; until: string }> = [];
-  for (let start = parseCollectionDate(since).getTime(); start <= end; start += 30 * DAY_MS) {
+  for (let start = parseCollectionDate(since).getTime(); start <= end; start += COLLECTION_SLICE_DAYS * DAY_MS) {
     slices.push({
       since: new Date(start).toISOString().slice(0, 10),
-      until: new Date(Math.min(end, start + 29 * DAY_MS)).toISOString().slice(0, 10),
+      until: new Date(Math.min(end, start + (COLLECTION_SLICE_DAYS - 1) * DAY_MS)).toISOString().slice(0, 10),
     });
   }
   return slices;

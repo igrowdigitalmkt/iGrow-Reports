@@ -24,7 +24,7 @@ export async function collectDashboardData(input: unknown) {
   try {
     const current = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.from, parsed.data.to);
     const periods = [];
-    if (!parsed.data.automatic || needsAnalyticsRefresh(current)) periods.push({ since: parsed.data.from, until: parsed.data.to, forceRefresh: !parsed.data.automatic });
+    if (!parsed.data.automatic || needsAnalyticsRefresh(current)) periods.push({ since: parsed.data.from, until: parsed.data.to, forceRefresh: !parsed.data.automatic && current.coverage.status === "complete" });
     if (parsed.data.includeComparison !== false && current.coverage.previousStatus !== "complete") {
       periods.push({ since: range.previousDateFrom, until: range.previousDateTo, forceRefresh: false });
     }
@@ -42,7 +42,16 @@ export async function collectDashboardData(input: unknown) {
       revalidatePath(`/cliente/${parsed.data.clientId}`);
       revalidatePath("/dashboard/clientes");
     }
-    if (failed) return { error: "A Meta não confirmou todas as datas da análise ou da comparação. Os valores já recebidos foram preservados. Tente atualizar novamente.", insightCount };
+    const verified = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.from, parsed.data.to);
+    if (verified.coverage.status !== "complete") {
+      return {
+        error: `A coleta ainda não fechou o período completo (${verified.coverage.coveredDays}/${verified.coverage.totalDays} dias confirmados). O dashboard continuará bloqueado e tentará novamente.`,
+        insightCount,
+      };
+    }
+    if (failed) {
+      return { error: "O período atual foi concluído, mas a Meta não terminou todos os dados auxiliares ou de comparação. Os números atuais estão completos; tente novamente para concluir o restante.", insightCount };
+    }
     return { success: true as const, insightCount };
   } catch (error) {
     return { error: error instanceof MetaSetupError ? error.message : error instanceof MetaApiError && error.code === 190

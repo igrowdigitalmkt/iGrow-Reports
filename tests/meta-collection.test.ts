@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "@/modules/meta/collection";
+import { COLLECTION_SLICE_DAYS, coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "@/modules/meta/collection";
 
 const input = {
   agencyId: "agency", accountId: "account", externalAccountId: "act_1",
@@ -16,20 +16,28 @@ describe("coleta histórica Meta", () => {
     expect(periodScalarValue({ impressions: "100", spend: "10" }, "reach")).toBeNull();
     expect(periodScalarValue({ reach: "50", impressions: "100" }, "reach")).toBe(50);
   });
-  it("divide um ano sem lacunas nem sobreposição em lotes de até 30 dias", () => {
+  it("divide um ano sem lacunas nem sobreposição em lotes pequenos e recuperáveis", () => {
     const slices = splitCollectionRange("2025-10-01", "2026-09-30");
-    expect(slices).toHaveLength(13);
+    expect(COLLECTION_SLICE_DAYS).toBe(7);
+    expect(slices).toHaveLength(53);
     expect(slices[0].since).toBe("2025-10-01");
     expect(slices.at(-1)?.until).toBe("2026-09-30");
     let total = 0;
     for (let index = 0; index < slices.length; index += 1) {
       const slice = slices[index];
       const days = validateCollectionRange(slice.since, slice.until).days;
-      expect(days).toBeLessThanOrEqual(30);
+      expect(days).toBeLessThanOrEqual(COLLECTION_SLICE_DAYS);
       total += days;
       if (index > 0) expect(new Date(`${slice.since}T00:00:00Z`).getTime() - new Date(`${slices[index - 1].until}T00:00:00Z`).getTime()).toBe(86_400_000);
     }
     expect(total).toBe(365);
+  });
+
+  it("reaproveita um lote completo que cobre integralmente um sublote novo", () => {
+    const runs = [{ date_from: "2026-09-01", date_to: "2026-09-30", levels: ["account", "campaign"] }];
+    expect(coveringCollectionRun(runs, { since: "2026-09-08", until: "2026-09-14" })).toBe(runs[0]);
+    expect(coveringCollectionRun(runs, { since: "2026-09-08", until: "2026-09-14" }, ["account", "campaign", "ad"])).toBeUndefined();
+    expect(coveringCollectionRun(runs, { since: "2026-09-29", until: "2026-10-02" })).toBeUndefined();
   });
 
   it("valida datas reais e limite inclusivo de 370 dias", () => {

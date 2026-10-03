@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { requireClientDashboardAccess } from "./context";
 import { normalizeClientAnalytics } from "./analytics-calculations";
+import { getClientAnalytics } from "./analytics";
 import { normalizeHierarchy } from "./analytics-hierarchy";
 import { getMetaEntityStatuses, refreshMetaDashboardScope } from "@/modules/meta/server";
 
@@ -23,6 +24,9 @@ export async function getCampaignScopedAnalytics(input: unknown) {
   });
   if (error || !data) return { error: "Não foi possível aplicar a seleção de campanhas. Confira a coleta do período." };
   const initial = normalizeClientAnalytics(data);
+  if (initial.coverage.status !== "complete") {
+    return { error: "A seleção de campanhas permanece bloqueada até todos os dias do período estarem completos." };
+  }
   try { await refreshMetaDashboardScope({ agencyId: access.agencyId, clientId: parsed.data.clientId, data: initial, entityKeys: parsed.data.entityKeys }); }
   catch { return { error: "A Meta não confirmou os agregados desta seleção. Tente atualizar os dados e aplicar novamente." }; }
   const refreshed = await supabase.rpc("get_campaign_scoped_analytics", { p_client_id: parsed.data.clientId,
@@ -41,6 +45,10 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
   const parsed = hierarchyInputSchema.safeParse(input);
   if (!parsed.success) return { error: "Período ou contas inválidos para carregar campanhas." };
   const { supabase, access } = await requireClientDashboardAccess(parsed.data.clientId);
+  const analytics = await getClientAnalytics(supabase, parsed.data.clientId, parsed.data.dateFrom, parsed.data.dateTo, parsed.data.accountIds);
+  if (analytics.coverage.status !== "complete") {
+    return { error: "Campanhas e métricas permanecem ocultas até a coleta do período estar completa." };
+  }
   const { data, error } = await supabase.rpc("get_client_analytics_hierarchy", {
     p_client_id: parsed.data.clientId,
     p_date_from: parsed.data.dateFrom,

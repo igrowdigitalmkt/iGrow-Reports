@@ -21,7 +21,7 @@ import { getCampaignScopedAnalytics, getClientAnalyticsHierarchy } from "./analy
 import { deleteDashboardReport, generateDashboardReport } from "./report-actions";
 import { publishReportVersion } from "@/modules/reports/actions";
 import { resolveAnalyticsRange } from "./range";
-import { ANALYTICS_REFRESH_MS } from "./analytics-freshness";
+import { ANALYTICS_PARTIAL_RETRY_MS, ANALYTICS_REFRESH_MS } from "./analytics-freshness";
 import { estimatedMetric } from "@/modules/reports/report-presentation";
 import type { AnalyticsDashboardData, AnalyticsReportItem, AnalyticsValues } from "./analytics-types";
 import {
@@ -325,16 +325,22 @@ export function ClientAnalyticsDashboard({
       } finally { updating = false; }
     };
     const updated = Date.parse(data.coverage.latestCollectedAt ?? "");
-    const delay = Number.isFinite(updated) ? Math.max(1000, ANALYTICS_REFRESH_MS - (Date.now() - updated)) : ANALYTICS_REFRESH_MS;
+    const incomplete = data.coverage.status !== "complete";
+    const cadence = incomplete ? ANALYTICS_PARTIAL_RETRY_MS : ANALYTICS_REFRESH_MS;
+    const delay = incomplete
+      ? Math.min(5_000, cadence)
+      : Number.isFinite(updated) ? Math.max(1000, cadence - (Date.now() - updated)) : cadence;
     const timer = window.setTimeout(() => { void refresh(); }, delay);
-    const interval = window.setInterval(() => { void refresh(); }, ANALYTICS_REFRESH_MS);
-    const resumed = () => { if (Date.now() - updated >= ANALYTICS_REFRESH_MS) void refresh(); };
+    const interval = window.setInterval(() => { void refresh(); }, cadence);
+    const resumed = () => {
+      if (incomplete || Date.now() - updated >= ANALYTICS_REFRESH_MS) void refresh();
+    };
     document.addEventListener("visibilitychange", resumed);
     return () => { window.clearTimeout(timer); window.clearInterval(interval); document.removeEventListener("visibilitychange", resumed); };
-  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, router]);
+  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.coverage.status, router]);
 
   useEffect(() => {
-    if (!scopeData) return;
+    if (!scopeData || data.coverage.status !== "complete") return;
     let cancelled = false;
     void getCampaignScopedAnalytics({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
       accountIds: data.selectedAccountIds, entityKeys: appliedEntityKeys }).then(result => {
@@ -346,10 +352,12 @@ export function ClientAnalyticsDashboard({
   }, [data.coverage.latestCollectedAt]);
 
   const selectedEntities = hierarchyEntities.filter(entity => appliedEntityKeys.includes(entity.key));
-  const scopedData = normalizeEssentialMetrics({ ...data, ...(scopeData ?? {}), campaigns: selectedEntities.map(entity => ({
+  const activeScopeData = data.coverage.status === "complete" ? scopeData : null;
+  const scopedData = normalizeEssentialMetrics({ ...data, ...(activeScopeData ?? {}), campaigns: selectedEntities.map(entity => ({
     id: entity.id, name: entity.name, accountId: entity.accountId, accountName: entity.accountName,
     currency: entity.currency, status: null, values: entity.values,
   })) });
+  const analyticsReady = !navigating && data.coverage.status === "complete" && scopedData.coverage.status === "complete";
   const resultRows = resultBreakdown(scopedData.summary);
   const resultCostRows = resultCostBreakdown(scopedData.summary, selectedEntities);
   const resultCostByKey = new Map(resultCostRows.map(result => [result.key, result.cost]));
@@ -477,6 +485,7 @@ export function ClientAnalyticsDashboard({
 
   function applyCampaignScope() {
     setError(""); setNotice("");
+    if (!analyticsReady) { setError("A seleção só pode ser aplicada quando a coleta do período estiver completa."); return; }
     if (!draftEntityKeys.length) { setError("Selecione ao menos uma campanha, conjunto ou anúncio."); return; }
     const nextKeys = [...draftEntityKeys];
     if (selectedLeaves.length === allLeaves.length) {
@@ -493,6 +502,10 @@ export function ClientAnalyticsDashboard({
 
   function exportPdf(orientation: "vertical" | "horizontal" = "vertical") {
     setError(""); setNotice("");
+    if (!analyticsReady) {
+      setError("O relatório só pode ser gerado quando todos os dias do período estiverem confirmados.");
+      return;
+    }
     startTransition(async () => {
       try {
         if (canManageReports) {
@@ -530,7 +543,7 @@ export function ClientAnalyticsDashboard({
 
   function selectTab(nextTab: typeof tab) {
     setTab(nextTab);
-    if (nextTab !== "campaigns" || hierarchyLoaded || hierarchyLoading || !data.selectedAccountIds.length) return;
+    if (nextTab !== "campaigns" || !analyticsReady || hierarchyLoaded || hierarchyLoading || !data.selectedAccountIds.length) return;
     setHierarchyLoading(true);
     setHierarchyError("");
     void getClientAnalyticsHierarchy({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds })
@@ -583,17 +596,17 @@ export function ClientAnalyticsDashboard({
         <p>{tab === "reports" ? "Visualize os arquivos salvos e acompanhe quais estão disponíveis para o cliente." : "Explore o período, personalize a análise e escolha exatamente o que deseja acompanhar."}</p>
       </div>
       <div className="analytics-command-actions">
-        {tab === "overview" && <button type="button" className="analytics-button" onClick={async () => {
+        {tab === "overview" && analyticsReady && <button type="button" className="analytics-button" onClick={async () => {
           try {
             if (document.fullscreenElement === dashboardRef.current) await document.exitFullscreen();
             else await dashboardRef.current?.requestFullscreen();
           } catch { setNotice("Este navegador não permitiu a tela cheia. Você pode usar o relatório horizontal para apresentar."); }
         }}>{presenting ? <X size={15} /> : <RectangleHorizontal size={15} />}{presenting ? "Encerrar apresentação" : "Apresentar análise"}</button>}
-        {tab === "overview" && <details className="analytics-filter-menu analytics-pdf-menu">
+        {tab === "overview" && analyticsReady && <details className="analytics-filter-menu analytics-pdf-menu">
           <summary><Download size={15} />Gerar Relatório em PDF<ChevronDown size={13} /></summary>
           <div className="analytics-filter-popover">
-            <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("vertical"); }}><RectangleVertical size={19} /><span>Vertical<small>A4 · documento</small></span></button>
-            <button type="button" disabled={pending || scopeDirty} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("horizontal"); }}><RectangleHorizontal size={19} /><span>Horizontal<small>1920 × 1080 · apresentação</small></span></button>
+            <button type="button" disabled={pending || scopeDirty || !analyticsReady} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("vertical"); }}><RectangleVertical size={19} /><span>Vertical<small>A4 · documento</small></span></button>
+            <button type="button" disabled={pending || scopeDirty || !analyticsReady} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("horizontal"); }}><RectangleHorizontal size={19} /><span>Horizontal<small>1920 × 1080 · apresentação</small></span></button>
           </div>
         </details>}
         {canCollect && tab !== "reports" && <button type="button" className="analytics-button analytics-button-primary"
@@ -642,7 +655,7 @@ export function ClientAnalyticsDashboard({
     </form>
     {navigating && <div className="analytics-loading-banner" role="status" aria-live="polite">
       <RefreshCw size={16} className="analytics-spin" />
-      <p><strong>Carregando {applyingPeriodLabel || "o período selecionado"}.</strong><span>Os números abaixo ainda são do período anterior até a atualização terminar.</span></p>
+      <p><strong>Carregando {applyingPeriodLabel || "o período selecionado"}.</strong><span>Os resultados ficam ocultos até o novo período estar totalmente confirmado.</span></p>
     </div>}
     <div className="analytics-context-strip">
       <span><CalendarRange size={13} /><strong>{displayDate(data.dateFrom)} – {displayDate(data.dateTo)}</strong></span>
@@ -661,15 +674,19 @@ export function ClientAnalyticsDashboard({
     {pending && <div className="analytics-notice" role="status" aria-live="polite">
       <RefreshCw size={17} className="analytics-spin" /><p>{collectingComparison
         ? "Atualizando o período anterior para comparação."
-        : "Atualizando dados deste período. Os números visíveis ainda são da última atualização concluída até a Meta terminar de responder."}</p>
+        : scopedData.coverage.status === "complete"
+          ? "Atualizando os dados deste período. A visualização atual permanece disponível porque já existe uma coleta completa confirmada."
+          : "Atualizando os dados deste período. Nenhum resultado parcial será exibido até a coleta terminar."}</p>
     </div>}
-    {tab !== "reports" && scopedData.coverage.status !== "complete" && <div className="analytics-coverage-banner">
+    {tab !== "reports" && !analyticsReady && <div className="analytics-coverage-banner analytics-coverage-blocker" role="status">
       <div><span className="analytics-coverage-icon"><Layers3 size={17} /></span><p>
-        <strong>A atualização destas datas ainda não terminou</strong>
-        <span>Recebemos dados de {scopedData.coverage.coveredDays} de {scopedData.coverage.totalDays} dias. A Meta não confirmou os dias restantes; os valores disponíveis foram preservados.</span>
+        <strong>{navigating ? "Aguardando o período selecionado" : "Dados ainda não estão completos"}</strong>
+        <span>{navigating
+          ? "Nenhum resultado será exibido até a navegação e a coleta terminarem."
+          : `A coleta confirmou ${scopedData.coverage.coveredDays} de ${scopedData.coverage.totalDays} dias. O dashboard permanece bloqueado até confirmar 100% do período.`}</span>
       </p></div>
-      {canCollect && <button className="analytics-text-button" type="button" onClick={() => collect()} disabled={pending}>
-        Tentar atualizar novamente <ArrowUpRight size={14} />
+      {canCollect && !navigating && <button className="analytics-text-button" type="button" onClick={() => collect()} disabled={pending}>
+        {pending ? "Atualizando…" : "Tentar atualizar novamente"} <ArrowUpRight size={14} />
       </button>}
     </div>}
     <div className="analytics-section-toolbar">
@@ -684,7 +701,7 @@ export function ClientAnalyticsDashboard({
           aria-selected={tab === key} key={key} className={tab === key ? "is-active" : ""}
           onClick={() => selectTab(key as typeof tab)}><Icon size={14} />{label}</button>)}
       </div>
-      {tab === "overview" && <details className="analytics-filter-menu analytics-metric-menu">
+      {tab === "overview" && analyticsReady && <details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Métricas <span className="analytics-count">{overviewMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
           <div className="analytics-metric-picker-heading"><strong>Métricas da Visão geral</strong>
@@ -697,7 +714,7 @@ export function ClientAnalyticsDashboard({
           </div>)}
         </div>
       </details>}
-      {tab === "campaigns" && <details className="analytics-filter-menu analytics-metric-menu">
+      {tab === "campaigns" && analyticsReady && <details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Colunas <span className="analytics-count">{campaignMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
           <div className="analytics-metric-picker-heading"><strong>Métricas da tabela</strong>
@@ -711,7 +728,7 @@ export function ClientAnalyticsDashboard({
       </details>}
     </div>
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
-      {tab === "overview" && <>
+      {tab === "overview" && analyticsReady && <>
         <details className="analytics-card analytics-report-settings">
           <summary><Layers3 size={15} />Modelos de análise e ordem dos indicadores<ChevronDown size={14} /></summary>
           <div className="analytics-report-create-body">
@@ -860,7 +877,7 @@ export function ClientAnalyticsDashboard({
         </article>
       </>}
 
-      {tab === "campaigns" && <>
+      {tab === "campaigns" && analyticsReady && <>
         <div className="analytics-campaign-scope-bar">
           <label><span>Plataforma</span><select className="input" defaultValue="meta">
             <option value="meta">Meta Ads</option>
@@ -914,7 +931,7 @@ export function ClientAnalyticsDashboard({
           <p className="analytics-footnote">A seleção aplicada passa a controlar a Visão geral. Expanda as linhas para escolher conjuntos ou anúncios. Se não houver detalhamento, atualize os dados.</p>
         </article>
       </>}
-      {tab === "metrics" && <div className="analytics-metric-catalog">
+      {tab === "metrics" && analyticsReady && <div className="analytics-metric-catalog">
         <label className="analytics-search"><Search size={14} /><input type="search" aria-label="Pesquisar métricas"
           value={metricSearch} onChange={event => setMetricSearch(event.target.value)} placeholder="Pesquisar métrica…" /></label>
         {["Investimento e eficiência", "Entrega e alcance", "Cliques e tráfego", "Resultados e ações", "Vídeo", "Engajamento e outros"].map((group) => {

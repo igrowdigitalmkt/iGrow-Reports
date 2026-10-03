@@ -7,11 +7,12 @@ describe("normalização do dashboard do cliente", () => {
       summary: { spend: "300.00", reach: null, link_clicks: "100", cpc_link: "3", missing: undefined },
       previousSummary: { spend: null },
       daily: [{ date: "2026-09-29", values: { spend: "100.25" } }],
+      coverage: { status: "complete", previousStatus: "complete", coveredDays: 1, previousCoveredDays: 1, totalDays: 1 },
     });
     expect(data.summary).toMatchObject({ spend: 300, reach: null, link_clicks: 100, cpc_link: 3, missing: null });
     expect(data.previousSummary.spend).toBeNull();
     expect(data.daily).toMatchObject([{ date: "2026-09-29", values: { spend: 100.25 } }]);
-    expect(data.coverage.status).toBe("empty");
+    expect(data.coverage.status).toBe("complete");
   });
 
   it("rejeita entradas booleanas, infinitas, vazias e inválidas", () => {
@@ -32,7 +33,7 @@ describe("normalização do dashboard do cliente", () => {
       warnings: ["Dados parciais"],
     });
     expect(data.accounts[0].currency).toBe("BRL");
-    expect(data.summary["action:landing_page_view"]).toBe(130);
+    expect(data.summary).toEqual({});
     expect(data.coverage).toMatchObject({ status: "partial", previousStatus: "empty", coveredDays: 4, totalDays: 30 });
     expect(data.metrics[0].desirable).toBe("up");
     expect(data.warnings).toEqual(["Dados parciais"]);

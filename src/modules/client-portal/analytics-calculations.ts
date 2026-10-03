@@ -38,9 +38,16 @@ function coverageStatus(value: unknown): "complete" | "partial" | "empty" {
 export function normalizeClientAnalytics(value: unknown, automaticResults = true): AnalyticsDashboardData {
   const payload = object(value);
   const coverage = object(payload.coverage);
-  const series = (input: unknown) => array(input).map((entry) => {
+  const currentComplete = coverageStatus(coverage.status) === "complete";
+  const previousComplete = coverageStatus(coverage.previousStatus) === "complete";
+  const liveValues = (input: unknown, complete: boolean) => {
+    const normalized = normalizeAnalyticsValues(input);
+    if (automaticResults && !complete) return {};
+    return automaticResults ? aggregateResults(normalized, true) : normalized;
+  };
+  const series = (input: unknown, complete: boolean) => array(input).map((entry) => {
     const row = object(entry);
-    return { date: text(row.date), values: automaticResults ? aggregateResults(normalizeAnalyticsValues(row.values), coverageStatus(coverage.status) === "complete") : normalizeAnalyticsValues(row.values) };
+    return { date: text(row.date), values: liveValues(row.values, complete) };
   }).filter((row) => /^\d{4}-\d{2}-\d{2}$/.test(row.date));
 
   const metrics: AnalyticsMetric[] = array(payload.metrics).map((entry) => {
@@ -63,17 +70,17 @@ export function normalizeClientAnalytics(value: unknown, automaticResults = true
       return { id: text(row.id), name: text(row.name), externalId: text(row.externalId), timezoneName: text(row.timezoneName), currency: text(row.currency) };
     }),
     selectedAccountIds: array(payload.selectedAccountIds).map(text).filter(Boolean),
-    summary: automaticResults ? aggregateResults(normalizeAnalyticsValues(payload.summary), coverageStatus(coverage.status) === "complete") : normalizeAnalyticsValues(payload.summary), previousSummary: automaticResults ? aggregateResults(normalizeAnalyticsValues(payload.previousSummary), coverageStatus(coverage.previousStatus) === "complete") : normalizeAnalyticsValues(payload.previousSummary),
-    daily: series(payload.daily), previousDaily: series(payload.previousDaily),
+    summary: liveValues(payload.summary, currentComplete), previousSummary: liveValues(payload.previousSummary, previousComplete),
+    daily: series(payload.daily, currentComplete), previousDaily: series(payload.previousDaily, previousComplete),
     accountTotals: array(payload.accountTotals).map((entry) => {
       const row = object(entry);
-      return { id: text(row.id), name: text(row.name), currency: text(row.currency), values: automaticResults ? aggregateResults(normalizeAnalyticsValues(row.values), coverageStatus(coverage.status) === "complete") : normalizeAnalyticsValues(row.values) };
+      return { id: text(row.id), name: text(row.name), currency: text(row.currency), values: liveValues(row.values, currentComplete) };
     }),
     campaigns: array(payload.campaigns).map((entry) => {
       const row = object(entry);
       return {
         id: text(row.id), name: text(row.name), accountName: text(row.accountName), accountId: text(row.accountId),
-        currency: text(row.currency), status: nullableText(row.status), values: normalizeAnalyticsValues(row.values),
+        currency: text(row.currency), status: nullableText(row.status), values: liveValues(row.values, currentComplete),
       };
     }),
     metrics,
