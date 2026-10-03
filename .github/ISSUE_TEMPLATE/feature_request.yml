@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose an improvement to iGrow Reports
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What problem would this change solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or approach you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there other approaches that could solve the same problem?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include relevant examples, constraints, or references.

@@ -1,73 +1,142 @@
 # iGrow Reports
 
-Fundação da plataforma de relatórios de tráfego da iGrow: Next.js, TypeScript, Tailwind e Supabase/PostgreSQL, preparada para evolução na Vercel. Meta Marketing API, WhatsApp Cloud API oficial e QStash serão implementados em próximos incrementos.
+iGrow Reports is an open-source, multi-tenant platform for advertising analytics, reporting, and client-facing dashboards.
 
-O painel está em português, com fundo grafite e acentos azul, cyan e violeta. A rota `/demo` contém **dados inteiramente fictícios**, identificados na interface. A área `/dashboard` depende de autenticação e associação à agência; configuração ausente não vira demonstração automaticamente.
+The project is being built for agencies, independent media buyers, and companies that manage paid media internally and need a clearer way to consolidate advertising data, organize clients, generate reports, and give stakeholders controlled access to performance information.
 
-## Executar localmente
+> **Project status:** early public release and under active development. The repository is maintained continuously, but public adoption is still at an early stage.
 
-Para a primeira instalação na Vercel e no Supabase, siga [PUBLICACAO.md](docs/PUBLICACAO.md). O projeto inclui validação de configuração antes do deploy e workflow de verificações para GitHub; ainda não foi publicado.
+## Why iGrow Reports
 
-Requisitos: Node.js 24 e pnpm 11.19, conforme `package.json`. O lockfile pnpm é a fonte das versões resolvidas. Não misture npm, yarn e pnpm neste repositório.
+Advertising data is often fragmented across platforms, accounts, spreadsheets, dashboards, and manual reports. iGrow Reports aims to provide an extensible open-source foundation for bringing those workflows together while keeping tenant isolation, auditability, and maintainability as first-class concerns.
+
+## Current scope
+
+The repository currently includes:
+
+- Multi-tenant organization and client structure
+- Supabase authentication and PostgreSQL persistence
+- Row Level Security policies and database isolation tests
+- Client-facing authenticated area
+- Dashboard and campaign reporting foundations
+- Filtering by period, platform, account, and campaign
+- Report management foundations
+- Meta Ads integration work and synchronization flows
+- Demo routes with clearly identified fictional data
+- Automated linting, type checking, unit tests, database tests, builds, and browser tests
+- Architecture, database, metrics, integration, and deployment documentation
+
+The product interface is currently primarily in Portuguese. Contributions that improve internationalization are welcome.
+
+## Tech stack
+
+- Next.js 16
+- React 19
+- TypeScript 6
+- Supabase / PostgreSQL
+- ECharts
+- Tailwind CSS
+- Vitest
+- Playwright
+- pnpm
+
+## Run locally
+
+### Requirements
+
+- Node.js 24
+- pnpm 11.19
+
+Clone the repository and install dependencies:
+
+```bash
+git clone https://github.com/igrowdigitalmkt/iGrow-Reports.git
+cd iGrow-Reports
+pnpm install --frozen-lockfile
+```
+
+Create your local environment file from the example:
+
+```bash
+cp .env.example .env.local
+```
+
+On Windows PowerShell:
 
 ```powershell
-pnpm install --frozen-lockfile
 Copy-Item .env.example .env.local
+```
+
+Then start the development server:
+
+```bash
 pnpm dev
 ```
 
-Acesse [http://localhost:3000/demo](http://localhost:3000/demo) para revisar o dashboard demonstrativo sem credenciais. Para autenticação, preencha as variáveis do Supabase em `.env.local`, reinicie o servidor e siga o [procedimento do banco e bootstrap](docs/BANCO.md). Não há cadastro público irrestrito.
+Open `http://localhost:3000/demo` to inspect the demo experience without production credentials.
 
-Neste Windows, se `pnpm` não estiver no PATH, use `./scripts/pnpm.ps1 dev` (ou substitua `dev` por outro comando). O auxiliar detecta o runtime disponibilizado pelo Codex, sem instalar ferramentas globais. Para verificar o bloqueio da demonstração em produção após o build, execute `pnpm test:production`.
+For authenticated flows, configure Supabase according to [docs/BANCO.md](docs/BANCO.md).
 
-| Rota | Finalidade |
-| --- | --- |
-| `/demo` | Demonstração pública, com fixtures e sem envios reais |
-| `/entrar` | Login Supabase e estado de configuração pendente |
-| `/dashboard` | Área protegida no contexto de uma agência |
-| `/selecionar-agencia` | Escolha entre as associações verificadas do usuário |
-| `/sem-acesso` | Usuário autenticado sem associação a uma agência |
-| `/convite?token=…` | Aceite explícito de convite da agência para o email autenticado |
-| `/auth/definir-senha` | Definição de senha após convite ou recuperação Auth |
+## Environment variables and secrets
 
-`ENABLE_DEMO=true` habilita a demonstração. Sem essa variável, ela fica disponível em desenvolvimento e desabilitada em produção. A autenticação e as políticas de `/dashboard` continuam sendo exigidas independentemente dessa opção.
+Never commit production credentials, API tokens, service-role keys, encryption keys, or webhook secrets.
 
-## Verificar
+The repository tracks only `.env.example`. Local and production environment files are ignored by Git.
 
-Use os scripts de `package.json` para TypeScript, lint, testes e build. O registro de execução e as pendências ficam em [IMPLEMENTACAO.md](docs/IMPLEMENTACAO.md). A suíte SQL pode ser executada localmente em PostgreSQL WASM/PGlite; a homologação com Supabase real está descrita em [BANCO.md](docs/BANCO.md).
+See [docs/INTEGRACOES.md](docs/INTEGRACOES.md) and [docs/OPERACAO.md](docs/OPERACAO.md) for integration and deployment guidance.
 
-```powershell
-pnpm typecheck
+## Quality checks
+
+Run the complete local verification suite with:
+
+```bash
+pnpm check
+```
+
+Or run checks individually:
+
+```bash
 pnpm lint
+pnpm typecheck
 pnpm test
 pnpm test:db
 pnpm build
 ```
 
-Testes de navegador usam Playwright:
+Browser tests use Playwright:
 
-```powershell
+```bash
 pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-`test:db` aplica as cinco migrations e executa pgTAP em um banco descartável PGlite, com estruturas mínimas de Auth/Storage para os testes. Ele verifica SQL, permissões e RLS; login remoto, API de Storage e concorrência precisam de homologação no Supabase.
+GitHub Actions runs the repository quality workflow on pushes and pull requests.
 
-## Escopo entregue e limites
+## Repository documentation
 
-A fundação inclui estrutura modular, componentes visuais, dashboard, autenticação inicial e artefatos SQL de isolamento por agência. Criar o código e a migration não provisiona um banco nem comprova uma política RLS: as validações que exigem infraestrutura estão identificadas no progresso.
+- [V1 planning](docs/PLANEJAMENTO_V1.md)
+- [Implementation progress](docs/IMPLEMENTACAO.md)
+- [Architecture and security boundaries](docs/ARQUITETURA.md)
+- [Database, bootstrap, and SQL tests](docs/BANCO.md)
+- [Metric definitions](docs/METRICAS.md)
+- [Integration configuration](docs/INTEGRACOES.md)
+- [Operations and deployment](docs/OPERACAO.md)
+- [Client Area foundation](docs/AREA_CLIENTE.md)
 
-Meta, WhatsApp e QStash permanecem sem conexão. Ainda não há coleta de anúncios, cálculo de métricas de produção, geração de relatórios/PDF ou entrega automática. Vercel é o destino aprovado, mas nenhum deploy foi realizado nesta etapa.
+## Contributing
 
-## Documentação
+Contributions are welcome.
 
-- [Planejamento integral da V1](docs/PLANEJAMENTO_V1.md)
-- [Etapas, verificações e pendências](docs/IMPLEMENTACAO.md)
-- [Arquitetura e fronteiras de segurança](docs/ARQUITETURA.md)
-- [Banco, bootstrap e testes SQL](docs/BANCO.md)
-- [Definições de métricas](docs/METRICAS.md)
-- [Configuração das integrações](docs/INTEGRACOES.md)
-- [Diagnóstico, homologação e deploy](docs/OPERACAO.md)
-- [Fundação da Área do Cliente](docs/AREA_CLIENTE.md)
+Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports, documentation improvements, tests, integration work, accessibility improvements, and well-scoped feature proposals are all useful contributions.
 
-Clientes possuem cadastro, edição, arquivamento, reativação e auditoria. O botão **Destinatários** permite gerenciar contatos, autorização de recebimento, descadastro e histórico. A **Área do Cliente** já possui vínculo autenticado separado da equipe da agência, RLS, revogação de acesso e rotas `/cliente` e `/cliente/[clientId]`. A interface não apresenta números fictícios; os blocos de desempenho serão preenchidos sobre métricas e relatórios reais. Experimente em `/demo/clientes` (alterações temporárias) ou configure Supabase e aplique as cinco migrations para persistir em `/dashboard/clientes`. Consulte [DESTINATARIOS.md](docs/DESTINATARIOS.md) e [AREA_CLIENTE.md](docs/AREA_CLIENTE.md). Próximo passo: homologar no Supabase antes da integração Meta.
+If you want to work on a larger change, open an issue first so the implementation direction can be discussed before significant work begins.
+
+## Security
+
+Please do not disclose vulnerabilities in public issues.
+
+Read [SECURITY.md](SECURITY.md) for the responsible disclosure process.
+
+## License
+
+iGrow Reports is licensed under the [Apache License 2.0](LICENSE).
