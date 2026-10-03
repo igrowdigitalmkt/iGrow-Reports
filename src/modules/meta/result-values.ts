@@ -19,3 +19,15 @@ export function providerResultValues(row: MetaInsight): AnalyticsValues | null {
   }
   return counts;
 }
+
+export function providerResultTotals(rows: MetaInsight[]): AnalyticsValues | null {
+  const totals: AnalyticsValues = { "result:provider_known": 1 };
+  for (const row of rows) {
+    const values = providerResultValues(row);
+    if (!values) return null;
+    for (const [key, amount] of Object.entries(values)) {
+      if (key.startsWith("result:provider:")) totals[key] = (totals[key] ?? 0) + (amount ?? 0);
+    }
+  }
+  return totals;
+}
