@@ -7,8 +7,37 @@ export type ResultCardLayout = {
 };
 
 const BASE_VALUE_SIZE = 23;
-const COMPACT_LABEL_SIZE = 9;
-const WIDE_LABEL_SIZE = 9;
+const COMPACT_LABEL_SIZE = 10.5;
+const WIDE_LABEL_SIZE = 10.5;
+
+/** Wrap at word boundaries, hyphenating only words longer than a line. */
+export function wrapResultLabel(text: string, limit = 25): string[] {
+  const width = Math.max(2, Math.floor(limit));
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
+    let remaining = Array.from(word);
+    if (remaining.length > width) {
+      if (current) lines.push(current);
+      current = "";
+      while (remaining.length > width) {
+        lines.push(`${remaining.slice(0, width - 1).join("")}-`);
+        remaining = remaining.slice(width - 1);
+      }
+    }
+    const next = remaining.join("");
+    const candidate = current ? `${current} ${next}` : next;
+    if (Array.from(candidate).length <= width) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = next;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
 
 export function resultCardLayout(resultCount: number): ResultCardLayout {
   const count = Math.max(0, Math.floor(resultCount));

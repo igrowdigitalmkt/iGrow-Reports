@@ -1,7 +1,7 @@
 "use client";
 
 import { resultBreakdown, resultCostBreakdown } from "./analytics-results";
-import { resultCardLayout } from "./result-card-layout";
+import { resultCardLayout, wrapResultLabel } from "./result-card-layout";
 
 import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
@@ -649,7 +649,10 @@ export function ClientAnalyticsDashboard({
                   <strong className="analytics-result-metric-value">{metric.key === "primary_results"
                     ? result.value.toLocaleString("pt-BR")
                     : formatAnalyticsValue(resultCostByKey.get(result.key) ?? null, metric, data.currency)}</strong>
-                  <span className="analytics-result-metric-label">{result.label.toLocaleLowerCase("pt-BR")}</span>
+                  <span className="analytics-result-metric-label">
+                    {wrapResultLabel(result.label.toLocaleLowerCase("pt-BR")).map((line, index) =>
+                      <span className="analytics-result-metric-label-line" key={index}>{line}</span>)}
+                  </span>
                 </div>)}
               </div> : <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
