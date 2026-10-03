@@ -126,7 +126,7 @@ function safeMetaOperationError(error: unknown) {
   if (error instanceof MetaApiError) {
     return error.code === 190
       ? "A credencial Meta foi rejeitada ou expirou."
-      : "A Meta rejeitou a operação. Confira o acesso da credencial e tente novamente.";
+      : `A Meta recusou ${error.operation ?? "a consulta"}${error.code !== null ? ` (código ${error.code}${error.subcode !== null ? `/${error.subcode}` : ""})` : ""}. Confira se esta conta do Facebook tem acesso aos anúncios e se concedeu a permissão de leitura.`;
   }
   return "Não foi possível concluir a operação com a Meta.";
 }
@@ -187,7 +187,8 @@ export async function previewMetaLoginAccounts(input: unknown) {
   try {
     const api = new MetaClient({ accessToken: parsed.data.accessToken, apiVersion: config.apiVersion });
     const identity = await api.validateConnection();
-    const accounts = await api.listAdAccounts(identity.id);
+    // Facebook Login returns a person, not a Business Manager system user.
+    const accounts = await api.listAdAccounts();
     return { accounts: accounts.map(account => ({ id: account.id, name: account.name, supported: hasBusinessPortfolio(account) })), name: identity.name ?? "Conta Facebook" };
   } catch (error) { return { error: safeMetaOperationError(error) }; }
 }

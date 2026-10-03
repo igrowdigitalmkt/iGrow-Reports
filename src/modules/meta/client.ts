@@ -126,12 +126,14 @@ export class MetaApiError extends Error {
   readonly code: number | null;
   readonly subcode: number | null;
   readonly transient: boolean;
+  readonly operation: string | null;
 
   constructor(input: {
     httpStatus: number;
     code?: number;
     subcode?: number;
     transient?: boolean;
+    operation?: string;
   }) {
     super("A Meta Marketing API rejeitou a solicitação.");
     this.name = "MetaApiError";
@@ -139,6 +141,7 @@ export class MetaApiError extends Error {
     this.code = input.code ?? null;
     this.subcode = input.subcode ?? null;
     this.transient = input.transient ?? false;
+    this.operation = input.operation ?? null;
   }
 }
 
@@ -242,6 +245,7 @@ export class MetaClient {
           code: payload.error?.code,
           subcode: payload.error?.error_subcode,
           transient: payload.error?.is_transient,
+          operation: path === "me" ? "identificação da conta" : path === "me/adaccounts" ? "lista de contas de anúncios" : path.endsWith("/assigned_ad_accounts") ? "contas do usuário do sistema" : "dados de anúncios",
         });
       }
       return payload;
@@ -305,7 +309,7 @@ export class MetaClient {
   async getAdAccount(adAccountId: string): Promise<MetaAdAccount> {
     validateAccountId(adAccountId);
     const account = await this.getPage<never>(adAccountId, {
-      fields: "id,account_id,name,currency,timezone_name,account_status,business{id,name}",
+      fields: "id,account_id,name,currency,timezone_name,account_status,business{id}",
     }) as unknown as MetaAdAccount;
     if (account.id !== adAccountId) throw new MetaApiError({ httpStatus: 502 });
     return account;
@@ -313,7 +317,7 @@ export class MetaClient {
 
   async listAdAccounts(systemUserId?: string): Promise<MetaAdAccount[]> {
     const params = {
-      fields: "id,account_id,name,currency,timezone_name,account_status,business{id,name}",
+      fields: "id,account_id,name,currency,timezone_name,account_status,business{id}",
       limit: "200",
     };
     const accounts = await this.getAll<MetaAdAccount>("me/adaccounts", params);

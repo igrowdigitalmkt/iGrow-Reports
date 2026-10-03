@@ -9,6 +9,19 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe("MetaClient", () => {
+  it("retorna lista vazia para login pessoal sem consultar contas de usuário do sistema", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ data: [] }));
+    const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    expect(await client.listAdAccounts()).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+  it("identifica a operação recusada sem expor o token nem a mensagem bruta da Meta", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: { code: 200, message: "segredo" } }, 403));
+    const client = new MetaClient({ accessToken: "segredo", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    const error = await client.listAdAccounts().catch(value => value as MetaApiError);
+    expect(error).toMatchObject({ code: 200, operation: "lista de contas de anúncios" });
+    expect(JSON.stringify(error)).not.toContain("segredo");
+  });
   it("associa a miniatura ao criativo do anúncio sem consultar outras contas", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ data: [{ id: "123", creative: { id: "456", thumbnail_url: "https://images.fbcdn.net/ad.jpg" } }] }));
     const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
@@ -30,7 +43,8 @@ describe("MetaClient", () => {
     const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
     await expect(client.getAdAccount("act_1")).rejects.toBeInstanceOf(MetaApiError);
     const requested = fetchImpl.mock.calls as unknown as Array<[URL, RequestInit]>;
-    expect(requested[0][0].searchParams.get("fields")).toContain("business{id,name}");
+    expect(requested[0][0].searchParams.get("fields")).toContain("business{id}");
+    expect(requested[0][0].searchParams.get("fields")).not.toContain("business{id,name}");
   });
   it("exige ads_read para conexão somente leitura", () => {
     expect(hasMetaAdsReadPermission(["ads_read"])).toBe(true);

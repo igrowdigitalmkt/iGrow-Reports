@@ -451,7 +451,7 @@ export async function connectMetaForClient(input: {
     client.validateConnection(),
     client.listPermissions(),
   ]);
-  const accounts = selectedMetaAccounts(await client.listAdAccounts(identity.id), input.selectedAccountIds);
+  const accounts = selectedMetaAccounts(await client.listAdAccounts(input.selectedAccountIds ? undefined : identity.id), input.selectedAccountIds);
   const grantedScopes = permissions
     .filter((permission) => permission.status === "granted")
     .map((permission) => permission.permission);
@@ -572,7 +572,7 @@ export async function syncMetaAccountsForClient(input: {
 
   try {
     const metadata = connection.metadata as { selected_account_ids?: string[] } | null;
-    const available = await client.listAdAccounts(connection.external_user_id ?? undefined);
+    const available = await client.listAdAccounts(metadata?.selected_account_ids ? undefined : connection.external_user_id ?? undefined);
     const selection = metadata?.selected_account_ids;
     const accounts = selection ? available.filter(account => selection.includes(account.id)) : available;
     const synced = await syncAccounts(
