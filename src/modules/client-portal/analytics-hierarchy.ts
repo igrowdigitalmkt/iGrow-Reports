@@ -17,7 +17,10 @@ export function normalizeHierarchy(input: unknown): AnalyticsEntity[] {
       name: String(r.name), parentId: typeof r.parentId === "string" ? r.parentId : null,
       campaignId: typeof r.campaignId === "string" ? r.campaignId : null,
       accountId: String(r.accountId), accountName: String(r.accountName), currency: String(r.currency),
-      values: normalizeAnalyticsValues(r.values) }));
+      values: normalizeAnalyticsValues(r.values),
+      effectiveStatus: typeof r.effectiveStatus === "string" ? r.effectiveStatus : null,
+      thumbnailUrl: typeof r.thumbnailUrl === "string" ? r.thumbnailUrl : null,
+    }));
 }
 
 export function entityChildren(entity: AnalyticsEntity, entities: AnalyticsEntity[]) {

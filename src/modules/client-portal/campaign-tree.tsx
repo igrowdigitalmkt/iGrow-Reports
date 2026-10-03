@@ -7,13 +7,29 @@ import { entityChildren, leafKeys, type AnalyticsEntity } from "./analytics-hier
 import { formatAnalyticsValue } from "./analytics-charts";
 import type { AnalyticsMetric } from "./analytics-types";
 
-export function CampaignTree({ entities, roots, metrics, selected, onChange, disabled }: {
+export function CampaignTree({ entities, roots, metrics, selected, onChange, disabled, sortKey, sortDirection, statusLabel }: {
   entities: AnalyticsEntity[]; roots: AnalyticsEntity[]; metrics: AnalyticsMetric[];
   selected: string[]; onChange: (keys: string[]) => void; disabled: boolean;
+  sortKey: string; sortDirection: "asc" | "desc"; statusLabel: (entity: Pick<AnalyticsEntity, "effectiveStatus">) => string;
 }) {
   const [expanded, setExpanded] = useState<string[]>([]);
   const render = (entity: AnalyticsEntity, depth: number): React.ReactNode => {
-    const children = entityChildren(entity, entities);
+    const children = entityChildren(entity, entities).sort((a, b) => {
+      const factor = sortDirection === "desc" ? -1 : 1;
+      if (sortKey === "status") {
+        const status = (a.effectiveStatus === "DELIVERING" ? 1 : 0) - (b.effectiveStatus === "DELIVERING" ? 1 : 0);
+        if (status !== 0) return status * factor;
+        return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+      }
+      if (sortKey === "name") return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }) * factor;
+      const av = a.values[sortKey];
+      const bv = b.values[sortKey];
+      if (av == null && bv == null) return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      const diff = av - bv;
+      return diff === 0 ? a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }) : diff * factor;
+    });
     const leaves = leafKeys(entity, entities);
     const checked = leaves.every(key => selected.includes(key));
     const partial = !checked && leaves.some(key => selected.includes(key));
@@ -32,8 +48,8 @@ export function CampaignTree({ entities, roots, metrics, selected, onChange, dis
               const remainder = selected.filter(key => !leaves.includes(key));
               onChange(checked ? remainder : [...remainder, ...leaves]);
             }} />
-          <span className={`analytics-entity-status ${entity.effectiveStatus === "DELIVERING" ? "is-active" : entity.effectiveStatus ? "is-inactive" : "is-unknown"}`}
-            aria-hidden="true" />
+          <span className={`analytics-entity-status ${entity.effectiveStatus === "DELIVERING" ? "is-active" : "is-inactive"}`}
+            role="img" aria-label={`Status: ${statusLabel(entity)}`} data-status-label={`Status: ${statusLabel(entity)}`} />
           {entity.level === "ad" && (entity.thumbnailUrl ? <a href={entity.thumbnailUrl} target="_blank" rel="noopener noreferrer" aria-label={`Ver imagem de ${entity.name}`}><Image className="analytics-ad-thumbnail" src={entity.thumbnailUrl} alt="" width={44} height={44} unoptimized referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = "none"; }} /></a> : <span className="analytics-ad-thumbnail-placeholder" title="Imagem não retornada pela Meta">—</span>)}
           <div><strong>{entity.name}</strong><small>{entity.level === "campaign" ? entity.accountName
             : entity.level === "adset" ? "Conjunto de anúncios" : "Anúncio"}</small></div>

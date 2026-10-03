@@ -302,9 +302,19 @@
   transition: opacity .15s ease, transform .15s ease, color .15s ease, border-color .15s ease;
 }
 .analytics-kpi-remove svg, .analytics-kpi.is-removable .analytics-kpi-icon { pointer-events: none; }
-.analytics-entity-status { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: #6c7886; }
-.analytics-entity-status.is-active { background: #39df83; box-shadow: 0 0 7px #39df8390; }
-.analytics-entity-status.is-inactive { background: #9b414b; }
+.analytics-entity-status { position: relative; flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: #6c7886; }
+.analytics-entity-status.is-active { background: #58b882; }
+.analytics-entity-status.is-inactive { background: #6c7886; }
+.analytics-entity-status:hover::after, .analytics-entity-status:focus-visible::after {
+  content: attr(data-status-label); position: absolute; z-index: 20; left: 50%; bottom: calc(100% + 7px);
+  transform: translateX(-50%); padding: 5px 7px; border: 1px solid #34495f; border-radius: 6px;
+  background: #0c1724; color: #dbe8f6; font-size: 9px; line-height: 1; white-space: nowrap; box-shadow: 0 10px 24px #0007;
+}
+.analytics-campaign-header-controls { display: flex; align-items: center; gap: 8px; }
+.analytics-campaign-main-header button, .analytics-status-sort-button {
+  border: 0; background: transparent; color: inherit; font: inherit; padding: 0; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+}
+.analytics-status-sort-button { color: #8fb0cc; font-size: 9px; }
 .analytics-tree-empty { padding: 16px 48px; color: #aabed2; }
 .analytics-kpi.is-removable:hover .analytics-kpi-remove,
 .analytics-kpi-remove:focus-visible { opacity: 1; transform: translateY(0); }

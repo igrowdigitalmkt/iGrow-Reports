@@ -107,6 +107,31 @@ function sumAccountMetric(data: AnalyticsDashboardData, key: string) {
   return found ? total : null;
 }
 
+function entityStatusRank(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
+  return entity.effectiveStatus === "DELIVERING" ? 1 : 0;
+}
+
+function entityStatusLabel(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
+  return entity.effectiveStatus === "DELIVERING" ? "Ativo" : "Inativo";
+}
+
+function compareCampaignEntities(a: AnalyticsEntity, b: AnalyticsEntity, key: string, direction: "asc" | "desc") {
+  const factor = direction === "desc" ? -1 : 1;
+  if (key === "status") {
+    const status = entityStatusRank(a) - entityStatusRank(b);
+    if (status !== 0) return status * factor;
+    return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+  }
+  if (key === "name") return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }) * factor;
+  const av = a.values[key];
+  const bv = b.values[key];
+  if (av == null && bv == null) return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+  if (av == null) return 1;
+  if (bv == null) return -1;
+  const diff = av - bv;
+  return diff === 0 ? a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }) : diff * factor;
+}
+
 function normalizeEssentialMetrics(data: AnalyticsDashboardData): AnalyticsDashboardData {
   const summary: AnalyticsValues = { ...data.summary };
   const estimatedMetricKeys = new Set(data.estimatedMetricKeys ?? []);
@@ -196,7 +221,7 @@ export function ClientAnalyticsDashboard({
   const draftEntityKeys = compactEntitySelection(hierarchyEntities, selectedLeaves);
   const scopeDirty = [...draftEntityKeys].sort().join(",") !== [...appliedEntityKeys].sort().join(",");
   const [scopeData, setScopeData] = useState<Pick<AnalyticsDashboardData, "summary" | "previousSummary" | "daily" | "previousDaily" | "coverage" | "estimatedMetricKeys"> | null>(null);
-  const [sortKey, setSortKey] = useState("spend");
+  const [sortKey, setSortKey] = useState("status");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [comparison, setComparison] = useState(true);
   const [chartType, setChartType] = useState<"line" | "bar">("line");
@@ -350,9 +375,7 @@ export function ClientAnalyticsDashboard({
   const visibleCampaigns = roots.filter(entity => {
     const descendants = hierarchyEntities.filter(item => item.campaignId === entity.id || item.key === entity.key);
     return [entity, ...descendants].some(item => item.name.toLocaleLowerCase("pt-BR").includes(campaignQuery.toLocaleLowerCase("pt-BR")));
-  }).sort((a,b) => sortDirection === "desc"
-    ? (b.values[sortKey] ?? -Infinity) - (a.values[sortKey] ?? -Infinity)
-    : (a.values[sortKey] ?? Infinity) - (b.values[sortKey] ?? Infinity));
+  }).sort((a, b) => compareCampaignEntities(a, b, sortKey, sortDirection));
 
   const reportRows = useMemo(() => reports.filter((report) =>
     (reportState === "all" || report.state === reportState) &&
@@ -497,7 +520,7 @@ export function ClientAnalyticsDashboard({
   }
 
   function sortBy(key: string) {
-    setSortDirection(sortKey === key && sortDirection === "desc" ? "asc" : "desc");
+    setSortDirection(sortKey === key && sortDirection === "desc" ? "asc" : key === "name" ? "asc" : "desc");
     setSortKey(key);
   }
 
@@ -865,7 +888,14 @@ export function ClientAnalyticsDashboard({
             </div>
           </div>
           <div className="analytics-table-scroll"><table className="analytics-table analytics-campaign-table">
-            <thead><tr><th scope="col">Selecionar · campanha / conta</th>{campaignMetrics.map((metric) => <th scope="col" key={metric.key}
+            <thead><tr><th scope="col" className="analytics-campaign-main-header"><div className="analytics-campaign-header-controls">
+              <button type="button" onClick={() => sortBy("name")}>Selecionar · campanha / conta
+                {sortKey === "name" && <ChevronDown size={12} style={{ transform: sortDirection === "asc" ? "rotate(180deg)" : undefined }} />}
+              </button>
+              <button type="button" className="analytics-status-sort-button" onClick={() => sortBy("status")}>Status
+                {sortKey === "status" && <ChevronDown size={12} style={{ transform: sortDirection === "asc" ? "rotate(180deg)" : undefined }} />}
+              </button>
+            </div></th>{campaignMetrics.map((metric) => <th scope="col" key={metric.key}
               draggable onDragStart={() => setDraggedMetricKey(metric.key)}
               onDragOver={(event) => event.preventDefault()} onDrop={() => moveCampaignMetric(metric.key)}
               className={draggedMetricKey === metric.key ? "is-dragging" : ""}>
@@ -873,7 +903,8 @@ export function ClientAnalyticsDashboard({
                 {sortKey === metric.key && <ChevronDown size={12} style={{ transform: sortDirection === "asc" ? "rotate(180deg)" : undefined }} />}
               </button></th>)}</tr></thead>
             <CampaignTree entities={hierarchyEntities} roots={visibleCampaigns} metrics={campaignMetrics}
-              selected={selectedLeaves} onChange={setSelectedLeaves} disabled={pending || hierarchyLoading} />
+              selected={selectedLeaves} onChange={setSelectedLeaves} disabled={pending || hierarchyLoading}
+              sortKey={sortKey} sortDirection={sortDirection} statusLabel={entityStatusLabel} />
           </table></div>
           {!data.campaigns.length && <p className="analytics-empty-copy">Nenhuma campanha com movimentação foi coletada para este período.</p>}
           <p className="analytics-footnote">A seleção aplicada passa a controlar a Visão geral. Expanda as linhas para escolher conjuntos ou anúncios. Se não houver detalhamento, atualize os dados.</p>
