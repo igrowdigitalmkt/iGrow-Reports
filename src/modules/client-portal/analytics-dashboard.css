@@ -303,7 +303,7 @@
 }
 .analytics-kpi-remove svg, .analytics-kpi.is-removable .analytics-kpi-icon { pointer-events: none; }
 .analytics-entity-status { position: relative; flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: #6c7886; }
-.analytics-entity-status.is-active { background: #58b882; }
+.analytics-entity-status.is-active { background: #4fbe7a; }
 .analytics-entity-status.is-inactive { background: #6c7886; }
 .analytics-entity-status:hover::after, .analytics-entity-status:focus-visible::after {
   content: attr(data-status-label); position: absolute; z-index: 20; left: 50%; bottom: calc(100% + 7px);
