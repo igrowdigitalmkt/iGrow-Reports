@@ -41,6 +41,7 @@ export type MetaClientConnection = {
 };
 
 export type MetaServerReadiness = {
+  oauthReady?: boolean;
   databaseReady: boolean;
   serviceRoleConfigured: boolean;
   encryptionConfigured: boolean;

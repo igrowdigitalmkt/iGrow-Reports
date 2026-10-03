@@ -1,4 +1,5 @@
 import "server-only";
+import { selectedMetaAccounts } from "./login-config";
 import { createHash } from "node:crypto";
 import type { AnalyticsDashboardData, AnalyticsMetric, AnalyticsValues } from "@/modules/client-portal/analytics-types";
 import { metaMetricLabel } from "./metric-labels";
@@ -398,7 +399,7 @@ async function getStoredConnection(
 
   const { data: connections, error: connectionError } = await service
     .from("meta_connections")
-    .select("id,external_user_id")
+    .select("id,external_user_id,metadata")
     .eq("agency_id", agencyId)
     .eq("integration_id", integration.id)
     .eq("client_id", clientId)
@@ -438,6 +439,7 @@ export async function connectMetaForClient(input: {
   clientId: string;
   actorId: string;
   accessToken: string;
+  selectedAccountIds?: string[];
 }) {
   const { service, apiVersion } = operationalDependencies();
   const client = new MetaClient({
@@ -449,7 +451,7 @@ export async function connectMetaForClient(input: {
     client.validateConnection(),
     client.listPermissions(),
   ]);
-  const accounts = await client.listAdAccounts(identity.id);
+  const accounts = selectedMetaAccounts(await client.listAdAccounts(identity.id), input.selectedAccountIds);
   const grantedScopes = permissions
     .filter((permission) => permission.status === "granted")
     .map((permission) => permission.permission);
@@ -499,7 +501,7 @@ export async function connectMetaForClient(input: {
     client_id: input.clientId,
     external_user_id: identity.id,
     scopes: grantedScopes,
-    metadata: { identity_name: identity.name ?? null },
+    metadata: { identity_name: identity.name ?? null, ...(input.selectedAccountIds ? { selected_account_ids: input.selectedAccountIds } : {}) },
     connected_at: now,
     last_accounts_sync_at: now,
     updated_at: now,
@@ -569,7 +571,10 @@ export async function syncMetaAccountsForClient(input: {
   const client = new MetaClient({ accessToken: token, apiVersion });
 
   try {
-    const accounts = await client.listAdAccounts(connection.external_user_id ?? undefined);
+    const metadata = connection.metadata as { selected_account_ids?: string[] } | null;
+    const available = await client.listAdAccounts(connection.external_user_id ?? undefined);
+    const selection = metadata?.selected_account_ids;
+    const accounts = selection ? available.filter(account => selection.includes(account.id)) : available;
     const synced = await syncAccounts(
       service,
       input.agencyId,

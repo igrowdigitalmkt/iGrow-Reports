@@ -68,6 +68,7 @@ export async function getMetaAdminSnapshot(
         encryptionConfigured: !!encryption,
         apiVersion: metaConfig?.apiVersion ?? null,
         ready: false,
+        oauthReady: false,
       },
     };
   }
@@ -120,6 +121,7 @@ export async function getMetaAdminSnapshot(
       encryptionConfigured: !!encryption,
       apiVersion: metaConfig?.apiVersion ?? null,
       ready: !!privileged && !!encryption && !!metaConfig,
+      oauthReady: !!privileged && !!encryption && !!metaConfig && !!process.env.META_APP_SECRET?.trim(),
     },
   };
 }

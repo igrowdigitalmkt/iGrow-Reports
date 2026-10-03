@@ -1,18 +1,16 @@
 "use client";
 
-import { useMemo, useState, useTransition, type FormEvent } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
-  BookOpen,
   CheckCircle2,
   CircleAlert,
-  ExternalLink,
-  KeyRound,
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ClientItem } from "@/modules/clients/schema";
-import { connectMetaIntegration, syncMetaAccounts } from "./actions";
+import { syncMetaAccounts } from "./actions";
+import { FacebookLogin } from "./facebook-login";
 import type { MetaAdminSnapshot } from "./types";
 
 export function MetaIntegrationManager({
@@ -37,7 +35,6 @@ export function MetaIntegrationManager({
       ? initialClientId!
       : activeClients[0]?.id ?? "",
   );
-  const [token, setToken] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -51,28 +48,6 @@ export function MetaIntegrationManager({
     : [];
   const connected = !!connection;
   const healthyConnection = connected && accounts.length > 0;
-
-  function connect(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!clientId) return;
-    setError("");
-    setNotice("");
-    startTransition(async () => {
-      const result = await connectMetaIntegration({
-        agencyId,
-        clientId,
-        accessToken: token,
-      });
-      if ("error" in result) {
-        setError(result.error);
-        return;
-      }
-      setToken("");
-      setNotice(
-        `Conexão de ${selectedClient?.name ?? "cliente"} validada. ${result.accountCount ?? 0} conta(s) sincronizada(s).`,
-      );
-    });
-  }
 
   function sync() {
     if (!clientId) return;
@@ -107,7 +82,7 @@ export function MetaIntegrationManager({
         <div className="meta-card-title">
           <h2>Meta Ads por cliente</h2>
           <span className="eyebrow text-[11px]">
-            MARKETING API · PORTFÓLIO EMPRESARIAL OBRIGATÓRIO
+            LOGIN OFICIAL DO FACEBOOK
           </span>
         </div>
         <span
@@ -157,7 +132,6 @@ export function MetaIntegrationManager({
             setClientId(event.target.value);
             setError("");
             setNotice("");
-            setToken("");
           }}
         >
           {!activeClients.length && (
@@ -219,135 +193,10 @@ export function MetaIntegrationManager({
       )}
 
       {canManage && selectedClient ? (
-        <form onSubmit={connect} className="meta-credential-section">
-          <div className="meta-section-heading">
-            <strong>
-              {connected
-                ? `Credencial de ${selectedClient.name}`
-                : `Conectar Meta de ${selectedClient.name}`}
-            </strong>
-            <span>
-              O token deve pertencer ao Portfólio Empresarial deste cliente e possuir
-              {" "}<strong>ads_read</strong>. Contas sem Portfólio Empresarial não são
-              aceitas na V1.
-            </span>
-          </div>
-
-          <details className="meta-token-guide">
-            <summary>
-              <span>
-                <BookOpen size={15} />
-                Como obter o token deste cliente
-              </span>
-              <span className="muted text-xs">passo a passo</span>
-            </summary>
-            <div className="meta-token-guide-body">
-              <ol>
-                <li>
-                  <strong>Abra o Portfólio Empresarial do cliente.</strong>
-                  <span>
-                    Confirme que você está no portfólio do cliente selecionado acima.
-                    Se a conta de anúncios ainda não pertence a um Portfólio Empresarial,
-                    organize-a na Meta antes de continuar.
-                  </span>
-                </li>
-                <li>
-                  <strong>Acesse Usuários → Usuários do sistema.</strong>
-                  <span>
-                    Crie ou selecione um usuário do sistema exclusivo para integrações.
-                  </span>
-                </li>
-                <li>
-                  <strong>Atribua as contas de anúncios do cliente.</strong>
-                  <span>
-                    Selecione somente os ativos que pertencem a este cliente e conceda
-                    acesso de leitura de desempenho.
-                  </span>
-                </li>
-                <li>
-                  <strong>Gere o token.</strong>
-                  <span>
-                    Escolha o aplicativo da integração e marque obrigatoriamente{" "}
-                    <code>ads_read</code>.
-                  </span>
-                </li>
-                <li>
-                  <strong>Copie e cole diretamente no iGrow.</strong>
-                  <span>
-                    Não envie o token por WhatsApp, e-mail ou chat. O iGrow o armazena
-                    criptografado e não o exibe novamente.
-                  </span>
-                </li>
-              </ol>
-              <div className="meta-token-guide-links">
-                <a
-                  href="https://business.facebook.com/settings/system-users"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir Usuários do sistema <ExternalLink size={13} />
-                </a>
-                <a
-                  href="https://developers.facebook.com/apps/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir apps da Meta <ExternalLink size={13} />
-                </a>
-              </div>
-              <div className="meta-guide-warning">
-                <CircleAlert size={15} />
-                O iGrow não aceita, nesta versão, contas avulsas sem Portfólio
-                Empresarial.
-              </div>
-            </div>
-          </details>
-
-          <div className="meta-credential-row">
-            <input
-              id="meta-access-token"
-              type="password"
-              className="input"
-              autoComplete="off"
-              placeholder={
-                connected
-                  ? "Cole um novo token somente para atualizar a credencial"
-                  : "Token de acesso Meta deste cliente"
-              }
-              value={token}
-              onChange={(event) => setToken(event.target.value)}
-              disabled={pending || !snapshot.serverReadiness.ready}
-              required
-              minLength={20}
-            />
-            <Button
-              type="submit"
-              disabled={
-                pending ||
-                !snapshot.serverReadiness.ready ||
-                token.trim().length < 20
-              }
-            >
-              <KeyRound size={15} />
-              {pending
-                ? "Validando…"
-                : connected
-                  ? "Atualizar credencial"
-                  : "Validar e conectar"}
-            </Button>
-            {connected && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={sync}
-                disabled={pending || !snapshot.serverReadiness.ready}
-              >
-                <RefreshCw size={15} />
-                Sincronizar contas
-              </Button>
-            )}
-          </div>
-        </form>
+        <>
+          {snapshot.serverReadiness.oauthReady && snapshot.serverReadiness.apiVersion ? <FacebookLogin key={clientId} agencyId={agencyId} clientId={clientId} apiVersion={snapshot.serverReadiness.apiVersion} /> : <p className="meta-inline-note">O login oficial com a Meta está aguardando a configuração do iGrow. As conexões existentes continuam disponíveis.</p>}
+          {connected && <Button type="button" variant="secondary" onClick={sync} disabled={pending || !snapshot.serverReadiness.ready}><RefreshCw size={15} />Sincronizar contas selecionadas</Button>}
+        </>
       ) : !selectedClient ? (
         <div className="meta-inline-note">
           <CircleAlert size={15} />
@@ -363,7 +212,7 @@ export function MetaIntegrationManager({
       {!snapshot.serverReadiness.ready && (
         <div className="meta-inline-note">
           <ShieldCheck size={15} />
-          Complete as variáveis de servidor antes de inserir uma credencial.
+          A conexão oficial aguarda configuração do servidor.
         </div>
       )}
       {error && (

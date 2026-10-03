@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { getCompletePortalPeriod } from "@/modules/client-portal/metrics";
-import { MetaApiError } from "./client";
+import { MetaApiError, MetaClient, hasBusinessPortfolio } from "./client";
+import { getMetaApiConfig } from "@/lib/env";
+import { META_LOGIN_APP_ID } from "./login-config";
 import { validateCollectionRange } from "./collection";
 import { collectMetaClientInsights, connectMetaForClient, MetaSetupError, syncMetaAccountsForClient } from "./server";
 
@@ -102,6 +104,7 @@ const connectionSchema = z.object({
   agencyId: z.uuid(),
   clientId: z.uuid(),
   accessToken: z.string().trim().min(20).max(8192),
+  selectedAccountIds: z.array(z.string().regex(/^act_\d+$/)).min(1).max(500).optional(),
 });
 
 const clientOperationSchema = z.object({
@@ -139,13 +142,31 @@ export async function connectMetaIntegration(
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
     return { error: "Credencial ou espaço de trabalho inválido." };
   }
+  const { data: targetClient } = await context.supabase.from("clients").select("id")
+    .eq("agency_id", context.agency.id).eq("id", parsed.data.clientId).is("archived_at", null).maybeSingle();
+  if (!targetClient) return { error: "Cliente indisponível neste espaço de trabalho." };
 
   try {
+    let accessToken = parsed.data.accessToken;
+    if (parsed.data.selectedAccountIds) {
+      const secret = process.env.META_APP_SECRET?.trim();
+      const api = getMetaApiConfig();
+      if (!secret || !api) return { error: "O login oficial está aguardando configuração do servidor." };
+      const exchange = await fetch(`https://graph.facebook.com/${api.apiVersion}/oauth/access_token`, {
+        method: "POST", cache: "no-store", signal: AbortSignal.timeout(20000),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "fb_exchange_token", client_id: META_LOGIN_APP_ID, client_secret: secret, fb_exchange_token: accessToken }),
+      });
+      const exchanged = await exchange.json() as { access_token?: string };
+      if (!exchange.ok || !exchanged.access_token) return { error: "A Meta não confirmou a autorização. Conecte novamente." };
+      accessToken = exchanged.access_token;
+    }
     const result = await connectMetaForClient({
       agencyId: context.agency.id,
       clientId: parsed.data.clientId,
       actorId: context.user.id,
-      accessToken: parsed.data.accessToken,
+      accessToken,
+      selectedAccountIds: parsed.data.selectedAccountIds,
     });
     revalidatePath("/dashboard/integracoes");
     revalidatePath("/dashboard/clientes");
@@ -153,6 +174,22 @@ export async function connectMetaIntegration(
   } catch (error) {
     return { error: safeMetaOperationError(error) };
   }
+}
+
+export async function previewMetaLoginAccounts(input: unknown) {
+  const context = await requireAgencyContext();
+  const parsed = connectionSchema.safeParse(input);
+  if (!parsed.success || parsed.data.agencyId !== context.agency.id || !["owner", "admin"].includes(context.role)) return { error: "Você não pode conectar contas neste espaço de trabalho." };
+  const { data: clientRow } = await context.supabase.from("clients").select("id").eq("agency_id", context.agency.id).eq("id", parsed.data.clientId).is("archived_at", null).maybeSingle();
+  if (!clientRow) return { error: "Cliente indisponível." };
+  const config = getMetaApiConfig();
+  if (!config) return { error: "A conexão Meta ainda não está configurada." };
+  try {
+    const api = new MetaClient({ accessToken: parsed.data.accessToken, apiVersion: config.apiVersion });
+    const identity = await api.validateConnection();
+    const accounts = await api.listAdAccounts(identity.id);
+    return { accounts: accounts.map(account => ({ id: account.id, name: account.name, supported: hasBusinessPortfolio(account) })), name: identity.name ?? "Conta Facebook" };
+  } catch (error) { return { error: safeMetaOperationError(error) }; }
 }
 
 export async function syncMetaAccounts(
