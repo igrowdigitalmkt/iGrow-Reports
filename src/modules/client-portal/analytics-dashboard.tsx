@@ -854,7 +854,12 @@ export function ClientAnalyticsDashboard({
           <div className="analytics-card-heading"><div><span className="analytics-card-kicker">META ADS · HIERARQUIA</span>
             <h3>Campanhas com movimentação no período</h3></div>
             <div className="analytics-campaign-heading-actions">
-              <button type="button" className="analytics-text-button" onClick={() => setSelectedLeaves(allLeaves)}>Selecionar todas</button>
+              <div className="analytics-selection-actions" role="group" aria-label="Selecionar campanhas">
+                <button type="button" className="analytics-text-button" onClick={() => setSelectedLeaves(allLeaves)}
+                  disabled={pending || hierarchyLoading || selectedLeaves.length === allLeaves.length || !allLeaves.length}>Marcar todas</button>
+                <button type="button" className="analytics-text-button" onClick={() => setSelectedLeaves([])}
+                  disabled={pending || hierarchyLoading || !selectedLeaves.length}>Desmarcar todas</button>
+              </div>
               <label className="analytics-search"><Search size={14} /><input type="search" value={campaignQuery}
                 onChange={(event) => setCampaignQuery(event.target.value)} placeholder="Buscar campanha…" /></label>
             </div>

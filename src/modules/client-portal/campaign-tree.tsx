@@ -33,8 +33,7 @@ export function CampaignTree({ entities, roots, metrics, selected, onChange, dis
               onChange(checked ? remainder : [...remainder, ...leaves]);
             }} />
           <span className={`analytics-entity-status ${entity.effectiveStatus === "DELIVERING" ? "is-active" : entity.effectiveStatus ? "is-inactive" : "is-unknown"}`}
-            role="img" aria-label={entity.effectiveStatus === "DELIVERING" ? "Em veiculação" : entity.effectiveStatus ? "Sem veiculação" : "Veiculação indisponível"}
-            title={entity.effectiveStatus === "DELIVERING" ? "Em veiculação: anúncio habilitado com impressões registradas hoje no fuso da conta" : entity.effectiveStatus ? "Sem veiculação confirmada hoje ou pausado na Meta" : "A Meta não confirmou a veiculação"} />
+            aria-hidden="true" />
           {entity.level === "ad" && (entity.thumbnailUrl ? <a href={entity.thumbnailUrl} target="_blank" rel="noopener noreferrer" aria-label={`Ver imagem de ${entity.name}`}><Image className="analytics-ad-thumbnail" src={entity.thumbnailUrl} alt="" width={44} height={44} unoptimized referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = "none"; }} /></a> : <span className="analytics-ad-thumbnail-placeholder" title="Imagem não retornada pela Meta">—</span>)}
           <div><strong>{entity.name}</strong><small>{entity.level === "campaign" ? entity.accountName
             : entity.level === "adset" ? "Conjunto de anúncios" : "Anúncio"}</small></div>

@@ -338,6 +338,8 @@
 .analytics-campaign-scope-bar span { color: #879fb9; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
 .analytics-campaign-scope-bar strong { color: #d5e4f3; font-size: 11px; font-weight: 550; }
 .analytics-campaign-heading-actions { display: flex; align-items: center; gap: 10px; }
+.analytics-selection-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.analytics-selection-actions .analytics-text-button:disabled { color: #657a92; cursor: not-allowed; opacity: .65; }
 .analytics-campaign-table tbody tr.is-selected { background: #1632473b; }
 .analytics-campaign-table input[type="checkbox"] { accent-color: #4fcbe3; width: 14px; height: 14px; }
 .analytics-reports-space { display: grid; gap: 18px; }
