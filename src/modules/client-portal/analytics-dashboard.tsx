@@ -891,7 +891,7 @@ export function ClientAnalyticsDashboard({
             <option value="tiktok" disabled>TikTok Ads · em breve</option>
           </select></label>
           <div><span>Conta(s)</span><strong>{data.selectedAccountIds.length === data.accounts.length ? "Todas as contas selecionadas" : `${data.selectedAccountIds.length} conta(s)`}</strong></div>
-          <div><span>Campanhas</span><strong>{draftEntityKeys.length} de {data.campaigns.length}</strong></div>
+          <div><span>Campanhas</span><strong>{draftEntityKeys.length} de {roots.length}</strong></div>
           <button type="button" className="analytics-button analytics-button-primary" onClick={applyCampaignScope} disabled={pending || hierarchyLoading || !roots.length}>
             {pending ? "Aplicando…" : "Aplicar seleção"}
           </button>
@@ -933,7 +933,7 @@ export function ClientAnalyticsDashboard({
               selected={selectedLeaves} onChange={setSelectedLeaves} disabled={pending || hierarchyLoading}
               sortKey={sortKey} sortDirection={sortDirection} statusLabel={entityDeliveryLabel} />
           </table></div>
-          {!data.campaigns.length && <p className="analytics-empty-copy">Nenhuma campanha com movimentação foi coletada para este período.</p>}
+          {!roots.length && <p className="analytics-empty-copy">Nenhuma campanha disponível nesta conta.</p>}
           <p className="analytics-footnote">A seleção aplicada passa a controlar a Visão geral. Expanda as linhas para escolher conjuntos ou anúncios. Se não houver detalhamento, atualize os dados.</p>
         </article>
       </>}
