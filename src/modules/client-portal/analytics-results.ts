@@ -38,3 +38,22 @@ export function resultBreakdown(values: AnalyticsValues) {
     return amount != null && amount > 0 ? [{ key: group.key, label: group.label, value: amount }] : [];
   });
 }
+
+export function resultCostBreakdown(summary: AnalyticsValues, sources: Array<{ values: AnalyticsValues }>) {
+  const totals = new Map<string, { spend: number; results: number }>();
+  for (const source of sources) {
+    const values = aggregateResults(source.values, true);
+    const spend = values.spend;
+    if (spend == null || spend < 0) continue;
+    for (const result of resultBreakdown(values)) {
+      const current = totals.get(result.key) ?? { spend: 0, results: 0 };
+      current.spend += spend;
+      current.results += result.value;
+      totals.set(result.key, current);
+    }
+  }
+  return resultBreakdown(summary).map(result => {
+    const total = totals.get(result.key);
+    return { ...result, cost: total && total.results > 0 ? total.spend / total.results : null };
+  });
+}

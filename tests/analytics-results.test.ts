@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateResults, resultBreakdown } from "@/modules/client-portal/analytics-results";
+import { aggregateResults, resultBreakdown, resultCostBreakdown } from "@/modules/client-portal/analytics-results";
 
 describe("resultados automáticos", () => {
   it("soma tipos diferentes e calcula o custo sobre o total", () => {
@@ -19,5 +19,18 @@ describe("resultados automáticos", () => {
   });
   it("usa distribuição calculada em cada entidade sem recontar aliases agregados", () => {
     expect(aggregateResults({ "result:leads": 70, "action:lead": 20, "action:onsite_conversion.lead_grouped": 50 }, true).primary_results).toBe(70);
+  });
+  it("calcula custo por tipo usando somente o investimento das entidades daquele resultado", () => {
+    const summary = {
+      "result:provider_known": 1,
+      "result:provider:action:post_engagement": 300,
+      "result:provider:action:onsite_conversion.messaging_conversation_started_7d": 50,
+    };
+    const rows = resultCostBreakdown(summary, [
+      { values: { spend: 600, "result:provider_known": 1, "result:provider:action:post_engagement": 300 } },
+      { values: { spend: 250, "result:provider_known": 1, "result:provider:action:onsite_conversion.messaging_conversation_started_7d": 50 } },
+    ]);
+    expect(rows.find(row => row.key.endsWith("post_engagement"))?.cost).toBe(2);
+    expect(rows.find(row => row.key.endsWith("messaging_conversation_started_7d"))?.cost).toBe(5);
   });
 });

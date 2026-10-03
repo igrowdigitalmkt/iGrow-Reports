@@ -1,6 +1,6 @@
 "use client";
 
-import { resultBreakdown } from "./analytics-results";
+import { resultBreakdown, resultCostBreakdown } from "./analytics-results";
 
 import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
@@ -261,6 +261,9 @@ export function ClientAnalyticsDashboard({
     id: entity.id, name: entity.name, accountId: entity.accountId, accountName: entity.accountName,
     currency: entity.currency, status: null, values: entity.values,
   })) };
+  const resultRows = resultBreakdown(scopedData.summary);
+  const resultCostRows = resultCostBreakdown(scopedData.summary, selectedEntities);
+  const resultCostByKey = new Map(resultCostRows.map(result => [result.key, result.cost]));
   const fixedMetrics = FIXED_METRICS.map((key) => data.metrics.find((metric) => metric.key === key))
     .filter((metric): metric is AnalyticsMetric => !!metric);
   const optionalMetrics = optionalMetricKeys.flatMap(key => {
@@ -616,14 +619,22 @@ export function ClientAnalyticsDashboard({
           {fixedMetrics.map((metric, index) => {
             const change = changeDescription(scopedData, metric);
             const color = ANALYTICS_COLORS[index % ANALYTICS_COLORS.length];
-            return <article className="analytics-kpi is-fixed" key={metric.key}
+            const resultMetric = metric.key === "primary_results" || metric.key === "cost_per_result";
+            const showResultRows = resultMetric && resultRows.length > 0;
+            return <article className={`analytics-kpi is-fixed${showResultRows ? " has-result-rows" : ""}`} key={metric.key}
               style={{ "--metric-color": color } as CSSProperties}>
               <div className="analytics-kpi-top"><span>{metric.label}</span><span className="analytics-kpi-icon" title="Indicador fixo"><Lock size={14} /></span></div>
-              <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
+              {showResultRows ? <div className="analytics-result-metric-list">
+                {resultRows.map(result => <div className="analytics-result-metric-row" key={result.key}>
+                  <strong className="analytics-result-metric-value">{metric.key === "primary_results"
+                    ? result.value.toLocaleString("pt-BR")
+                    : formatAnalyticsValue(resultCostByKey.get(result.key) ?? null, metric, data.currency)}</strong>
+                  <span className="analytics-result-metric-label">{result.label.toLocaleLowerCase("pt-BR")}</span>
+                </div>)}
+              </div> : <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
-              </strong>
-              {metric.key === "primary_results" && <p className="analytics-result-description">{resultBreakdown(scopedData.summary).map(result => <span className="block" key={result.key}>{result.value.toLocaleString("pt-BR")} {result.label.toLocaleLowerCase("pt-BR")}</span>)}</p>}
-              {scopedData.summary[metric.key] == null && <p className="analytics-result-description">{unavailableReason(scopedData, metric)}</p>}
+              </strong>}
+              {scopedData.summary[metric.key] == null && !showResultRows && <p className="analytics-result-description">{unavailableReason(scopedData, metric)}</p>}
               {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate" title="Estimativa pela soma dos alcances ou cliques únicos das contas. Pessoas presentes em mais de uma conta podem ser contadas novamente. Frequência = impressões ÷ alcance estimado.">Estimado entre contas</small>}
               <div className={`analytics-kpi-change is-${change.direction}`}>
                 {"up" in change ? change.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} /> : <span className="analytics-change-dash">—</span>}
