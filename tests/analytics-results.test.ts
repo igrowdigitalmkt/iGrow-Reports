@@ -50,4 +50,11 @@ describe("resultados automáticos", () => {
     }, []);
     expect(rows[0]).toMatchObject({ label: "Cliques no link", cost: 4 });
   });
+  it("traduz indicadores de resultado sem prefixo retornados pela Meta", () => {
+    const rows = resultBreakdown({
+      "result:provider_known": 1,
+      "result:provider:profile_visit_view": 15,
+    });
+    expect(rows[0]).toMatchObject({ label: "Visitas ao perfil do Instagram", value: 15 });
+  });
 });

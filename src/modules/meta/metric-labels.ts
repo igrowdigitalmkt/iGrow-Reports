@@ -13,6 +13,7 @@ const labels: Record<string, string> = {
   video_p50: "Reproduções de 50% do vídeo", video_p75: "Reproduções de 75% do vídeo",
   video_p95: "Reproduções de 95% do vídeo", video_p100: "Reproduções de 100% do vídeo",
   social_spend: "Valor usado social", instagram_profile_visits: "Visitas ao perfil do Instagram",
+  profile_visit_view: "Visitas ao perfil do Instagram",
   instagram_profile_follow: "Seguidores do Instagram", estimated_ad_recallers: "Aumento estimado da lembrança do anúncio (pessoas)",
   attributed_revenue: "Valor de conversão", roas: "Retorno sobre o investimento em publicidade (ROAS)",
   "action:link_click": "Cliques no link", "action:landing_page_view": "Visualizações da página de destino",
