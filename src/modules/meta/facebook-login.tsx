@@ -20,7 +20,27 @@ export function FacebookLogin({ agencyId, clientId, apiVersion }: { agencyId: st
   const [accounts, setAccounts] = useState<{ id: string; name: string; supported: boolean }[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [accountsOpen, setAccountsOpen] = useState(false);
+  const accountPicker = useRef<HTMLDivElement>(null);
   const [pending, startTransition] = useTransition();
+  useEffect(() => {
+    if (!accountsOpen) return;
+    function closeOutside(event: PointerEvent) {
+      if (!accountPicker.current?.contains(event.target as Node)) setAccountsOpen(false);
+    }
+    function closeEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setAccountsOpen(false);
+        accountPicker.current?.querySelector<HTMLButtonElement>("button")?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeEscape);
+    };
+  }, [accountsOpen]);
   useEffect(() => {
     let cancelled = false;
     loadFacebookSdk(apiVersion).then(value => { if (!cancelled) { sdk.current = value; setReady(true); } }).catch(value => { if (!cancelled) setError(value.message); });
@@ -29,7 +49,7 @@ export function FacebookLogin({ agencyId, clientId, apiVersion }: { agencyId: st
   function login() {
     if (!sdk.current) return;
     setError(""); setNotice(""); setWaiting(true);
-    token.current = null; setAccounts([]); setSelected([]);
+    token.current = null; setAccounts([]); setSelected([]); setSearch(""); setAccountsOpen(false);
     const currentAttempt = ++attempt.current;
     authorizationTimeout.current = setTimeout(() => {
       if (currentAttempt !== attempt.current) return;
@@ -62,9 +82,19 @@ export function FacebookLogin({ agencyId, clientId, apiVersion }: { agencyId: st
     <p>Entre pelo Facebook, autorize o iGrow e escolha as contas deste cliente. A autorização solicitará as permissões configuradas para o aplicativo iGrow Digital.</p>
     <Button type="button" onClick={login} disabled={!ready || waiting || pending}>{waiting ? "Aguardando autorização…" : "Conectar com a Meta"}</Button>
     {waiting && <Button type="button" variant="secondary" onClick={() => { attempt.current++; clearTimeout(authorizationTimeout.current); setWaiting(false); }}>Cancelar</Button>}
-    {!!accounts.length && <div className="meta-client-section">
-      <label>Pesquisar conta<input className="input" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nome ou identificação" /></label>
-      {accounts.filter(account => `${account.name} ${account.id}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))).map(account => <label className="meta-field-label" key={account.id}><input type="checkbox" disabled={!account.supported || pending} checked={selected.includes(account.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, account.id] : ids.filter(id => id !== account.id))} /> {account.name} · {account.id}{!account.supported && " · Conta sem portfólio ainda não suportada pelo coletor"}</label>)}
+    {!!accounts.length && <div className="meta-account-selection">
+      <div className="meta-account-picker" ref={accountPicker} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAccountsOpen(false); }}>
+        <Button type="button" variant="secondary" aria-expanded={accountsOpen} onClick={() => setAccountsOpen(value => !value)} disabled={pending}>
+          {selected.length ? `${selected.length} ${selected.length === 1 ? "conta selecionada" : "contas selecionadas"}` : "Selecionar contas de anúncios"} <span aria-hidden="true">{accountsOpen ? "▴" : "▾"}</span>
+        </Button>
+        {accountsOpen && <div className="meta-account-dropdown">
+          <label>Pesquisar conta<input autoFocus className="input" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nome ou identificação" /></label>
+          <div className="meta-account-options">
+            {accounts.filter(account => `${account.name} ${account.id}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))).map(account => <label className="meta-account-option" key={account.id}><input type="checkbox" disabled={!account.supported || pending} checked={selected.includes(account.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, account.id] : ids.filter(id => id !== account.id))} /><span>{account.name}<small>{account.id}{!account.supported && " · Conta sem portfólio ainda não suportada"}</small></span></label>)}
+            {!accounts.some(account => `${account.name} ${account.id}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))) && <p>Nenhuma conta encontrada.</p>}
+          </div>
+        </div>}
+      </div>
       <Button disabled={pending || !selected.length} onClick={() => startTransition(async () => {
         if (!token.current) { setError("Autorize novamente para conectar as contas."); return; }
         const result = await connectMetaIntegration({ agencyId, clientId, accessToken: token.current, selectedAccountIds: selected });

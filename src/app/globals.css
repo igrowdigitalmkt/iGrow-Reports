@@ -1058,6 +1058,17 @@ body { font-size: var(--ui-body); line-height: 1.5; }
   font-size: 12px;
   font-weight: 600;
 }
+.meta-account-selection { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; margin-top: 18px; }
+.meta-account-picker { position: relative; width: min(100%, 420px); }
+.meta-account-picker > button { width: 100%; justify-content: space-between; }
+.meta-account-dropdown { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); box-shadow: 0 12px 28px #0005; }
+.meta-account-dropdown > label { display: grid; gap: 6px; font-size: 12px; }
+.meta-account-options { max-height: 280px; overflow-y: auto; margin-top: 10px; }
+.meta-account-option { display: flex; align-items: flex-start; gap: 10px; padding: 12px 8px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+.meta-account-option > input { margin-top: 3px; flex-shrink: 0; }
+.meta-account-option > span { min-width: 0; overflow-wrap: anywhere; }
+.meta-account-option small { display: block; margin-top: 4px; color: var(--secondary); font-size: 11px; }
+.meta-account-option:has(input:disabled) { opacity: .6; cursor: not-allowed; }
 .meta-connection-block { margin-top: 14px; }
 .meta-connection-summary {
   display: grid;
