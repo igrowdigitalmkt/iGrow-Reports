@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireClientDashboardAccess } from "./context";
 import { normalizeClientAnalytics } from "./analytics-calculations";
 import { normalizeHierarchy } from "./analytics-hierarchy";
-import { refreshMetaDashboardScope } from "@/modules/meta/server";
+import { getMetaEntityStatuses, refreshMetaDashboardScope } from "@/modules/meta/server";
 
 const inputSchema = z.object({
   clientId: z.uuid(), dateFrom: z.iso.date(), dateTo: z.iso.date(),
@@ -40,7 +40,7 @@ const hierarchyInputSchema = z.object({
 export async function getClientAnalyticsHierarchy(input: unknown) {
   const parsed = hierarchyInputSchema.safeParse(input);
   if (!parsed.success) return { error: "Período ou contas inválidos para carregar campanhas." };
-  const { supabase } = await requireClientDashboardAccess(parsed.data.clientId);
+  const { supabase, access } = await requireClientDashboardAccess(parsed.data.clientId);
   const { data, error } = await supabase.rpc("get_client_analytics_hierarchy", {
     p_client_id: parsed.data.clientId,
     p_date_from: parsed.data.dateFrom,
@@ -48,5 +48,20 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
     p_ad_account_ids: parsed.data.accountIds,
   });
   if (error || !data) return { error: "Não foi possível carregar a árvore de campanhas deste período." };
-  return { success: true as const, entities: normalizeHierarchy(data) };
+  const entities = normalizeHierarchy(data);
+  try {
+    const thumbnails: Record<string, string> = {};
+    const statuses = await getMetaEntityStatuses({
+      agencyId: access.agencyId,
+      clientId: parsed.data.clientId,
+      accountIds: parsed.data.accountIds,
+    }, thumbnails);
+    return { success: true as const, entities: entities.map(entity => ({
+      ...entity,
+      effectiveStatus: statuses[`${entity.accountId}:${entity.key}`] ?? entity.effectiveStatus,
+      thumbnailUrl: thumbnails[`${entity.accountId}:${entity.key}`] ?? entity.thumbnailUrl,
+    })) };
+  } catch {
+    return { success: true as const, entities };
+  }
 }
