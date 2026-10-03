@@ -26,10 +26,20 @@ describe("Meta campaign results", () => {
       expect.objectContaining({ value: 103 }), expect.objectContaining({ value: 425 }),
     ]));
   });
-  it("does not publish a partial strict provider total when any campaign lacks results", () => {
+  it("treats a confirmed zero-delivery campaign as zero Results instead of invalidating the total", () => {
+    const totals = campaignResultTotals([
+      { date_start: "2026-07-05", date_stop: "2026-10-02", spend: "10", impressions: "100",
+        results: [{ indicator: "actions:lead", values: [{ value: "5" }] }] },
+      { date_start: "2026-07-05", date_stop: "2026-10-02", spend: "0", impressions: "0" },
+    ]);
+    expect(totals).toMatchObject({ "result:provider_known": 1, "result:provider:action:lead": 5 });
+    expect(providerResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02", spend: "0", impressions: "0" }))
+      .toEqual({ "result:provider_known": 1 });
+  });
+  it("does not publish a partial strict provider total when a delivering campaign lacks results", () => {
     expect(providerResultTotals([
       { date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "actions:lead", values: [{ value: "5" }] }] },
-      { date_start: "2026-07-05", date_stop: "2026-10-02" },
+      { date_start: "2026-07-05", date_stop: "2026-10-02", spend: "10", impressions: "100" },
     ])).toBeNull();
   });
   it("does not guess the result type for campaigns missing provider results", () => {

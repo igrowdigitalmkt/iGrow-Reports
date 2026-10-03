@@ -57,7 +57,7 @@ describe("coleta histórica Meta", () => {
     expect(normalized.insights.map((row) => row.level)).toEqual(["account", "campaign"]);
     expect(normalized.insights[1].parent_external_id).toBe("act_1");
     expect(normalized.insights[0].metadata).toMatchObject({ clicks: 15, outbound_clicks: 8, video_play_actions: null });
-    expect(normalized.insights[0].metadata).toMatchObject({ analytics_version: 7, actions_confirmed: true,
+    expect(normalized.insights[0].metadata).toMatchObject({ analytics_version: 8, actions_confirmed: true,
       action_values_confirmed: true, canonical_values: { "action:lead": 5, primary_results: null } });
     expect(normalized.actions).toHaveLength(2);
     expect(normalized.actions.find((action) => action.action_type === "lead")?.action_value).toBe(5);

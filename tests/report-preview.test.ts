@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.agencyFilters.length = 0;
   mocks.versionResult = { data: { report_id: "report-1", currency: "BRL", date_from: "2026-09-01", date_to: "2026-09-30", state: "ready", timezone_name: "America/Sao_Paulo",
-    configuration_snapshot: { snapshot_version: 5, analytics: { metaAggregate: { confirmed: true, version: 7 } } } }, error: null };
+    configuration_snapshot: { snapshot_version: 5, analytics: { metaAggregate: { confirmed: true, version: 8 } } } }, error: null };
   mocks.reportResult = { data: { id: "report-1" }, error: null };
   mocks.snapshotResult = { data: { quality_status: "complete" }, error: null };
   mocks.metricsResult = { data: [{ metric_key: "spend", label: "Investimento", unit: "currency", numeric_value: 3565.16, display_precision: 2 }], error: null };

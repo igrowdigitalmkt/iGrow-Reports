@@ -5,7 +5,14 @@ import type { AnalyticsValues } from "@/modules/client-portal/analytics-types";
 // actions must remain separate metrics, rather than inflate the Results column.
 export function providerResultValues(row: MetaInsight): AnalyticsValues | null {
   const counts: AnalyticsValues = { "result:provider_known": 1 };
-  if (!Array.isArray(row.results)) return null;
+  if (!Array.isArray(row.results)) {
+    // Meta can omit Results entirely for a campaign row that had no delivery.
+    // That row contributes exactly zero to every Results family and must not
+    // invalidate otherwise complete campaign totals.
+    const spend = row.spend == null ? null : Number(row.spend);
+    const impressions = row.impressions == null ? null : Number(row.impressions);
+    return spend === 0 && impressions === 0 ? counts : null;
+  }
   for (const result of row.results) {
     if (!result || typeof result !== "object") return null;
     const entry = result as Record<string, unknown>;
