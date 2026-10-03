@@ -622,7 +622,7 @@ export function ClientAnalyticsDashboard({
               <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
               </strong>
-              {["primary_results", "cost_per_result"].includes(metric.key) && <p className="analytics-result-description">{resultBreakdown(scopedData.summary).map(result => <span className="block" key={result.key}>{result.value.toLocaleString("pt-BR")} {result.label.toLocaleLowerCase("pt-BR")}</span>)}</p>}
+              {metric.key === "primary_results" && <p className="analytics-result-description">{resultBreakdown(scopedData.summary).map(result => <span className="block" key={result.key}>{result.value.toLocaleString("pt-BR")} {result.label.toLocaleLowerCase("pt-BR")}</span>)}</p>}
               {scopedData.summary[metric.key] == null && <p className="analytics-result-description">{unavailableReason(scopedData, metric)}</p>}
               {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate" title="Estimativa pela soma dos alcances ou cliques únicos das contas. Pessoas presentes em mais de uma conta podem ser contadas novamente. Frequência = impressões ÷ alcance estimado.">Estimado entre contas</small>}
               <div className={`analytics-kpi-change is-${change.direction}`}>

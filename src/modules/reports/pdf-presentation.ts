@@ -49,9 +49,9 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
       text(metric.label, x + 20, y + 42, 20, C.muted, 530);
       const value = formatAnalyticsValue(input.data.summary[metric.key], metric, input.data.currency);
       text(value, x + 20, y + 147, valueSize(value, 530), C.ink, 530, true);
-      if (["primary_results", "cost_per_result"].includes(metric.key)) text(resultDescription(input.data), x + 20, y + 191, 17, C.muted, 530);
+      if (metric.key === "primary_results") text(resultDescription(input.data), x + 20, y + 191, 17, C.muted, 530);
       else if (estimatedMetric(input.data, metric.key)) text("Estimado entre contas", x + 20, y + 191, 17, C.gold, 236);
-      if (["primary_results", "cost_per_result"].includes(metric.key)) return;
+      if (metric.key === "primary_results") return;
       const values = input.data.daily.map(day => day.values[metric.key]);
       const max = Math.max(1, ...values.map(value => value ?? 0));
       doc.setDrawColor(accents[(i + offset) % 6]); doc.setLineWidth(2);

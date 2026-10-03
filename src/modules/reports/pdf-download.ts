@@ -80,7 +80,7 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
   for(let index=0;index<input.metrics.length;index+=3){
     doc.setFont("helvetica","normal");doc.setFontSize(7);
     const descriptionLines = doc.splitTextToSize(resultDescription(input.data),48);
-    const hasResults = input.metrics.slice(index,index+3).some(metric=>["primary_results","cost_per_result"].includes(metric.key));
+    const hasResults = input.metrics.slice(index,index+3).some(metric=>metric.key==="primary_results");
     const rowHeight = hasResults ? Math.max(52, descriptionLines.length * 3.2 + 46) : 52;
     ensure(rowHeight+5);
     input.metrics.slice(index,index+3).forEach((metric,column)=>{
@@ -90,7 +90,7 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
       const value=formatAnalyticsValue(input.data.summary[metric.key],metric,input.data.currency);
       doc.setFont("helvetica","bold");doc.setFontSize(15);doc.setFontSize(Math.min(15,15*48/Math.max(48,doc.getTextWidth(value))));doc.setTextColor(C.ink);doc.text(value,x+4,y+20);
       doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(C.muted);
-      if(["primary_results","cost_per_result"].includes(metric.key)) doc.text(descriptionLines,x+4,y+26);
+      if(metric.key==="primary_results") doc.text(descriptionLines,x+4,y+26);
       else if(estimatedMetric(input.data,metric.key)) doc.text("Estimado entre contas",x+4,y+27);
       const current=input.data.summary[metric.key],previous=input.data.previousSummary[metric.key];
       const change=input.comparison ? input.data.coverage.previousStatus!=="complete" ? "Comparação sem cobertura completa" : current==null || previous==null ? "Comparação indisponível" : previous===0 ? "Anterior igual a zero" : `${((current-previous)/Math.abs(previous)*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% vs. anterior` : "";
