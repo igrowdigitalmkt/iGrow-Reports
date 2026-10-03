@@ -141,6 +141,10 @@ async function getClientAnalyticsDirect(
   });
 
   if (error || !data) {
+    if (error) console.error("client-analytics-rpc", {
+      code: error.code, message: error.message, details: error.details, hint: error.hint,
+      clientId, dateFrom, dateTo, accountCount: accountIds?.length ?? null,
+    });
     throw new Error("Não foi possível consultar o desempenho deste cliente. Confira o período e tente novamente.");
   }
   return normalizeClientAnalytics(data);

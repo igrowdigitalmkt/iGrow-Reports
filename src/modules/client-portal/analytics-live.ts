@@ -17,7 +17,12 @@ export async function getFreshClientAnalytics(input: {
   try {
     await refreshMetaDashboardScope({ agencyId: input.agencyId, clientId, data: initial });
     return await getClientAnalytics(supabase, clientId, dateFrom, dateTo, accountIds);
-  } catch {
+  } catch (error) {
+    console.error("meta-dashboard-scope-refresh", {
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : "unknown",
+      clientId, dateFrom, dateTo, accountCount: accountIds?.length ?? initial.selectedAccountIds.length,
+    });
     initial.warnings.push("A Meta não confirmou os agregados deste período. Resultados e métricas sem confirmação permanecem indisponíveis. Atualize os dados para tentar novamente.");
     return initial;
   }

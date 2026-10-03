@@ -72,7 +72,12 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     data.warnings.push("A comparação anterior permanece indisponível até a cobertura desse período também ficar completa.");
   }
   const { data: headerData, error: headerError } = await supabase.rpc("get_client_report_header", { p_client_id: clientId });
-  if (headerError) throw new Error("Não foi possível consultar a seleção de anúncios.");
+  if (headerError) {
+    console.error("client-report-header-rpc", {
+      code: headerError.code, message: headerError.message, details: headerError.details, hint: headerError.hint, clientId,
+    });
+    throw new Error("Não foi possível consultar a seleção de anúncios.");
+  }
   const workspaceName = headerData && typeof headerData === "object" && !Array.isArray(headerData)
     && typeof headerData.name === "string" ? headerData.name : "Espaço de trabalho";
   const entities: AnalyticsEntity[] = data.campaigns.map((campaign) => ({
