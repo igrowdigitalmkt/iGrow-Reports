@@ -75,7 +75,7 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
     primaryActionType: configuration.primary_action_type,
     estimatedMetricKeys: configuration.estimated_metric_keys,
     summary: data.summary, metrics: catalog.length ? catalog : metrics, daily: configuration.daily, previousDaily: configuration.previous_daily,
-    accounts: configuration.accounts, selectedAccountIds: configuration.account_ids, coverage: configuration.coverage });
+    accounts: configuration.accounts, selectedAccountIds: configuration.account_ids, coverage: configuration.coverage }, false);
   const labels = Array.isArray(configuration.scope_labels) ? configuration.scope_labels.filter((v): v is string => typeof v === "string") : [];
   return { document: { title: String(data.title), clientName: String(data.clientName), workspaceName: String(header.name ?? data.workspaceName),
     analysisNote: typeof header.analysisNote === "string" ? header.analysisNote : "",

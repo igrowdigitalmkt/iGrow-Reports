@@ -106,6 +106,7 @@ export type MetaInsight = {
   reach?: string;
   frequency?: string;
   clicks?: string;
+  instagram_profile_visits?: string;
   unique_clicks?: string;
   inline_link_clicks?: string;
   inline_post_engagement?: string;
@@ -399,6 +400,7 @@ export class MetaClient {
         "ad_id",
         "ad_name",
         "objective",
+        "instagram_profile_visits",
         "spend",
         "impressions",
         "reach",
@@ -437,7 +439,7 @@ export class MetaClient {
       level: input.level ?? "account",
       time_increment: "all_days",
       time_range: JSON.stringify({ since: input.since, until: input.until }),
-      fields: "date_start,date_stop,account_id,campaign_id,adset_id,ad_id,spend,impressions,reach,frequency,clicks,unique_clicks,inline_link_clicks,inline_post_engagement,unique_inline_link_clicks,unique_inline_link_click_ctr,unique_ctr,outbound_clicks,unique_outbound_clicks,outbound_clicks_ctr,unique_outbound_clicks_ctr,actions,action_values,video_play_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p95_watched_actions,video_p100_watched_actions,social_spend",
+      fields: "date_start,date_stop,account_id,campaign_id,adset_id,ad_id,spend,impressions,reach,frequency,clicks,unique_clicks,inline_link_clicks,inline_post_engagement,unique_inline_link_clicks,unique_inline_link_click_ctr,unique_ctr,outbound_clicks,unique_outbound_clicks,outbound_clicks_ctr,unique_outbound_clicks_ctr,actions,action_values,video_play_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p95_watched_actions,video_p100_watched_actions,social_spend,instagram_profile_visits",
       filtering: JSON.stringify([
         { field: "ad.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "DISAPPROVED", "PENDING_REVIEW", "WITH_ISSUES", "IN_PROCESS", "PENDING_BILLING_INFO", "PREAPPROVED"] },
         ...(input.adIds?.length ? [{ field: "ad.id", operator: "IN", value: input.adIds }] : []),

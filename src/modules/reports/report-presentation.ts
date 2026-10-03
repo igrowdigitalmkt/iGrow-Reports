@@ -1,9 +1,12 @@
+import { resultBreakdown } from "@/modules/client-portal/analytics-results";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
 import { metaMetricLabel } from "@/modules/meta/metric-labels";
 
 export function resultDescription(data: AnalyticsDashboardData) {
+  const breakdown = resultBreakdown(data.summary);
+  if (breakdown.length) return breakdown.map(result => `${result.value.toLocaleString("pt-BR")} ${result.label.toLocaleLowerCase("pt-BR")}`).join("; ");
   if (data.primaryActionType) return metaMetricLabel(`action:${data.primaryActionType}`, data.primaryActionType.replaceAll("_", " "));
-  return data.primaryMetricKey ? metaMetricLabel(data.primaryMetricKey, data.primaryMetricKey) : "Resultado principal ainda não definido";
+  return "Nenhum resultado registrado";
 }
 export const reportDate = (date: string) => date.split("-").reverse().join("/");
 export function reportUpdatedAt(data: AnalyticsDashboardData) {

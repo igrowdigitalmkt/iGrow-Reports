@@ -1,0 +1,10 @@
+begin;
+set local search_path=public,extensions;
+select extensions.plan(5);
+select extensions.is((private.result_values('{"spend":500,"action:onsite_conversion.messaging_conversation_started_7d":150,"instagram_profile_visits":50,"action:lead":50}',true)->>'primary_results')::numeric,250::numeric,'Tipos de resultados somam 250');
+select extensions.is((private.result_values('{"spend":500,"action:onsite_conversion.messaging_conversation_started_7d":150,"instagram_profile_visits":50,"action:lead":50}',true)->>'cost_per_result')::numeric,2::numeric,'Custo usa o total de resultados');
+select extensions.is((private.result_values('{"action:lead":50,"action:onsite_conversion.lead_grouped":50,"action:like":300}',true)->>'primary_results')::numeric,50::numeric,'Aliases e curtidas não duplicam resultados');
+select extensions.is((private.result_values('{}',false)->>'primary_results')::numeric,null::numeric,'Ausência de coleta não fabrica resultados');
+select extensions.is((private.analytics_values('[{"actions":{"lead":20}},{"actions":{"onsite_conversion.lead_grouped":50}}]',null,null,null,array['lead','onsite_conversion.lead_grouped'],true,true,null)->>'primary_results')::numeric,70::numeric,'Aliases diferentes de entidades diferentes não perdem resultados');
+select * from extensions.finish();
+rollback;

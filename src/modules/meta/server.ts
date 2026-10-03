@@ -1,3 +1,4 @@
+import { aggregateResults } from "@/modules/client-portal/analytics-results";
 import "server-only";
 import { selectedMetaAccounts } from "./login-config";
 import { createHash } from "node:crypto";
@@ -119,7 +120,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
       values.unique_inline_link_click_ctr = impressions && values.unique_inline_link_clicks != null ? values.unique_inline_link_clicks / impressions * 100 : null;
       add("frequency", "Frequência", "ratio"); add("unique_ctr", "CTR único (todos)", "percent"); add("unique_inline_link_click_ctr", "CTR único (taxa de cliques no link)", "percent");
     }
-    for (const key of ["inline_post_engagement", "social_spend"]) {
+    for (const key of ["inline_post_engagement", "social_spend", "instagram_profile_visits"]) {
       const amount = key === "social_spend" && !data.currency ? null : scalar(key);
       if (amount !== null) values[key] = amount;
       add(key, key, key === "social_spend" ? "currency" : "integer");
@@ -154,7 +155,15 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
       if (valueTotals.has(action)) { values[`value:${key}`] = data.currency ? valueTotals.get(action)! : null; add(`value:${key}`, label, "currency"); }
     }
     if (values.inline_post_engagement == null && actionTotals.has("post_engagement")) values.inline_post_engagement = actionTotals.get("post_engagement")!;
-    return values;
+    const outcomes = rows.map(row => aggregateResults({
+      ...Object.fromEntries((row.actions ?? []).map(action => [`action:${action.action_type}`, Number(action.value)])),
+      instagram_profile_visits: periodScalarValue(row, "instagram_profile_visits"),
+    }, true));
+    for (const key of ["messages", "profile_visits", "leads", "registrations", "purchases"]) {
+      const amounts = outcomes.map(row => row[`result:${key}`]);
+      values[`result:${key}`] = amounts.some(amount => amount != null) ? amounts.reduce<number>((total, amount) => total + (amount ?? 0), 0) : null;
+    }
+    return aggregateResults({ ...values, spend }, true);
   };
   const summary = calculate("current"), previousSummary = calculate("previous");
   const { error } = await service.from("meta_dashboard_scopes").upsert({ agency_id: input.agencyId, client_id: input.clientId,

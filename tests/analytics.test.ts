@@ -8,9 +8,9 @@ describe("normalização do dashboard do cliente", () => {
       previousSummary: { spend: null },
       daily: [{ date: "2026-09-29", values: { spend: "100.25" } }],
     });
-    expect(data.summary).toEqual({ spend: 300, reach: null, link_clicks: 100, cpc_link: 3, missing: null });
+    expect(data.summary).toMatchObject({ spend: 300, reach: null, link_clicks: 100, cpc_link: 3, missing: null });
     expect(data.previousSummary.spend).toBeNull();
-    expect(data.daily).toEqual([{ date: "2026-09-29", values: { spend: 100.25 } }]);
+    expect(data.daily).toMatchObject([{ date: "2026-09-29", values: { spend: 100.25 } }]);
     expect(data.coverage.status).toBe("empty");
   });
 

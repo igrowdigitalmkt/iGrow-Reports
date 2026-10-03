@@ -1,3 +1,4 @@
+import { resultBreakdown } from "@/modules/client-portal/analytics-results";
 import { jsPDF } from "jspdf";
 import type { DashboardPdfInput } from "./pdf-download";
 import { formatAnalyticsValue } from "@/modules/client-portal/analytics-charts";
@@ -40,29 +41,40 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
   }
   text("Relatório de performance · Apresentação", 100, 967, 20, C.muted);
 
-  for (let offset = 0; offset < input.metrics.length; offset += 12) {
+  for (let offset = 0; offset < input.metrics.length; offset += 6) {
     slide(offset ? "Indicadores da análise · continuação" : "Visão geral dos resultados");
-    input.metrics.slice(offset, offset + 12).forEach((metric, i) => {
-      const x = 80 + i % 6 * 296, y = 240 + Math.floor(i / 6) * 340;
-      panel(x, y, 276, 305); doc.setDrawColor(accents[(i + offset) % 6]); doc.setLineWidth(3); doc.line(x + 12, y + 2, x + 264, y + 2);
-      text(metric.label, x + 20, y + 42, 20, C.muted, 236);
+    input.metrics.slice(offset, offset + 6).forEach((metric, i) => {
+      const x = 80 + i % 3 * 596, y = 240 + Math.floor(i / 3) * 340;
+      panel(x, y, 570, 305); doc.setDrawColor(accents[(i + offset) % 6]); doc.setLineWidth(3); doc.line(x + 12, y + 2, x + 558, y + 2);
+      text(metric.label, x + 20, y + 42, 20, C.muted, 530);
       const value = formatAnalyticsValue(input.data.summary[metric.key], metric, input.data.currency);
-      text(value, x + 20, y + 147, valueSize(value, 235), C.ink, 236, true);
-      if (["primary_results", "cost_per_result"].includes(metric.key)) text(resultDescription(input.data), x + 20, y + 191, 17, C.muted, 236);
+      text(value, x + 20, y + 147, valueSize(value, 530), C.ink, 530, true);
+      if (["primary_results", "cost_per_result"].includes(metric.key)) text(resultDescription(input.data), x + 20, y + 191, 17, C.muted, 530);
       else if (estimatedMetric(input.data, metric.key)) text("Estimado entre contas", x + 20, y + 191, 17, C.gold, 236);
+      if (["primary_results", "cost_per_result"].includes(metric.key)) return;
       const values = input.data.daily.map(day => day.values[metric.key]);
       const max = Math.max(1, ...values.map(value => value ?? 0));
       doc.setDrawColor(accents[(i + offset) % 6]); doc.setLineWidth(2);
       values.forEach((value, index) => {
         const previous = values[index - 1];
         if (value == null || previous == null) return;
-        doc.line(x + 20 + (index - 1) / Math.max(1, values.length - 1) * 236, y + 283 - previous / max * 48,
-          x + 20 + index / Math.max(1, values.length - 1) * 236, y + 283 - value / max * 48);
+        doc.line(x + 20 + (index - 1) / Math.max(1, values.length - 1) * 530, y + 283 - previous / max * 48,
+          x + 20 + index / Math.max(1, values.length - 1) * 530, y + 283 - value / max * 48);
       });
     });
     if (input.data.selectedAccountIds.length > 1) text("Estimativas entre contas podem incluir pessoas repetidas. Frequência = impressões / alcance estimado.", 80, 970, 18, C.gold);
   }
 
+  const resultRows = resultBreakdown(input.data.summary);
+  if (resultRows.length) {
+    slide("Distribuição dos resultados");
+    resultRows.forEach((row, index) => {
+      const y = 270 + index * 125;
+      panel(80, y, 1760, 105);
+      text(row.label, 115, y + 65, 28, C.ink, 1330);
+      text(row.value.toLocaleString("pt-BR"), 1500, y + 65, 32, C.cyan, 300, true);
+    });
+  }
   slide("Evolução no tempo");
   for (const [index, key] of ["spend", "primary_results"].entries()) {
     const metric = input.data.metrics.find(metric => metric.key === key);
@@ -99,7 +111,7 @@ export function buildPresentationPdf(input: DashboardPdfInput) {
   const campaigns = [...input.data.campaigns].sort((a, b) => (b.values.spend ?? 0) - (a.values.spend ?? 0));
   const spend = input.data.summary.spend ?? 0;
   const observations = [
-    { title: "Resultado principal", body: `${formatAnalyticsValue(input.data.summary.primary_results, input.data.metrics.find(m => m.key === "primary_results")!, input.data.currency)} ${resultDescription(input.data)}. Custo por resultado: ${formatAnalyticsValue(input.data.summary.cost_per_result, input.data.metrics.find(m => m.key === "cost_per_result")!, input.data.currency)}.` },
+    { title: "Distribuição dos resultados", body: `${resultDescription(input.data)}. Custo por resultado: ${formatAnalyticsValue(input.data.summary.cost_per_result, input.data.metrics.find(m => m.key === "cost_per_result")!, input.data.currency)}.` },
     { title: "Concentração do investimento", body: campaigns[0] && spend ? `${campaigns[0].name} concentrou ${((campaigns[0].values.spend ?? 0) / spend * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do valor usado.` : "Sem investimento registrado para a seleção." },
     { title: "Resposta aos anúncios", body: `${(input.data.summary.link_clicks ?? 0).toLocaleString("pt-BR")} cliques no link em ${(input.data.summary.impressions ?? 0).toLocaleString("pt-BR")} impressões.` },
   ];

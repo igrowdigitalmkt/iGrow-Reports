@@ -110,7 +110,7 @@ select is(
   (select numeric_value from report_metrics
    where report_version_id=(select first_version from report_test_ids)
      and metric_key='leads'),
-  25::numeric,'Snapshot congela resultado principal'
+  30::numeric,'Snapshot congela a soma dos resultados'
 );
 select is(
   (select (summary_json->>'roas')::numeric from report_data_snapshots

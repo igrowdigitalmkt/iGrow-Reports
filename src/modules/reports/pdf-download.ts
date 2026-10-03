@@ -1,3 +1,4 @@
+import { resultBreakdown } from "@/modules/client-portal/analytics-results";
 import { jsPDF } from "jspdf";
 import { formatAnalyticsValue } from "@/modules/client-portal/analytics-charts";
 import type { AnalyticsDashboardData, AnalyticsMetric } from "@/modules/client-portal/analytics-types";
@@ -74,29 +75,35 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
   if(zones.length) text(`Fusos: ${zones.join("; ")}`,9,C.muted);
   if(input.headerDetails) {y+=4;text(input.headerDetails,9,C.muted);}
   section("Visão geral dos resultados");
+  const resultRows = resultBreakdown(input.data.summary);
+  if(resultRows.length) table(["Tipo de resultado", "Quantidade"],resultRows.map(row=>[row.label,row.value.toLocaleString("pt-BR")]),[132,42]);
   for(let index=0;index<input.metrics.length;index+=3){
-    ensure(57);
+    doc.setFont("helvetica","normal");doc.setFontSize(7);
+    const descriptionLines = doc.splitTextToSize(resultDescription(input.data),48);
+    const hasResults = input.metrics.slice(index,index+3).some(metric=>["primary_results","cost_per_result"].includes(metric.key));
+    const rowHeight = hasResults ? Math.max(52, descriptionLines.length * 3.2 + 46) : 52;
+    ensure(rowHeight+5);
     input.metrics.slice(index,index+3).forEach((metric,column)=>{
       const x=18+column*59;
-      doc.setFillColor(C.paper);doc.setDrawColor(C.border);doc.roundedRect(x,y,56,52,2,2,"FD");
+      doc.setFillColor(C.paper);doc.setDrawColor(C.border);doc.roundedRect(x,y,56,rowHeight,2,2,"FD");
       doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(C.muted);doc.text(doc.splitTextToSize(metric.label,48).slice(0,2),x+4,y+6);
       const value=formatAnalyticsValue(input.data.summary[metric.key],metric,input.data.currency);
       doc.setFont("helvetica","bold");doc.setFontSize(15);doc.setFontSize(Math.min(15,15*48/Math.max(48,doc.getTextWidth(value))));doc.setTextColor(C.ink);doc.text(value,x+4,y+20);
       doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(C.muted);
-      if(["primary_results","cost_per_result"].includes(metric.key)) doc.text(doc.splitTextToSize(resultDescription(input.data),48).slice(0,2),x+4,y+26);
+      if(["primary_results","cost_per_result"].includes(metric.key)) doc.text(descriptionLines,x+4,y+26);
       else if(estimatedMetric(input.data,metric.key)) doc.text("Estimado entre contas",x+4,y+27);
       const current=input.data.summary[metric.key],previous=input.data.previousSummary[metric.key];
       const change=input.comparison ? input.data.coverage.previousStatus!=="complete" ? "Comparação sem cobertura completa" : current==null || previous==null ? "Comparação indisponível" : previous===0 ? "Anterior igual a zero" : `${((current-previous)/Math.abs(previous)*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% vs. anterior` : "";
-      doc.text(doc.splitTextToSize(change,48).slice(0,2),x+4,y+36);
+      doc.text(doc.splitTextToSize(change,48).slice(0,2),x+4,y+rowHeight-16);
       const values=input.data.daily.map(day=>day.values[metric.key]); const max=Math.max(1,...values.map(value=>value??0));
       doc.setDrawColor(C.blue);doc.setLineWidth(.35);values.forEach((amount,i)=>{
         if(amount==null || values[i-1]==null)return;
-        doc.line(x+4+(i-1)*48/Math.max(1,values.length-1),y+49-(values[i-1]??0)/max*6,x+4+i*48/Math.max(1,values.length-1),y+49-amount/max*6);
+        doc.line(x+4+(i-1)*48/Math.max(1,values.length-1),y+rowHeight-3-(values[i-1]??0)/max*6,x+4+i*48/Math.max(1,values.length-1),y+rowHeight-3-amount/max*6);
       });
-    });y+=57;
+    });y+=rowHeight+5;
   }
   if(input.data.daily.length) {
-  section("Evolução no tempo","Valores diários do investimento e do resultado principal.",105);
+  section("Evolução no tempo","Valores diários do investimento e dos resultados.",105);
   for(const key of ["spend","primary_results"]){
     const metric=input.data.metrics.find(m=>m.key===key);if(!metric)continue;
     ensure(75);text(metric.label,11,C.ink,true);
@@ -123,7 +130,7 @@ export function buildDashboardPdf(input: DashboardPdfInput) {
   if(input.data.campaigns.length) {
   section("O que merece atenção","Observações descritivas calculadas sobre a seleção desta análise.");
   const campaigns=[...input.data.campaigns].sort((a,b)=>(b.values.spend??0)-(a.values.spend??0));const spend=input.data.summary.spend??0;
-  text("Resultado principal",11,C.ink,true);text(`${metricValue("primary_results",input.data.summary.primary_results)} ${resultDescription(input.data)}. Custo por resultado: ${metricValue("cost_per_result",input.data.summary.cost_per_result)}.`,10,C.muted);y+=4;
+  text("Distribuição dos resultados",11,C.ink,true);text(`${resultDescription(input.data)}. Custo por resultado: ${metricValue("cost_per_result",input.data.summary.cost_per_result)}.`,10,C.muted);y+=4;
   text("Concentração do investimento",11,C.ink,true);text(campaigns[0]&&spend?`${campaigns[0].name} concentrou ${((campaigns[0].values.spend??0)/spend*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% do investimento do período.`:"Sem investimento registrado para a seleção.",10,C.muted);y+=4;
   text("Resposta aos anúncios",11,C.ink,true);text(`${metricValue("link_clicks",input.data.summary.link_clicks)} cliques no link em ${metricValue("impressions",input.data.summary.impressions)} impressões.`,10,C.muted);
   }

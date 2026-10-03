@@ -1,5 +1,7 @@
 "use client";
 
+import { resultBreakdown } from "./analytics-results";
+
 import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
 import { CampaignTree } from "./campaign-tree";
@@ -19,7 +21,7 @@ import { deleteDashboardReport, generateDashboardReport } from "./report-actions
 import { publishReportVersion } from "@/modules/reports/actions";
 import { resolveAnalyticsRange } from "./range";
 import { ANALYTICS_REFRESH_MS } from "./analytics-freshness";
-import { resultDescription, estimatedMetric } from "@/modules/reports/report-presentation";
+import { estimatedMetric } from "@/modules/reports/report-presentation";
 import type { AnalyticsDashboardData, AnalyticsReportItem } from "./analytics-types";
 import {
   ANALYTICS_COLORS, AnalyticsAccountChart, AnalyticsSparkline, AnalyticsTrendChart,
@@ -83,7 +85,6 @@ function metricGroup(metric: AnalyticsMetric) {
   return "Engajamento e outros";
 }
 function unavailableReason(data: AnalyticsDashboardData, metric: AnalyticsMetric) {
-  if (["primary_results", "cost_per_result"].includes(metric.key) && !data.primaryActionType) return "Defina o resultado principal nas configurações deste cliente (por exemplo, conversas por mensagem iniciadas).";
   if (["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr", "unique_outbound_clicks"].includes(metric.key)
     && data.selectedAccountIds.length > 1) return "A Meta não retornou os valores necessários para estimar este indicador entre contas.";
   if (metric.unit === "currency" && !data.currency) return "As contas selecionadas usam moedas diferentes. Filtre contas da mesma moeda para ver este total. O investimento de cada conta aparece separadamente abaixo.";
@@ -621,7 +622,7 @@ export function ClientAnalyticsDashboard({
               <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
               </strong>
-              {["primary_results", "cost_per_result"].includes(metric.key) && <p className="analytics-result-description">{resultDescription(scopedData)}</p>}
+              {["primary_results", "cost_per_result"].includes(metric.key) && <p className="analytics-result-description">{resultBreakdown(scopedData.summary).map(result => <span className="block" key={result.key}>{result.value.toLocaleString("pt-BR")} {result.label.toLocaleLowerCase("pt-BR")}</span>)}</p>}
               {scopedData.summary[metric.key] == null && <p className="analytics-result-description">{unavailableReason(scopedData, metric)}</p>}
               {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate" title="Estimativa pela soma dos alcances ou cliques únicos das contas. Pessoas presentes em mais de uma conta podem ser contadas novamente. Frequência = impressões ÷ alcance estimado.">Estimado entre contas</small>}
               <div className={`analytics-kpi-change is-${change.direction}`}>
@@ -695,7 +696,7 @@ export function ClientAnalyticsDashboard({
           <article className="analytics-card analytics-results-card">
             <div className="analytics-card-heading"><div><span className="analytics-card-kicker">AÇÕES DA PLATAFORMA</span><h3>Resultados em detalhe</h3></div><Target size={17} /></div>
             <div className="analytics-action-list">{actions.length ? actions.map((metric) => <div key={metric.key}>
-              <span>{metric.label}{metric.key === `action:${data.primaryActionType}` && <small>Resultado principal</small>}</span>
+              <span>{metric.label}</span>
               <strong>{formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}</strong>
             </div>) : <p className="analytics-empty-copy">Sem ações disponíveis neste período.</p>}</div>
             <p className="analytics-footnote">Tipos de ação podem se sobrepor e não são somados como uma conversão única.</p>

@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition, type FormEvent } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowRight, Link2, Plug, RefreshCw, Target } from "lucide-react";
+import { ArrowRight, Link2, Plug, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { collectClientMetaData, setClientAdAccount, setClientMetricMapping } from "./actions";
+import { collectClientMetaData, setClientAdAccount } from "./actions";
 import type {
   ClientAdAccountLink,
   ClientMetricMapping,
@@ -23,12 +23,6 @@ type Props = {
   connected: boolean;
 };
 
-const resultOptions = [
-  { key: "leads", label: "Leads" },
-  { key: "conversations", label: "Conversas" },
-  { key: "purchases", label: "Compras" },
-] as const;
-
 export function ClientMetaManager({
   agencyId,
   clientId,
@@ -37,20 +31,9 @@ export function ClientMetaManager({
   ready,
   accounts,
   initialLinks,
-  initialMapping,
   connected,
 }: Props) {
   const [links, setLinks] = useState(initialLinks);
-  const [primaryMetricKey, setPrimaryMetricKey] = useState<
-    "leads" | "conversations" | "purchases"
-  >(initialMapping?.primaryMetricKey ?? "leads");
-  const [primaryActionType, setPrimaryActionType] = useState(
-    initialMapping?.primaryActionType ?? "",
-  );
-  const [revenueActionType, setRevenueActionType] = useState(
-    initialMapping?.revenueActionType ?? "",
-  );
-  const [mappingReady, setMappingReady] = useState(!!initialMapping);
   const [collectionPeriod, setCollectionPeriod] = useState<"7d" | "30d">("30d");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -94,27 +77,6 @@ export function ClientMetaManager({
           ? "Conta de anúncios associada ao cliente."
           : "Conta de anúncios removida do cliente.",
       );
-    });
-  }
-
-  function saveMapping(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setNotice("");
-    startTransition(async () => {
-      const result = await setClientMetricMapping({
-        agencyId,
-        clientId,
-        primaryMetricKey,
-        primaryActionType,
-        revenueActionType,
-      });
-      if ("error" in result) {
-        setError(result.error);
-        return;
-      }
-      setMappingReady(true);
-      setNotice("Resultado principal salvo.");
     });
   }
 
@@ -207,71 +169,6 @@ export function ClientMetaManager({
         </div>
       </section>
 
-      <form onSubmit={saveMapping} className="border-t border-[var(--border)] pt-5">
-        <div className="flex items-start gap-3">
-          <span className="violet flex h-8 w-8 items-center justify-center rounded-md">
-            <Target size={16} />
-          </span>
-          <div>
-            <strong className="text-sm font-semibold">Resultado principal</strong>
-            <p className="muted mt-1 text-xs">
-              Defina qual resultado representa a conversão principal deste cliente e qual ação da Meta alimenta esse número.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm">
-            Métrica principal
-            <select
-              className="input mt-2"
-              value={primaryMetricKey}
-              onChange={(event) => setPrimaryMetricKey(event.target.value as typeof primaryMetricKey)}
-              disabled={pending || archived || !ready}
-            >
-              {resultOptions.map((option) => (
-                <option key={option.key} value={option.key}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm">
-            Ação Meta correspondente
-            <input
-              className="input mt-2"
-              placeholder="Ex.: lead"
-              value={primaryActionType}
-              onChange={(event) => setPrimaryActionType(event.target.value)}
-              disabled={pending || archived || !ready}
-              required
-            />
-          </label>
-        </div>
-
-        <label className="mt-4 block text-sm">
-          Ação de receita atribuída <span className="muted">(opcional)</span>
-          <input
-            className="input mt-2"
-            placeholder="Ex.: omni_purchase"
-            value={revenueActionType}
-            onChange={(event) => setRevenueActionType(event.target.value)}
-            disabled={pending || archived || !ready}
-          />
-        </label>
-
-        <div className="mt-4 flex items-center gap-3">
-          <Button type="submit" disabled={pending || archived || !ready || !primaryActionType.trim()}>
-            {pending ? <RefreshCw className="animate-spin" size={15} /> : <Target size={15} />}
-            {pending ? "Salvando…" : "Salvar resultado"}
-          </Button>
-          {initialMapping && (
-            <span className="muted text-xs">Configuração v{initialMapping.mappingVersion}</span>
-          )}
-        </div>
-      </form>
-
-
-
       <section className="border-t border-[var(--border)] pt-5">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -313,9 +210,6 @@ export function ClientMetaManager({
         </div>
         {ready && connected && activeLinks.size === 0 && (
           <p className="muted mt-3 text-xs">Associe ao menos uma conta de anúncios antes da coleta.</p>
-        )}
-        {ready && connected && activeLinks.size > 0 && !mappingReady && (
-          <p className="muted mt-3 text-xs">Colete os dados primeiro. Depois configure o resultado principal com uma ação retornada pela Meta para gerar relatórios.</p>
         )}
       </section>
 

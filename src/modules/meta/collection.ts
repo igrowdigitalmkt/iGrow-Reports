@@ -146,6 +146,7 @@ export function normalizeInsightSlice(input: {
           adset_name: insight.adset_name ?? null,
           ad_id: insight.ad_id ?? null,
           ad_name: insight.ad_name ?? null,
+          instagram_profile_visits: numeric(insight.instagram_profile_visits),
           clicks: numeric(insight.clicks),
           unique_clicks: numeric(insight.unique_clicks),
           frequency: numeric(insight.frequency),
