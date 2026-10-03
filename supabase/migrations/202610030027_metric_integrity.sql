@@ -1,7 +1,7 @@
 -- An exact provider response belongs to one client/account/entity/date scope.
 -- Old contracts, expired aggregates and aggregates older than refreshed daily
 -- data cannot be combined with current metrics.
-create function private.valid_dashboard_scope(p_client uuid,p_from date,p_to date,p_accounts uuid[],p_entities text[])
+create or replace function private.valid_dashboard_scope(p_client uuid,p_from date,p_to date,p_accounts uuid[],p_entities text[])
 returns jsonb language sql stable security definer set search_path='' as $$
   select s.payload||jsonb_build_object('_collectedAt',s.collected_at)
   from public.meta_dashboard_scopes s
@@ -23,7 +23,7 @@ revoke all on function private.valid_dashboard_scope(uuid,date,date,uuid[],text[
 
 -- Named conversion families are secondary metrics. They cannot establish the
 -- provider-selected Results indicator or its cost when Results was omitted.
-create function private.provider_result_family(p_key text) returns text
+create or replace function private.provider_result_family(p_key text) returns text
 language sql immutable set search_path='' as $$
   select case regexp_replace(p_key,'^result:provider:','')
     when 'action:onsite_conversion.messaging_conversation_started_7d' then 'messages'
@@ -60,7 +60,7 @@ begin
 end;
 $$;
 
-create function private.canonical_daily_row(p_row jsonb) returns jsonb
+create or replace function private.canonical_daily_row(p_row jsonb) returns jsonb
 language plpgsql immutable set search_path='' as $$
 declare v_values jsonb:=p_row->'canonical_values';v_actions jsonb;v_revenues jsonb;v_results jsonb;
 begin
@@ -213,25 +213,33 @@ $$;
 
 -- Manual versions use the same validated account scope, complete analytical
 -- snapshot and native result semantics as a dashboard-generated version.
-do $$
-declare v_definition text;
+create or replace function public.create_manual_report_version(
+  p_agency_id uuid,p_client_id uuid,p_date_from date,p_date_to date,
+  p_report_id uuid default null,p_title text default 'Relatório de performance'
+) returns uuid language plpgsql security definer set search_path='' as $$
+declare
+  v_agency uuid;v_data jsonb;v_report uuid;v_version uuid;v_keys text[];v_entities jsonb;v_version_number integer;
+  p_ad_account_ids uuid[];p_entity_keys text[]:='{}';p_metric_keys text[]:=array['link_clicks','ctr_link','cpc_link','attributed_revenue','roas'];p_header jsonb:='{}';
 begin
-  v_definition:=replace(pg_get_functiondef('public.create_dashboard_report(uuid,date,date,uuid[],text[],text[],text,jsonb)'::regprocedure),E'\r','');
-  v_definition:=regexp_replace(v_definition,'CREATE OR REPLACE FUNCTION public.create_dashboard_report\([^\n]+\)',
-    'CREATE OR REPLACE FUNCTION public.create_manual_report_version(p_agency_id uuid,p_client_id uuid,p_date_from date,p_date_to date,p_report_id uuid DEFAULT NULL,p_title text DEFAULT ''Relatório de performance'')');
-  v_definition:=replace(v_definition,'declare', $declarations$declare
-  p_ad_account_ids uuid[];p_entity_keys text[]:='{}';p_metric_keys text[]:=array['link_clicks','ctr_link','cpc_link','attributed_revenue','roas'];
-  p_header jsonb:='{}';v_version_number integer;
-$declarations$);
-  v_definition:=replace(v_definition,'if p_title is null', $checks$if v_agency is distinct from p_agency_id then
-    raise exception 'Cliente ativo indisponível.' using errcode='22023';
+  select agency_id into v_agency from public.clients where id=p_client_id and archived_at is null;
+  if v_agency is distinct from p_agency_id or not private.has_agency_role(v_agency,array['owner','admin']::public.agency_role[]) then
+    raise exception 'Sem permissão para gerar relatório.' using errcode='42501';
+  end if;
+  if p_title is null or char_length(trim(p_title)) not between 2 and 200 then
+    raise exception 'Configuração inválida.' using errcode='22023';
   end if;
   v_data:=public.get_client_analytics(p_client_id,p_date_from,p_date_to,null);
-  select array_agg(id::uuid) into p_ad_account_ids from jsonb_array_elements_text(v_data->'selectedAccountIds') id;
-  if p_title is null$checks$);
-  v_definition:=replace(v_definition,$original$insert into public.reports(agency_id,client_id,title,created_by)
-    values(v_agency,p_client_id,trim(p_title),auth.uid()) returning id into v_report;$original$,
-    $replacement$if p_report_id is null then
+  select coalesce(array_agg(id::uuid),'{}'::uuid[]) into p_ad_account_ids from jsonb_array_elements_text(v_data->'selectedAccountIds') id;
+  if cardinality(p_ad_account_ids) is null or cardinality(p_ad_account_ids) not between 1 and 100 then
+    raise exception 'Configuração inválida.' using errcode='22023';
+  end if;
+  if v_data->'coverage'->>'status'<>'complete' or v_data->>'currency' is null or v_data->'metaAggregate'->>'confirmed' is distinct from 'true' then
+    raise exception 'Os dados do período não estão prontos para gerar relatório.' using errcode='22023';
+  end if;
+  select coalesce(jsonb_agg(e),'[]'::jsonb) into v_entities
+    from jsonb_array_elements(public.get_client_analytics_hierarchy(p_client_id,p_date_from,p_date_to,p_ad_account_ids)) e;
+  v_keys:=array['spend','reach','impressions','cpm','primary_results','cost_per_result']||p_metric_keys;
+  if p_report_id is null then
     insert into public.reports(agency_id,client_id,title,created_by)
       values(v_agency,p_client_id,trim(p_title),auth.uid()) returning id into v_report;
     v_version_number:=1;
@@ -240,14 +248,34 @@ $declarations$);
     if v_report is null then raise exception 'Relatório indisponível.' using errcode='22023';end if;
     perform pg_advisory_xact_lock(hashtextextended(v_agency::text||':'||v_report::text,0));
     select coalesce(max(version_number),0)+1 into v_version_number from public.report_versions where agency_id=v_agency and report_id=v_report;
-  end if;$replacement$);
-  v_definition:=replace(v_definition,'values(v_agency,v_report,p_client_id,1,','values(v_agency,v_report,p_client_id,v_version_number,');
-  v_definition:=replace(v_definition,'''report.dashboard_generated''','''report.version_created''');
-  execute v_definition;
+  end if;
+  insert into public.report_versions(agency_id,report_id,client_id,version_number,date_from,date_to,currency,
+    timezone_name,state,configuration_snapshot,data_collected_at,created_by)
+  values(v_agency,v_report,p_client_id,v_version_number,p_date_from,p_date_to,v_data->>'currency',v_data->>'timezoneName','ready',
+    jsonb_build_object('source','client_dashboard','platform','meta','account_ids',v_data->'selectedAccountIds',
+      'entity_keys','[]'::jsonb,'metric_keys',to_jsonb(v_keys),
+      'primary_metric_key',v_data->>'primaryMetricKey','primary_action_type',v_data->>'primaryActionType','estimated_metric_keys',v_data->'estimatedMetricKeys','snapshot_version',5,'analytics',v_data,'orientation','vertical',
+      'daily',v_data->'daily','previous_daily',v_data->'previousDaily','accounts',v_data->'accounts','coverage',v_data->'coverage',
+      'comparison',false,'chart_type','line',
+      'header',jsonb_build_object('name',(select name from public.agencies where id=v_agency),'details',null,'analysisNote',''),
+      'scope_labels','["Todas as campanhas"]'::jsonb,
+      'entity_rows',v_entities,'campaign_metric_keys','[]'::jsonb,
+      'metric_catalog',v_data->'metrics'),
+    (v_data->'coverage'->>'latestCollectedAt')::timestamptz,auth.uid()) returning id into v_version;
+  insert into public.report_data_snapshots(agency_id,report_version_id,summary_json,quality_status,collected_at)
+    values(v_agency,v_version,v_data->'summary','complete',(v_data->'coverage'->>'latestCollectedAt')::timestamptz);
+  insert into public.report_metrics(agency_id,report_version_id,metric_key,label,unit,numeric_value,display_precision)
+    select distinct v_agency,v_version,m->>'key',m->>'label',m->>'unit',
+      (v_data->'summary'->>(m->>'key'))::numeric,(m->>'precision')::smallint
+    from jsonb_array_elements(v_data->'metrics') m where m->>'key'=any(v_keys);
+  insert into public.audit_logs(agency_id,actor_id,action,entity_id,metadata)
+    values(v_agency,auth.uid(),'report.version_created',v_version,
+      jsonb_build_object('client_id',p_client_id,'report_id',v_report,'configuration',v_data->'selectedAccountIds'));
+  return v_version;
 end;
 $$;
 
-create function private.report_contract_confirmed(p_configuration jsonb) returns boolean
+create or replace function private.report_contract_confirmed(p_configuration jsonb) returns boolean
 language sql immutable set search_path='' as $$
   select coalesce(p_configuration->>'snapshot_version'~'^[0-9]+$'
     and (p_configuration->>'snapshot_version')::integer>=5
