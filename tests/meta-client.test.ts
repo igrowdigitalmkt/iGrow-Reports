@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { hasBusinessPortfolio, hasMetaAdsReadPermission, MetaApiError, MetaClient } from "@/modules/meta/client";
+import { hasBusinessPortfolio, hasMetaAdsReadPermission, metaDeliveryStatus, MetaApiError, MetaClient } from "@/modules/meta/client";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -31,7 +31,14 @@ describe("MetaClient", () => {
     expect(requested[0][0].pathname).toBe("/v26.0/act_1/ads");
     expect(requested[0][0].searchParams.get("fields")).toContain("creative{id,thumbnail_url}");
   });
-  it("consulta objetos exatos por ID para recuperar status configurado", async () => {
+  it("usa a veiculação efetiva da Meta em vez do status configurado", () => {
+    expect(metaDeliveryStatus({ effective_status: "ACTIVE" })).toBe("ACTIVE");
+    expect(metaDeliveryStatus({ effective_status: "PAUSED" })).toBe("PAUSED");
+    expect(metaDeliveryStatus({ effective_status: "CAMPAIGN_PAUSED" })).toBe("CAMPAIGN_PAUSED");
+    expect(metaDeliveryStatus({ effective_status: "ADSET_PAUSED" })).toBe("ADSET_PAUSED");
+    expect(metaDeliveryStatus({ effective_status: null })).toBeNull();
+  });
+  it("consulta objetos exatos por ID e preserva status configurado e efetivo separadamente", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ "111": { id: "111", status: "ACTIVE", effective_status: "PAUSED" } }));
     const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
     const objects = await client.getObjects<{ id?: string; status?: string; effective_status?: string }>(["111"], "id,status,effective_status");

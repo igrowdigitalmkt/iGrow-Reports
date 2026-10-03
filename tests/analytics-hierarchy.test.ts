@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
+import { entityDeliveryActive, entityDeliveryLabel, normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
 
 describe("analytics hierarchy", () => {
   it("preserva status efetivo e thumbnail ao normalizar hierarquia", () => {
@@ -12,5 +12,13 @@ describe("analytics hierarchy", () => {
       effectiveStatus: "DELIVERING",
       thumbnailUrl: "https://example.com/thumb.jpg",
     })]);
+  });
+  it("considera Ativo somente quando a veiculação efetiva atual é ACTIVE", () => {
+    expect(entityDeliveryActive({ effectiveStatus: "ACTIVE" })).toBe(true);
+    expect(entityDeliveryLabel({ effectiveStatus: "ACTIVE" })).toBe("Ativo");
+    for (const effectiveStatus of ["PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "ARCHIVED", "DELETED", "DELIVERING", null]) {
+      expect(entityDeliveryActive({ effectiveStatus })).toBe(false);
+      expect(entityDeliveryLabel({ effectiveStatus })).toBe("Desativado");
+    }
   });
 });

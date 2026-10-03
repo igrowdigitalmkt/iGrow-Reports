@@ -20,6 +20,7 @@ import {
   hasBusinessPortfolio,
   MetaApiError,
   MetaClient,
+  metaDeliveryStatus,
   type MetaAdAccount,
 } from "./client";
 import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "./collection";
@@ -251,7 +252,7 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
       results.forEach((result, index) => {
         const level = ["campaign", "adset", "ad"][index];
         for (const entity of result) {
-          const status = entity.status || entity.effective_status;
+          const status = metaDeliveryStatus(entity);
           if (status) statuses[`${account.id}:${level}:${entity.id}`] = status;
         }
       });

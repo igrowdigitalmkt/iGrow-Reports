@@ -76,6 +76,10 @@ export type MetaAd = {
   creative?: { id?: string; thumbnail_url?: string };
 };
 
+export function metaDeliveryStatus(entity: { effective_status?: string | null }) {
+  return entity.effective_status?.trim().toUpperCase() || null;
+}
+
 export type MetaCreative = {
   id: string;
   name?: string;

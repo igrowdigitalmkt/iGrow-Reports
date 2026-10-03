@@ -76,7 +76,7 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     key: `campaign:${campaign.id}`, id: campaign.id, level: "campaign", name: campaign.name,
     parentId: null, campaignId: campaign.id, accountId: campaign.accountId,
     accountName: campaign.accountName, currency: campaign.currency, values: campaign.values,
-    effectiveStatus: campaign.status, thumbnailUrl: null,
+    effectiveStatus: null, thumbnailUrl: null,
   }));
   return <ClientPortalShell title={access.client.name}
     description="Explore os resultados, acompanhe a evolução e transforme seus dados em decisões."

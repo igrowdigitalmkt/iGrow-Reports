@@ -23,6 +23,18 @@ export function normalizeHierarchy(input: unknown): AnalyticsEntity[] {
     }));
 }
 
+export function entityDeliveryActive(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
+  return entity.effectiveStatus?.trim().toUpperCase() === "ACTIVE";
+}
+
+export function entityDeliveryLabel(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
+  return entityDeliveryActive(entity) ? "Ativo" : "Desativado";
+}
+
+export function entityDeliveryRank(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
+  return entityDeliveryActive(entity) ? 1 : 0;
+}
+
 export function entityChildren(entity: AnalyticsEntity, entities: AnalyticsEntity[]) {
   return entities.filter(child => child.accountId === entity.accountId && child.parentId === entity.id
     && child.level === (entity.level === "campaign" ? "adset" : "ad"));

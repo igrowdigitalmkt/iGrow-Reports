@@ -67,10 +67,10 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
     }, thumbnails);
     return { success: true as const, entities: entities.map(entity => ({
       ...entity,
-      effectiveStatus: statuses[`${entity.accountId}:${entity.key}`] ?? entity.effectiveStatus,
+      effectiveStatus: statuses[`${entity.accountId}:${entity.key}`] ?? null,
       thumbnailUrl: thumbnails[`${entity.accountId}:${entity.key}`] ?? entity.thumbnailUrl,
     })) };
   } catch {
-    return { success: true as const, entities };
+    return { success: true as const, entities: entities.map(entity => ({ ...entity, effectiveStatus: null })) };
   }
 }

@@ -6,7 +6,7 @@ import { resultCardLayout, wrapResultLabel } from "./result-card-layout";
 import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
 import { CampaignTree } from "./campaign-tree";
-import { compactEntitySelection, leafKeys, type AnalyticsEntity } from "./analytics-hierarchy";
+import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKeys, type AnalyticsEntity } from "./analytics-hierarchy";
 import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type FormEvent } from "react";
@@ -107,22 +107,10 @@ function sumAccountMetric(data: AnalyticsDashboardData, key: string) {
   return found ? total : null;
 }
 
-function entityStatusActive(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
-  return entity.effectiveStatus === "ACTIVE" || entity.effectiveStatus === "DELIVERING";
-}
-
-function entityStatusRank(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
-  return entityStatusActive(entity) ? 1 : 0;
-}
-
-function entityStatusLabel(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
-  return entityStatusActive(entity) ? "Ativo" : "Inativo";
-}
-
 function compareCampaignEntities(a: AnalyticsEntity, b: AnalyticsEntity, key: string, direction: "asc" | "desc") {
   const factor = direction === "desc" ? -1 : 1;
   if (key === "status") {
-    const status = entityStatusRank(a) - entityStatusRank(b);
+    const status = entityDeliveryRank(a) - entityDeliveryRank(b);
     if (status !== 0) return status * factor;
     return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
   }
@@ -913,7 +901,7 @@ export function ClientAnalyticsDashboard({
               <button type="button" onClick={() => sortBy("name")}>Selecionar · campanha / conta
                 {sortKey === "name" && <ChevronDown size={12} style={{ transform: sortDirection === "asc" ? "rotate(180deg)" : undefined }} />}
               </button>
-              <button type="button" className="analytics-status-sort-button" onClick={() => sortBy("status")}>Status
+              <button type="button" className="analytics-status-sort-button" onClick={() => sortBy("status")}>Veiculação
                 {sortKey === "status" && <ChevronDown size={12} style={{ transform: sortDirection === "asc" ? "rotate(180deg)" : undefined }} />}
               </button>
             </div></th>{campaignMetrics.map((metric) => <th scope="col" key={metric.key}
@@ -925,7 +913,7 @@ export function ClientAnalyticsDashboard({
               </button></th>)}</tr></thead>
             <CampaignTree entities={hierarchyEntities} roots={visibleCampaigns} metrics={campaignMetrics}
               selected={selectedLeaves} onChange={setSelectedLeaves} disabled={pending || hierarchyLoading}
-              sortKey={sortKey} sortDirection={sortDirection} statusLabel={entityStatusLabel} />
+              sortKey={sortKey} sortDirection={sortDirection} statusLabel={entityDeliveryLabel} />
           </table></div>
           {!data.campaigns.length && <p className="analytics-empty-copy">Nenhuma campanha com movimentação foi coletada para este período.</p>}
           <p className="analytics-footnote">A seleção aplicada passa a controlar a Visão geral. Expanda as linhas para escolher conjuntos ou anúncios. Se não houver detalhamento, atualize os dados.</p>
