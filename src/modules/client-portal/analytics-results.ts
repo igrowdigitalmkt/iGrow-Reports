@@ -30,20 +30,35 @@ export function aggregateResults(values: AnalyticsValues, complete: boolean): An
   return next;
 }
 
+function resultFamilyKey(key: string) {
+  if (RESULT_GROUPS.some(group => group.key === key)) return key;
+  const providerKey = key.startsWith("result:provider:") ? key.slice("result:provider:".length) : key;
+  if (providerKey === "profile_visit_view") return "profile_visits";
+  const group = RESULT_GROUPS.find(item => item.fields.some(field => field === providerKey));
+  return group?.key ?? key;
+}
+
+function resultFamilyLabel(key: string) {
+  const group = RESULT_GROUPS.find(item => item.key === key);
+  if (group) return group.label;
+  const providerKey = key.startsWith("result:provider:") ? key.slice("result:provider:".length) : key;
+  return metaMetricLabel(providerKey, providerKey);
+}
+
 export function resultBreakdown(values: AnalyticsValues) {
-  if (values["result:provider_known"] === 1) return Object.entries(values).flatMap(([key, value]) => key.startsWith("result:provider:") && value != null && value > 0
-    ? [{ key, label: metaMetricLabel(key.slice("result:provider:".length), key.slice("result:provider:".length)), value }] : []);
+  if (values["result:provider_known"] === 1) {
+    const totals = new Map<string, number>();
+    for (const [key, value] of Object.entries(values)) {
+      if (!key.startsWith("result:provider:") || value == null || value <= 0) continue;
+      const familyKey = resultFamilyKey(key);
+      totals.set(familyKey, (totals.get(familyKey) ?? 0) + value);
+    }
+    return [...totals].map(([key, value]) => ({ key, label: resultFamilyLabel(key), value }));
+  }
   return RESULT_GROUPS.flatMap(group => {
     const amount = values[`result:${group.key}`];
     return amount != null && amount > 0 ? [{ key: group.key, label: group.label, value: amount }] : [];
   });
-}
-
-function resultFamilyKey(key: string) {
-  if (RESULT_GROUPS.some(group => group.key === key)) return key;
-  const providerKey = key.startsWith("result:provider:") ? key.slice("result:provider:".length) : key;
-  const group = RESULT_GROUPS.find(item => item.fields.some(field => field === providerKey));
-  return group?.key ?? key;
 }
 
 export function resultCostBreakdown(summary: AnalyticsValues, sources: Array<{ values: AnalyticsValues }>) {

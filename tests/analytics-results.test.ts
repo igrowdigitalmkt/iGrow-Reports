@@ -31,7 +31,7 @@ describe("resultados automáticos", () => {
       { values: { spend: 250, "result:provider_known": 1, "result:provider:action:onsite_conversion.messaging_conversation_started_7d": 50 } },
     ]);
     expect(rows.find(row => row.key.endsWith("post_engagement"))?.cost).toBe(2);
-    expect(rows.find(row => row.key.endsWith("messaging_conversation_started_7d"))?.cost).toBe(5);
+    expect(rows.find(row => row.key === "messages")?.cost).toBe(5);
   });
   it("reconcilia aliases equivalentes de visita ao perfil ao calcular custo", () => {
     const rows = resultCostBreakdown({
@@ -56,5 +56,13 @@ describe("resultados automáticos", () => {
       "result:provider:profile_visit_view": 15,
     });
     expect(rows[0]).toMatchObject({ label: "Visitas ao perfil do Instagram", value: 15 });
+  });
+  it("consolida aliases de visita ao perfil retornados como resultados separados", () => {
+    const rows = resultBreakdown({
+      "result:provider_known": 1,
+      "result:provider:profile_visit_view": 15,
+      "result:provider:instagram_profile_visits": 45_013,
+    });
+    expect(rows).toEqual([{ key: "profile_visits", label: "Visitas ao perfil do Instagram", value: 45_028 }]);
   });
 });
