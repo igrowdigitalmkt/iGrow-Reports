@@ -337,6 +337,19 @@ export class MetaClient {
     return this.getAll<MetaAdAccount>(`${systemUserId}/assigned_ad_accounts`, params);
   }
 
+  async getObjects<T extends { id?: string }>(ids: string[], fields: string): Promise<Array<T & { id: string }>> {
+    const uniqueIds = [...new Set(ids)].filter((id) => /^\d+$/.test(id));
+    if (!uniqueIds.length) return [];
+    const payload = await this.requestPage<Record<string, T>>("", {
+      ids: uniqueIds.join(","),
+      fields,
+    }) as unknown as Record<string, T | undefined>;
+    return uniqueIds.flatMap((id) => {
+      const item = payload[id];
+      return item ? [{ ...item, id: item.id ?? id }] : [];
+    });
+  }
+
   async listCampaigns(adAccountId: string): Promise<MetaCampaign[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaCampaign>(`${adAccountId}/campaigns`, {

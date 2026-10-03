@@ -55,6 +55,7 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
       agencyId: access.agencyId,
       clientId: parsed.data.clientId,
       accountIds: parsed.data.accountIds,
+      entities: entities.map(entity => ({ accountId: entity.accountId, key: entity.key })),
     }, thumbnails);
     return { success: true as const, entities: entities.map(entity => ({
       ...entity,

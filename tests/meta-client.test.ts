@@ -31,6 +31,16 @@ describe("MetaClient", () => {
     expect(requested[0][0].pathname).toBe("/v26.0/act_1/ads");
     expect(requested[0][0].searchParams.get("fields")).toContain("creative{id,thumbnail_url}");
   });
+  it("consulta objetos exatos por ID para recuperar status configurado", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ "111": { id: "111", status: "ACTIVE", effective_status: "PAUSED" } }));
+    const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });
+    const objects = await client.getObjects<{ id?: string; status?: string; effective_status?: string }>(["111"], "id,status,effective_status");
+    expect(objects).toEqual([{ id: "111", status: "ACTIVE", effective_status: "PAUSED" }]);
+    const requested = fetchImpl.mock.calls as unknown as Array<[URL, RequestInit]>;
+    expect(requested[0][0].pathname).toBe("/v26.0/");
+    expect(requested[0][0].searchParams.get("ids")).toBe("111");
+    expect(requested[0][0].searchParams.get("fields")).toBe("id,status,effective_status");
+  });
   it("exige um ID real de portfólio; nome empresarial sozinho não basta", () => {
     const account = { id: "act_1", name: "Conta", currency: "BRL", timezone_name: "America/Sao_Paulo" };
     expect(hasBusinessPortfolio(account)).toBe(false);
