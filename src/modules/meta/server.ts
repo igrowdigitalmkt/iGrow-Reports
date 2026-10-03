@@ -1,5 +1,5 @@
 import { aggregateResults } from "@/modules/client-portal/analytics-results";
-import { providerResultTotals, providerResultValues } from "./result-values";
+import { campaignResultTotals, providerResultValues } from "./result-values";
 import "server-only";
 import { selectedMetaAccounts } from "./login-config";
 import { createHash } from "node:crypto";
@@ -37,7 +37,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
     .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("scope_key", scopeKey)
     .eq("date_from", data.dateFrom).eq("date_to", data.dateTo).maybeSingle();
   if (cached && Date.now() - Date.parse(cached.collected_at) < 3_600_000
-    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === 5
+    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === 6
     && Date.parse(data.coverage.latestCollectedAt ?? "1970-01-01") <= Date.parse(cached.collected_at)) return;
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const { data: links } = await service.from("client_ad_accounts").select("ad_account_id")
@@ -94,8 +94,8 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
     return {
       current: current[0] ?? {},
       previous: previous[0] ?? {},
-      currentResults: providerResultTotals(detail[0]),
-      previousResults: providerResultTotals(previousCampaigns),
+      currentResults: campaignResultTotals(detail[0]),
+      previousResults: campaignResultTotals(previousCampaigns),
     };
   }));
   const relevant = periods.filter((row): row is NonNullable<typeof row> => !!row);
@@ -176,7 +176,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
   const summary = calculate("current"), previousSummary = calculate("previous");
   const { error } = await service.from("meta_dashboard_scopes").upsert({ agency_id: input.agencyId, client_id: input.clientId,
     scope_key: scopeKey, date_from: data.dateFrom, date_to: data.dateTo, collected_at: new Date().toISOString(),
-    payload: { version: 5, summary, previousSummary, metrics, entityValues,
+    payload: { version: 6, summary, previousSummary, metrics, entityValues,
       estimatedMetricKeys: relevant.length > 1 ? ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks", "unique_ctr", "unique_inline_link_click_ctr"] : [] } as unknown as Json });
   if (error) throw new MetaSetupError("Não foi possível preservar os agregados da Meta.");
 }

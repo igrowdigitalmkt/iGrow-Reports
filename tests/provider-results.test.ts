@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { providerResultTotals, providerResultValues } from "@/modules/meta/result-values";
+import { campaignResultTotals, campaignResultValues, providerResultTotals, providerResultValues } from "@/modules/meta/result-values";
 import { aggregateResults, resultBreakdown } from "@/modules/client-portal/analytics-results";
 describe("Meta campaign results", () => {
   it("uses the provider result instead of secondary profile visits", () => {
@@ -23,11 +23,27 @@ describe("Meta campaign results", () => {
     expect(aggregateResults({ ...campaign, spend: 1557.8 }, true).primary_results).toBe(103);
     expect(aggregateResults({ ...childAds, spend: 1557.8 }, true).primary_results).toBe(528);
   });
-  it("does not publish a partial native total when any campaign lacks results", () => {
+  it("does not publish a partial strict provider total when any campaign lacks results", () => {
     expect(providerResultTotals([
       { date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "actions:lead", values: [{ value: "5" }] }] },
       { date_start: "2026-07-05", date_stop: "2026-10-02" },
     ])).toBeNull();
+  });
+  it("keeps native campaign types and resolves only the campaign missing provider results", () => {
+    const totals = campaignResultTotals([
+      { date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "actions:onsite_conversion.messaging_conversation_started_7d", values: [{ value: "103" }] }] },
+      { date_start: "2026-07-05", date_stop: "2026-10-02", results: [{ indicator: "actions:post_engagement", values: [{ value: "38150" }] }] },
+      { date_start: "2026-07-05", date_stop: "2026-10-02", actions: [{ action_type: "onsite_conversion.messaging_conversation_started_7d", value: "76" }] },
+    ]);
+    const summary = aggregateResults({ ...totals, spend: 2000 }, true);
+    expect(summary.primary_results).toBe(38329);
+    expect(resultBreakdown(summary)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Conversas por mensagem iniciadas", value: 179 }),
+      expect.objectContaining({ label: "Engajamento com a publicação", value: 38150 }),
+    ]));
+  });
+  it("does not invent a campaign result when provider and compatible actions are both absent", () => {
+    expect(campaignResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02", spend: "10", impressions: "100" })).toBeNull();
   });
   it("does not add alternative attribution windows or invent an unknown result", () => {
     expect(providerResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02" })).toBeNull();
