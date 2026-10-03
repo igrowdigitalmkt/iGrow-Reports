@@ -33,4 +33,13 @@ describe("resultados automáticos", () => {
     expect(rows.find(row => row.key.endsWith("post_engagement"))?.cost).toBe(2);
     expect(rows.find(row => row.key.endsWith("messaging_conversation_started_7d"))?.cost).toBe(5);
   });
+  it("reconcilia aliases equivalentes de visita ao perfil ao calcular custo", () => {
+    const rows = resultCostBreakdown({
+      "result:provider_known": 1,
+      "result:provider:instagram_profile_visits": 10,
+    }, [
+      { values: { spend: 20, "result:provider_known": 1, "result:provider:action:instagram_profile_visit": 10 } },
+    ]);
+    expect(rows[0]?.cost).toBe(2);
+  });
 });

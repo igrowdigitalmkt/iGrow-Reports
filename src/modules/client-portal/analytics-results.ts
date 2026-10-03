@@ -39,6 +39,13 @@ export function resultBreakdown(values: AnalyticsValues) {
   });
 }
 
+function resultFamilyKey(key: string) {
+  if (RESULT_GROUPS.some(group => group.key === key)) return key;
+  const providerKey = key.startsWith("result:provider:") ? key.slice("result:provider:".length) : key;
+  const group = RESULT_GROUPS.find(item => item.fields.some(field => field === providerKey));
+  return group?.key ?? key;
+}
+
 export function resultCostBreakdown(summary: AnalyticsValues, sources: Array<{ values: AnalyticsValues }>) {
   const totals = new Map<string, { spend: number; results: number }>();
   for (const source of sources) {
@@ -46,14 +53,15 @@ export function resultCostBreakdown(summary: AnalyticsValues, sources: Array<{ v
     const spend = values.spend;
     if (spend == null || spend < 0) continue;
     for (const result of resultBreakdown(values)) {
-      const current = totals.get(result.key) ?? { spend: 0, results: 0 };
+      const familyKey = resultFamilyKey(result.key);
+      const current = totals.get(familyKey) ?? { spend: 0, results: 0 };
       current.spend += spend;
       current.results += result.value;
-      totals.set(result.key, current);
+      totals.set(familyKey, current);
     }
   }
   return resultBreakdown(summary).map(result => {
-    const total = totals.get(result.key);
+    const total = totals.get(resultFamilyKey(result.key));
     return { ...result, cost: total && total.results > 0 ? total.spend / total.results : null };
   });
 }
