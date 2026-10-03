@@ -4,38 +4,15 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { connectMetaIntegration, previewMetaLoginAccounts } from "./actions";
-import { META_LOGIN_APP_ID, META_LOGIN_CONFIG_ID } from "./login-config";
-
-type FacebookSdk = {
-  init(options: { appId: string; version: string; xfbml: boolean }): void;
-  login(callback: (response: { authResponse?: { accessToken?: string } }) => void, options: { config_id: string }): void;
-};
-declare global { interface Window { FB?: FacebookSdk } }
-let sdkPromise: Promise<FacebookSdk> | undefined;
-function loadSdk(version: string) {
-  if (sdkPromise) return sdkPromise;
-  sdkPromise = new Promise<FacebookSdk>((resolve, reject) => {
-    const initialize = () => {
-      if (!window.FB) { reject(new Error("Não foi possível carregar o login da Meta.")); return; }
-      window.FB.init({ appId: META_LOGIN_APP_ID, version, xfbml: false });
-      resolve(window.FB);
-    };
-    if (window.FB) { initialize(); return; }
-    const script = document.createElement("script");
-    script.src = "https://connect.facebook.net/pt_BR/sdk.js";
-    script.async = true;
-    script.onload = initialize;
-    script.onerror = () => { sdkPromise = undefined; reject(new Error("A Meta não carregou. Verifique sua conexão e tente novamente.")); };
-    document.head.appendChild(script);
-  });
-  return sdkPromise;
-}
+import { META_LOGIN_CONFIG_ID } from "./login-config";
+import { loadFacebookSdk, type FacebookSdk } from "./facebook-sdk";
 
 export function FacebookLogin({ agencyId, clientId, apiVersion }: { agencyId: string; clientId: string; apiVersion: string }) {
   const router = useRouter();
   const sdk = useRef<FacebookSdk | null>(null);
   const token = useRef<string | null>(null);
   const attempt = useRef(0);
+  const authorizationTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -46,16 +23,23 @@ export function FacebookLogin({ agencyId, clientId, apiVersion }: { agencyId: st
   const [pending, startTransition] = useTransition();
   useEffect(() => {
     let cancelled = false;
-    loadSdk(apiVersion).then(value => { if (!cancelled) { sdk.current = value; setReady(true); } }).catch(value => { if (!cancelled) setError(value.message); });
-    return () => { cancelled = true; token.current = null; attempt.current = -1; };
+    loadFacebookSdk(apiVersion).then(value => { if (!cancelled) { sdk.current = value; setReady(true); } }).catch(value => { if (!cancelled) setError(value.message); });
+    return () => { cancelled = true; token.current = null; attempt.current = -1; clearTimeout(authorizationTimeout.current); };
   }, [apiVersion]);
   function login() {
     if (!sdk.current) return;
     setError(""); setNotice(""); setWaiting(true);
     token.current = null; setAccounts([]); setSelected([]);
     const currentAttempt = ++attempt.current;
-    sdk.current.login(response => {
+    authorizationTimeout.current = setTimeout(() => {
       if (currentAttempt !== attempt.current) return;
+      attempt.current++;
+      setWaiting(false);
+      setError("A Meta não concluiu a autorização. Se a janela não abriu, permita pop-ups para o iGrow e tente novamente.");
+    }, 120000);
+    try { sdk.current.login(response => {
+      if (currentAttempt !== attempt.current) return;
+      clearTimeout(authorizationTimeout.current);
       setWaiting(false);
       const accessToken = response.authResponse?.accessToken;
       if (!accessToken) { setNotice("Autorização não concluída. Você pode tentar novamente."); return; }
@@ -67,12 +51,17 @@ export function FacebookLogin({ agencyId, clientId, apiVersion }: { agencyId: st
         setAccounts(result.accounts);
         if (!result.accounts.length) setNotice("A Meta não retornou contas acessíveis para esta autorização.");
       });
-    }, { config_id: META_LOGIN_CONFIG_ID });
+    }, { config_id: META_LOGIN_CONFIG_ID, response_type: "token", override_default_response_type: true });
+    } catch {
+      clearTimeout(authorizationTimeout.current);
+      setWaiting(false);
+      setError("Não foi possível abrir o login da Meta. Atualize a página e tente novamente.");
+    }
   }
   return <div className="meta-credential-section">
     <p>Entre pelo Facebook, autorize o iGrow e escolha as contas deste cliente. A autorização solicitará as permissões configuradas para o aplicativo iGrow Digital.</p>
     <Button type="button" onClick={login} disabled={!ready || waiting || pending}>{waiting ? "Aguardando autorização…" : "Conectar com a Meta"}</Button>
-    {waiting && <Button type="button" variant="secondary" onClick={() => { attempt.current++; setWaiting(false); }}>Cancelar</Button>}
+    {waiting && <Button type="button" variant="secondary" onClick={() => { attempt.current++; clearTimeout(authorizationTimeout.current); setWaiting(false); }}>Cancelar</Button>}
     {!!accounts.length && <div className="meta-client-section">
       <label>Pesquisar conta<input className="input" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nome ou identificação" /></label>
       {accounts.filter(account => `${account.name} ${account.id}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))).map(account => <label className="meta-field-label" key={account.id}><input type="checkbox" disabled={!account.supported || pending} checked={selected.includes(account.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, account.id] : ids.filter(id => id !== account.id))} /> {account.name} · {account.id}{!account.supported && " · Conta sem portfólio ainda não suportada pelo coletor"}</label>)}
