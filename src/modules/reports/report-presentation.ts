@@ -3,7 +3,7 @@ import { metaMetricLabel } from "@/modules/meta/metric-labels";
 
 export function resultDescription(data: AnalyticsDashboardData) {
   if (data.primaryActionType) return metaMetricLabel(`action:${data.primaryActionType}`, data.primaryActionType.replaceAll("_", " "));
-  return data.primaryMetricKey ? metaMetricLabel(data.primaryMetricKey, data.primaryMetricKey) : "Resultado principal configurado";
+  return data.primaryMetricKey ? metaMetricLabel(data.primaryMetricKey, data.primaryMetricKey) : "Resultado principal ainda não definido";
 }
 export const reportDate = (date: string) => date.split("-").reverse().join("/");
 export function reportUpdatedAt(data: AnalyticsDashboardData) {

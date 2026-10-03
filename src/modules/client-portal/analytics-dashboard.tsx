@@ -83,9 +83,10 @@ function metricGroup(metric: AnalyticsMetric) {
   return "Engajamento e outros";
 }
 function unavailableReason(data: AnalyticsDashboardData, metric: AnalyticsMetric) {
+  if (["primary_results", "cost_per_result"].includes(metric.key) && !data.primaryActionType) return "Defina o resultado principal nas configurações deste cliente (por exemplo, conversas por mensagem iniciadas).";
   if (["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr", "unique_outbound_clicks"].includes(metric.key)
     && data.selectedAccountIds.length > 1) return "A Meta não retornou os valores necessários para estimar este indicador entre contas.";
-  if (metric.unit === "currency" && !data.currency) return "As contas usam moedas diferentes. Selecione contas com a mesma moeda.";
+  if (metric.unit === "currency" && !data.currency) return "As contas selecionadas usam moedas diferentes. Filtre contas da mesma moeda para ver este total. O investimento de cada conta aparece separadamente abaixo.";
   if (data.coverage.status !== "complete") return "O período ainda tem dados sem coleta. Atualize os dados para completar a análise.";
   return "A Meta não retornou este indicador para o escopo selecionado, ou não há resultados para calcular a taxa/custo.";
 }
@@ -621,6 +622,7 @@ export function ClientAnalyticsDashboard({
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
               </strong>
               {["primary_results", "cost_per_result"].includes(metric.key) && <p className="analytics-result-description">{resultDescription(scopedData)}</p>}
+              {scopedData.summary[metric.key] == null && <p className="analytics-result-description">{unavailableReason(scopedData, metric)}</p>}
               {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate" title="Estimativa pela soma dos alcances ou cliques únicos das contas. Pessoas presentes em mais de uma conta podem ser contadas novamente. Frequência = impressões ÷ alcance estimado.">Estimado entre contas</small>}
               <div className={`analytics-kpi-change is-${change.direction}`}>
                 {"up" in change ? change.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} /> : <span className="analytics-change-dash">—</span>}
@@ -646,6 +648,7 @@ export function ClientAnalyticsDashboard({
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
               </strong>
               {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate" title="Estimativa matemática entre contas; pode incluir pessoas repetidas.">Estimado entre contas</small>}
+              {scopedData.summary[metric.key] == null && <p className="analytics-result-description">{unavailableReason(scopedData, metric)}</p>}
               <div className={`analytics-kpi-change is-${change.direction}`}>
                 {"up" in change ? change.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} /> : <span className="analytics-change-dash">—</span>}
                 <span>{change.text}</span>
