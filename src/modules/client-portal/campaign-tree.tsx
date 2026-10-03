@@ -17,7 +17,7 @@ export function CampaignTree({ entities, roots, metrics, selected, onChange, dis
     const children = entityChildren(entity, entities).sort((a, b) => {
       const factor = sortDirection === "desc" ? -1 : 1;
       if (sortKey === "status") {
-        const status = (a.effectiveStatus === "DELIVERING" ? 1 : 0) - (b.effectiveStatus === "DELIVERING" ? 1 : 0);
+        const status = (["ACTIVE", "DELIVERING"].includes(a.effectiveStatus ?? "") ? 1 : 0) - (["ACTIVE", "DELIVERING"].includes(b.effectiveStatus ?? "") ? 1 : 0);
         if (status !== 0) return status * factor;
         return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
       }
@@ -48,7 +48,7 @@ export function CampaignTree({ entities, roots, metrics, selected, onChange, dis
               const remainder = selected.filter(key => !leaves.includes(key));
               onChange(checked ? remainder : [...remainder, ...leaves]);
             }} />
-          <span className={`analytics-entity-status ${entity.effectiveStatus === "DELIVERING" ? "is-active" : "is-inactive"}`}
+          <span className={`analytics-entity-status ${["ACTIVE", "DELIVERING"].includes(entity.effectiveStatus ?? "") ? "is-active" : "is-inactive"}`}
             role="img" aria-label={`Status: ${statusLabel(entity)}`} data-status-label={`Status: ${statusLabel(entity)}`} />
           {entity.level === "ad" && (entity.thumbnailUrl ? <a href={entity.thumbnailUrl} target="_blank" rel="noopener noreferrer" aria-label={`Ver imagem de ${entity.name}`}><Image className="analytics-ad-thumbnail" src={entity.thumbnailUrl} alt="" width={44} height={44} unoptimized referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = "none"; }} /></a> : <span className="analytics-ad-thumbnail-placeholder" title="Imagem não retornada pela Meta">—</span>)}
           <div><strong>{entity.name}</strong><small>{entity.level === "campaign" ? entity.accountName

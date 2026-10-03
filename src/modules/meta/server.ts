@@ -197,11 +197,7 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
     const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
     const client = new MetaClient({ accessToken: token, apiVersion });
     await Promise.allSettled(accounts.map(async account => {
-      const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: account.timezone_name, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map(part => [part.type, part.value]));
-      const today = `${parts.year}-${parts.month}-${parts.day}`;
-      const [campaigns, adsets, ads, delivery] = await Promise.all([client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id), client.getDailyInsights({ adAccountId: account.external_id, since: today, until: today, level: "ad" })]);
-      const deliveredAds = new Set(delivery.filter(row => Number(row.impressions ?? 0) > 0).map(row => row.ad_id));
-      const activeAds = ads.filter(ad => ad.effective_status === "ACTIVE" && deliveredAds.has(ad.id));
+      const [campaigns, adsets, ads] = await Promise.all([client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id)]);
       if (thumbnails) for (const ad of ads) {
         const thumbnail = ad.creative?.thumbnail_url;
         if (!thumbnail) continue;
@@ -210,13 +206,10 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
           if (url.protocol === "https:" && (url.hostname.endsWith(".fbcdn.net") || url.hostname.endsWith(".facebook.com"))) thumbnails[`${account.id}:ad:${ad.id}`] = url.href;
         } catch { /* Missing or invalid creative images do not block analytics. */ }
       }
-      const deliveringSets = new Set(activeAds.map(ad => ad.adset_id));
-      const deliveringCampaigns = new Set(activeAds.map(ad => ad.campaign_id));
       const results = [campaigns, adsets, ads];
       results.forEach((result, index) => {
         const level = ["campaign", "adset", "ad"][index];
-        const delivering = index === 0 ? deliveringCampaigns : index === 1 ? deliveringSets : deliveredAds;
-        for (const entity of result) if (entity.effective_status) statuses[`${account.id}:${level}:${entity.id}`] = entity.effective_status === "ACTIVE" && delivering.has(entity.id) ? "DELIVERING" : "NOT_DELIVERING";
+        for (const entity of result) if (entity.effective_status) statuses[`${account.id}:${level}:${entity.id}`] = entity.effective_status;
       });
     }));
   } catch { /* A Meta outage must not mislabel entities or block historical analytics. */ }

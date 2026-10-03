@@ -107,12 +107,16 @@ function sumAccountMetric(data: AnalyticsDashboardData, key: string) {
   return found ? total : null;
 }
 
+function entityStatusActive(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
+  return entity.effectiveStatus === "ACTIVE" || entity.effectiveStatus === "DELIVERING";
+}
+
 function entityStatusRank(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
-  return entity.effectiveStatus === "DELIVERING" ? 1 : 0;
+  return entityStatusActive(entity) ? 1 : 0;
 }
 
 function entityStatusLabel(entity: Pick<AnalyticsEntity, "effectiveStatus">) {
-  return entity.effectiveStatus === "DELIVERING" ? "Ativo" : "Inativo";
+  return entityStatusActive(entity) ? "Ativo" : "Inativo";
 }
 
 function compareCampaignEntities(a: AnalyticsEntity, b: AnalyticsEntity, key: string, direction: "asc" | "desc") {
