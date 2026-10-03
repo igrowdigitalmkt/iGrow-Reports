@@ -127,6 +127,7 @@ export class MetaApiError extends Error {
   readonly subcode: number | null;
   readonly transient: boolean;
   readonly operation: string | null;
+  readonly reason: string | null;
 
   constructor(input: {
     httpStatus: number;
@@ -134,6 +135,7 @@ export class MetaApiError extends Error {
     subcode?: number;
     transient?: boolean;
     operation?: string;
+    reason?: string;
   }) {
     super("A Meta Marketing API rejeitou a solicitação.");
     this.name = "MetaApiError";
@@ -142,6 +144,7 @@ export class MetaApiError extends Error {
     this.subcode = input.subcode ?? null;
     this.transient = input.transient ?? false;
     this.operation = input.operation ?? null;
+    this.reason = input.reason ?? null;
   }
 }
 
@@ -246,6 +249,11 @@ export class MetaClient {
           subcode: payload.error?.error_subcode,
           transient: payload.error?.is_transient,
           operation: path === "me" ? "identificação da conta" : path === "me/adaccounts" ? "lista de contas de anúncios" : path.endsWith("/assigned_ad_accounts") ? "contas do usuário do sistema" : "dados de anúncios",
+          reason: payload.error?.message?.includes("business_management") ? "A consulta exige a permissão business_management."
+            : payload.error?.message?.includes("ads_read") ? "A Meta não reconheceu a permissão de leitura dos anúncios."
+            : payload.error?.message?.includes("nonexisting field") ? "A Meta não disponibilizou um dos campos solicitados para esta autorização."
+            : payload.error?.message?.includes("Unsupported get request") ? "O objeto solicitado não está acessível para esta autorização."
+            : undefined,
         });
       }
       return payload;

@@ -126,7 +126,7 @@ function safeMetaOperationError(error: unknown) {
   if (error instanceof MetaApiError) {
     return error.code === 190
       ? "A credencial Meta foi rejeitada ou expirou."
-      : `A Meta recusou ${error.operation ?? "a consulta"}${error.code !== null ? ` (código ${error.code}${error.subcode !== null ? `/${error.subcode}` : ""})` : ""}. Confira se esta conta do Facebook tem acesso aos anúncios e se concedeu a permissão de leitura.`;
+      : `A Meta recusou ${error.operation ?? "a consulta"}${error.code !== null ? ` (código ${error.code}${error.subcode !== null ? `/${error.subcode}` : ""})` : ""}. ${error.reason ?? "Confira se esta conta do Facebook tem acesso aos anúncios e se concedeu a permissão de leitura."}`;
   }
   return "Não foi possível concluir a operação com a Meta.";
 }
