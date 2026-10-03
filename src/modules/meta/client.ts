@@ -353,7 +353,6 @@ export class MetaClient {
   async listCampaigns(adAccountId: string): Promise<MetaCampaign[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaCampaign>(`${adAccountId}/campaigns`, {
-      filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "WITH_ISSUES", "IN_PROCESS"] }]),
       fields: "id,name,objective,status,effective_status",
       limit: "500",
     });
@@ -362,7 +361,6 @@ export class MetaClient {
   async listAdSets(adAccountId: string): Promise<MetaAdSet[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAdSet>(`${adAccountId}/adsets`, {
-      filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "WITH_ISSUES", "IN_PROCESS"] }]),
       fields: "id,name,campaign_id,status,effective_status",
       limit: "500",
     });
@@ -371,7 +369,6 @@ export class MetaClient {
   async listAds(adAccountId: string): Promise<MetaAd[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAd>(`${adAccountId}/ads`, {
-      filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "DISAPPROVED", "PENDING_REVIEW", "WITH_ISSUES", "IN_PROCESS"] }]),
       fields: "id,name,adset_id,campaign_id,status,effective_status,creative{id,thumbnail_url}",
       limit: "500",
     });

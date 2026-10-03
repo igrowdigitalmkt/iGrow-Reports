@@ -228,9 +228,17 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
         getExactStatusObjects(client, exact.adset, "id,name,campaign_id,status,effective_status"),
         getExactStatusObjects(client, exact.ad, "id,name,adset_id,campaign_id,status,effective_status,creative{id,thumbnail_url}"),
       ] : [client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id)]);
-      const campaigns = campaignsResult.status === "fulfilled" ? campaignsResult.value : [];
-      const adsets = adsetsResult.status === "fulfilled" ? adsetsResult.value : [];
-      const ads = adsResult.status === "fulfilled" ? adsResult.value : [];
+      let campaigns = campaignsResult.status === "fulfilled" ? campaignsResult.value : [];
+      let adsets = adsetsResult.status === "fulfilled" ? adsetsResult.value : [];
+      let ads = adsResult.status === "fulfilled" ? adsResult.value : [];
+      if (exact) {
+        const missingCampaigns = new Set(exact.campaign.filter(id => !campaigns.some(entity => entity.id === id)));
+        if (missingCampaigns.size) campaigns = [...campaigns, ...(await client.listCampaigns(account.external_id)).filter(entity => missingCampaigns.has(entity.id))];
+        const missingAdsets = new Set(exact.adset.filter(id => !adsets.some(entity => entity.id === id)));
+        if (missingAdsets.size) adsets = [...adsets, ...(await client.listAdSets(account.external_id)).filter(entity => missingAdsets.has(entity.id))];
+        const missingAds = new Set(exact.ad.filter(id => !ads.some(entity => entity.id === id)));
+        if (missingAds.size) ads = [...ads, ...(await client.listAds(account.external_id)).filter(entity => missingAds.has(entity.id))];
+      }
       if (thumbnails) for (const ad of ads) {
         const thumbnail = ad.creative?.thumbnail_url;
         if (!thumbnail) continue;
