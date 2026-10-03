@@ -223,11 +223,14 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
     const client = new MetaClient({ accessToken: token, apiVersion });
     await Promise.allSettled(accounts.map(async account => {
       const exact = requested.get(account.id);
-      const [campaigns, adsets, ads] = exact ? await Promise.all([
+      const [campaignsResult, adsetsResult, adsResult] = await Promise.allSettled(exact ? [
         getExactStatusObjects(client, exact.campaign, "id,name,objective,status,effective_status"),
         getExactStatusObjects(client, exact.adset, "id,name,campaign_id,status,effective_status"),
         getExactStatusObjects(client, exact.ad, "id,name,adset_id,campaign_id,status,effective_status,creative{id,thumbnail_url}"),
-      ]) : await Promise.all([client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id)]);
+      ] : [client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id)]);
+      const campaigns = campaignsResult.status === "fulfilled" ? campaignsResult.value : [];
+      const adsets = adsetsResult.status === "fulfilled" ? adsetsResult.value : [];
+      const ads = adsResult.status === "fulfilled" ? adsResult.value : [];
       if (thumbnails) for (const ad of ads) {
         const thumbnail = ad.creative?.thumbnail_url;
         if (!thumbnail) continue;
