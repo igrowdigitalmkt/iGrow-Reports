@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireClientDashboardAccess } from "./context";
 import { normalizeClientAnalytics } from "./analytics-calculations";
 import { getClientAnalytics } from "./analytics";
-import { normalizeHierarchy } from "./analytics-hierarchy";
+import { normalizeHierarchy, relevantCampaignHierarchy } from "./analytics-hierarchy";
 import { getMetaEntityStatuses, refreshMetaDashboardScope, type LiveCampaignIdentity } from "@/modules/meta/server";
 
 const inputSchema = z.object({
@@ -73,12 +73,12 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
         accountId: account.id, accountName: account.name, currency: account.currency, parentId: null,
         campaignId: campaign.id, values: {}, effectiveStatus: null });
     }
-    return { success: true as const, entities: entities.map(entity => ({
+    return { success: true as const, entities: relevantCampaignHierarchy(entities.map(entity => ({
       ...entity,
       effectiveStatus: statuses[`${entity.accountId}:${entity.key}`] ?? null,
       thumbnailUrl: thumbnails[`${entity.accountId}:${entity.key}`] ?? entity.thumbnailUrl,
-    })) };
+    }))) };
   } catch {
-    return { success: true as const, entities: entities.map(entity => ({ ...entity, effectiveStatus: null })) };
+    return { success: true as const, entities: relevantCampaignHierarchy(entities.map(entity => ({ ...entity, effectiveStatus: null }))) };
   }
 }

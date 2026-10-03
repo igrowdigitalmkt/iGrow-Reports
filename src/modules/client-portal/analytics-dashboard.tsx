@@ -6,7 +6,7 @@ import { resultCardLayout, wrapResultLabel } from "./result-card-layout";
 import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
 import { CampaignTree } from "./campaign-tree";
-import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKeys, type AnalyticsEntity } from "./analytics-hierarchy";
+import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKeys, relevantCampaignHierarchy, type AnalyticsEntity } from "./analytics-hierarchy";
 import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type FormEvent } from "react";
@@ -202,7 +202,7 @@ export function ClientAnalyticsDashboard({
   const [draggedMetricKey, setDraggedMetricKey] = useState<string | null>(null);
   const [tab, setTab] = useState<"overview" | "campaigns" | "metrics" | "reports">(query.get("aba") === "reports" ? "reports" : "overview");
   const [campaignQuery, setCampaignQuery] = useState("");
-  const [hierarchyEntities, setHierarchyEntities] = useState<AnalyticsEntity[]>(entities);
+  const [hierarchyEntities, setHierarchyEntities] = useState<AnalyticsEntity[]>(() => relevantCampaignHierarchy(entities));
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [hierarchyError, setHierarchyError] = useState("");
   const hierarchySelectionInitialized = useRef(false);
@@ -542,7 +542,7 @@ export function ClientAnalyticsDashboard({
       loading = true;
       setHierarchyLoading(true);
       setHierarchyError("");
-      setHierarchyEntities(current => current.map(entity => ({ ...entity, effectiveStatus: null })));
+      setHierarchyEntities(current => relevantCampaignHierarchy(current.map(entity => ({ ...entity, effectiveStatus: null }))));
       void getClientAnalyticsHierarchy({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds })
       .then((result) => {
         if (cancelled) return;
@@ -556,6 +556,12 @@ export function ClientAnalyticsDashboard({
           setSelectedLeaves(nextRoots.flatMap(entity => leafKeys(entity, result.entities)));
           setAppliedEntityKeys(nextRoots.map(entity => entity.key));
           hierarchySelectionInitialized.current = true;
+        } else {
+          const nextLeaves = new Set(result.entities.filter(entity => entity.level === "campaign")
+            .flatMap(entity => leafKeys(entity, result.entities)));
+          const nextKeys = new Set(result.entities.map(entity => entity.key));
+          setSelectedLeaves(current => current.filter(key => nextLeaves.has(key)));
+          setAppliedEntityKeys(current => current.filter(key => nextKeys.has(key)));
         }
       })
       .catch(() => { if (!cancelled) setHierarchyError("Não foi possível confirmar a veiculação atual na Meta."); })
@@ -933,7 +939,7 @@ export function ClientAnalyticsDashboard({
               selected={selectedLeaves} onChange={setSelectedLeaves} disabled={pending || hierarchyLoading}
               sortKey={sortKey} sortDirection={sortDirection} statusLabel={entityDeliveryLabel} />
           </table></div>
-          {!roots.length && <p className="analytics-empty-copy">Nenhuma campanha disponível nesta conta.</p>}
+          {!roots.length && <p className="analytics-empty-copy">Nenhuma campanha em veiculação ou com valor gasto neste período.</p>}
           <p className="analytics-footnote">A seleção aplicada passa a controlar a Visão geral. Expanda as linhas para escolher conjuntos ou anúncios. Se não houver detalhamento, atualize os dados.</p>
         </article>
       </>}

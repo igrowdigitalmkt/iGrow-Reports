@@ -35,6 +35,15 @@ export function entityDeliveryRank(entity: Pick<AnalyticsEntity, "effectiveStatu
   return entityDeliveryActive(entity) ? 1 : 0;
 }
 
+// Current delivery is independent of the metrics period. Historical activity
+// qualifies only when the campaign spent a positive amount in that period.
+export function relevantCampaignHierarchy(entities: AnalyticsEntity[]): AnalyticsEntity[] {
+  const campaigns = new Set(entities.filter(entity => entity.level === "campaign"
+    && (entityDeliveryActive(entity) || (Number.isFinite(entity.values.spend) && (entity.values.spend ?? 0) > 0)))
+    .map(entity => `${entity.accountId}:${entity.id}`));
+  return entities.filter(entity => campaigns.has(`${entity.accountId}:${entity.level === "campaign" ? entity.id : entity.campaignId}`));
+}
+
 export function entityChildren(entity: AnalyticsEntity, entities: AnalyticsEntity[]) {
   return entities.filter(child => child.accountId === entity.accountId && child.parentId === entity.id
     && child.level === (entity.level === "campaign" ? "adset" : "ad"));
