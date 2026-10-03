@@ -7,7 +7,7 @@ import { getClientAnalytics } from "@/modules/client-portal/analytics";
 import { resolveAnalyticsRange } from "@/modules/client-portal/range";
 import { listClientPortalReports } from "@/modules/reports/client";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
-import { normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
+import type { AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 import type { AnalyticsReportItem } from "@/modules/client-portal/analytics-types";
 
 export const metadata: Metadata = {
@@ -65,15 +65,16 @@ export default async function ClientOverviewPage({ params, searchParams }: {
   if (data.coverage.status !== "complete" || data.coverage.previousStatus !== "complete") {
     data.warnings.push("Este período abriu com os dados já salvos. Use Atualizar dados para buscar datas pendentes na Meta sem bloquear a troca de visualização.");
   }
-  const [hierarchy, header] = await Promise.all([
-    supabase.rpc("get_client_analytics_hierarchy", { p_client_id: clientId, p_date_from: data.dateFrom,
-      p_date_to: data.dateTo, p_ad_account_ids: data.selectedAccountIds }),
-    supabase.rpc("get_client_report_header", { p_client_id: clientId }),
-  ]);
-  if (hierarchy.error || header.error) throw new Error("Não foi possível consultar a seleção de anúncios.");
-  const workspaceName = header.data && typeof header.data === "object" && !Array.isArray(header.data)
-    && typeof header.data.name === "string" ? header.data.name : "Espaço de trabalho";
-  const entities = normalizeHierarchy(hierarchy.data);
+  const { data: headerData, error: headerError } = await supabase.rpc("get_client_report_header", { p_client_id: clientId });
+  if (headerError) throw new Error("Não foi possível consultar a seleção de anúncios.");
+  const workspaceName = headerData && typeof headerData === "object" && !Array.isArray(headerData)
+    && typeof headerData.name === "string" ? headerData.name : "Espaço de trabalho";
+  const entities: AnalyticsEntity[] = data.campaigns.map((campaign) => ({
+    key: `campaign:${campaign.id}`, id: campaign.id, level: "campaign", name: campaign.name,
+    parentId: null, campaignId: campaign.id, accountId: campaign.accountId,
+    accountName: campaign.accountName, currency: campaign.currency, values: campaign.values,
+    effectiveStatus: campaign.status, thumbnailUrl: null,
+  }));
   return <ClientPortalShell title={access.client.name}
     description="Explore os resultados, acompanhe a evolução e transforme seus dados em decisões."
     userEmail={user.email} agencyMode={agencyMode} showClientSwitcher={!agencyMode && accesses.length > 1}>

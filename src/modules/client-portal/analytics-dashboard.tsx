@@ -17,7 +17,7 @@ import {
   WalletCards, X, RectangleHorizontal, RectangleVertical,
 } from "lucide-react";
 import { collectDashboardData } from "./analytics-actions";
-import { getCampaignScopedAnalytics } from "./analytics-scope-actions";
+import { getCampaignScopedAnalytics, getClientAnalyticsHierarchy } from "./analytics-scope-actions";
 import { deleteDashboardReport, generateDashboardReport } from "./report-actions";
 import { publishReportVersion } from "@/modules/reports/actions";
 import { resolveAnalyticsRange } from "./range";
@@ -139,11 +139,15 @@ export function ClientAnalyticsDashboard({
   const [draggedMetricKey, setDraggedMetricKey] = useState<string | null>(null);
   const [tab, setTab] = useState<"overview" | "campaigns" | "metrics" | "reports">(query.get("aba") === "reports" ? "reports" : "overview");
   const [campaignQuery, setCampaignQuery] = useState("");
-  const roots = entities.filter(entity => entity.level === "campaign");
-  const allLeaves = roots.flatMap(entity => leafKeys(entity, entities));
+  const [hierarchyEntities, setHierarchyEntities] = useState<AnalyticsEntity[]>(entities);
+  const [hierarchyLoaded, setHierarchyLoaded] = useState(false);
+  const [hierarchyLoading, setHierarchyLoading] = useState(false);
+  const [hierarchyError, setHierarchyError] = useState("");
+  const roots = hierarchyEntities.filter(entity => entity.level === "campaign");
+  const allLeaves = roots.flatMap(entity => leafKeys(entity, hierarchyEntities));
   const [selectedLeaves, setSelectedLeaves] = useState(allLeaves);
   const [appliedEntityKeys, setAppliedEntityKeys] = useState(roots.map(entity => entity.key));
-  const draftEntityKeys = compactEntitySelection(entities, selectedLeaves);
+  const draftEntityKeys = compactEntitySelection(hierarchyEntities, selectedLeaves);
   const scopeDirty = [...draftEntityKeys].sort().join(",") !== [...appliedEntityKeys].sort().join(",");
   const [scopeData, setScopeData] = useState<Pick<AnalyticsDashboardData, "summary" | "previousSummary" | "daily" | "previousDaily" | "coverage" | "estimatedMetricKeys"> | null>(null);
   const [sortKey, setSortKey] = useState("spend");
@@ -266,7 +270,7 @@ export function ClientAnalyticsDashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.coverage.latestCollectedAt]);
 
-  const selectedEntities = entities.filter(entity => appliedEntityKeys.includes(entity.key));
+  const selectedEntities = hierarchyEntities.filter(entity => appliedEntityKeys.includes(entity.key));
   const scopedData = { ...data, ...(scopeData ?? {}), campaigns: selectedEntities.map(entity => ({
     id: entity.id, name: entity.name, accountId: entity.accountId, accountName: entity.accountName,
     currency: entity.currency, status: null, values: entity.values,
@@ -298,7 +302,7 @@ export function ClientAnalyticsDashboard({
       }).format(new Date(data.coverage.latestCollectedAt))
     : "Ainda não atualizado";
   const visibleCampaigns = roots.filter(entity => {
-    const descendants = entities.filter(item => item.campaignId === entity.id || item.key === entity.key);
+    const descendants = hierarchyEntities.filter(item => item.campaignId === entity.id || item.key === entity.key);
     return [entity, ...descendants].some(item => item.name.toLocaleLowerCase("pt-BR").includes(campaignQuery.toLocaleLowerCase("pt-BR")));
   }).sort((a,b) => sortDirection === "desc"
     ? (b.values[sortKey] ?? -Infinity) - (a.values[sortKey] ?? -Infinity)
@@ -451,6 +455,26 @@ export function ClientAnalyticsDashboard({
     setSortKey(key);
   }
 
+  function selectTab(nextTab: typeof tab) {
+    setTab(nextTab);
+    if (nextTab !== "campaigns" || hierarchyLoaded || hierarchyLoading || !data.selectedAccountIds.length) return;
+    setHierarchyLoading(true);
+    setHierarchyError("");
+    void getClientAnalyticsHierarchy({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds })
+      .then((result) => {
+        if ("error" in result) {
+          setHierarchyError(result.error ?? "Não foi possível carregar conjuntos e anúncios.");
+          return;
+        }
+        setHierarchyEntities(result.entities);
+        const nextRoots = result.entities.filter(entity => entity.level === "campaign");
+        setSelectedLeaves(nextRoots.flatMap(entity => leafKeys(entity, result.entities)));
+        setAppliedEntityKeys(nextRoots.map(entity => entity.key));
+        setHierarchyLoaded(true);
+      })
+      .finally(() => setHierarchyLoading(false));
+  }
+
   function publishReport(reportVersionId: string) {
     setError(""); setNotice("");
     startTransition(async () => {
@@ -583,7 +607,7 @@ export function ClientAnalyticsDashboard({
         ].map(({ key, label, icon: Icon }) => <button type="button" role="tab"
           id={`analytics-tab-${key}`} aria-controls={`analytics-panel-${key}`}
           aria-selected={tab === key} key={key} className={tab === key ? "is-active" : ""}
-          onClick={() => setTab(key as typeof tab)}><Icon size={14} />{label}</button>)}
+          onClick={() => selectTab(key as typeof tab)}><Icon size={14} />{label}</button>)}
       </div>
       {tab === "overview" && <details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Métricas <span className="analytics-count">{overviewMetrics.length}</span><ChevronDown size={13} /></summary>
@@ -746,7 +770,7 @@ export function ClientAnalyticsDashboard({
         <article className="analytics-card analytics-campaign-card">
           <div className="analytics-card-heading"><div><span className="analytics-card-kicker">DE ONDE VÊM OS RESULTADOS</span>
             <h3>Seleção incluída na análise <span className="analytics-count">{selectedEntities.length}</span></h3></div>
-            <button type="button" className="analytics-text-button" onClick={() => setTab("campaigns")}>Editar seleção <ArrowUpRight size={14} /></button>
+            <button type="button" className="analytics-text-button" onClick={() => selectTab("campaigns")}>Editar seleção <ArrowUpRight size={14} /></button>
           </div>
           <div className="analytics-table-scroll"><table className="analytics-table analytics-campaign-table">
             <thead><tr><th>Campanha / conta</th>{fixedMetrics.slice(0, 4).map((metric) => <th key={metric.key}>{metric.label}</th>)}</tr></thead>
@@ -770,10 +794,14 @@ export function ClientAnalyticsDashboard({
           </select></label>
           <div><span>Conta(s)</span><strong>{data.selectedAccountIds.length === data.accounts.length ? "Todas as contas selecionadas" : `${data.selectedAccountIds.length} conta(s)`}</strong></div>
           <div><span>Campanhas</span><strong>{draftEntityKeys.length} de {data.campaigns.length}</strong></div>
-          <button type="button" className="analytics-button analytics-button-primary" onClick={applyCampaignScope} disabled={pending || !roots.length}>
+          <button type="button" className="analytics-button analytics-button-primary" onClick={applyCampaignScope} disabled={pending || hierarchyLoading || !roots.length}>
             {pending ? "Aplicando…" : "Aplicar seleção"}
           </button>
         </div>
+        {hierarchyLoading && <div className="analytics-notice" role="status">
+          <RefreshCw size={17} className="analytics-spin" /><p>Carregando conjuntos e anúncios deste período. As campanhas já estão disponíveis.</p>
+        </div>}
+        {hierarchyError && <div className="analytics-notice analytics-notice-error" role="alert"><Info size={17} /><p>{hierarchyError}</p></div>}
         <article className="analytics-card analytics-campaign-card">
           <div className="analytics-card-heading"><div><span className="analytics-card-kicker">META ADS · HIERARQUIA</span>
             <h3>Campanhas com movimentação no período</h3></div>
@@ -791,8 +819,8 @@ export function ClientAnalyticsDashboard({
               <button type="button" onClick={() => sortBy(metric.key)} title="Arraste para mudar a posição da coluna">{metric.label}
                 {sortKey === metric.key && <ChevronDown size={12} style={{ transform: sortDirection === "asc" ? "rotate(180deg)" : undefined }} />}
               </button></th>)}</tr></thead>
-            <CampaignTree entities={entities} roots={visibleCampaigns} metrics={campaignMetrics}
-              selected={selectedLeaves} onChange={setSelectedLeaves} disabled={pending} />
+            <CampaignTree entities={hierarchyEntities} roots={visibleCampaigns} metrics={campaignMetrics}
+              selected={selectedLeaves} onChange={setSelectedLeaves} disabled={pending || hierarchyLoading} />
           </table></div>
           {!data.campaigns.length && <p className="analytics-empty-copy">Nenhuma campanha com movimentação foi coletada para este período.</p>}
           <p className="analytics-footnote">A seleção aplicada passa a controlar a Visão geral. Expanda as linhas para escolher conjuntos ou anúncios. Se não houver detalhamento, atualize os dados.</p>
