@@ -9,6 +9,19 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe("MetaClient", () => {
+  it("paginates live campaigns without caching or accepting a partial catalog", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ data: [{ id: "1", name: "First", effective_status: "ACTIVE" }],
+      paging: { next: "https://graph.facebook.com/next", cursors: { after: "second" } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: "2", name: "Second", effective_status: "PAUSED" }] }));
+    const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl });
+    expect((await client.listCampaigns("act_1")).map(c => c.id)).toEqual(["1", "2"]);
+    expect(fetchImpl.mock.calls[1][0].searchParams.get("after")).toBe("second");
+    expect(fetchImpl.mock.calls.every(call => call[1].cache === "no-store")).toBe(true);
+    fetchImpl.mockReset().mockResolvedValueOnce(jsonResponse({ data: [{ id: "1" }],
+      paging: { next: "https://graph.facebook.com/next", cursors: { after: "second" } } }))
+      .mockResolvedValueOnce(jsonResponse({ error: { code: 200 } }, 403));
+    await expect(client.listCampaigns("act_1")).rejects.toBeInstanceOf(MetaApiError);
+  });
   it("retorna lista vazia para login pessoal sem consultar contas de usuário do sistema", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ data: [] }));
     const client = new MetaClient({ accessToken: "token", apiVersion: "v26.0", fetchImpl: fetchImpl as typeof fetch });

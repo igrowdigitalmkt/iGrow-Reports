@@ -1,4 +1,6 @@
 .git
+work
+.tmp*
 .env*
 artifacts
 test-results

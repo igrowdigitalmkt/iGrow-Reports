@@ -20,10 +20,11 @@ import {
   hasBusinessPortfolio,
   MetaApiError,
   MetaClient,
-  metaDeliveryStatus,
   type MetaAdAccount,
 } from "./client";
 import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, periodScalarValue, splitCollectionRange, validateCollectionRange } from "./collection";
+
+import { liveDeliveryStatuses } from "./delivery";
 
 const TOKEN_KIND = "meta_access_token";
 
@@ -182,32 +183,10 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
   if (error) throw new MetaSetupError("Não foi possível preservar os agregados da Meta.");
 }
 
-type MetaEntityStatusEntity = { accountId: string; key: string };
-type MetaStatusObject = { id: string; status?: string; effective_status?: string; creative?: { thumbnail_url?: string } };
-type RequestedEntityIds = Record<"campaign" | "adset" | "ad", string[]>;
-
-function requestedEntityIds(entities?: MetaEntityStatusEntity[]) {
-  const byAccount = new Map<string, RequestedEntityIds>();
-  for (const entity of entities ?? []) {
-    const match = /^(campaign|adset|ad):(\d+)$/.exec(entity.key);
-    if (!match) continue;
-    const current = byAccount.get(entity.accountId) ?? { campaign: [], adset: [], ad: [] };
-    current[match[1] as keyof RequestedEntityIds].push(match[2]);
-    byAccount.set(entity.accountId, current);
-  }
-  return byAccount;
-}
-
-async function getExactStatusObjects(client: MetaClient, ids: string[], fields: string) {
-  const results: MetaStatusObject[] = [];
-  for (let index = 0; index < ids.length; index += 50) {
-    results.push(...await client.getObjects<MetaStatusObject>(ids.slice(index, index + 50), fields));
-  }
-  return results;
-}
+export type LiveCampaignIdentity = { accountId: string; id: string; name: string };
 
 // Called only after the dashboard has authorized access to this client.
-export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[]; entities?: MetaEntityStatusEntity[] }, thumbnails?: Record<string, string>): Promise<Record<string, string>> {
+export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[]; entities?: { accountId: string; key: string }[] }, thumbnails?: Record<string, string>, catalog?: LiveCampaignIdentity[]): Promise<Record<string, string>> {
   const statuses: Record<string, string> = {};
   if (!input.accountIds.length) return statuses;
   try {
@@ -219,27 +198,18 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
     const { data: accounts, error } = await service.from("meta_ad_accounts").select("id,external_id,timezone_name")
       .eq("agency_id", input.agencyId).eq("meta_connection_id", connection.id).in("id", input.accountIds).is("archived_at", null);
     if (error || !accounts) return statuses;
-    const requested = requestedEntityIds(input.entities);
     const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
     const client = new MetaClient({ accessToken: token, apiVersion });
     await Promise.allSettled(accounts.map(async account => {
-      const exact = requested.get(account.id);
-      const [campaignsResult, adsetsResult, adsResult] = await Promise.allSettled(exact ? [
-        getExactStatusObjects(client, exact.campaign, "id,name,objective,status,effective_status"),
-        getExactStatusObjects(client, exact.adset, "id,name,campaign_id,status,effective_status"),
-        getExactStatusObjects(client, exact.ad, "id,name,adset_id,campaign_id,status,effective_status,creative{id,thumbnail_url}"),
-      ] : [client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id)]);
-      let campaigns = campaignsResult.status === "fulfilled" ? campaignsResult.value : [];
-      let adsets = adsetsResult.status === "fulfilled" ? adsetsResult.value : [];
-      let ads = adsResult.status === "fulfilled" ? adsResult.value : [];
-      if (exact) {
-        const missingCampaigns = new Set(exact.campaign.filter(id => !campaigns.some(entity => entity.id === id)));
-        if (missingCampaigns.size) campaigns = [...campaigns, ...(await client.listCampaigns(account.external_id)).filter(entity => missingCampaigns.has(entity.id))];
-        const missingAdsets = new Set(exact.adset.filter(id => !adsets.some(entity => entity.id === id)));
-        if (missingAdsets.size) adsets = [...adsets, ...(await client.listAdSets(account.external_id)).filter(entity => missingAdsets.has(entity.id))];
-        const missingAds = new Set(exact.ad.filter(id => !ads.some(entity => entity.id === id)));
-        if (missingAds.size) ads = [...ads, ...(await client.listAds(account.external_id)).filter(entity => missingAds.has(entity.id))];
-      }
+      // Account edges establish ownership and paginate the entire live catalog.
+      // Never reuse captured statuses, partial pages, or exact objects from another account.
+      const [campaignsResult, adsetsResult, adsResult] = await Promise.allSettled([
+        client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id),
+      ]);
+      const campaigns = campaignsResult.status === "fulfilled" ? campaignsResult.value : [];
+      const adsets = adsetsResult.status === "fulfilled" ? adsetsResult.value : [];
+      const ads = adsResult.status === "fulfilled" ? adsResult.value : [];
+      catalog?.push(...campaigns.map(c => ({ accountId: account.id, id: c.id, name: c.name })));
       if (thumbnails) for (const ad of ads) {
         const thumbnail = ad.creative?.thumbnail_url;
         if (!thumbnail) continue;
@@ -248,14 +218,8 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
           if (url.protocol === "https:" && (url.hostname.endsWith(".fbcdn.net") || url.hostname.endsWith(".facebook.com"))) thumbnails[`${account.id}:ad:${ad.id}`] = url.href;
         } catch { /* Missing or invalid creative images do not block analytics. */ }
       }
-      const results = [campaigns, adsets, ads];
-      results.forEach((result, index) => {
-        const level = ["campaign", "adset", "ad"][index];
-        for (const entity of result) {
-          const status = metaDeliveryStatus(entity);
-          if (status) statuses[`${account.id}:${level}:${entity.id}`] = status;
-        }
-      });
+      const live = liveDeliveryStatuses(campaigns, adsets, ads);
+      for (const [key, status] of Object.entries(live)) statuses[`${account.id}:${key}`] = status;
     }));
   } catch { /* A Meta outage must not mislabel entities or block historical analytics. */ }
   return statuses;

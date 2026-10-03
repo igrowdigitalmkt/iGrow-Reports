@@ -203,9 +203,9 @@ export function ClientAnalyticsDashboard({
   const [tab, setTab] = useState<"overview" | "campaigns" | "metrics" | "reports">(query.get("aba") === "reports" ? "reports" : "overview");
   const [campaignQuery, setCampaignQuery] = useState("");
   const [hierarchyEntities, setHierarchyEntities] = useState<AnalyticsEntity[]>(entities);
-  const [hierarchyLoaded, setHierarchyLoaded] = useState(false);
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [hierarchyError, setHierarchyError] = useState("");
+  const hierarchySelectionInitialized = useRef(false);
   const roots = hierarchyEntities.filter(entity => entity.level === "campaign");
   const allLeaves = roots.flatMap(entity => leafKeys(entity, hierarchyEntities));
   const [selectedLeaves, setSelectedLeaves] = useState(allLeaves);
@@ -531,23 +531,41 @@ export function ClientAnalyticsDashboard({
 
   function selectTab(nextTab: typeof tab) {
     setTab(nextTab);
-    if (nextTab !== "campaigns" || !analyticsReady || hierarchyLoaded || hierarchyLoading || !data.selectedAccountIds.length) return;
-    setHierarchyLoading(true);
-    setHierarchyError("");
-    void getClientAnalyticsHierarchy({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds })
+  }
+
+  useEffect(() => {
+    if (tab !== "campaigns" || !analyticsReady || !data.selectedAccountIds.length) return;
+    let cancelled = false;
+    let loading = false;
+    const refresh = () => {
+      if (loading || document.visibilityState !== "visible") return;
+      loading = true;
+      setHierarchyLoading(true);
+      setHierarchyError("");
+      setHierarchyEntities(current => current.map(entity => ({ ...entity, effectiveStatus: null })));
+      void getClientAnalyticsHierarchy({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds })
       .then((result) => {
+        if (cancelled) return;
         if ("error" in result) {
           setHierarchyError(result.error ?? "Não foi possível carregar conjuntos e anúncios.");
           return;
         }
         setHierarchyEntities(result.entities);
-        const nextRoots = result.entities.filter(entity => entity.level === "campaign");
-        setSelectedLeaves(nextRoots.flatMap(entity => leafKeys(entity, result.entities)));
-        setAppliedEntityKeys(nextRoots.map(entity => entity.key));
-        setHierarchyLoaded(true);
+        if (!hierarchySelectionInitialized.current) {
+          const nextRoots = result.entities.filter(entity => entity.level === "campaign");
+          setSelectedLeaves(nextRoots.flatMap(entity => leafKeys(entity, result.entities)));
+          setAppliedEntityKeys(nextRoots.map(entity => entity.key));
+          hierarchySelectionInitialized.current = true;
+        }
       })
-      .finally(() => setHierarchyLoading(false));
-  }
+      .catch(() => { if (!cancelled) setHierarchyError("Não foi possível confirmar a veiculação atual na Meta."); })
+      .finally(() => { loading = false; if (!cancelled) setHierarchyLoading(false); });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [tab, analyticsReady, clientId, data.dateFrom, data.dateTo, data.selectedAccountIds, data.coverage.latestCollectedAt]);
 
   function publishReport(reportVersionId: string) {
     setError(""); setNotice("");
@@ -884,7 +902,7 @@ export function ClientAnalyticsDashboard({
         {hierarchyError && <div className="analytics-notice analytics-notice-error" role="alert"><Info size={17} /><p>{hierarchyError}</p></div>}
         <article className="analytics-card analytics-campaign-card">
           <div className="analytics-card-heading"><div><span className="analytics-card-kicker">META ADS · HIERARQUIA</span>
-            <h3>Campanhas com movimentação no período</h3></div>
+            <h3>Campanhas</h3></div>
             <div className="analytics-campaign-heading-actions">
               <div className="analytics-selection-actions" role="group" aria-label="Selecionar campanhas">
                 <button type="button" className="analytics-text-button" onClick={() => setSelectedLeaves(allLeaves)}

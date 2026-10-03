@@ -5,7 +5,7 @@ import { requireClientDashboardAccess } from "./context";
 import { normalizeClientAnalytics } from "./analytics-calculations";
 import { getClientAnalytics } from "./analytics";
 import { normalizeHierarchy } from "./analytics-hierarchy";
-import { getMetaEntityStatuses, refreshMetaDashboardScope } from "@/modules/meta/server";
+import { getMetaEntityStatuses, refreshMetaDashboardScope, type LiveCampaignIdentity } from "@/modules/meta/server";
 
 const inputSchema = z.object({
   clientId: z.uuid(), dateFrom: z.iso.date(), dateTo: z.iso.date(),
@@ -59,12 +59,20 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
   const entities = normalizeHierarchy(data);
   try {
     const thumbnails: Record<string, string> = {};
+    const catalog: LiveCampaignIdentity[] = [];
     const statuses = await getMetaEntityStatuses({
       agencyId: access.agencyId,
       clientId: parsed.data.clientId,
       accountIds: parsed.data.accountIds,
       entities: entities.map(entity => ({ accountId: entity.accountId, key: entity.key })),
-    }, thumbnails);
+    }, thumbnails, catalog);
+    for (const campaign of catalog) {
+      const account = analytics.accounts.find(a => a.id === campaign.accountId);
+      if (!account || entities.some(e => e.accountId === campaign.accountId && e.level === "campaign" && e.id === campaign.id)) continue;
+      entities.push({ key: `campaign:${campaign.id}`, id: campaign.id, name: campaign.name, level: "campaign",
+        accountId: account.id, accountName: account.name, currency: account.currency, parentId: null,
+        campaignId: campaign.id, values: {}, effectiveStatus: null });
+    }
     return { success: true as const, entities: entities.map(entity => ({
       ...entity,
       effectiveStatus: statuses[`${entity.accountId}:${entity.key}`] ?? null,

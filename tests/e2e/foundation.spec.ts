@@ -85,12 +85,12 @@ test("demonstração explícita, gráfico, filtros e prévia acessível", async 
 test("painel privado exige configuração e nunca usa dados fictícios", async ({ page, request }) => {
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/entrar/);
-  await expect(page.getByText("Não configurado", { exact: true })).toBeVisible();
+  await expect(page.getByText("Não configurado", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Entrar na plataforma", exact: true })).toBeDisabled();
   await expect(page.getByText("Aurora Studio")).toHaveCount(0);
   await page.goto("/cliente");
   await expect(page).toHaveURL(/\/entrar/);
-  await expect(page.getByText("Não configurado", { exact: true })).toBeVisible();
+  await expect(page.getByText("Não configurado", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Aurora Studio")).toHaveCount(0);
   const health = await request.get("/api/health");
   expect(health.status()).toBe(503);

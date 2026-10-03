@@ -64,6 +64,8 @@ export type MetaAdSet = {
   campaign_id?: string;
   status?: string;
   effective_status?: string;
+  start_time?: string;
+  end_time?: string;
 };
 
 export type MetaAd = {
@@ -365,7 +367,7 @@ export class MetaClient {
   async listAdSets(adAccountId: string): Promise<MetaAdSet[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAdSet>(`${adAccountId}/adsets`, {
-      fields: "id,name,campaign_id,status,effective_status",
+      fields: "id,name,campaign_id,status,effective_status,start_time,end_time",
       limit: "500",
     });
   }
