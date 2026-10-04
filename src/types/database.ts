@@ -41,7 +41,7 @@ type IntegrationCollectionJobRow = {
 type IntegrationRawPayloadRow = { id: string; job_id: string; provider: string; endpoint: string; request_fingerprint: string | null; response_payload: Json; http_status: number | null; provider_updated_at: string | null; collected_at: string; created_at: string };
 type IntegrationSnapshotRow = { id: string; job_id: string; client_id: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: "account" | "campaign" | "adset" | "ad"; status: "partial" | "confirmed" | "failed" | "superseded"; currency: string | null; timezone_name: string | null; attribution_window: string | null; payload: Json; reconciliation: Json; collected_at: string; created_at: string };
 type IntegrationRow = {
-  id: string; agency_id: string; provider: "meta" | "whatsapp" | "qstash";
+  id: string; agency_id: string; provider: "meta" | "google" | "tiktok" | "linkedin" | "youtube" | "whatsapp" | "qstash";
   connection_status: "disconnected" | "connected" | "error";
   health_status: "unknown" | "healthy" | "degraded" | "error";
   last_checked_at: string | null; last_success_at: string | null; last_error_at: string | null;
