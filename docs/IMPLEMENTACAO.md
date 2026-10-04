@@ -1,5 +1,13 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — indicadores para apresentação dos snapshots
+
+`projectMetaSnapshotView` converte a leitura conjunta em dados de apresentação por conta e nível. Conserva valores decimais como strings, estados de disponibilidade, unidades, regras de agregação e proveniência de cada snapshot. O nome vem do snapshot, com ID como alternativa; vínculos de hierarquia são preservados e status de entrega permanece desconhecido porque não integra o contrato atual.
+
+A chave nativa `inline_link_clicks` recebe a chave de apresentação `link_clicks`; rótulos usam o catálogo Meta existente. Aliases conflitantes, outro provedor ou indicadores sem metadados são rejeitados. Um bundle pendente não libera entidades; uma coleta confirmada vazia permanece válida e uma leitura antiga conserva a sinalização `stale`. Não soma contas/níveis nem converte moedas ou valores para números de ponto flutuante.
+
+Essa projeção prepara os indicadores e filtros, mas ainda não substitui a fonte das telas, séries diárias ou relatórios. Integração visual, reconciliação entre níveis e execução/homologação remota permanecem pendentes. Nenhuma coleta externa ou alteração remota foi realizada. `pnpm check` aprovado: lint, TypeScript, 414 testes de aplicação, 460 verificações SQL/RLS em PGlite e build de produção.
+
 ## Atualização de 4 de outubro de 2026 — leitura conjunta de snapshots
 
 `readConfirmedSnapshotBundle` reúne escopos de contas/níveis de um único cliente, conexão, provedor, período e versões. A leitura usa as RPCs autenticadas existentes, com no máximo oito consultas simultâneas. Escopos duplicados ou incompatíveis são rejeitados antes das consultas. Se faltar qualquer snapshot confirmado, o retorno é `pending`, com os escopos faltantes e sem liberar dados parciais.
