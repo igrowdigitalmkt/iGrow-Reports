@@ -39,6 +39,16 @@ O App Router pode ser implantado como servidor Next.js; uma exportação estáti
 
 ## Operação futura
 
+### Recuperação de coletas interrompidas
+
+A migration `202610040008_worker_leases.sql` deve ser aplicada antes de habilitar o worker atualizado. Ela disponibiliza RPCs no schema público com execução exclusiva de `service_role`; o schema privado permanece oculto. A assinatura de finalização passa a exigir `p_attempt_count`, e a persistência usa `persist_integration_collection_result`.
+
+Cada reivindicação dura quinze minutos a partir de `started_at`. Ao chamar `claim_integration_collection_job`, o executor também pode receber um job abandonado com claim expirado. O banco incrementa `attempt_count` e mantém o mesmo identificador/idempotência do job. Jobs confirmados, com falha terminal ou superseded não são recuperados automaticamente; retries parciais respeitam `next_attempt_at`.
+
+Persistência e finalização exigem a tentativa atual ainda vigente. Uma tentativa expirada recebe SQLSTATE `40001` e não pode sobrescrever a retomada. Payloads e snapshot são gravados na mesma transação sob bloqueio do job, com um snapshot por tentativa. Repetir a gravação da mesma tentativa vigente retorna o snapshot existente sem duplicar payloads.
+
+Não há heartbeat de extensão do claim: dividir coletas longas em jobs que terminem dentro de quinze minutos. A recuperação depende de novas chamadas ao executor; esta migration não provisiona um cron ou serviço de execução. Antes de habilitar em produção, aplicar em homologação e exercitar interrupções e dois workers concorrentes no Supabase real. Os testes PGlite verificam retomada e rejeição de workers antigos em sequência, sem simular concorrência entre sessões.
+
 A fundação persiste auditoria de bootstrap, alterações de equipe e operações de convite executadas pelas RPCs. As etapas seguintes precisam ampliar a cobertura para mudanças de clientes, integrações, agendamentos, versões e entregas. Auditoria de negócio e logs de aplicação têm finalidades distintas.
 
 A rota `/api/health` informa somente que a aplicação responde. Ela não verifica disponibilidade do Supabase, validade de credenciais, migrations ou integrações. O HTTP 200 desse endpoint não comprova que a plataforma está operacional.

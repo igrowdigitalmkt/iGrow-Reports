@@ -22,8 +22,8 @@ describe("claimed job worker", () => {
     const collect = vi.fn(async () => result);
     expect(await runOneIntegrationJob(service, { meta: { provider: "meta", collect } })).toBe(true);
     expect(collect).toHaveBeenCalledWith(expect.objectContaining({ clientId: "client-a", connectionId: "connection-a", provider: "meta" }));
-    expect(persistCollectionResult).toHaveBeenCalledWith(service, "job-a", result, "partial");
-    expect(finishCollectionJob).toHaveBeenCalledWith(service, "job-a", expect.objectContaining({ status: "partial" }));
+    expect(persistCollectionResult).toHaveBeenCalledWith(service, "job-a", 1, result, "partial");
+    expect(finishCollectionJob).toHaveBeenCalledWith(service, "job-a", 1, expect.objectContaining({ status: "partial" }));
   });
 
   it("rejects an adapter registered under another provider before collecting", async () => {
@@ -31,6 +31,6 @@ describe("claimed job worker", () => {
     await runOneIntegrationJob(service, { meta: { provider: "google", collect } });
     expect(collect).not.toHaveBeenCalled();
     expect(persistCollectionResult).not.toHaveBeenCalled();
-    expect(finishCollectionJob).toHaveBeenCalledWith(service, "job-a", expect.objectContaining({ status: "failed", errorCode: "provider_not_registered" }));
+    expect(finishCollectionJob).toHaveBeenCalledWith(service, "job-a", 1, expect.objectContaining({ status: "failed", errorCode: "provider_not_registered" }));
   });
 });

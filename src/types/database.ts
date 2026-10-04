@@ -39,7 +39,7 @@ type IntegrationCollectionJobRow = {
   created_at: string; updated_at: string;
 };
 type IntegrationRawPayloadRow = { id: string; job_id: string; provider: string; endpoint: string; request_fingerprint: string | null; response_payload: Json; http_status: number | null; provider_updated_at: string | null; collected_at: string; created_at: string };
-type IntegrationSnapshotRow = { id: string; job_id: string; client_id: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: "account" | "campaign" | "adset" | "ad"; status: "partial" | "confirmed" | "failed" | "superseded"; currency: string | null; timezone_name: string | null; attribution_window: string | null; payload: Json; reconciliation: Json; collected_at: string; created_at: string };
+type IntegrationSnapshotRow = { id: string; job_id: string; attempt_count: number | null; client_id: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: "account" | "campaign" | "adset" | "ad"; status: "partial" | "confirmed" | "failed" | "superseded"; currency: string | null; timezone_name: string | null; attribution_window: string | null; payload: Json; reconciliation: Json; collected_at: string; created_at: string };
 type IntegrationProviderHealthRow = { id: string; integration_id: string; provider: string; status: "unknown" | "healthy" | "degraded" | "blocked"; last_success_at: string | null; last_failure_at: string | null; last_error_code: string | null; consecutive_failures: number; avg_latency_ms: number | null; updated_at: string };
 type IntegrationRow = {
   id: string; agency_id: string; provider: "meta" | "google" | "tiktok" | "linkedin" | "youtube" | "whatsapp" | "qstash";
@@ -217,7 +217,8 @@ export type Database = {
     Views: { [_ in never]: never };
     Functions: {
       record_integration_provider_health: { Args: { p_integration_id: string; p_provider: string; p_ok: boolean; p_error_code?: string | null; p_latency_ms?: number | null }; Returns: IntegrationProviderHealthRow };
-      finish_integration_collection_job: { Args: { p_job_id: string; p_status: string; p_next_attempt_at?: string | null; p_error_code?: string | null; p_error_message?: string | null; p_completed_at?: string | null }; Returns: undefined };
+      finish_integration_collection_job: { Args: { p_job_id: string; p_attempt_count: number; p_status: string; p_next_attempt_at?: string | null; p_error_code?: string | null; p_error_message?: string | null; p_completed_at?: string | null }; Returns: undefined };
+      persist_integration_collection_result: { Args: { p_job_id: string; p_attempt_count: number; p_status: string; p_metrics: Json; p_reconciliation: Json; p_raw_payloads: Json }; Returns: string };
       claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number }[] };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };

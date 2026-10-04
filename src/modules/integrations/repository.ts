@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
+import type { Database, Json } from "@/types/database";
 import { collectionIdempotencyKey, type CollectionIdentity } from "./data-contract";
 import type { ProviderCollectionResult } from "./worker-contract";
 
@@ -43,9 +43,10 @@ export async function recordProviderHealth(service: SupabaseClient<Database>, in
   return data;
 }
 
-export async function finishCollectionJob(service: SupabaseClient<Database>, jobId: string, transition: { status: "partial" | "confirmed" | "failed"; nextAttemptAt?: string | null; errorCode?: string; errorMessage?: string; completedAt?: string | null }) {
+export async function finishCollectionJob(service: SupabaseClient<Database>, jobId: string, attemptCount: number, transition: { status: "partial" | "confirmed" | "failed"; nextAttemptAt?: string | null; errorCode?: string; errorMessage?: string; completedAt?: string | null }) {
   const { error } = await service.rpc("finish_integration_collection_job", {
     p_job_id: jobId,
+    p_attempt_count: attemptCount,
     p_status: transition.status,
     p_next_attempt_at: transition.nextAttemptAt ?? null,
     p_error_code: transition.errorCode ?? null,
@@ -55,19 +56,15 @@ export async function finishCollectionJob(service: SupabaseClient<Database>, job
   if (error) throw new Error(`Não foi possível finalizar o job de coleta: ${error.message}`);
 }
 
-export async function persistCollectionResult(service: SupabaseClient<Database>, jobId: string, result: ProviderCollectionResult, status: "partial" | "confirmed", collectedAt = new Date().toISOString()) {
-  const { data: job, error: jobError } = await service.from("integration_collection_jobs").select("client_id,provider,external_account_id,date_from,date_to,entity_level").eq("id", jobId).single();
-  if (jobError || !job) throw new Error("Job de coleta não encontrado para criar o snapshot.");
-  const rawRows = result.rawPayloads.map((raw) => ({ job_id: jobId, provider: job.provider, endpoint: raw.endpoint, response_payload: raw.payload as never, http_status: raw.httpStatus ?? null, collected_at: collectedAt }));
-  if (rawRows.length) {
-    const { error } = await service.from("integration_raw_payloads").insert(rawRows);
-    if (error) throw new Error(`Não foi possível salvar o payload bruto: ${error.message}`);
-  }
-  const { data, error } = await service.from("integration_snapshots").insert({
-    job_id: jobId, client_id: job.client_id, provider: job.provider, external_account_id: job.external_account_id,
-    date_from: job.date_from, date_to: job.date_to, entity_level: job.entity_level, status,
-    payload: { metrics: result.metrics } as never, reconciliation: result.reconciliation as never, collected_at: collectedAt,
-  }).select("id,status").single();
-  if (error) throw new Error(`Não foi possível salvar o snapshot: ${error.message}`);
+export async function persistCollectionResult(service: SupabaseClient<Database>, jobId: string, attemptCount: number, result: ProviderCollectionResult, status: "partial" | "confirmed") {
+  const { data, error } = await service.rpc("persist_integration_collection_result", {
+    p_job_id: jobId,
+    p_attempt_count: attemptCount,
+    p_status: status,
+    p_metrics: result.metrics as unknown as Json,
+    p_reconciliation: result.reconciliation as Json,
+    p_raw_payloads: result.rawPayloads as unknown as Json,
+  });
+  if (error) throw new Error(`Não foi possível salvar o resultado da coleta: ${error.message}`);
   return data;
 }
