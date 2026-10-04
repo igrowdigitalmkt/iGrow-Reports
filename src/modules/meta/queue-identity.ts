@@ -1,4 +1,4 @@
-import type { CollectionIdentity } from "./data-contract";
+import type { CollectionIdentity } from "../integrations/data-contract";
 
 export type MetaJobInput = {
   clientId: string;
