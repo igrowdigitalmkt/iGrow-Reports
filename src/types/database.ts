@@ -216,6 +216,7 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      record_integration_provider_health: { Args: { p_integration_id: string; p_provider: string; p_ok: boolean; p_error_code?: string | null; p_latency_ms?: number | null }; Returns: IntegrationProviderHealthRow };
       claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number }[] };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };
