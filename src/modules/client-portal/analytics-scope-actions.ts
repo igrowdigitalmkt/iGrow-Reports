@@ -63,6 +63,20 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
   });
   if (error || !data) return { error: "Não foi possível carregar a árvore de campanhas deste período." };
   const entities = normalizeHierarchy(data);
+  // The hierarchy RPC can legitimately omit a campaign when a detail level
+  // has no child rows. The period aggregate is still authoritative for
+  // visibility: campaigns with positive spend must remain available for every
+  // client, regardless of whether Meta returned descendants for them.
+  const knownCampaigns = new Set(entities.filter(entity => entity.level === "campaign")
+    .map(entity => `${entity.accountId}:${entity.id}`));
+  for (const campaign of Array.isArray(analytics.campaigns) ? analytics.campaigns : []) {
+    if (!(campaign.values.spend != null && Number.isFinite(campaign.values.spend) && campaign.values.spend > 0)) continue;
+    const key = `${campaign.accountId}:${campaign.id}`;
+    if (knownCampaigns.has(key)) continue;
+    entities.push({ ...campaign, key: `campaign:${campaign.id}`, level: "campaign", parentId: null,
+      campaignId: campaign.id, effectiveStatus: null });
+    knownCampaigns.add(key);
+  }
   try {
     const thumbnails: Record<string, string> = {};
     const catalog: LiveCampaignIdentity[] = [];
