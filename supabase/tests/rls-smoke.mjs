@@ -43,7 +43,11 @@ try {
   }
   const results = [];
   for (const file of (await readdir(resolve(root, "supabase/tests"))).filter(name => name.endsWith(".test.sql")).sort()) {
-    results.push(...await db.exec(await readFile(resolve(root, "supabase/tests", file), "utf8")));
+    try {
+      results.push(...await db.exec(await readFile(resolve(root, "supabase/tests", file), "utf8")));
+    } catch (error) {
+      throw new Error(`${file}: ${error instanceof Error ? error.message : error}`, { cause: error });
+    }
   }
   const lines = results.flatMap(({ rows }) => rows.flatMap((row) => Object.values(row)))
     .filter((value) => typeof value === "string" && /^(ok |not ok |1\.\.|#)/m.test(value));

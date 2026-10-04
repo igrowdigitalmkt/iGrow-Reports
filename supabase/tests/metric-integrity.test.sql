@@ -1,4 +1,4 @@
-﻿begin;
+begin;
 set local search_path=public,extensions;
 select no_plan();
 

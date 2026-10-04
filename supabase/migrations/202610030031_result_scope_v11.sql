@@ -1,4 +1,4 @@
-﻿
+
 
 -- Result aggregation contract v11.
 -- A provider row with zero spend and zero impressions contributes zero Results
