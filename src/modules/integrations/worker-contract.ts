@@ -21,7 +21,8 @@ export type JobTransition = {
 };
 
 export function transitionAfterCollection(result: ProviderCollectionResult): JobTransition {
-  return result.complete
+  const reconciled = result.reconciliation.confirmed !== false;
+  return result.complete && reconciled
     ? { status: "confirmed", nextAttemptAt: null }
     : { status: "partial", nextAttemptAt: new Date(Date.now() + 60_000).toISOString() };
 }

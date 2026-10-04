@@ -7,6 +7,10 @@ describe("worker transitions", () => {
     expect(transitionAfterCollection({ metrics: [], complete: false, reconciliation: {}, rawPayloads: [] }).status).toBe("partial");
   });
 
+  it("does not confirm a complete response that failed reconciliation", () => {
+    expect(transitionAfterCollection({ metrics: [], complete: true, reconciliation: { confirmed: false }, rawPayloads: [] }).status).toBe("partial");
+  });
+
   it("requeues temporary provider failures", () => {
     const now = new Date("2026-10-04T12:00:00Z");
     const result = transitionAfterError(new Error("HTTP 503 unavailable"), 0, now);
