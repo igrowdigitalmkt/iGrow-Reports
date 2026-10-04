@@ -2,6 +2,7 @@
 create or replace function private.claim_integration_collection_job(p_now timestamptz default now())
 returns table (
   job_id uuid,
+  connection_id uuid,
   idempotency_key text,
   provider text,
   external_account_id text,
@@ -32,7 +33,7 @@ begin
         updated_at = p_now
     from candidate c
     where j.id = c.id
-    returning j.id, j.idempotency_key, j.provider, j.external_account_id,
+    returning j.id, j.connection_id, j.idempotency_key, j.provider, j.external_account_id,
       j.date_from, j.date_to, j.entity_level, j.attempt_count
   )
   select * from claimed;
