@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { canStartProviderJob, collectionPriority, providerConcurrency } from "@/modules/integrations/scheduler-policy";
 
-const identity = { clientId: "c", connectionId: "i", provider: "meta", externalAccountId: "a", dateFrom: "2026-10-01", dateTo: "2026-10-03", level: "campaign" as const, apiVersion: "v1", contractVersion: 1 };
+const identity = { clientId: "c", connectionId: "i", provider: "meta" as const, externalAccountId: "a", dateFrom: "2026-10-01", dateTo: "2026-10-03", level: "campaign" as const, apiVersion: "v1", contractVersion: 1 };
 
 describe("scheduler policy", () => {
   it("prioritizes visible and recent data for fast dashboard refresh", () => {

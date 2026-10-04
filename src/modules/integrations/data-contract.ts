@@ -5,7 +5,7 @@ export type EntityLevel = "account" | "campaign" | "adset" | "ad";
 export type CollectionIdentity = {
   clientId: string;
   connectionId: string;
-  provider: string;
+  provider: ProviderId;
   externalAccountId: string;
   dateFrom: string;
   dateTo: string;
@@ -19,7 +19,7 @@ export function collectionIdempotencyKey(identity: CollectionIdentity): string {
 }
 
 export type NormalizedMetric = {
-  provider: string;
+  provider: ProviderId;
   nativeKey: string;
   clientId: string;
   connectionId: string;
@@ -39,3 +39,5 @@ export type NormalizedMetric = {
   aggregationRule: string;
   mappingVersion: number;
 };
+import type { ProviderId } from "./provider-id";
+

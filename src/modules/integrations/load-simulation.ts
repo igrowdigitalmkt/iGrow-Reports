@@ -1,4 +1,5 @@
 import type { CollectionIdentity } from "./data-contract";
+import type { ProviderId } from "./provider-id";
 import { collectionPriority } from "./scheduler-policy";
 
 export type SyntheticClientWorkload = {
@@ -7,7 +8,7 @@ export type SyntheticClientWorkload = {
   priority: number;
 };
 
-export function buildSyntheticWorkload(clientCount: number, provider = "meta"): SyntheticClientWorkload[] {
+export function buildSyntheticWorkload(clientCount: number, provider: ProviderId = "meta"): SyntheticClientWorkload[] {
   return Array.from({ length: clientCount }, (_, index) => {
     const clientId = `synthetic-client-${index + 1}`;
     const identity: CollectionIdentity = {
