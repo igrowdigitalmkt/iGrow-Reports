@@ -17,11 +17,10 @@ export function isZeroDeliveryInsight(row: MetaInsight | undefined) {
 // actions must remain separate metrics, rather than inflate the Results column.
 export function providerResultValues(row: MetaInsight): AnalyticsValues | null {
   const counts: AnalyticsValues = { "result:provider_known": 1 };
-  if (!Array.isArray(row.results)) {
-    // A confirmed no-delivery entity contributes zero to every Results family
-    // and must not invalidate totals from campaigns that actually delivered.
-    return isZeroDeliveryInsight(row) ? counts : null;
-  }
+  // Zero delivery is authoritative even if Meta emits an empty/partial Results
+  // structure for the entity. It contributes zero and cannot invalidate totals.
+  if (isZeroDeliveryInsight(row)) return counts;
+  if (!Array.isArray(row.results)) return null;
   for (const result of row.results) {
     if (!result || typeof result !== "object") return null;
     const entry = result as Record<string, unknown>;

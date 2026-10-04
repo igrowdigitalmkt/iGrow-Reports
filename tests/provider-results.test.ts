@@ -37,6 +37,9 @@ describe("Meta campaign results", () => {
       .toEqual({ "result:provider_known": 1 });
     expect(providerResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02", campaign_id: "21", spend: "0", impressions: "0" }))
       .toEqual({ "result:provider_known": 1 });
+    expect(providerResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02", campaign_id: "22", spend: "0", impressions: "0",
+      results: [{ indicator: "actions:lead", values: [] }] }))
+      .toEqual({ "result:provider_known": 1 });
   });
   it("does not publish a partial strict provider total when a delivering campaign lacks results", () => {
     expect(providerResultTotals([

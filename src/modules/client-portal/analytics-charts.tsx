@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { EChartsCoreOption } from "echarts/core";
-import type { AnalyticsDashboardData } from "./analytics-types";
+import type { AnalyticsDashboardData, AnalyticsValues } from "./analytics-types";
 
 export type AnalyticsMetric = AnalyticsDashboardData["metrics"][number];
 export const ANALYTICS_COLORS = ["#48d5f0", "#a293ff", "#53e6af", "#f2bc69", "#f08ebe", "#649aff"];
@@ -20,6 +20,16 @@ export function formatAnalyticsValue(value: number | null | undefined, metric: A
   } catch {
     return "Indisponível";
   }
+}
+
+// Match Ads Manager semantics for entities that had no delivery in the period:
+// there is no result/cost denominator to show, so render a dash instead of
+// suggesting that data collection failed.
+export function formatEntityAnalyticsValue(values: AnalyticsValues, metric: AnalyticsMetric, currency: string | null) {
+  const value = values[metric.key];
+  if ((metric.key === "primary_results" || metric.key === "cost_per_result")
+    && (values.spend ?? 0) === 0 && value == null) return "—";
+  return formatAnalyticsValue(value, metric, currency);
 }
 
 function shortDate(date: string) {

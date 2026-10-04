@@ -28,7 +28,7 @@ import { estimatedMetric } from "@/modules/reports/report-presentation";
 import type { AnalyticsDashboardData, AnalyticsReportItem, AnalyticsValues } from "./analytics-types";
 import {
   ANALYTICS_COLORS, AnalyticsAccountChart, AnalyticsSparkline, AnalyticsTrendChart,
-  formatAnalyticsValue, type AnalyticsMetric,
+  formatAnalyticsValue, formatEntityAnalyticsValue, type AnalyticsMetric,
 } from "./analytics-charts";
 import "./analytics-dashboard.css";
 type DashboardProps = {
@@ -882,7 +882,7 @@ export function ClientAnalyticsDashboard({
                 style={{ color: ANALYTICS_COLORS[index % ANALYTICS_COLORS.length] }}><BarChart3 size={15} /></span>
                 <div><strong>{campaign.name}</strong><small>{campaign.accountName}</small></div></div>
             </th>{fixedMetrics.slice(0, 4).map((metric) => <td key={metric.key}>
-              {formatAnalyticsValue(campaign.values[metric.key], metric, campaign.currency || data.currency)}
+              {formatEntityAnalyticsValue(campaign.values, metric, campaign.currency || data.currency)}
             </td>)}</tr>)}</tbody>
           </table></div>
         </article>

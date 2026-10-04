@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 import Image from "next/image";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { entityChildren, entityDeliveryActive, leafKeys, type AnalyticsEntity } from "./analytics-hierarchy";
-import { formatAnalyticsValue } from "./analytics-charts";
+import { formatEntityAnalyticsValue } from "./analytics-charts";
 import type { AnalyticsMetric } from "./analytics-types";
 
 export function CampaignTree({ entities, roots, metrics, selected, onChange, disabled, sortKey, sortDirection, statusLabel }: {
@@ -54,7 +54,7 @@ export function CampaignTree({ entities, roots, metrics, selected, onChange, dis
           <div><strong>{entity.name}</strong><small>{entity.level === "campaign" ? entity.accountName
             : entity.level === "adset" ? "Conjunto de anúncios" : "Anúncio"}</small></div>
         </div></th>
-        {metrics.map(metric => <td key={metric.key}>{formatAnalyticsValue(entity.values[metric.key], metric, entity.currency)}</td>)}
+        {metrics.map(metric => <td key={metric.key}>{formatEntityAnalyticsValue(entity.values, metric, entity.currency)}</td>)}
       </tr>
       {open && children.map(child => render(child, depth + 1))}
       {open && !children.length && <tr><td colSpan={metrics.length + 1} className="analytics-tree-empty">Nenhum {entity.level === "campaign" ? "conjunto" : "anúncio"} com movimentação coletada neste período.</td></tr>}
