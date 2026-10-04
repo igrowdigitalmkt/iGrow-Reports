@@ -13,6 +13,22 @@ function adapter(rows: MetaInsight[]) {
 }
 
 describe("Meta job adapter", () => {
+  it("adds native results and derived ratios only in contract 2",async () => {
+    const nativeRow = { ...row,spend: "100",impressions: "1000",inline_link_clicks: "20",results: [{ indicator: "actions:lead",values: [{ value: "25" }] }] };
+    const v2 = await adapter([nativeRow]).worker.collect({ ...identity,contractVersion: 2 });
+    expect(v2.metrics.find(m => m.nativeKey==="primary_results")).toMatchObject({ value: "25",mappingVersion: 2,aggregationRule: "same_indicator" });
+    expect(v2.metrics.find(m => m.nativeKey==="cost_per_result")).toMatchObject({ value: "4",currency: "BRL",aggregationRule: "ratio" });
+    expect(v2.metrics.find(m => m.nativeKey==="cpm")?.value).toBe("100");
+    expect(v2.metrics.find(m => m.nativeKey==="cpc_link")?.value).toBe("5");
+    expect(v2.metrics.find(m => m.nativeKey==="ctr_link")).toMatchObject({ value: "2",unit: "percent" });
+    expect(v2.metrics.find(m => m.nativeKey==="result:provider:action:lead")?.value).toBe("25");
+    const v1 = await adapter([nativeRow]).worker.collect(identity);
+    expect(v1.metrics.some(m => m.nativeKey==="primary_results")).toBe(false);
+  });
+  it("keeps Results and ratios unavailable when source values are missing",async () => {
+    const result = await adapter([{ ...row,spend: undefined,inline_link_clicks: undefined }]).worker.collect({ ...identity,contractVersion: 2 });
+    for (const key of ["primary_results","cost_per_result","cpm","cpc_link","ctr_link"]) expect(result.metrics.find(m => m.nativeKey===key)).toMatchObject({ value: null,state: "unavailable" });
+  });
   it("normalizes exact period metrics without losing decimal precision or summing unique metrics", async () => {
     const { worker, getPeriodInsights } = adapter([row]);
     const result = await worker.collect(identity);

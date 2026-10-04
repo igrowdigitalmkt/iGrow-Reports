@@ -1,5 +1,7 @@
 import type { CollectionIdentity } from "../integrations/data-contract";
 
+export const META_COLLECTION_CONTRACT_VERSION = 2;
+
 export type MetaJobInput = {
   clientId: string;
   connectionId: string;
@@ -20,6 +22,6 @@ export function buildMetaCollectionIdentity(input: MetaJobInput): CollectionIden
     dateTo: input.dateTo,
     level: input.level ?? "campaign",
     apiVersion: input.apiVersion,
-    contractVersion: 1,
+    contractVersion: META_COLLECTION_CONTRACT_VERSION,
   };
 }

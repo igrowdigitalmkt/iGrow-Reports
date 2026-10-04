@@ -3,6 +3,8 @@ import type { CollectionIdentity, NormalizedMetric } from "../integrations/data-
 import type { ProviderAdapter } from "../integrations/worker-contract";
 import { MetaApiError, type MetaClient } from "./client";
 import { validateCollectionRange } from "./collection";
+import { workerResultIndicators } from "./worker-results";
+import { META_COLLECTION_CONTRACT_VERSION } from "./queue-identity";
 
 const MetaDecimal = Decimal.clone({ precision: 60 });
 
@@ -21,7 +23,7 @@ export function createMetaProviderAdapter(resolveContext: (identity: CollectionI
   return {
     provider: "meta",
     async collect(identity) {
-      if (identity.provider !== "meta" || identity.contractVersion !== 1 || !/^act_\d+$/.test(identity.externalAccountId)) throw new Error("invalid Meta job contract");
+      if (identity.provider !== "meta" || ![1,META_COLLECTION_CONTRACT_VERSION].includes(identity.contractVersion) || !/^act_\d+$/.test(identity.externalAccountId)) throw new Error("invalid Meta job contract");
       validateCollectionRange(identity.dateFrom, identity.dateTo);
       const { client, currency, timezone } = await resolveContext(identity);
       if (!/^[A-Z]{3}$/.test(currency) || !timezone) throw new Error("invalid account metadata");
@@ -47,11 +49,11 @@ export function createMetaProviderAdapter(resolveContext: (identity: CollectionI
         seen.add(entityId);
         if (identity.level === "account" && rows.length > 1) throw new Error("invalid duplicate account aggregate");
         const safe: Record<string, unknown> = { account_id: row.account_id, entity_id: entityId, date_start: row.date_start, date_stop: row.date_stop };
-        const append = (nativeKey: string, value: string | null, monetary: boolean, aggregationRule = "sum") => {
+        const append = (nativeKey: string, value: string | null, monetary: boolean, aggregationRule = "sum", unit = monetary ? "currency" : nativeKey === "frequency" ? "ratio" : "count") => {
           metrics.push({ provider: "meta", nativeKey, clientId: identity.clientId, connectionId: identity.connectionId,
             externalAccountId: identity.externalAccountId, externalEntityId: identity.level === "account" ? identity.externalAccountId : entityId,
             level: identity.level, dateFrom: identity.dateFrom, dateTo: identity.dateTo, timezone, currency: monetary ? currency : null,
-            attributionWindow: null, unit: monetary ? "currency" : nativeKey === "frequency" ? "ratio" : "count",
+            attributionWindow: null, unit,
             value, state: value === null ? "unavailable" : new Decimal(value).isZero() ? "zero" : "available",
             collectedAt, providerUpdatedAt: null, aggregationRule, mappingVersion: identity.contractVersion });
         };
@@ -72,6 +74,22 @@ export function createMetaProviderAdapter(resolveContext: (identity: CollectionI
           }
           safe[key] = [...totals].map(([action_type, value]) => ({ action_type, value: value.toFixed() }));
           for (const [actionType, value] of totals) append(`${key === "actions" ? "action" : "value:action"}:${actionType}`, value.toFixed(), key === "action_values");
+        }
+        if (identity.contractVersion===META_COLLECTION_CONTRACT_VERSION) {
+          const spend = decimal(row.spend);
+          const impressions = decimal(row.impressions);
+          const links = decimal(row.inline_link_clicks);
+          const divide = (numerator: string | null,denominator: string | null,factor = 1) => numerator!==null && denominator!==null && !new MetaDecimal(denominator).isZero()
+            ? new MetaDecimal(numerator).div(denominator).times(factor).toFixed() : null;
+          append("cpm",divide(spend,impressions,1000),true,"ratio");
+          append("cpc_link",divide(spend,links),true,"ratio");
+          append("ctr_link",divide(links,impressions,100),false,"ratio","percent");
+          const results = workerResultIndicators(row,spend);
+          append("result:provider_known",results.known ? "1" : null,false,"non_additive");
+          for (const [indicator,value] of Object.entries(results.values)) append(`result:provider:${indicator}`,value,false);
+          append("primary_results",results.primary,false,"same_indicator");
+          append("cost_per_result",results.cost,true,"ratio");
+          safe.native_results = { known: results.known,values: results.values };
         }
         sanitizedRows.push(safe);
       }

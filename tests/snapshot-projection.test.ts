@@ -4,12 +4,12 @@ import { projectConfirmedSnapshot } from "@/modules/integrations/snapshot-projec
 
 const identity: CollectionIdentity = { clientId: "c",connectionId: "i",provider: "meta",externalAccountId: "act_1",dateFrom: "2026-10-01",dateTo: "2026-10-03",level: "campaign",apiVersion: "v24.0",contractVersion: 1 };
 const now = Date.parse("2026-10-04T12:00:00Z");
-const metric = { provider: "meta",nativeKey: "spend",clientId: "c",connectionId: "i",externalAccountId: "act_1",externalEntityId: "123",level: "campaign",dateFrom: identity.dateFrom,dateTo: identity.dateTo,timezone: "America/Sao_Paulo",currency: "BRL",value: "123456789012345678.12345678",state: "available",mappingVersion: 1 };
+const metric = { provider: "meta",nativeKey: "spend",clientId: "c",connectionId: "i",externalAccountId: "act_1",externalEntityId: "123",level: "campaign",dateFrom: identity.dateFrom,dateTo: identity.dateTo,timezone: "America/Sao_Paulo",currency: "BRL",value: "123456789012345678.12345678",state: "available",mappingVersion: 1,unit: "currency",aggregationRule: "sum" };
 const snapshot = { snapshotId: "s",collectedAt: "2026-10-04T11:30:00Z",metrics: [metric] };
 
 describe("confirmed snapshot projection",() => {
   it("keeps entity scope and decimal precision",() => {
-    expect(projectConfirmedSnapshot(snapshot,identity,now)).toMatchObject({ status: "ready",ageMs: 1_800_000,entities: [{ id: "123",currency: "BRL",values: { spend: metric.value } }] });
+    expect(projectConfirmedSnapshot(snapshot,identity,now)).toMatchObject({ status: "ready",ageMs: 1_800_000,entities: [{ id: "123",currency: "BRL",values: { spend: metric.value },units: { spend: "currency" },aggregationRules: { spend: "sum" } }] });
   });
   it("distinguishes missing snapshots from completed empty responses",() => {
     expect(projectConfirmedSnapshot(null,identity,now).status).toBe("empty");

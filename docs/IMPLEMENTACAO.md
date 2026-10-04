@@ -1,5 +1,15 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — resultados nativos no contrato 2
+
+Novos jobs criados por `buildMetaCollectionIdentity` usam o contrato normalizado 2. O adaptador continua aceitando o contrato 1 sem adicionar os novos indicadores a seus snapshots; versões anteriores permanecem intactas e as leituras exigem o contrato solicitado.
+
+O contrato 2 preserva os tipos e valores do campo `results` da Meta com precisão decimal, calcula resultado principal somente quando há um único tipo confirmado e mantém tipos diferentes separados. Ações secundárias não determinam esse resultado. Indicadores duplicados, janelas alternativas e estruturas inválidas tornam o resultado indisponível. A regra existente de ausência de entrega continua confirmando resultado zero; custo de resultado zero permanece indisponível.
+
+CPM, CPC de link, CTR de link e custo por resultado usam os numeradores/denominadores da mesma entidade e período. Divisão por zero e dados ausentes resultam em indisponibilidade. A projeção agora conserva unidades e regras de agregação, incluindo resultado comparável somente entre indicadores do mesmo tipo. Os testes cobrem compatibilidade do contrato 1, precisão, ambiguidade, tipos incompatíveis, ações secundárias, ausência de entrega e métricas derivadas.
+
+`pnpm check` aprovado: lint, TypeScript, 369 testes de aplicação, 460 verificações SQL/RLS em PGlite e build de produção. Nenhuma fonte do dashboard foi substituída nem houve coleta externa. Projeção completa nas telas, hierarquia/criativos e homologação remota continuam pendentes.
+
 ## Atualização de 4 de outubro de 2026 — leitura dos snapshots confirmados
 
 A migration `202610040011_confirmed_collection_read.sql` fornece uma RPC autenticada com o último snapshot confirmado da identidade exata: cliente, conexão, provedor, conta, período, nível, API e contrato. A consulta verifica vínculo do cliente ou papel na agência e não expõe jobs nem payloads brutos. Para Meta, exige conta ainda vinculada/ativa; desconexão da integração conserva o histórico autorizado, enquanto revogação do vínculo ou arquivamento impede novas leituras.
