@@ -1,6 +1,6 @@
 import type { CollectionIdentity } from "../integrations/data-contract";
 
-export const META_COLLECTION_CONTRACT_VERSION = 2;
+export const META_COLLECTION_CONTRACT_VERSION = 3;
 
 export type MetaJobInput = {
   clientId: string;

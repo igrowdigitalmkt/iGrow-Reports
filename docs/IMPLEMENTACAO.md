@@ -1,5 +1,13 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — hierarquia no contrato 3
+
+Novos jobs Meta usam o contrato 3, com nome e vínculos de conta, campanha, conjunto e anúncio preservados no snapshot. O adaptador exige identificadores válidos dos pais e rejeita relações consigo próprio. Os contratos 1 e 2 continuam aceitos com seu conteúdo anterior, incluindo os resultados e indicadores derivados do contrato 2.
+
+A projeção exige a hierarquia correspondente ao nível no contrato 3 e rejeita metadados divergentes para a mesma entidade. Nomes ausentes permanecem nulos; caracteres de controle são removidos. Os payloads sanitizados recebem somente os identificadores de hierarquia. Essas validações estão no adaptador e na leitura, sem nova migration.
+
+`pnpm check` aprovado: lint, TypeScript, 386 testes de aplicação, 460 verificações SQL/RLS em PGlite e build de produção. Os filtros do dashboard ainda não usam essa projeção. Criativos, ligação às telas e homologação remota continuam pendentes; nenhuma coleta externa foi executada.
+
 ## Atualização de 4 de outubro de 2026 — resultados nativos no contrato 2
 
 Novos jobs criados por `buildMetaCollectionIdentity` usam o contrato normalizado 2. O adaptador continua aceitando o contrato 1 sem adicionar os novos indicadores a seus snapshots; versões anteriores permanecem intactas e as leituras exigem o contrato solicitado.

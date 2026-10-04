@@ -8,6 +8,19 @@ const metric = { provider: "meta",nativeKey: "spend",clientId: "c",connectionId:
 const snapshot = { snapshotId: "s",collectedAt: "2026-10-04T11:30:00Z",metrics: [metric] };
 
 describe("confirmed snapshot projection",() => {
+  const metadata = { name: "Campanha A",parentId: "act_1",campaignId: "123",adsetId: null };
+  const v3Metric = { ...metric,mappingVersion: 3,entity: metadata };
+  it("requires hierarchy in Meta contract 3",() => {
+    expect(() => projectConfirmedSnapshot({ ...snapshot,metrics: [{ ...metric,mappingVersion: 3 }] },{ ...identity,contractVersion: 3 },now)).toThrow("Hierarquia");
+  });
+  it.each([
+    { ...metadata,parentId: "act_other" },{ ...metadata,campaignId: "456" },{ ...metadata,adsetId: "123" },
+  ])("rejects contradictory campaign parents",invalid => {
+    expect(() => projectConfirmedSnapshot({ ...snapshot,metrics: [{ ...v3Metric,entity: invalid }] },{ ...identity,contractVersion: 3 },now)).toThrow("Hierarquia");
+  });
+  it("does not merge divergent names for the same entity",() => {
+    expect(() => projectConfirmedSnapshot({ ...snapshot,metrics: [v3Metric,{ ...v3Metric,nativeKey: "revenue",entity: { ...metadata,name: "Other" } }] },{ ...identity,contractVersion: 3 },now)).toThrow("divergentes");
+  });
   it("keeps entity scope and decimal precision",() => {
     expect(projectConfirmedSnapshot(snapshot,identity,now)).toMatchObject({ status: "ready",ageMs: 1_800_000,entities: [{ id: "123",currency: "BRL",values: { spend: metric.value },units: { spend: "currency" },aggregationRules: { spend: "sum" } }] });
   });

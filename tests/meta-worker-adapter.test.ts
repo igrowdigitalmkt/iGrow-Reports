@@ -4,6 +4,7 @@ import { createMetaProviderAdapter } from "@/modules/meta/worker-adapter";
 import { runProviderJob } from "@/modules/integrations/worker-runner";
 import { transitionAfterError } from "@/modules/integrations/worker-contract";
 import type { CollectionIdentity } from "@/modules/integrations/data-contract";
+import { projectConfirmedSnapshot } from "@/modules/integrations/snapshot-projection";
 
 const identity: CollectionIdentity = { clientId: "client-a", connectionId: "connection-a", provider: "meta", externalAccountId: "act_123", dateFrom: "2026-10-01", dateTo: "2026-10-03", level: "campaign", apiVersion: "v24.0", contractVersion: 1 };
 const row: MetaInsight = { account_id: "123", campaign_id: "456", date_start: identity.dateFrom, date_stop: identity.dateTo, spend: "123456789012345678.12345678", impressions: "100", reach: "80", frequency: "1.25", clicks: "0", actions: [{ action_type: "lead", value: "0.1" }, { action_type: "lead", value: "0.2" }] };
@@ -13,6 +14,19 @@ function adapter(rows: MetaInsight[]) {
 }
 
 describe("Meta job adapter", () => {
+  it("preserves ad hierarchy in contract 3 through the read projection",async () => {
+    const scope = { ...identity,level: "ad" as const,contractVersion: 3 };
+    const result = await adapter([{ ...row,adset_id: "789",ad_id: "1011",ad_name: "Anúncio A" }]).worker.collect(scope);
+    expect(result.metrics.every(metric => metric.entity?.parentId==="789" && metric.entity.campaignId==="456")).toBe(true);
+    const projection = projectConfirmedSnapshot({ snapshotId: "s",collectedAt: result.metrics[0].collectedAt,metrics: result.metrics },scope);
+    expect(projection.entities[0]).toMatchObject({ id: "1011",metadata: { name: "Anúncio A",parentId: "789",campaignId: "456",adsetId: "789" } });
+    expect(result.metrics.some(metric => metric.nativeKey==="primary_results")).toBe(true);
+  });
+  it("does not retrofit hierarchy into contract 2",async () => {
+    const result = await adapter([row]).worker.collect({ ...identity,contractVersion: 2 });
+    expect(result.metrics.every(metric => metric.entity===undefined)).toBe(true);
+    expect(result.metrics.some(metric => metric.nativeKey==="primary_results")).toBe(true);
+  });
   it("adds native results and derived ratios only in contract 2",async () => {
     const nativeRow = { ...row,spend: "100",impressions: "1000",inline_link_clicks: "20",results: [{ indicator: "actions:lead",values: [{ value: "25" }] }] };
     const v2 = await adapter([nativeRow]).worker.collect({ ...identity,contractVersion: 2 });

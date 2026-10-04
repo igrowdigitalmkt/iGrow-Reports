@@ -5,6 +5,7 @@ import { MetaApiError, type MetaClient } from "./client";
 import { validateCollectionRange } from "./collection";
 import { workerResultIndicators } from "./worker-results";
 import { META_COLLECTION_CONTRACT_VERSION } from "./queue-identity";
+import { metaWorkerEntity } from "./worker-entity";
 
 const MetaDecimal = Decimal.clone({ precision: 60 });
 
@@ -23,7 +24,7 @@ export function createMetaProviderAdapter(resolveContext: (identity: CollectionI
   return {
     provider: "meta",
     async collect(identity) {
-      if (identity.provider !== "meta" || ![1,META_COLLECTION_CONTRACT_VERSION].includes(identity.contractVersion) || !/^act_\d+$/.test(identity.externalAccountId)) throw new Error("invalid Meta job contract");
+      if (identity.provider !== "meta" || ![1,2,META_COLLECTION_CONTRACT_VERSION].includes(identity.contractVersion) || !/^act_\d+$/.test(identity.externalAccountId)) throw new Error("invalid Meta job contract");
       validateCollectionRange(identity.dateFrom, identity.dateTo);
       const { client, currency, timezone } = await resolveContext(identity);
       if (!/^[A-Z]{3}$/.test(currency) || !timezone) throw new Error("invalid account metadata");
@@ -49,8 +50,11 @@ export function createMetaProviderAdapter(resolveContext: (identity: CollectionI
         seen.add(entityId);
         if (identity.level === "account" && rows.length > 1) throw new Error("invalid duplicate account aggregate");
         const safe: Record<string, unknown> = { account_id: row.account_id, entity_id: entityId, date_start: row.date_start, date_stop: row.date_stop };
+        const entity = identity.contractVersion===META_COLLECTION_CONTRACT_VERSION ? metaWorkerEntity(row,identity.level) : undefined;
+        if (entity) safe.hierarchy = { parentId: entity.parentId,campaignId: entity.campaignId,adsetId: entity.adsetId };
         const append = (nativeKey: string, value: string | null, monetary: boolean, aggregationRule = "sum", unit = monetary ? "currency" : nativeKey === "frequency" ? "ratio" : "count") => {
           metrics.push({ provider: "meta", nativeKey, clientId: identity.clientId, connectionId: identity.connectionId,
+            ...(entity ? { entity } : {}),
             externalAccountId: identity.externalAccountId, externalEntityId: identity.level === "account" ? identity.externalAccountId : entityId,
             level: identity.level, dateFrom: identity.dateFrom, dateTo: identity.dateTo, timezone, currency: monetary ? currency : null,
             attributionWindow: null, unit,
@@ -75,7 +79,7 @@ export function createMetaProviderAdapter(resolveContext: (identity: CollectionI
           safe[key] = [...totals].map(([action_type, value]) => ({ action_type, value: value.toFixed() }));
           for (const [actionType, value] of totals) append(`${key === "actions" ? "action" : "value:action"}:${actionType}`, value.toFixed(), key === "action_values");
         }
-        if (identity.contractVersion===META_COLLECTION_CONTRACT_VERSION) {
+        if (identity.contractVersion>=2) {
           const spend = decimal(row.spend);
           const impressions = decimal(row.impressions);
           const links = decimal(row.inline_link_clicks);

@@ -18,7 +18,15 @@ export function collectionIdempotencyKey(identity: CollectionIdentity): string {
   return [identity.clientId, identity.connectionId, identity.provider, identity.externalAccountId, identity.dateFrom, identity.dateTo, identity.level, identity.apiVersion, identity.contractVersion].join(":");
 }
 
+export type CollectionEntityMetadata = {
+  name: string | null;
+  parentId: string | null;
+  campaignId: string | null;
+  adsetId: string | null;
+};
+
 export type NormalizedMetric = {
+  entity?: CollectionEntityMetadata;
   provider: ProviderId;
   nativeKey: string;
   clientId: string;
