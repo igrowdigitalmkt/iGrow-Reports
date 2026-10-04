@@ -48,7 +48,20 @@ export async function collectDashboardData(input: unknown) {
       revalidatePath(`/cliente/${parsed.data.clientId}`);
       revalidatePath("/dashboard/clientes");
     }
-    const verified = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.from, parsed.data.to);
+    let verified = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.from, parsed.data.to);
+    // A transient Meta/network failure can leave one slice behind. Retry the
+    // incomplete range immediately so the user does not have to discover or
+    // manually restart collection. Existing complete slices are reused.
+    for (let retry = 0; parsed.data.automatic && retry < 2 && verified.coverage.status !== "complete"; retry += 1) {
+      try {
+        await collectMetaClientInsights({ agencyId: context.access.agencyId,
+          clientId: parsed.data.clientId, actorId: context.user.id,
+          since: parsed.data.from, until: parsed.data.to, forceRefresh: false });
+      } catch { /* The verified response below reports the remaining gap. */ }
+      try {
+        verified = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.from, parsed.data.to);
+      } catch { /* Keep the last verified coverage and report its gap. */ }
+    }
     if (verified.coverage.status !== "complete") {
       return {
         error: `A coleta ainda não fechou o período completo (${verified.coverage.coveredDays}/${verified.coverage.totalDays} dias confirmados). O dashboard continuará bloqueado e tentará novamente.`,
