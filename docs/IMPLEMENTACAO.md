@@ -1,5 +1,13 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — leitura conjunta de snapshots
+
+`readConfirmedSnapshotBundle` reúne escopos de contas/níveis de um único cliente, conexão, provedor, período e versões. A leitura usa as RPCs autenticadas existentes, com no máximo oito consultas simultâneas. Escopos duplicados ou incompatíveis são rejeitados antes das consultas. Se faltar qualquer snapshot confirmado, o retorno é `pending`, com os escopos faltantes e sem liberar dados parciais.
+
+Coletas confirmadas vazias são válidas e diferem de snapshots ausentes. Havendo todos os snapshots, a leitura conserva IDs, horários, valores decimais e estados separados, sinalizando `stale` se qualquer escopo estiver antigo e usando o horário mais antigo na indicação de atualização. Falhas de autorização/banco ou snapshots inválidos são propagados. Não agrega níveis nem moedas e não garante que consultas independentes representem a mesma geração transacional.
+
+Essa camada prepara a troca da fonte do dashboard; ainda não está ligada às telas nem enfileira jobs. Nenhuma migration ou coleta externa foi executada neste incremento. `pnpm check` aprovado: lint, TypeScript, 406 testes de aplicação, 460 verificações SQL/RLS em PGlite e build de produção.
+
 ## Atualização de 4 de outubro de 2026 — exibição completa do dashboard
 
 A tela agora exige cobertura diária completa e agregado Meta confirmado para exibir a análise, seus gráficos e controles de exportação. Antes, a cobertura completa liberava cartões mesmo após uma falha de confirmação do agregado, fazendo Resultados e Custo por resultado aparecerem temporariamente indisponíveis. O bloqueio distingue coleta diária pendente de confirmação dos totais e agenda nova tentativa automática também no segundo caso.
