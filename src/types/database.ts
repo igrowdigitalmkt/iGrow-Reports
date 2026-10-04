@@ -177,9 +177,9 @@ export type ClientMetricSummaryRow = {
 export type Database = {
   public: {
     Tables: {
-      integration_collection_jobs: Table<IntegrationCollectionJobRow, Omit<IntegrationCollectionJobRow, "id" | "created_at" | "updated_at"> & Partial<IntegrationCollectionJobRow>, Partial<IntegrationCollectionJobRow>>;
-      integration_raw_payloads: Table<IntegrationRawPayloadRow, Omit<IntegrationRawPayloadRow, "id" | "created_at"> & Partial<IntegrationRawPayloadRow>, Partial<IntegrationRawPayloadRow>>;
-      integration_snapshots: Table<IntegrationSnapshotRow, Omit<IntegrationSnapshotRow, "id" | "created_at"> & Partial<IntegrationSnapshotRow>, Partial<IntegrationSnapshotRow>>;
+      integration_collection_jobs: Table<IntegrationCollectionJobRow, Partial<IntegrationCollectionJobRow>, Partial<IntegrationCollectionJobRow>>;
+      integration_raw_payloads: Table<IntegrationRawPayloadRow, Partial<IntegrationRawPayloadRow>, Partial<IntegrationRawPayloadRow>>;
+      integration_snapshots: Table<IntegrationSnapshotRow, Partial<IntegrationSnapshotRow>, Partial<IntegrationSnapshotRow>>;
       meta_dashboard_scopes: Table<{ agency_id: string; client_id: string; scope_key: string; date_from: string; date_to: string; payload: Json; collected_at: string }, { agency_id: string; client_id: string; scope_key: string; date_from: string; date_to: string; payload: Json; collected_at?: string }, { payload?: Json; collected_at?: string }>;
       client_recipients: Table<RecipientRow, never, never>;
       recipient_consent_events: Table<ConsentEventRow, never, never>;
