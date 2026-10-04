@@ -77,5 +77,15 @@ end;
 $$;
 revoke all on function private.enrich_dashboard_scope(jsonb,uuid,date,date,uuid[],text[]) from public,anon,authenticated,service_role;
 
+-- Reports generated from this audited contract remain publishable and readable.
+create or replace function private.report_contract_confirmed(p_configuration jsonb) returns boolean
+language sql immutable set search_path='' as $$
+  select coalesce(p_configuration->>'snapshot_version'~'^[0-9]+$'
+    and (p_configuration->>'snapshot_version')::integer>=5
+    and p_configuration->'analytics'->'metaAggregate'->>'confirmed'='true'
+    and p_configuration->'analytics'->'metaAggregate'->>'version'='10',false);
+$$;
+revoke all on function private.report_contract_confirmed(jsonb) from public,anon,authenticated,service_role;
+
 
 
