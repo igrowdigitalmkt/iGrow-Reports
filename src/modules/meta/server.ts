@@ -30,6 +30,18 @@ import { applyProviderResults, hasOverlappingMetaSelection, insightActionTypes, 
 
 const TOKEN_KIND = "meta_access_token";
 
+export async function loadMetaWorkerContext(service: SupabaseClient<Database>, identity: import("../integrations/data-contract").CollectionIdentity) {
+  const { data: owner, error: ownerError } = await service.from("clients").select("agency_id").eq("id", identity.clientId).is("archived_at", null).single();
+  if (ownerError || !owner) throw new MetaSetupError("Cliente indisponível para coleta.");
+  const { integration, connection } = await getStoredConnection(service, owner.agency_id, identity.clientId);
+  if (connection.id !== identity.connectionId) throw new MetaSetupError("Conexão fora do escopo da coleta.");
+  const { data: account, error: accountError } = await service.from("meta_ad_accounts").select("currency,timezone_name")
+    .eq("agency_id", owner.agency_id).eq("meta_connection_id", connection.id).eq("external_id", identity.externalAccountId).is("archived_at", null).single();
+  if (accountError || !account) throw new MetaSetupError("Conta indisponível para coleta.");
+  const accessToken = await loadAccessToken(service, owner.agency_id, integration.id, connection.id);
+  return { client: new MetaClient({ accessToken, apiVersion: identity.apiVersion, timeoutMs: 25_000, retryDelayMs: 1_000 }), currency: account.currency, timezone: account.timezone_name };
+}
+
 // The caller first obtains data through the authenticated, client-scoped RPC.
 export async function refreshMetaDashboardScope(input: { agencyId: string; clientId: string; data: AnalyticsDashboardData; entityKeys?: string[] }) {
   const { data } = input;
