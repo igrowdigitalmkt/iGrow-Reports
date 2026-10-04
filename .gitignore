@@ -13,3 +13,4 @@ artifacts/
 supabase/.temp/
 supabase/.branches/
 *.log
+.env.production.local
