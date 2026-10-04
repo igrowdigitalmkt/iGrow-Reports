@@ -29,6 +29,17 @@ type ClientUserRow = {
   agency_id: string; client_id: string; user_id: string; active: boolean;
   created_by: string | null; created_at: string; updated_at: string;
 };
+type IntegrationCollectionJobRow = {
+  id: string; client_id: string; connection_id: string; provider: string; external_account_id: string;
+  date_from: string; date_to: string; entity_level: "account" | "campaign" | "adset" | "ad";
+  api_version: string; contract_version: number; idempotency_key: string;
+  status: "queued" | "collecting" | "partial" | "confirmed" | "failed" | "superseded";
+  priority: number; attempt_count: number; next_attempt_at: string; last_error_code: string | null;
+  last_error_message: string | null; started_at: string | null; completed_at: string | null;
+  created_at: string; updated_at: string;
+};
+type IntegrationRawPayloadRow = { id: string; job_id: string; provider: string; endpoint: string; request_fingerprint: string | null; response_payload: Json; http_status: number | null; provider_updated_at: string | null; collected_at: string; created_at: string };
+type IntegrationSnapshotRow = { id: string; job_id: string; client_id: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: "account" | "campaign" | "adset" | "ad"; status: "partial" | "confirmed" | "failed" | "superseded"; currency: string | null; timezone_name: string | null; attribution_window: string | null; payload: Json; reconciliation: Json; collected_at: string; created_at: string };
 type IntegrationRow = {
   id: string; agency_id: string; provider: "meta" | "whatsapp" | "qstash";
   connection_status: "disconnected" | "connected" | "error";
@@ -166,6 +177,9 @@ export type ClientMetricSummaryRow = {
 export type Database = {
   public: {
     Tables: {
+      integration_collection_jobs: Table<IntegrationCollectionJobRow, Omit<IntegrationCollectionJobRow, "id" | "created_at" | "updated_at"> & Partial<IntegrationCollectionJobRow>, Partial<IntegrationCollectionJobRow>>;
+      integration_raw_payloads: Table<IntegrationRawPayloadRow, Omit<IntegrationRawPayloadRow, "id" | "created_at"> & Partial<IntegrationRawPayloadRow>, Partial<IntegrationRawPayloadRow>>;
+      integration_snapshots: Table<IntegrationSnapshotRow, Omit<IntegrationSnapshotRow, "id" | "created_at"> & Partial<IntegrationSnapshotRow>, Partial<IntegrationSnapshotRow>>;
       meta_dashboard_scopes: Table<{ agency_id: string; client_id: string; scope_key: string; date_from: string; date_to: string; payload: Json; collected_at: string }, { agency_id: string; client_id: string; scope_key: string; date_from: string; date_to: string; payload: Json; collected_at?: string }, { payload?: Json; collected_at?: string }>;
       client_recipients: Table<RecipientRow, never, never>;
       recipient_consent_events: Table<ConsentEventRow, never, never>;
@@ -200,6 +214,7 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number }[] };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };
         Returns: Json;
