@@ -1,5 +1,15 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — leitura dos snapshots confirmados
+
+A migration `202610040011_confirmed_collection_read.sql` fornece uma RPC autenticada com o último snapshot confirmado da identidade exata: cliente, conexão, provedor, conta, período, nível, API e contrato. A consulta verifica vínculo do cliente ou papel na agência e não expõe jobs nem payloads brutos. Para Meta, exige conta ainda vinculada/ativa; desconexão da integração conserva o histórico autorizado, enquanto revogação do vínculo ou arquivamento impede novas leituras.
+
+`readConfirmedCollectionSnapshot` usa o cliente Supabase autenticado e retorna a projeção validada por entidade, com idade e estados `ready`, `stale` ou `empty`. Valores são strings decimais; ausência de snapshot difere de coleta completa vazia. Métricas de escopo/versão divergente, estados incompatíveis, duplicatas e moedas/fusos incompatíveis são rejeitados. Uma coleta parcial posterior não substitui o último confirmado.
+
+Validação: `pnpm check` aprovado; lint, TypeScript, testes de aplicação e SQL repetidos após a extensão dos cenários de leitura. Resultado: 355 testes de aplicação, 460 verificações SQL/RLS em PGlite e build aprovados.
+
+Essa camada prepara a migração de leitura do dashboard; não substitui sua fonte atual. O contrato normalizado 1 ainda não fornece todos os resultados nativos e blocos usados pela interface. Migration e leitura remota permanecem pendentes de aplicação/homologação.
+
 ## Atualização de 4 de outubro de 2026 — adaptador Meta da fila
 
 `runOneMetaIntegrationJob(service)` liga o worker autorizado ao `MetaClient` existente. O contexto carrega no servidor a credencial criptografada específica da conexão e os metadados da conta, usando a versão da API do job. A consulta paginada de Insights do período produz métricas normalizadas para um único nível por job e persiste pelos mecanismos de tentativa/lease da fila.

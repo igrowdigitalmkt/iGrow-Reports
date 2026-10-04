@@ -216,6 +216,7 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      get_confirmed_collection_snapshot: { Args: { p_client_id: string; p_connection_id: string; p_provider: string; p_external_account_id: string; p_date_from: string; p_date_to: string; p_entity_level: string; p_api_version: string; p_contract_version: number }; Returns: Json };
       authorize_integration_collection_job: { Args: { p_job_id: string; p_attempt_count: number }; Returns: string };
       record_integration_provider_health: { Args: { p_integration_id: string; p_provider: string; p_ok: boolean; p_error_code?: string | null; p_latency_ms?: number | null }; Returns: IntegrationProviderHealthRow };
       finish_integration_collection_job: { Args: { p_job_id: string; p_attempt_count: number; p_status: string; p_next_attempt_at?: string | null; p_error_code?: string | null; p_error_message?: string | null; p_completed_at?: string | null }; Returns: undefined };
