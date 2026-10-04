@@ -77,6 +77,16 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
       campaignId: campaign.id, effectiveStatus: null });
     knownCampaigns.add(key);
   }
+  // Account identity comes from the authenticated account catalog, never from
+  // a stale hierarchy row. This prevents campaigns from one Meta account being
+  // displayed under another client's/account's label.
+  const accountCatalog = new Map(analytics.accounts.map(account => [account.id, account]));
+  for (const entity of entities) {
+    const account = accountCatalog.get(entity.accountId);
+    if (!account) continue;
+    entity.accountName = account.name;
+    entity.currency = account.currency;
+  }
   try {
     const thumbnails: Record<string, string> = {};
     const catalog: LiveCampaignIdentity[] = [];
