@@ -25,4 +25,12 @@ describe("provider worker runner", () => {
     const next = Date.parse(transition.mock.calls[0][0].nextAttemptAt);
     expect(next).toBeGreaterThan(now + 45_000);
   });
+
+  it("records provider health for both success and failure", async () => {
+    const health = vi.fn(async () => undefined);
+    await runProviderJob({ provider: "meta", collect: async () => ({ metrics: [], complete: true, reconciliation: {}, rawPayloads: [] }) }, identity, { persistResult: async () => undefined, markTransition: async () => undefined, recordHealth: health });
+    expect(health.mock.calls[0][0].ok).toBe(true);
+    await runProviderJob({ provider: "meta", collect: async () => { throw new Error("timeout"); } }, identity, { persistResult: async () => undefined, markTransition: async () => undefined, recordHealth: health });
+    expect(health.mock.calls[1][0].ok).toBe(false);
+  });
 });
