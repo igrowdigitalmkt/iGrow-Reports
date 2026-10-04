@@ -1,6 +1,7 @@
 "use client";
 
 import { resultBreakdown, resultCostBreakdown } from "./analytics-results";
+import { hasConfirmedAnalytics } from "./analytics-readiness";
 import { changeDescription } from "./analytics-comparison";
 import { reconcileHierarchySelection } from "./analytics-selection";
 import { resultCardLayout, wrapResultLabel } from "./result-card-layout";
@@ -282,6 +283,7 @@ export function ClientAnalyticsDashboard({
     })); } catch { /* Armazenamento local bloqueado não impede a análise. */ }
   }, [analysisNote, canManageReports, campaignMetricKeys, optionalMetricKeys, preferenceKey, preferencesLoaded]);
 
+  const baseAnalyticsReady = hasConfirmedAnalytics(data);
   useEffect(() => {
     let updating = false;
     const refresh = async () => {
@@ -294,7 +296,7 @@ export function ClientAnalyticsDashboard({
       } finally { updating = false; }
     };
     const updated = Math.max(Date.parse(data.coverage.latestCollectedAt ?? "") || 0, Date.parse(data.metaAggregate?.collectedAt ?? "") || 0);
-    const incomplete = data.coverage.status !== "complete";
+    const incomplete = !baseAnalyticsReady;
     const cadence = incomplete ? ANALYTICS_PARTIAL_RETRY_MS : ANALYTICS_REFRESH_MS;
     const delay = incomplete
       ? Math.min(5_000, cadence)
@@ -306,7 +308,7 @@ export function ClientAnalyticsDashboard({
     };
     document.addEventListener("visibilitychange", resumed);
     return () => { window.clearTimeout(timer); window.clearInterval(interval); document.removeEventListener("visibilitychange", resumed); };
-  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt, data.coverage.status, router]);
+  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt, baseAnalyticsReady, router]);
 
   const selectedEntities = hierarchyEntities.filter(entity => appliedEntityKeys.includes(entity.key));
   const scopeCurrent = scopeData === null || scopeSnapshotKey === dataSnapshotKey;
@@ -318,7 +320,7 @@ export function ClientAnalyticsDashboard({
       id: entity.id, name: entity.name, accountId: entity.accountId, accountName: entity.accountName,
       currency: entity.currency, status: null, values: entity.values,
     })) : data.campaigns });
-  const analyticsReady = !navigating && data.coverage.status === "complete" && scopedData.coverage.status === "complete";
+  const analyticsReady = !navigating && hasConfirmedAnalytics(data) && hasConfirmedAnalytics(scopedData);
   const resultRows = resultBreakdown(scopedData.summary);
   const resultCostRows = resultCostBreakdown(scopedData.summary, scopeData
     ? hierarchySnapshotKey === dataSnapshotKey && scopeCurrent ? selectedEntities : []
@@ -685,16 +687,18 @@ export function ClientAnalyticsDashboard({
     {pending && <div className="analytics-notice" role="status" aria-live="polite">
       <RefreshCw size={17} className="analytics-spin" /><p>{collectingComparison
         ? "Atualizando o período anterior para comparação."
-        : scopedData.coverage.status === "complete"
+        : analyticsReady
           ? "Atualizando os dados deste período. A visualização atual permanece disponível porque já existe uma coleta completa confirmada."
           : "Atualizando os dados deste período. Nenhum resultado parcial será exibido até a coleta terminar."}</p>
     </div>}
     {tab !== "reports" && !analyticsReady && <div className="analytics-coverage-banner analytics-coverage-blocker" role="status">
       <div><span className="analytics-coverage-icon"><Layers3 size={17} /></span><p>
-        <strong>{navigating ? "Aguardando o período selecionado" : "Dados ainda não estão completos"}</strong>
+        <strong>{navigating ? "Aguardando o período selecionado" : "Aguardando a análise completa"}</strong>
         <span>{navigating
           ? "Nenhum resultado será exibido até a navegação e a coleta terminarem."
-          : `A coleta confirmou ${scopedData.coverage.coveredDays} de ${scopedData.coverage.totalDays} dias. O dashboard permanece bloqueado até confirmar 100% do período.`}</span>
+          : scopedData.coverage.status === "complete"
+            ? "Os dias já foram coletados. Estamos aguardando a confirmação dos totais deste período. A análise será exibida por inteiro quando estiver pronta; uma nova tentativa será feita automaticamente."
+            : `A coleta confirmou ${scopedData.coverage.coveredDays} de ${scopedData.coverage.totalDays} dias. O dashboard permanece bloqueado até confirmar 100% do período.`}</span>
       </p></div>
       {canCollect && !navigating && <button className="analytics-text-button" type="button" onClick={() => collect()} disabled={pending}>
         {pending ? "Atualizando…" : "Tentar atualizar novamente"} <ArrowUpRight size={14} />

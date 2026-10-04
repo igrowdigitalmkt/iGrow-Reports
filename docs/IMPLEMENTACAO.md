@@ -1,5 +1,11 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — exibição completa do dashboard
+
+A tela agora exige cobertura diária completa e agregado Meta confirmado para exibir a análise, seus gráficos e controles de exportação. Antes, a cobertura completa liberava cartões mesmo após uma falha de confirmação do agregado, fazendo Resultados e Custo por resultado aparecerem temporariamente indisponíveis. O bloqueio distingue coleta diária pendente de confirmação dos totais e agenda nova tentativa automática também no segundo caso.
+
+Métricas realmente ausentes após confirmação continuam indisponíveis; não são fabricadas nem impedem indefinidamente a leitura. Uma análise completa já confirmada pode continuar visível durante sua atualização. Os testes verificam o bloqueio com cobertura completa sem confirmação e a liberação após uma tentativa posterior bem-sucedida. Validação local: lint, TypeScript, testes de aplicação, SQL/RLS e build; sem homologação da tela com uma conta Meta real.
+
 ## Atualização de 4 de outubro de 2026 — hierarquia no contrato 3
 
 Novos jobs Meta usam o contrato 3, com nome e vínculos de conta, campanha, conjunto e anúncio preservados no snapshot. O adaptador exige identificadores válidos dos pais e rejeita relações consigo próprio. Os contratos 1 e 2 continuam aceitos com seu conteúdo anterior, incluindo os resultados e indicadores derivados do contrato 2.

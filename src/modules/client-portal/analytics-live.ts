@@ -23,7 +23,7 @@ export async function getFreshClientAnalytics(input: {
       message: error instanceof Error ? error.message : "unknown",
       clientId, dateFrom, dateTo, accountCount: accountIds?.length ?? initial.selectedAccountIds.length,
     });
-    initial.warnings.push("A Meta não confirmou os agregados deste período. Resultados e métricas sem confirmação permanecem indisponíveis. Atualize os dados para tentar novamente.");
+    initial.warnings.push("Não foi possível confirmar a análise completa deste período. Aguarde a nova tentativa automática ou tente atualizar os dados.");
     return initial;
   }
 }
