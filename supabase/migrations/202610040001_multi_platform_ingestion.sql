@@ -81,5 +81,6 @@ using (exists (
   select 1 from public.client_users cu
   where cu.client_id = integration_snapshots.client_id
     and cu.user_id = auth.uid()
-    and cu.status = 'active'
+    and cu.active
 ));
+
