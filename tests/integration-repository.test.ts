@@ -3,11 +3,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 vi.mock("server-only", () => ({}));
-import { finishCollectionJob, persistCollectionResult } from "@/modules/integrations/repository";
+import { enqueueCollectionJob, finishCollectionJob, persistCollectionResult } from "@/modules/integrations/repository";
+import { collectionIdempotencyKey } from "@/modules/integrations/data-contract";
 
 const result = { metrics: [], complete: true, reconciliation: {}, rawPayloads: [{ endpoint: "insights", payload: { rows: [] }, httpStatus: 200 }] };
 
 describe("collection result persistence", () => {
+  it("queues the same client and versions used in the idempotency identity", async () => {
+    const identity = { clientId: "client-a", connectionId: "connection-a", provider: "meta" as const, externalAccountId: "act_1", dateFrom: "2026-10-01", dateTo: "2026-10-03", level: "campaign" as const, apiVersion: "v24.0", contractVersion: 11 };
+    const table = { upsert: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), maybeSingle: vi.fn(async () => ({ data: { id: "job" }, error: null })) };
+    const service = { from: vi.fn(() => table) } as unknown as SupabaseClient<Database>;
+    await enqueueCollectionJob(service, identity, 25);
+    expect(table.upsert).toHaveBeenCalledWith(expect.objectContaining({ client_id: identity.clientId, api_version: identity.apiVersion, contract_version: identity.contractVersion, priority: 25, idempotency_key: collectionIdempotencyKey(identity) }), { onConflict: "idempotency_key", ignoreDuplicates: true });
+  });
   it("sends the claim attempt to the atomic result RPC without direct table writes", async () => {
     const rpc = vi.fn(async () => ({ data: "snapshot", error: null }));
     const from = vi.fn();

@@ -4,10 +4,10 @@ import type { Database, Json } from "@/types/database";
 import { collectionIdempotencyKey, type CollectionIdentity } from "./data-contract";
 import type { ProviderCollectionResult } from "./worker-contract";
 
-export async function enqueueCollectionJob(service: SupabaseClient<Database>, identity: CollectionIdentity, clientId: string, priority = 100) {
+export async function enqueueCollectionJob(service: SupabaseClient<Database>, identity: CollectionIdentity, priority = 100) {
   const idempotencyKey = collectionIdempotencyKey(identity);
   const { data, error } = await service.from("integration_collection_jobs").upsert({
-    client_id: clientId,
+    client_id: identity.clientId,
     connection_id: identity.connectionId,
     provider: identity.provider,
     external_account_id: identity.externalAccountId,

@@ -219,7 +219,7 @@ export type Database = {
       record_integration_provider_health: { Args: { p_integration_id: string; p_provider: string; p_ok: boolean; p_error_code?: string | null; p_latency_ms?: number | null }; Returns: IntegrationProviderHealthRow };
       finish_integration_collection_job: { Args: { p_job_id: string; p_attempt_count: number; p_status: string; p_next_attempt_at?: string | null; p_error_code?: string | null; p_error_message?: string | null; p_completed_at?: string | null }; Returns: undefined };
       persist_integration_collection_result: { Args: { p_job_id: string; p_attempt_count: number; p_status: string; p_metrics: Json; p_reconciliation: Json; p_raw_payloads: Json }; Returns: string };
-      claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number }[] };
+      claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number; api_version: string; contract_version: number }[] };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };
         Returns: Json;

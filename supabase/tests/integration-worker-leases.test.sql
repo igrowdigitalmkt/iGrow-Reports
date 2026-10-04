@@ -54,8 +54,10 @@ insert into auth.users(id,email) values('10000000-0000-4000-8000-000000000091','
 insert into clients(id,agency_id,name) values('11111111-0000-4000-8000-000000000092','aaaaaaaa-0000-4000-8000-000000000091','Cliente B');
 insert into client_users(agency_id,client_id,user_id,active) values
 ('aaaaaaaa-0000-4000-8000-000000000091','11111111-0000-4000-8000-000000000091','10000000-0000-4000-8000-000000000091',true);
+insert into integration_collection_jobs(id,client_id,connection_id,provider,external_account_id,date_from,date_to,entity_level,api_version,idempotency_key,status)
+values('90000000-0000-4000-8000-000000000092','11111111-0000-4000-8000-000000000092','40000000-0000-4000-8000-000000000092','google','account-b','2026-10-01','2026-10-03','campaign','v-test','lease-test-b','confirmed');
 insert into integration_snapshots(job_id,client_id,provider,external_account_id,date_from,date_to,entity_level,status)
-values('90000000-0000-4000-8000-000000000091','11111111-0000-4000-8000-000000000092','google','account-b','2026-10-01','2026-10-03','campaign','confirmed');
+values('90000000-0000-4000-8000-000000000092','11111111-0000-4000-8000-000000000092','google','account-b','2026-10-01','2026-10-03','campaign','confirmed');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000091',true);
 select is((select count(*) from integration_snapshots),1::bigint,'Cliente lê somente snapshot do próprio vínculo');
