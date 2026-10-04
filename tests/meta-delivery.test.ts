@@ -24,6 +24,12 @@ describe("live Meta delivery", () => {
     const result = status([campaign], [{ ...set, end_time: "2026-10-03T12:00:00-0300" }]);
     expect(Object.values(result)).not.toContain("ACTIVE");
   });
+  it("rejects Meta delivery issues such as payment errors", () => {
+    const result = status([{ ...campaign, issues_info: [{ error_code: "PAYMENT_REQUIRED" }] }]);
+    expect(result["campaign:1"]).toBe("INACTIVE");
+    expect(result["adset:2"]).toBe("INACTIVE");
+    expect(result["ad:3"]).toBe("INACTIVE");
+  });
   it("rejects future, invalid or unconfirmed schedules", () => {
     for (const start_time of ["2026-10-04T00:00:00Z", "invalid", ""]) {
       expect(status([campaign], [{ ...set, start_time }])["campaign:1"]).toBe("INACTIVE");

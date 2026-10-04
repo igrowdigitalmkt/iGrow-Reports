@@ -56,6 +56,7 @@ export type MetaCampaign = {
   objective?: string;
   status?: string;
   effective_status?: string;
+  issues_info?: unknown[];
 };
 
 export type MetaAdSet = {
@@ -64,6 +65,7 @@ export type MetaAdSet = {
   campaign_id?: string;
   status?: string;
   effective_status?: string;
+  issues_info?: unknown[];
   start_time?: string;
   end_time?: string;
 };
@@ -75,11 +77,16 @@ export type MetaAd = {
   campaign_id?: string;
   status?: string;
   effective_status?: string;
+  issues_info?: unknown[];
   creative?: { id?: string; thumbnail_url?: string };
 };
 
 export function metaDeliveryStatus(entity: { effective_status?: string | null }) {
   return entity.effective_status?.trim().toUpperCase() || null;
+}
+
+export function metaHasDeliveryIssues(entity: { issues_info?: unknown[] | null }) {
+  return Array.isArray(entity.issues_info) && entity.issues_info.length > 0;
 }
 
 export type MetaCreative = {
@@ -372,7 +379,7 @@ export class MetaClient {
   async listCampaigns(adAccountId: string): Promise<MetaCampaign[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaCampaign>(`${adAccountId}/campaigns`, {
-      fields: "id,name,objective,status,effective_status",
+      fields: "id,name,objective,status,effective_status,issues_info",
       limit: "500",
     });
   }
@@ -380,7 +387,7 @@ export class MetaClient {
   async listAdSets(adAccountId: string): Promise<MetaAdSet[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAdSet>(`${adAccountId}/adsets`, {
-      fields: "id,name,campaign_id,status,effective_status,start_time,end_time",
+      fields: "id,name,campaign_id,status,effective_status,start_time,end_time,issues_info",
       limit: "500",
     });
   }
@@ -388,7 +395,7 @@ export class MetaClient {
   async listAds(adAccountId: string): Promise<MetaAd[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAd>(`${adAccountId}/ads`, {
-      fields: "id,name,adset_id,campaign_id,status,effective_status,creative{id,thumbnail_url}",
+      fields: "id,name,adset_id,campaign_id,status,effective_status,issues_info,creative{id,thumbnail_url}",
       limit: "500",
     });
   }
