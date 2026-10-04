@@ -51,9 +51,19 @@ function reconcileCampaignResults(data: AnalyticsDashboardData): AnalyticsDashbo
   const providerTotals: AnalyticsValues = {};
   for (const campaign of campaigns) {
     const spend = campaign.values.spend;
-    if (spend == null || !Number.isFinite(spend) || spend < 0) return { ...data, campaigns };
+    if (spend == null || !Number.isFinite(spend) || spend < 0) {
+      console.error("campaign-result-reconcile", { reason: "invalid-spend", id: campaign.id, spend });
+      return { ...data, campaigns };
+    }
     sourceSpend += spend;
-    if (campaign.values["result:provider_known"] !== 1) return { ...data, campaigns };
+    if (campaign.values["result:provider_known"] !== 1) {
+      console.error("campaign-result-reconcile", {
+        reason: "provider-unknown", id: campaign.id, name: campaign.name, spend,
+        impressions: campaign.values.impressions ?? null,
+        primaryResults: campaign.values.primary_results ?? null,
+      });
+      return { ...data, campaigns };
+    }
     for (const [key, amount] of Object.entries(campaign.values)) {
       if (!key.startsWith("result:provider:")) continue;
       if (amount == null || !Number.isFinite(amount) || amount < 0) return { ...data, campaigns };
@@ -62,6 +72,9 @@ function reconcileCampaignResults(data: AnalyticsDashboardData): AnalyticsDashbo
   }
 
   if (Math.abs(sourceSpend - data.summary.spend) > Math.max(.005, Math.abs(data.summary.spend) * 1e-10)) {
+    console.error("campaign-result-reconcile", {
+      reason: "spend-mismatch", sourceSpend, summarySpend: data.summary.spend, campaignCount: campaigns.length,
+    });
     return { ...data, campaigns };
   }
 
