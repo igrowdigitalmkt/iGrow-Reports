@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { transitionAfterCollection, transitionAfterError } from "@/modules/integrations/worker-contract";
 
 describe("worker transitions", () => {
+  it.each([
+    new Error("HTTP 503 https://provider.test?access_token=secret"),
+    new Error("401 Authorization: Bearer secret"),
+    { password: "secret" },
+  ])("does not persist raw provider exceptions", error => {
+    const transition = transitionAfterError(error, 1);
+    expect(transition.errorMessage).not.toContain("secret");
+    expect(transition.errorMessage).not.toContain("[object Object]");
+    expect(transition.errorMessage).not.toContain("provider.test");
+  });
   it("confirms only a complete provider result", () => {
     expect(transitionAfterCollection({ metrics: [], complete: true, reconciliation: {}, rawPayloads: [] })).toEqual({ status: "confirmed", nextAttemptAt: null });
     expect(transitionAfterCollection({ metrics: [], complete: false, reconciliation: {}, rawPayloads: [] }).status).toBe("partial");

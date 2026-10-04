@@ -1,5 +1,5 @@
 import type { CollectionIdentity } from "./data-contract";
-import type { ProviderAdapter } from "./worker-contract";
+import type { JobTransition, ProviderAdapter, ProviderCollectionResult } from "./worker-contract";
 import { transitionAfterCollection, transitionAfterError } from "./worker-contract";
 
 export type WorkerPersistence = {
@@ -10,13 +10,29 @@ export type WorkerPersistence = {
 
 export async function runProviderJob(adapter: ProviderAdapter, identity: CollectionIdentity, persistence: WorkerPersistence, attemptCount = 0): Promise<void> {
   const startedAt = Date.now();
+  let result: ProviderCollectionResult;
   try {
-    const result = await adapter.collect(identity);
-    await persistence.persistResult(result);
-    await persistence.recordHealth?.({ ok: true, latencyMs: Date.now() - startedAt });
-    await persistence.markTransition(transitionAfterCollection(result));
+    result = await adapter.collect(identity);
   } catch (error) {
-    await persistence.recordHealth?.({ ok: false, errorCode: String(error) , latencyMs: Date.now() - startedAt });
-    await persistence.markTransition(transitionAfterError(error, attemptCount));
+    const transition = transitionAfterError(error, attemptCount);
+    await persistence.markTransition(transition);
+    await persistence.recordHealth?.({ ok: false, errorCode: transition.errorCode, latencyMs: Date.now() - startedAt });
+    return;
   }
+
+  let transition: JobTransition;
+  try {
+    await persistence.persistResult(result);
+    transition = transitionAfterCollection(result);
+  } catch {
+    transition = {
+      status: "partial",
+      nextAttemptAt: new Date(Date.now() + 60_000).toISOString(),
+      errorCode: "persistence_error",
+      errorMessage: "Não foi possível persistir a coleta. Uma nova tentativa foi agendada.",
+    };
+  }
+  // Finalization and monitoring errors must never trigger a second transition.
+  await persistence.markTransition(transition);
+  await persistence.recordHealth?.({ ok: true, latencyMs: Date.now() - startedAt });
 }

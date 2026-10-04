@@ -2,6 +2,15 @@ import type { CollectionIdentity, CollectionStatus, NormalizedMetric } from "./d
 import type { ProviderId } from "./provider-id";
 import { computeRetry } from "./queue";
 
+const ERROR_MESSAGES = {
+  rate_limited: "Limite de requisições do provedor atingido.",
+  timeout: "O provedor não respondeu dentro do prazo.",
+  provider_unavailable: "O provedor está temporariamente indisponível.",
+  auth: "A autorização do provedor precisa ser revisada.",
+  invalid_request: "O provedor recusou os parâmetros da coleta.",
+  unknown: "Não foi possível concluir a coleta no provedor.",
+} as const;
+
 export type ProviderCollectionResult = {
   metrics: NormalizedMetric[];
   complete: boolean;
@@ -34,6 +43,6 @@ export function transitionAfterError(error: unknown, attemptCount: number, now =
     status: retry.retryable ? "partial" : "failed",
     nextAttemptAt: retry.nextAttemptAt,
     errorCode: retry.code,
-    errorMessage: error instanceof Error ? error.message : String(error),
+    errorMessage: ERROR_MESSAGES[retry.code],
   };
 }
