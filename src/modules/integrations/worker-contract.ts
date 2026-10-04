@@ -1,4 +1,5 @@
 import type { CollectionIdentity, CollectionStatus, NormalizedMetric } from "./data-contract";
+import type { ProviderId } from "./provider-id";
 import { computeRetry } from "./queue";
 
 export type ProviderCollectionResult = {
@@ -9,7 +10,7 @@ export type ProviderCollectionResult = {
 };
 
 export type ProviderAdapter = {
-  provider: string;
+  provider: ProviderId;
   collect(identity: CollectionIdentity): Promise<ProviderCollectionResult>;
 };
 

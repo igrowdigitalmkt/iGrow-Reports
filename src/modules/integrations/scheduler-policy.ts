@@ -1,4 +1,5 @@
 import type { CollectionIdentity } from "./data-contract";
+import type { ProviderId } from "./provider-id";
 
 export type QueuePriorityInput = CollectionIdentity & {
   isVisibleToUser?: boolean;
@@ -23,7 +24,7 @@ const PROVIDER_POLICIES: Record<string, ProviderConcurrency> = {
   youtube: { maxInFlight: 3, minIntervalMs: 250 },
 };
 
-export function providerConcurrency(provider: string): ProviderConcurrency {
+export function providerConcurrency(provider: ProviderId | string): ProviderConcurrency {
   return PROVIDER_POLICIES[provider] ?? { maxInFlight: 1, minIntervalMs: 1_000 };
 }
 
