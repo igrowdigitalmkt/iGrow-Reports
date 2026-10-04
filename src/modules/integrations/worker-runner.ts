@@ -7,12 +7,12 @@ export type WorkerPersistence = {
   persistResult: (result: Awaited<ReturnType<ProviderAdapter["collect"]>>) => Promise<void>;
 };
 
-export async function runProviderJob(adapter: ProviderAdapter, identity: CollectionIdentity, persistence: WorkerPersistence): Promise<void> {
+export async function runProviderJob(adapter: ProviderAdapter, identity: CollectionIdentity, persistence: WorkerPersistence, attemptCount = 0): Promise<void> {
   try {
     const result = await adapter.collect(identity);
     await persistence.persistResult(result);
     await persistence.markTransition(transitionAfterCollection(result));
   } catch (error) {
-    await persistence.markTransition(transitionAfterError(error, 0));
+    await persistence.markTransition(transitionAfterError(error, attemptCount));
   }
 }

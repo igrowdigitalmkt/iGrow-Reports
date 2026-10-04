@@ -17,4 +17,12 @@ describe("provider worker runner", () => {
     await runProviderJob({ provider: "meta", collect: async () => { throw new Error("HTTP 503 unavailable"); } }, identity, { persistResult: async () => undefined, markTransition: transition });
     expect(transition.mock.calls[0][0]).toMatchObject({ status: "partial", errorCode: "provider_unavailable" });
   });
+
+  it("uses the persisted attempt count when calculating retry delay", async () => {
+    const transition = vi.fn();
+    const now = Date.now();
+    await runProviderJob({ provider: "meta", collect: async () => { throw new Error("timeout"); } }, identity, { persistResult: async () => undefined, markTransition: transition }, 2);
+    const next = Date.parse(transition.mock.calls[0][0].nextAttemptAt);
+    expect(next).toBeGreaterThan(now + 45_000);
+  });
 });
