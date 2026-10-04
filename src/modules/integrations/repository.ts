@@ -43,6 +43,18 @@ export async function recordProviderHealth(service: SupabaseClient<Database>, in
   return data;
 }
 
+export async function finishCollectionJob(service: SupabaseClient<Database>, jobId: string, transition: { status: "partial" | "confirmed" | "failed"; nextAttemptAt?: string | null; errorCode?: string; errorMessage?: string; completedAt?: string | null }) {
+  const { error } = await service.rpc("finish_integration_collection_job", {
+    p_job_id: jobId,
+    p_status: transition.status,
+    p_next_attempt_at: transition.nextAttemptAt ?? null,
+    p_error_code: transition.errorCode ?? null,
+    p_error_message: transition.errorMessage ?? null,
+    p_completed_at: transition.completedAt ?? null,
+  });
+  if (error) throw new Error(`Não foi possível finalizar o job de coleta: ${error.message}`);
+}
+
 export async function persistCollectionResult(service: SupabaseClient<Database>, jobId: string, result: ProviderCollectionResult, status: "partial" | "confirmed", collectedAt = new Date().toISOString()) {
   const rawRows = result.rawPayloads.map((raw) => ({ job_id: jobId, provider: "meta", endpoint: raw.endpoint, response_payload: raw.payload as never, http_status: raw.httpStatus ?? null, collected_at: collectedAt }));
   if (rawRows.length) {
