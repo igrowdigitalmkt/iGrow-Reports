@@ -40,6 +40,7 @@ type IntegrationCollectionJobRow = {
 };
 type IntegrationRawPayloadRow = { id: string; job_id: string; provider: string; endpoint: string; request_fingerprint: string | null; response_payload: Json; http_status: number | null; provider_updated_at: string | null; collected_at: string; created_at: string };
 type IntegrationSnapshotRow = { id: string; job_id: string; client_id: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: "account" | "campaign" | "adset" | "ad"; status: "partial" | "confirmed" | "failed" | "superseded"; currency: string | null; timezone_name: string | null; attribution_window: string | null; payload: Json; reconciliation: Json; collected_at: string; created_at: string };
+type IntegrationProviderHealthRow = { id: string; integration_id: string; provider: string; status: "unknown" | "healthy" | "degraded" | "blocked"; last_success_at: string | null; last_failure_at: string | null; last_error_code: string | null; consecutive_failures: number; avg_latency_ms: number | null; updated_at: string };
 type IntegrationRow = {
   id: string; agency_id: string; provider: "meta" | "google" | "tiktok" | "linkedin" | "youtube" | "whatsapp" | "qstash";
   connection_status: "disconnected" | "connected" | "error";
@@ -180,6 +181,7 @@ export type Database = {
       integration_collection_jobs: Table<IntegrationCollectionJobRow, Partial<IntegrationCollectionJobRow>, Partial<IntegrationCollectionJobRow>>;
       integration_raw_payloads: Table<IntegrationRawPayloadRow, Partial<IntegrationRawPayloadRow>, Partial<IntegrationRawPayloadRow>>;
       integration_snapshots: Table<IntegrationSnapshotRow, Partial<IntegrationSnapshotRow>, Partial<IntegrationSnapshotRow>>;
+      integration_provider_health: Table<IntegrationProviderHealthRow, Partial<IntegrationProviderHealthRow>, Partial<IntegrationProviderHealthRow>>;
       meta_dashboard_scopes: Table<{ agency_id: string; client_id: string; scope_key: string; date_from: string; date_to: string; payload: Json; collected_at: string }, { agency_id: string; client_id: string; scope_key: string; date_from: string; date_to: string; payload: Json; collected_at?: string }, { payload?: Json; collected_at?: string }>;
       client_recipients: Table<RecipientRow, never, never>;
       recipient_consent_events: Table<ConsentEventRow, never, never>;
