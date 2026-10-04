@@ -31,6 +31,13 @@ export async function claimCollectionJob(service: SupabaseClient<Database>, now 
   return data;
 }
 
+export async function authorizeCollectionJob(service: SupabaseClient<Database>, jobId: string, attemptCount: number): Promise<string | null> {
+  const { data, error } = await service.rpc("authorize_integration_collection_job", { p_job_id: jobId, p_attempt_count: attemptCount });
+  if (error?.code === "42501") return null;
+  if (error || !data) throw new Error("Não foi possível validar a autorização da tentativa de coleta.");
+  return data;
+}
+
 export async function recordProviderHealth(service: SupabaseClient<Database>, integrationId: string, provider: string, event: { ok: boolean; errorCode?: string; latencyMs?: number }) {
   const { data, error } = await service.rpc("record_integration_provider_health", {
     p_integration_id: integrationId,

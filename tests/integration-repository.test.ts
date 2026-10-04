@@ -3,12 +3,27 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 vi.mock("server-only", () => ({}));
-import { enqueueCollectionJob, finishCollectionJob, persistCollectionResult } from "@/modules/integrations/repository";
+import { authorizeCollectionJob, enqueueCollectionJob, finishCollectionJob, persistCollectionResult } from "@/modules/integrations/repository";
 import { collectionIdempotencyKey } from "@/modules/integrations/data-contract";
 
 const result = { metrics: [], complete: true, reconciliation: {}, rawPayloads: [{ endpoint: "insights", payload: { rows: [] }, httpStatus: 200 }] };
 
 describe("collection result persistence", () => {
+  it("returns the integration identified by the authorized claim", async () => {
+    const rpc = vi.fn(async () => ({ data: "integration-a", error: null }));
+    expect(await authorizeCollectionJob({ rpc } as unknown as SupabaseClient<Database>, "job", 2)).toBe("integration-a");
+    expect(rpc).toHaveBeenCalledWith("authorize_integration_collection_job", { p_job_id: "job", p_attempt_count: 2 });
+  });
+
+  it("represents a denied scope without exposing the database message", async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: { code: "42501", message: "private details" } }));
+    expect(await authorizeCollectionJob({ rpc } as unknown as SupabaseClient<Database>, "job", 2)).toBeNull();
+  });
+
+  it.each(["40001", "503"])("propagates stale claims and outages separately from denied scope (%s)", async code => {
+    const rpc = vi.fn(async () => ({ data: null, error: { code, message: "private details" } }));
+    await expect(authorizeCollectionJob({ rpc } as unknown as SupabaseClient<Database>, "job", 2)).rejects.toThrow("Não foi possível validar");
+  });
   it("queues the same client and versions used in the idempotency identity", async () => {
     const identity = { clientId: "client-a", connectionId: "connection-a", provider: "meta" as const, externalAccountId: "act_1", dateFrom: "2026-10-01", dateTo: "2026-10-03", level: "campaign" as const, apiVersion: "v24.0", contractVersion: 11 };
     const table = { upsert: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), maybeSingle: vi.fn(async () => ({ data: { id: "job" }, error: null })) };

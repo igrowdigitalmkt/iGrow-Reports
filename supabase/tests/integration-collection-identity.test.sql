@@ -4,6 +4,14 @@ select no_plan();
 insert into agencies(id,name) values('aaaaaaaa-0000-4000-8000-000000000093','Identity');
 insert into clients(id,agency_id,name) values
 ('11111111-0000-4000-8000-000000000093','aaaaaaaa-0000-4000-8000-000000000093','Cliente A');
+insert into integrations(id,agency_id,provider,connection_status) values
+('30000000-0000-4000-8000-000000000093','aaaaaaaa-0000-4000-8000-000000000093','meta','connected');
+insert into meta_connections(id,agency_id,integration_id,client_id,connected_at) values
+('40000000-0000-4000-8000-000000000093','aaaaaaaa-0000-4000-8000-000000000093','30000000-0000-4000-8000-000000000093','11111111-0000-4000-8000-000000000093',now());
+insert into meta_ad_accounts(id,agency_id,meta_connection_id,external_id,name,currency,timezone_name,business_id) values
+('50000000-0000-4000-8000-000000000093','aaaaaaaa-0000-4000-8000-000000000093','40000000-0000-4000-8000-000000000093','act_93','Conta A','BRL','America/Sao_Paulo','10093');
+insert into client_ad_accounts(agency_id,client_id,ad_account_id) values
+('aaaaaaaa-0000-4000-8000-000000000093','11111111-0000-4000-8000-000000000093','50000000-0000-4000-8000-000000000093');
 insert into integration_collection_jobs(id,client_id,connection_id,provider,external_account_id,date_from,date_to,entity_level,api_version,contract_version,idempotency_key)
 values('90000000-0000-4000-8000-000000000093','11111111-0000-4000-8000-000000000093','40000000-0000-4000-8000-000000000093','meta','act_93','2026-10-01','2026-10-03','campaign','v24.0',11,'identity-test');
 create temporary table identity_claim as select * from claim_integration_collection_job() with no data;
