@@ -35,6 +35,45 @@ function coverageStatus(value: unknown): "complete" | "partial" | "empty" {
   return value === "complete" || value === "partial" ? value : "empty";
 }
 
+function zeroDeliveryValues(values: AnalyticsValues) {
+  const spend = values.spend;
+  const impressions = values.impressions;
+  if (spend !== 0 || (impressions != null && impressions !== 0)) return values;
+  return aggregateResults({ ...values, "result:provider_known": 1 }, true);
+}
+
+function reconcileCampaignResults(data: AnalyticsDashboardData): AnalyticsDashboardData {
+  if (data.coverage.status !== "complete" || data.summary.spend == null || !Number.isFinite(data.summary.spend)
+    || data.summary.spend < 0 || !data.campaigns.length) return data;
+
+  const campaigns = data.campaigns.map((campaign) => ({ ...campaign, values: zeroDeliveryValues(campaign.values) }));
+  let sourceSpend = 0;
+  const providerTotals: AnalyticsValues = {};
+  for (const campaign of campaigns) {
+    const spend = campaign.values.spend;
+    if (spend == null || !Number.isFinite(spend) || spend < 0) return { ...data, campaigns };
+    sourceSpend += spend;
+    if (campaign.values["result:provider_known"] !== 1) return { ...data, campaigns };
+    for (const [key, amount] of Object.entries(campaign.values)) {
+      if (!key.startsWith("result:provider:")) continue;
+      if (amount == null || !Number.isFinite(amount) || amount < 0) return { ...data, campaigns };
+      providerTotals[key] = (providerTotals[key] ?? 0) + amount;
+    }
+  }
+
+  if (Math.abs(sourceSpend - data.summary.spend) > Math.max(.005, Math.abs(data.summary.spend) * 1e-10)) {
+    return { ...data, campaigns };
+  }
+
+  const summary = Object.fromEntries(Object.entries(data.summary)
+    .filter(([key]) => !key.startsWith("result:provider:") && key !== "result:provider_known"));
+  return {
+    ...data,
+    campaigns,
+    summary: aggregateResults({ ...summary, ...providerTotals, "result:provider_known": 1 }, true),
+  };
+}
+
 export function normalizeClientAnalytics(value: unknown, automaticResults = true): AnalyticsDashboardData {
   const payload = object(value);
   const coverage = object(payload.coverage);
@@ -61,7 +100,7 @@ export function normalizeClientAnalytics(value: unknown, automaticResults = true
     };
   }).filter((row) => row.key && row.label);
 
-  return {
+  const normalized: AnalyticsDashboardData = {
     dateFrom: text(payload.dateFrom), dateTo: text(payload.dateTo),
     previousDateFrom: text(payload.previousDateFrom), previousDateTo: text(payload.previousDateTo),
     currency: nullableText(payload.currency), timezoneName: nullableText(payload.timezoneName),
@@ -97,4 +136,5 @@ export function normalizeClientAnalytics(value: unknown, automaticResults = true
     metaAggregate: { confirmed: metaAggregate.confirmed === true,
       collectedAt: nullableText(metaAggregate.collectedAt), version: analyticsNumber(metaAggregate.version) },
   };
+  return automaticResults ? reconcileCampaignResults(normalized) : normalized;
 }

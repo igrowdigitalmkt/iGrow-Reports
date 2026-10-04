@@ -74,4 +74,68 @@ describe("analytics integrity barrier", () => {
     expect(data.accountTotals[0]?.values.spend).toBe(100);
     expect(data.campaigns[0]?.values.spend).toBe(100);
   });
+
+  it("reconciles exact provider Results from complete campaign rows and treats zero delivery as zero", () => {
+    const data = normalizeClientAnalytics({
+      ...base,
+      summary: { spend: 100, impressions: 1000 },
+      campaigns: [
+        { id: "1", name: "Mensagens", accountId: "account-1", accountName: "Conta", currency: "BRL", status: "ACTIVE",
+          values: { spend: 60, impressions: 600, "result:provider_known": 1,
+            "result:provider:action:onsite_conversion.messaging_conversation_started_7d": 6 } },
+        { id: "2", name: "Engajamento", accountId: "account-1", accountName: "Conta", currency: "BRL", status: "ACTIVE",
+          values: { spend: 40, impressions: 400, "result:provider_known": 1,
+            "result:provider:action:post_engagement": 200 } },
+        { id: "3", name: "Sem entrega", accountId: "account-1", accountName: "Conta", currency: "BRL", status: "PAUSED",
+          values: { spend: 0, impressions: null } },
+      ],
+      coverage: {
+        status: "complete", previousStatus: "complete", latestCollectedAt: "2026-10-03T12:00:00Z",
+        coveredDays: 30, previousCoveredDays: 30, totalDays: 30,
+      },
+    });
+    expect(data.summary["result:provider_known"]).toBe(1);
+    expect(data.summary["result:provider:action:onsite_conversion.messaging_conversation_started_7d"]).toBe(6);
+    expect(data.summary["result:provider:action:post_engagement"]).toBe(200);
+    expect(data.summary.primary_results).toBeNull();
+    expect(data.campaigns[2]?.values.primary_results).toBe(0);
+    expect(data.campaigns[2]?.values["result:provider_known"]).toBe(1);
+  });
+
+  it("does not reconcile a partial provider total when a spending campaign is unknown", () => {
+    const data = normalizeClientAnalytics({
+      ...base,
+      summary: { spend: 100, impressions: 1000 },
+      campaigns: [
+        { id: "1", name: "Confirmada", accountId: "account-1", accountName: "Conta", currency: "BRL", status: "ACTIVE",
+          values: { spend: 60, impressions: 600, "result:provider_known": 1, "result:provider:action:lead": 6 } },
+        { id: "2", name: "Desconhecida", accountId: "account-1", accountName: "Conta", currency: "BRL", status: "ACTIVE",
+          values: { spend: 40, impressions: 400 } },
+      ],
+      coverage: {
+        status: "complete", previousStatus: "complete", latestCollectedAt: "2026-10-03T12:00:00Z",
+        coveredDays: 30, previousCoveredDays: 30, totalDays: 30,
+      },
+    });
+    expect(data.summary["result:provider_known"]).not.toBe(1);
+    expect(data.summary["result:provider:action:lead"]).toBeUndefined();
+    expect(data.summary.primary_results).toBeNull();
+  });
+
+  it("does not reconcile campaign Results when campaign spend does not match the summary", () => {
+    const data = normalizeClientAnalytics({
+      ...base,
+      summary: { spend: 100, impressions: 1000 },
+      campaigns: [
+        { id: "1", name: "Confirmada", accountId: "account-1", accountName: "Conta", currency: "BRL", status: "ACTIVE",
+          values: { spend: 90, impressions: 900, "result:provider_known": 1, "result:provider:action:lead": 9 } },
+      ],
+      coverage: {
+        status: "complete", previousStatus: "complete", latestCollectedAt: "2026-10-03T12:00:00Z",
+        coveredDays: 30, previousCoveredDays: 30, totalDays: 30,
+      },
+    });
+    expect(data.summary["result:provider_known"]).not.toBe(1);
+    expect(data.summary["result:provider:action:lead"]).toBeUndefined();
+  });
 });
