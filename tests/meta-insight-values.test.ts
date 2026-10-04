@@ -42,6 +42,16 @@ describe("canonical Meta period metrics", () => {
     expect(empty.cpm).toBeNull();
     expect(empty.cost_per_result).toBeNull();
   });
+  it("treats an identified Meta entity with omitted delivery fields as confirmed zero delivery", () => {
+    const zero = periodInsightValues({
+      date_start: "2026-09-03", date_stop: "2026-10-02", campaign_id: "123", campaign_name: "Sem veiculação",
+    });
+    expect(zero).toMatchObject({
+      spend: 0, impressions: 0, reach: 0, primary_results: 0, "result:provider_known": 1,
+      ["action:" + META_MESSAGE_ACTION]: 0,
+    });
+    expect(zero.cost_per_result).toBeNull();
+  });
   it("uses a present action array to confirm absent action zero, but not an omitted array", () => {
     expect(periodInsightValues({ ...base, actions: [] })["action:" + META_MESSAGE_ACTION]).toBe(0);
     expect(periodInsightValues({ ...base, actions: undefined })["action:" + META_MESSAGE_ACTION]).toBeNull();

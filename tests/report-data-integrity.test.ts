@@ -42,6 +42,6 @@ describe("integridade entre dashboard e relatórios", () => {
     }
   });
   it("mostra a atualização Meta mais recente em vez da coleta diária antiga", () => {
-    expect(reportUpdatedAt({ ...data, metaAggregate: { confirmed: true, version: 8, collectedAt: "2026-10-03T15:00:00Z" } })).toContain("12:00:00");
+    expect(reportUpdatedAt({ ...data, metaAggregate: { confirmed: true, version: 10, collectedAt: "2026-10-03T15:00:00Z" } })).toContain("12:00:00");
   });
 });

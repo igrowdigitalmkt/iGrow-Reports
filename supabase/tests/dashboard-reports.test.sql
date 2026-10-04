@@ -87,7 +87,7 @@ insert into meta_daily_insights(agency_id,ad_account_id,insight_date,level,exter
 update meta_collection_runs set levels=array['account','campaign','adset','ad'];
 insert into meta_dashboard_scopes(agency_id,client_id,scope_key,date_from,date_to,payload) values
 ('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|ad:81'),'2026-09-29','2026-09-30',
- '{"version":8,"summary":{"spend":30,"impressions":300,"link_clicks":3,"result:provider_known":1},"previousSummary":{},"metrics":[]}');
+ '{"version":10,"summary":{"spend":30,"impressions":300,"link_clicks":3,"result:provider_known":1},"previousSummary":{},"metrics":[]}');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000051',true);
 select is((get_campaign_scoped_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[],array['ad:81'])->'summary'->>'spend')::numeric,30::numeric,'Seleção de um anúncio usa somente seu investimento');
@@ -126,8 +126,8 @@ select throws_ok($q$select get_dashboard_report_document((select first_version f
 select throws_ok($q$select get_client_portal_report_metrics((select first_version from report_test_ids))$q$,'22023',null,'Endpoint antigo também recusa relatório excluído');
 reset role;
 insert into meta_dashboard_scopes(agency_id,client_id,scope_key,date_from,date_to,payload) values
-('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|'),'2026-09-29','2026-09-30','{"version":8,"summary":{"reach":12,"frequency":2},"previousSummary":{},"metrics":[]}'),
-('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|ad:81'),'2026-09-29','2026-09-30','{"version":8,"summary":{"reach":7,"frequency":1.5},"previousSummary":{},"metrics":[]}')
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|'),'2026-09-29','2026-09-30','{"version":10,"summary":{"reach":12,"frequency":2},"previousSummary":{},"metrics":[]}'),
+('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',md5('50000000-0000-4000-8000-000000000051|ad:81'),'2026-09-29','2026-09-30','{"version":10,"summary":{"reach":7,"frequency":1.5},"previousSummary":{},"metrics":[]}')
 on conflict(agency_id,client_id,scope_key,date_from,date_to) do update set payload=excluded.payload,collected_at=now();
 set local role authenticated;
 select is((get_client_analytics('11111111-0000-4000-8000-000000000051','2026-09-29','2026-09-30',array['50000000-0000-4000-8000-000000000051']::uuid[])->'summary'->>'reach')::numeric,12::numeric,'Alcance total utiliza o agregado exato da conta');

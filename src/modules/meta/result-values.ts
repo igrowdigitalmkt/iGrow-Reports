@@ -1,17 +1,26 @@
 import type { MetaInsight } from "./client";
 import type { AnalyticsValues } from "@/modules/client-portal/analytics-types";
 
+// Insights can contain an entity row even when it had no delivery. Meta then
+// commonly omits both delivery metrics and Results instead of returning zeros.
+export function isZeroDeliveryInsight(row: MetaInsight | undefined) {
+  if (!row) return false;
+  const hasIdentity = [row.account_id, row.campaign_id, row.adset_id, row.ad_id]
+    .some((value) => typeof value === "string" && /^\d+$/.test(value));
+  if (!hasIdentity) return false;
+  const isZeroOrMissing = (value: unknown) =>
+    value == null || ((typeof value === "string" || typeof value === "number") && Number(value) === 0);
+  return isZeroOrMissing(row.spend) && isZeroOrMissing(row.impressions);
+}
+
 // Results are chosen by Meta for this entity's optimization goal. Secondary
 // actions must remain separate metrics, rather than inflate the Results column.
 export function providerResultValues(row: MetaInsight): AnalyticsValues | null {
   const counts: AnalyticsValues = { "result:provider_known": 1 };
   if (!Array.isArray(row.results)) {
-    // Meta can omit Results entirely for a campaign row that had no delivery.
-    // That row contributes exactly zero to every Results family and must not
-    // invalidate otherwise complete campaign totals.
-    const spend = row.spend == null ? null : Number(row.spend);
-    const impressions = row.impressions == null ? null : Number(row.impressions);
-    return spend === 0 && impressions === 0 ? counts : null;
+    // A confirmed no-delivery entity contributes zero to every Results family
+    // and must not invalidate totals from campaigns that actually delivered.
+    return isZeroDeliveryInsight(row) ? counts : null;
   }
   for (const result of row.results) {
     if (!result || typeof result !== "object") return null;

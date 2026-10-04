@@ -80,7 +80,7 @@ insert into meta_collection_runs(agency_id,client_id,ad_account_id,date_from,dat
 insert into meta_dashboard_scopes(agency_id,client_id,scope_key,date_from,date_to,payload) values
 ('aaaaaaaa-0000-4000-8000-000000000051','11111111-0000-4000-8000-000000000051',
  md5('50000000-0000-4000-8000-000000000051,50000000-0000-4000-8000-000000000052|'),'2026-09-29','2026-09-30',
- '{"version":8,"summary":{"spend":250,"impressions":25000,"link_clicks":250,"ctr_link":1,"cpc_link":1,"cpm":10,"attributed_revenue":1000,"roas":4,"result:provider_known":1,"result:provider:action:lead":25},"previousSummary":{},"metrics":[],"accountValues":{"50000000-0000-4000-8000-000000000051":{"spend":250},"50000000-0000-4000-8000-000000000052":{"spend":0}},"entityCatalog":[]}');
+ '{"version":10,"summary":{"spend":250,"impressions":25000,"link_clicks":250,"ctr_link":1,"cpc_link":1,"cpm":10,"attributed_revenue":1000,"roas":4,"result:provider_known":1,"result:provider:action:lead":25},"previousSummary":{},"metrics":[],"accountValues":{"50000000-0000-4000-8000-000000000051":{"spend":250},"50000000-0000-4000-8000-000000000052":{"spend":0}},"entityCatalog":[]}');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000051',true);

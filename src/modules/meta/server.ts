@@ -1,4 +1,4 @@
-import { campaignResultTotals, providerResultValues } from "./result-values";
+import { campaignResultTotals } from "./result-values";
 import "server-only";
 import { selectedMetaAccounts } from "./login-config";
 import { createHash } from "node:crypto";
@@ -109,38 +109,6 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
     validateRows(previous, account.external_id, data.previousDateFrom, data.previousDateTo, "account");
     validateRows(previousCampaigns, account.external_id, data.previousDateFrom, data.previousDateTo, "campaign");
     for (const [index, rows] of detail.entries()) validateRows(rows, account.external_id, data.dateFrom, data.dateTo, levels[index]);
-    const unknownCampaignResults = detail[0].filter((row) => Number(row.spend ?? 0) > 0 && !providerResultValues(row));
-    const unknownAdsetResults = detail[1].filter((row) => Number(row.spend ?? 0) > 0 && !providerResultValues(row));
-    if (unknownCampaignResults.length || unknownAdsetResults.length) {
-      const summarize = (row: MetaInsight) => ({
-        campaignId: row.campaign_id ?? null,
-        adsetId: row.adset_id ?? null,
-        objective: row.objective ?? null,
-        spend: row.spend ?? null,
-        impressions: row.impressions ?? null,
-        resultShape: Array.isArray(row.results) ? row.results.map((item) => {
-          if (!item || typeof item !== "object") return { type: typeof item };
-          const entry = item as Record<string, unknown>;
-          return {
-            indicator: typeof entry.indicator === "string" ? entry.indicator : typeof entry.indicator,
-            value: entry.value ?? null,
-            values: Array.isArray(entry.values) ? entry.values.map((value) => {
-              if (!value || typeof value !== "object") return { type: typeof value };
-              const v = value as Record<string, unknown>;
-              return { value: v.value ?? null, attribution_windows: v.attribution_windows ?? null };
-            }) : null,
-          };
-        }) : null,
-        actions: Array.isArray(row.actions) ? row.actions.filter((action) =>
-          ["onsite_conversion.messaging_conversation_started_7d", "lead", "post_engagement", "link_click", "landing_page_view"].includes(action.action_type)
-        ) : null,
-      });
-      console.error("meta-results-diagnostic", {
-        accountId: account.id,
-        campaignUnknown: unknownCampaignResults.slice(0, 20).map(summarize),
-        adsetUnknown: unknownAdsetResults.slice(0, 20).map(summarize),
-      });
-    }
     const previousChildren = await Promise.all((["adset", "ad"] as const).map(async level => {
       if (!keys.some(key => key.startsWith(level + ":"))) return [];
       const rows = await client.getPeriodInsights({ adAccountId: account.external_id, since: data.previousDateFrom, until: data.previousDateTo, adIds, level });

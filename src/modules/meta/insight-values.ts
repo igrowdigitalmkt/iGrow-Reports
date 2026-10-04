@@ -2,7 +2,7 @@ import Decimal from "decimal.js";
 import type { AnalyticsValues } from "@/modules/client-portal/analytics-types";
 import { aggregateResults } from "@/modules/client-portal/analytics-results";
 import type { MetaInsight } from "./client";
-import { providerResultValues } from "./result-values";
+import { isZeroDeliveryInsight, providerResultValues } from "./result-values";
 
 export const META_MESSAGE_ACTION = "onsite_conversion.messaging_conversation_started_7d";
 
@@ -78,15 +78,16 @@ export function insightActionTypes(rows: MetaInsight[]): string[] {
   return [...types].sort();
 }
 
-// A successful empty request proves zero delivery. An omitted field on a
-// nonempty provider row remains unknown; it must not inherit historical data.
+// A successful empty request or an identified entity row with both delivery
+// fields omitted/zero proves zero delivery. Other omitted fields stay unknown
+// and must not inherit historical data.
 export function periodInsightValues(row: MetaInsight | undefined, options: {
   confirmedEmpty?: boolean;
   actionTypes?: string[];
   moneyCompatible?: boolean;
 } = {}): AnalyticsValues {
   const confirmedEmpty = !row && options.confirmedEmpty === true;
-  const noDelivery = confirmedEmpty || (number(row?.spend) === 0 && number(row?.impressions) === 0);
+  const noDelivery = confirmedEmpty || isZeroDeliveryInsight(row);
   const moneyCompatible = options.moneyCompatible !== false;
   const values: AnalyticsValues = {};
   for (const [field, key] of Object.entries(SCALARS)) {
@@ -103,8 +104,8 @@ export function periodInsightValues(row: MetaInsight | undefined, options: {
   const types = new Set([META_MESSAGE_ACTION, ...(options.actionTypes ?? []), ...actions?.keys() ?? [], ...revenues?.keys() ?? [], ...costs?.keys() ?? []]);
   for (const type of types) {
     const key = `action:${type}`;
-    values[key] = actions ? actions.get(type) ?? 0 : confirmedEmpty ? 0 : null;
-    values[`value:${key}`] = moneyCompatible && revenues ? revenues.get(type) ?? 0 : confirmedEmpty && moneyCompatible ? 0 : null;
+    values[key] = actions ? actions.get(type) ?? 0 : noDelivery ? 0 : null;
+    values[`value:${key}`] = moneyCompatible && revenues ? revenues.get(type) ?? 0 : noDelivery && moneyCompatible ? 0 : null;
     values[`cost:${key}`] = moneyCompatible && values[key] != null && values[key]! > 0
       ? costs?.get(type) ?? ratio(values.spend, values[key]) : null;
   }
@@ -124,7 +125,7 @@ export function periodInsightValues(row: MetaInsight | undefined, options: {
   values.unique_outbound_clicks_ctr = uniqueOutboundCtr?.get("outbound_click") ?? ratio(values.unique_outbound_clicks, values.reach, 100);
   // Purchase aliases describe alternative totals and are never added together.
   const purchaseType = ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"].find(type => revenues?.has(type));
-  values.attributed_revenue = moneyCompatible && purchaseType ? revenues!.get(purchaseType)! : confirmedEmpty && moneyCompatible ? 0 : null;
+  values.attributed_revenue = moneyCompatible && purchaseType ? revenues!.get(purchaseType)! : noDelivery && moneyCompatible ? 0 : null;
   values.roas = ratio(values.attributed_revenue, values.spend);
   return applyProviderResults(values, confirmedEmpty ? { "result:provider_known": 1 } : row ? providerResultValues(row) : null);
 }
