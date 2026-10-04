@@ -29,8 +29,8 @@ describe("provider worker runner", () => {
   it("records provider health for both success and failure", async () => {
     const health = vi.fn(async () => undefined);
     await runProviderJob({ provider: "meta", collect: async () => ({ metrics: [], complete: true, reconciliation: {}, rawPayloads: [] }) }, identity, { persistResult: async () => undefined, markTransition: async () => undefined, recordHealth: health });
-    expect(health.mock.calls[0][0].ok).toBe(true);
+    expect(health).toHaveBeenNthCalledWith(1, expect.objectContaining({ ok: true }));
     await runProviderJob({ provider: "meta", collect: async () => { throw new Error("timeout"); } }, identity, { persistResult: async () => undefined, markTransition: async () => undefined, recordHealth: health });
-    expect(health.mock.calls[1][0].ok).toBe(false);
+    expect(health).toHaveBeenNthCalledWith(2, expect.objectContaining({ ok: false }));
   });
 });
