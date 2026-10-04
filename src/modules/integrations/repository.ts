@@ -31,6 +31,18 @@ export async function claimCollectionJob(service: SupabaseClient<Database>, now 
   return data;
 }
 
+export async function recordProviderHealth(service: SupabaseClient<Database>, integrationId: string, provider: string, event: { ok: boolean; errorCode?: string; latencyMs?: number }) {
+  const { data, error } = await service.rpc("record_integration_provider_health", {
+    p_integration_id: integrationId,
+    p_provider: provider,
+    p_ok: event.ok,
+    p_error_code: event.errorCode ?? null,
+    p_latency_ms: event.latencyMs ?? null,
+  }).single();
+  if (error) throw new Error(`Não foi possível registrar a saúde da integração: ${error.message}`);
+  return data;
+}
+
 export async function persistCollectionResult(service: SupabaseClient<Database>, jobId: string, result: ProviderCollectionResult, status: "partial" | "confirmed", collectedAt = new Date().toISOString()) {
   const rawRows = result.rawPayloads.map((raw) => ({ job_id: jobId, provider: "meta", endpoint: raw.endpoint, response_payload: raw.payload as never, http_status: raw.httpStatus ?? null, collected_at: collectedAt }));
   if (rawRows.length) {
