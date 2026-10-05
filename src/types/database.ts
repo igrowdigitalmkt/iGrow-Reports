@@ -34,7 +34,7 @@ type IntegrationCollectionJobRow = {
   date_from: string; date_to: string; entity_level: "account" | "campaign" | "adset" | "ad";
   api_version: string; contract_version: number; idempotency_key: string;
   status: "queued" | "collecting" | "partial" | "confirmed" | "failed" | "superseded";
-  priority: number; attempt_count: number; next_attempt_at: string; last_error_code: string | null;
+  priority: number; attempt_count: number; retry_epoch_attempt: number; next_attempt_at: string; last_error_code: string | null;
   last_error_message: string | null; started_at: string | null; completed_at: string | null;
   created_at: string; updated_at: string;
 };
@@ -222,7 +222,9 @@ export type Database = {
       record_integration_provider_health: { Args: { p_integration_id: string; p_provider: string; p_ok: boolean; p_error_code?: string | null; p_latency_ms?: number | null }; Returns: IntegrationProviderHealthRow };
       finish_integration_collection_job: { Args: { p_job_id: string; p_attempt_count: number; p_status: string; p_next_attempt_at?: string | null; p_error_code?: string | null; p_error_message?: string | null; p_completed_at?: string | null }; Returns: undefined };
       persist_integration_collection_result: { Args: { p_job_id: string; p_attempt_count: number; p_status: string; p_metrics: Json; p_reconciliation: Json; p_raw_payloads: Json }; Returns: string };
-      claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number; api_version: string; contract_version: number }[] };
+      request_meta_collection_refresh: { Args: { p_client_id: string; p_connection_id: string; p_date_from: string; p_date_to: string; p_api_version: string; p_contract_version: number; p_scopes: Json }; Returns: Json };
+      claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number; api_version: string; contract_version: number; retry_attempt_count?: number }[] };
+      claim_meta_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number; api_version: string; contract_version: number; retry_attempt_count?: number }[] };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };
         Returns: Json;

@@ -19,6 +19,12 @@ beforeEach(() => {
 });
 
 describe("claimed job worker", () => {
+  it("uses the fresh-cycle retry budget while fencing writes with the lifetime attempt",async () => {
+    const job = (await vi.mocked(claimCollectionJob).getMockImplementation()!(service))!;
+    vi.mocked(claimCollectionJob).mockResolvedValue({ ...job,attempt_count: 9,retry_attempt_count: 1 });
+    await runOneIntegrationJob(service,{ meta: { provider: "meta",collect: vi.fn().mockRejectedValue(new Error("HTTP 503 unavailable")) } });
+    expect(finishCollectionJob).toHaveBeenCalledWith(service,"job-a",9,expect.objectContaining({ status: "partial" }));
+  });
   it("keeps unreconciled snapshots partial and finalizes through the transition RPC", async () => {
     const collect = vi.fn(async () => result);
     expect(await runOneIntegrationJob(service, { meta: { provider: "meta", collect } })).toBe(true);

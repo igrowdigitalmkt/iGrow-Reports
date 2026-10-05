@@ -3,6 +3,29 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/types/database";
 import { collectionIdempotencyKey, type CollectionIdentity } from "./data-contract";
 import type { ProviderCollectionResult } from "./worker-contract";
+import { z } from "zod";
+
+export async function requestMetaCollectionRefresh(service: SupabaseClient<Database>,identities: CollectionIdentity[]) {
+  if (!identities.length || identities.length>400) throw new Error("Seleção de coleta inválida.");
+  const first = identities[0];
+  const keys = new Set<string>();
+  for (const identity of identities) {
+    const key = collectionIdempotencyKey(identity);
+    if (identity.provider!=="meta" || identity.clientId!==first.clientId || identity.connectionId!==first.connectionId
+      || identity.dateFrom!==first.dateFrom || identity.dateTo!==first.dateTo || identity.apiVersion!==first.apiVersion
+      || identity.contractVersion!==first.contractVersion || keys.has(key)) throw new Error("Escopos incompatíveis na solicitação.");
+    keys.add(key);
+  }
+  const { data,error } = await service.rpc("request_meta_collection_refresh",{
+    p_client_id: first.clientId,p_connection_id: first.connectionId,p_date_from: first.dateFrom,p_date_to: first.dateTo,
+    p_api_version: first.apiVersion,p_contract_version: first.contractVersion,
+    p_scopes: identities.map(identity => ({ externalAccountId: identity.externalAccountId,level: identity.level })),
+  });
+  if (error) throw new Error("Não foi possível solicitar a atualização.");
+  const result = z.object({ created: z.number().int().nonnegative(),rescheduled: z.number().int().nonnegative(),preserved: z.number().int().nonnegative() }).parse(data);
+  if (result.created+result.rescheduled+result.preserved!==identities.length) throw new Error("Resposta de atualização inválida.");
+  return result;
+}
 
 // One statement either registers the entire missing-scope request or rolls it
 // back. Duplicate identities reuse their existing jobs without resetting leases.
@@ -50,8 +73,8 @@ export async function enqueueCollectionJob(service: SupabaseClient<Database>, id
   return data;
 }
 
-export async function claimCollectionJob(service: SupabaseClient<Database>, now = new Date()) {
-  const { data, error } = await service.rpc("claim_integration_collection_job", { p_now: now.toISOString() }).maybeSingle();
+export async function claimCollectionJob(service: SupabaseClient<Database>, now = new Date(),provider?: "meta") {
+  const { data, error } = await service.rpc(provider === "meta" ? "claim_meta_collection_job" : "claim_integration_collection_job", { p_now: now.toISOString() }).maybeSingle();
   if (error) throw new Error(`Não foi possível reivindicar a coleta: ${error.message}`);
   return data;
 }

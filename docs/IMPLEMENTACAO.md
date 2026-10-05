@@ -1,5 +1,15 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — executor HTTP e recuperação de coletas
+
+`POST /api/workers/meta` processa até quatro jobs sequencialmente, com token de servidor `INTEGRATION_WORKER_SECRET` comparado por digest em tempo constante. Falta de configuração retorna 503; requisições sem autorização não criam cliente de serviço. O executor não inicia novos claims depois de quatro minutos; esse orçamento não interrompe um job já em andamento. Respostas/logs conservam um ID de execução e códigos genéricos, sem copiar exceções, tokens ou detalhes do banco. `processed` conta jobs processados, inclusive os finalizados como falhos; não significa snapshots confirmados.
+
+A migration `202610040013_collection_refresh_cycles.sql` disponibiliza claim exclusivo da Meta, preservando jobs dos outros provedores, e solicitação transacional de atualização. Jobs confirmados/falhos voltam à fila; jobs queued/collecting/partial são preservados, inclusive claims e backoff. O snapshot anterior continua acessível. `attempt_count` permanece monotônico para fencing, enquanto `retry_epoch_attempt` marca o início de um novo orçamento de retries. Assim, atualizar um job que já esgotou tentativas não reutiliza números de workers antigos nem encerra os retries do novo ciclo imediatamente.
+
+A tela por snapshots ganhou `Atualizar dados` para operadores autorizados. A ação reconstrói todos os níveis do período pelas contas autorizadas, sem aceitar conexão/versões externas, solicita o ciclo e mantém a visualização anterior confirmada. Escopo revogado, identidade divergente ou conta inválida desfazem a solicitação inteira. Testes verificam autorização HTTP, isolamento por provedor, recuperação, snapshot preservado, fencing de worker antigo e orçamento por ciclo.
+
+`pnpm check` aprovado: lint, TypeScript, 455 testes de aplicação, 497 verificações SQL/RLS em PGlite e build de produção. Nenhum agendamento foi provisionado, segredo configurado, endpoint de produção invocado ou migration remota aplicada. A homologação operacional depende dessas etapas; comparações, séries diárias, relatórios e troca definitiva da fonte principal continuam pendentes.
+
 ## Atualização de 4 de outubro de 2026 — dashboard ligado aos snapshots e solicitação à fila
 
 A rota autenticada `/cliente/[clientId]/snapshots` consulta exclusivamente snapshots persistidos, sem chamar a Meta durante a navegação. O dashboard atual oferece acesso à nova análise no modo agência, preservando período e contas; sua fonte anterior permanece até a homologação da troca. A nova tela permite escolher período, conta, nível e entidade, mostra indicadores decimais e nomes de hierarquia, conserva dados antigos sinalizados e reconsulta a disponibilidade automaticamente. Loading e erro possuem estados próprios.

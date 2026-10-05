@@ -7,5 +7,5 @@ import { createMetaProviderAdapter } from "./worker-adapter";
 
 // Server-side entry point; authorization and attempt fencing remain in the worker.
 export async function runOneMetaIntegrationJob(service: SupabaseClient<Database>): Promise<boolean> {
-  return runOneIntegrationJob(service, { meta: createMetaProviderAdapter(identity => loadMetaWorkerContext(service, identity)) });
+  return runOneIntegrationJob(service, { meta: createMetaProviderAdapter(identity => loadMetaWorkerContext(service, identity)) },"meta");
 }

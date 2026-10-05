@@ -3,12 +3,28 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 vi.mock("server-only", () => ({}));
-import { authorizeCollectionJob, enqueueCollectionJob, enqueueCollectionJobs, finishCollectionJob, persistCollectionResult } from "@/modules/integrations/repository";
+import { authorizeCollectionJob, enqueueCollectionJob, enqueueCollectionJobs, finishCollectionJob, persistCollectionResult,requestMetaCollectionRefresh,claimCollectionJob } from "@/modules/integrations/repository";
 import { collectionIdempotencyKey } from "@/modules/integrations/data-contract";
 
 const result = { metrics: [], complete: true, reconciliation: {}, rawPayloads: [{ endpoint: "insights", payload: { rows: [] }, httpStatus: 200 }] };
 
 describe("collection result persistence", () => {
+  it("claims Meta work through its provider-specific RPC",async () => {
+    const rpc = vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null,error: null }) }));
+    await claimCollectionJob({ rpc } as unknown as SupabaseClient<Database>,new Date("2026-10-04T12:00:00Z"),"meta");
+    expect(rpc).toHaveBeenCalledWith("claim_meta_collection_job",{ p_now: "2026-10-04T12:00:00.000Z" });
+  });
+  it("requests refresh with one exact scope and validates reported totals",async () => {
+    const identity = { clientId: "c",connectionId: "i",provider: "meta" as const,externalAccountId: "act_1",dateFrom: "2026-10-01",dateTo: "2026-10-03",level: "account" as const,apiVersion: "v24.0",contractVersion: 3 };
+    const rpc = vi.fn().mockResolvedValue({ data: { created: 0,rescheduled: 1,preserved: 0 },error: null });
+    const service = { rpc } as unknown as SupabaseClient<Database>;
+    expect(await requestMetaCollectionRefresh(service,[identity])).toEqual({ created: 0,rescheduled: 1,preserved: 0 });
+    expect(rpc).toHaveBeenCalledWith("request_meta_collection_refresh",expect.objectContaining({ p_client_id: "c",p_connection_id: "i",p_contract_version: 3,p_scopes: [{ externalAccountId: "act_1",level: "account" }] }));
+    rpc.mockResolvedValue({ data: { created: 0,rescheduled: 0,preserved: 0 },error: null });
+    await expect(requestMetaCollectionRefresh(service,[identity])).rejects.toThrow("inválida");
+    await expect(requestMetaCollectionRefresh(service,[identity,{ ...identity,clientId: "other" }])).rejects.toThrow("incompatíveis");
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
   it("registers a missing-scope bundle in one idempotent statement without resetting existing jobs",async () => {
     const identity = { clientId: "c",connectionId: "i",provider: "meta" as const,externalAccountId: "act_1",dateFrom: "2026-10-01",dateTo: "2026-10-03",level: "account" as const,apiVersion: "v24.0",contractVersion: 3 };
     const table = { upsert: vi.fn().mockReturnThis(),select: vi.fn().mockResolvedValue({ data: [{ id: "j1" },{ id: "j2" }],error: null }) };

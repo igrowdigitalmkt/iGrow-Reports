@@ -1,5 +1,15 @@
 # Operação da fundação
 
+## Executor Meta e ciclos de atualização
+
+Aplicar migrations até `202610040013_collection_refresh_cycles.sql` antes de usar o executor e `Atualizar dados` da análise por snapshots. Configurar `INTEGRATION_WORKER_SECRET` somente no servidor e no chamador autorizado: token aleatório de 32 a 256 caracteres usando letras/dígitos/`_`/`-`. O endpoint aceita somente POST com `Authorization: Bearer <token>`, sem token em URL. Configuração ausente retorna 503; autorização inválida retorna 401. Nenhum segredo foi gerado ou salvo por este incremento.
+
+O endpoint `/api/workers/meta` executa até quatro jobs em sequência e não começa outro claim após quatro minutos. Um job já iniciado pode exceder esse orçamento; `maxDuration=300` depende do plano de hospedagem e não substitui limite de paginação/coleta. Se o processo for interrompido, a lease de quinze minutos continua permitindo retomada por uma próxima execução. O endpoint não provisiona cron/QStash, não aceita assinatura QStash como substituta do token e não deve ser anunciado como operacional até homologação no ambiente real.
+
+O retorno contém ID de execução, número de jobs processados e motivo de parada (`empty`, `job_limit` ou `time_budget`). Processado não significa confirmado: falhas de provedor podem ser tratadas pelo worker e contabilizadas. Falhas de infraestrutura retornam 500 com mensagem sanitizada e interrompem novos claims; finalizações anteriores persistidas não são revertidas. O claim Meta ignora jobs de outros provedores mesmo quando eles têm prioridade maior.
+
+`Atualizar dados` revalida `canCollect` e reconstitui o período/contas por leitura autenticada. Uma RPC exclusiva de serviço insere escopos ausentes e recoloca jobs confirmados/falhos na fila atomicamente. Jobs já queued/collecting/partial são preservados, inclusive o backoff. A tentativa vitalícia nunca é zerada: `retry_epoch_attempt` cria um orçamento de retries por ciclo. Snapshots confirmados anteriores permanecem acessíveis enquanto a atualização é coletada. Solicitações repetidas durante fila/coleta não reiniciam jobs; uma nova solicitação após estado terminal inicia outro ciclo. A atualização não garante que snapshots de níveis distintos pertençam à mesma geração transacional.
+
 ## Homologação da análise por snapshots
 
 A rota `/cliente/[clientId]/snapshots` requer as migrations até `202610040012_snapshot_account_catalog.sql` e `META_GRAPH_API_VERSION`. O acesso usa a sessão autenticada; nem a tela nem suas consultas automáticas usam a credencial Meta. Um link no dashboard em modo agência preserva o período/contas selecionados. A fonte do dashboard principal continua sendo a anterior.

@@ -29,6 +29,18 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const indicators = entity?.indicators.filter(item => item.key !== "result:provider_known") ?? [];
   const campaignNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities.map(item => [item.id,item.name]) ?? []);
   const adsetNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "adset")?.entities.map(item => [item.id,item.name]) ?? []);
+  function requestRefresh() {
+    setError(""); setMessage("");
+    startTransition(async () => {
+      try {
+        const result = await requestMissingSnapshotData({ clientId,from: data.dateFrom,to: data.dateTo,accountIds: data.selectedAccountIds,refresh: true });
+        if ("error" in result) setError(result.error ?? "Não foi possível solicitar a atualização.");
+        else setMessage(result.created ? "Atualização solicitada. Os dados confirmados permanecem disponíveis até a conclusão."
+          : "A atualização já está na fila ou em andamento. Aguarde sua conclusão.");
+        router.refresh();
+      } catch { setError("Não foi possível solicitar a atualização. Tente novamente."); }
+    });
+  }
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === "visible") startTransition(() => router.refresh()); };
     const timer = window.setInterval(refresh,data.view.status === "pending" ? 30_000 : 60_000);
@@ -38,6 +50,7 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   return <section className="snapshot-dashboard" aria-label="Análise confirmada" aria-busy={pending}>
     <div className="snapshot-toolbar">
       <Link href={`/cliente/${clientId}`} className="snapshot-link">Voltar ao dashboard</Link>
+      {canCollect && !!data.selectedAccountIds.length && <button type="button" onClick={requestRefresh} disabled={pending}>Atualizar dados</button>}
       <button type="button" onClick={() => startTransition(() => router.refresh())} disabled={pending}>
         <RefreshCw size={16} className={pending ? "snapshot-spin" : ""} />{pending ? "Consultando…" : "Consultar atualização"}
       </button>
