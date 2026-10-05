@@ -20,11 +20,13 @@ it("shows a return path without metrics, collection requests or endless loading"
   expect(html).not.toContain("snapshot-card"); expect(html).not.toContain("PGRST202");
 });
 
+vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({ access: vi.fn(),load: vi.fn() }));
 vi.mock("@/modules/client-portal/context",() => ({ requireClientDashboardAccess: mocks.access }));
 vi.mock("@/modules/client-portal/snapshot-dashboard-loader",() => ({ loadSnapshotDashboard: mocks.load }));
 vi.mock("@/modules/client-portal/portal-shell",() => ({ ClientPortalShell: ({ children }: { children: unknown }) => children }));
 vi.mock("@/modules/client-portal/snapshot-dashboard",() => ({ SnapshotDashboard: () => "confirmed-dashboard" }));
+vi.mock("@/modules/client-portal/snapshot-series-section",() => ({ SnapshotSeriesSection: () => null }));
 import SnapshotDashboardPage from "@/app/cliente/[clientId]/snapshots/page";
 const props = { params: Promise.resolve({ clientId: "client" }),searchParams: Promise.resolve({}) };
 function allowed() {

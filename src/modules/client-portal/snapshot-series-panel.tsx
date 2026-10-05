@@ -19,7 +19,7 @@ const SnapshotSeriesChart = dynamic(
 // Keys shown in the metric selector; kept to the most actionable indicators.
 const DEFAULT_DISPLAY_KEYS = ["spend", "impressions", "reach", "clicks", "link_clicks", "inline_link_clicks", "leads", "purchases", "cpm", "ctr", "cpc"];
 
-function niceLabel(nativeKey: string, unit: string): string {
+function niceLabel(nativeKey: string): string {
   const key = nativeKey === "inline_link_clicks" ? "link_clicks" : nativeKey;
   const indicator = nativeKey.startsWith("result:provider:") ? nativeKey.slice("result:provider:".length) : key;
   const label = metaMetricLabel(indicator, indicator);
@@ -77,7 +77,7 @@ export function SnapshotSeriesPanel({
       : key === "ctr" || key === "frequency" || key.includes("ctr") ? "percent"
       : "count"
     );
-    return { nativeKey: key, label: niceLabel(key, unit), unit, currency: series?.currency ?? null };
+    return { nativeKey: key, label: niceLabel(key), unit, currency: series?.currency ?? null };
   });
 
   function requestCollection() {
@@ -150,7 +150,7 @@ export function SnapshotSeriesPanel({
             }}
           >
             {availableKeys.map(key => (
-              <option key={key} value={key}>{niceLabel(key, "count")}</option>
+              <option key={key} value={key}>{niceLabel(key)}</option>
             ))}
           </select>
           <small>Segure Ctrl / Cmd para selecionar vários.</small>
