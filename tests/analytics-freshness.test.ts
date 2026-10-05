@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsAnalyticsRefresh, ANALYTICS_REFRESH_MS } from "@/modules/client-portal/analytics-freshness";
+import { needsAnalyticsRefresh, ANALYTICS_REFRESH_MS, ANALYTICS_MAX_AUTOMATIC_FAILURES, analyticsRetryDelay } from "@/modules/client-portal/analytics-freshness";
 
 describe("automatic analytics refresh", () => {
   const now = Date.parse("2026-10-02T16:30:00Z");
@@ -15,4 +15,10 @@ describe("automatic analytics refresh", () => {
   it("requests missing dates immediately even when other dates were updated recently", () => {
     expect(needsAnalyticsRefresh(data(1000, "partial"), now)).toBe(true);
   });
+});
+
+it("backs off automatic retries and caps the wait", () => {
+  expect([1, 2, 3, 4, 5, 10].map(analyticsRetryDelay)).toEqual([30_000, 60_000, 120_000, 240_000, 480_000, 600_000]);
+  expect(analyticsRetryDelay(0)).toBe(30_000);
+  expect(ANALYTICS_MAX_AUTOMATIC_FAILURES).toBe(4);
 });

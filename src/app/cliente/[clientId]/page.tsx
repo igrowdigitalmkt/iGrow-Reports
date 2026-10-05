@@ -65,7 +65,7 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     }
   }
   data = await getFreshClientAnalytics({ supabase, agencyId: access.agencyId, clientId,
-    dateFrom: range.dateFrom, dateTo: range.dateTo, accountIds });
+    dateFrom: range.dateFrom, dateTo: range.dateTo, accountIds, initial: data });
   if (data.coverage.status !== "complete") {
     data.warnings.push("Os resultados deste período ficam bloqueados até a coleta confirmar todos os dias e contas selecionadas.");
   }

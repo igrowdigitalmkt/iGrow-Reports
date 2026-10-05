@@ -57,7 +57,7 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
     && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === META_ANALYTICS_VERSION
     && Date.parse(data.coverage.latestCollectedAt ?? "1970-01-01") <= Date.parse(cached.collected_at)) {
     const actionTypes = Array.isArray(cached.payload.actionTypes) ? cached.payload.actionTypes.filter((value): value is string => typeof value === "string") : [];
-    return { confirmed: true as const, version: META_ANALYTICS_VERSION, collectedAt: cached.collected_at, actionTypes };
+    return { confirmed: true as const, cached: true as const, version: META_ANALYTICS_VERSION, collectedAt: cached.collected_at, actionTypes };
   }
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const { data: links } = await service.from("client_ad_accounts").select("ad_account_id")

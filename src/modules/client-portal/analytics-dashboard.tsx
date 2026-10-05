@@ -24,7 +24,7 @@ import { getCampaignScopedAnalytics, getClientAnalyticsHierarchy } from "./analy
 import { deleteDashboardReport, generateDashboardReport } from "./report-actions";
 import { publishReportVersion } from "@/modules/reports/actions";
 import { resolveAnalyticsRange } from "./range";
-import { ANALYTICS_PARTIAL_RETRY_MS, ANALYTICS_REFRESH_MS } from "./analytics-freshness";
+import { ANALYTICS_MAX_AUTOMATIC_FAILURES, ANALYTICS_REFRESH_MS, analyticsRetryDelay } from "./analytics-freshness";
 import { estimatedMetric } from "@/modules/reports/report-presentation";
 import type { AnalyticsDashboardData, AnalyticsReportItem, AnalyticsValues } from "./analytics-types";
 import {
@@ -157,6 +157,8 @@ function makeObservations(data: AnalyticsDashboardData) {
   }
   return observations.slice(0, 4);
 }
+const retryClock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
 export function ClientAnalyticsDashboard({
   data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey,
 }: DashboardProps) {
@@ -284,31 +286,62 @@ export function ClientAnalyticsDashboard({
   }, [analysisNote, canManageReports, campaignMetricKeys, optionalMetricKeys, preferenceKey, preferencesLoaded]);
 
   const baseAnalyticsReady = hasConfirmedAnalytics(data);
+  // Failures survive re-renders of the same period so retries keep backing off.
+  const retryFailures = useRef({ key: "", count: 0 });
+  const [retryRun, setRetryRun] = useState(0);
+  const [autoRetry, setAutoRetry] = useState<{ phase: "idle" | "running" | "waiting" | "paused"; lastAt: number | null; nextAt: number | null }>({ phase: "idle", lastAt: null, nextAt: null });
   useEffect(() => {
+    const periodKey = `${clientId}|${data.dateFrom}|${data.dateTo}`;
+    if (retryFailures.current.key !== periodKey) retryFailures.current = { key: periodKey, count: 0 };
+    let cancelled = false;
     let updating = false;
-    const refresh = async () => {
-      if (updating || document.visibilityState !== "visible") return;
-      updating = true;
-      try {
-        const result = await collectDashboardData({ clientId, from: data.dateFrom, to: data.dateTo, automatic: true });
-        if (result.error) setError(result.error ?? "Não foi possível concluir esta ação.");
-        router.refresh();
-      } finally { updating = false; }
-    };
+    let timer: number | undefined;
     const updated = Math.max(Date.parse(data.coverage.latestCollectedAt ?? "") || 0, Date.parse(data.metaAggregate?.collectedAt ?? "") || 0);
     const incomplete = !baseAnalyticsReady;
-    const cadence = incomplete ? ANALYTICS_PARTIAL_RETRY_MS : ANALYTICS_REFRESH_MS;
-    const delay = incomplete
-      ? Math.min(5_000, cadence)
-      : Number.isFinite(updated) ? Math.max(1000, cadence - (Date.now() - updated)) : cadence;
-    const timer = window.setTimeout(() => { void refresh(); }, delay);
-    const interval = window.setInterval(() => { void refresh(); }, cadence);
+    const schedule = (delay: number) => {
+      window.clearTimeout(timer);
+      if (incomplete && retryFailures.current.count >= ANALYTICS_MAX_AUTOMATIC_FAILURES) {
+        setAutoRetry(current => ({ ...current, phase: "paused", nextAt: null }));
+        return;
+      }
+      setAutoRetry(current => ({ ...current, phase: "waiting", nextAt: Date.now() + delay }));
+      timer = window.setTimeout(() => { void refresh(); }, delay);
+    };
+    const refresh = async () => {
+      if (cancelled || updating) return;
+      if (document.visibilityState !== "visible") return; // resumes on visibilitychange
+      updating = true;
+      setAutoRetry(current => ({ ...current, phase: "running", nextAt: null }));
+      let failed = false;
+      try {
+        const result = await collectDashboardData({ clientId, from: data.dateFrom, to: data.dateTo, automatic: true });
+        if (result.error) { failed = true; setError(result.error); }
+      } catch {
+        failed = true;
+        setError("Não foi possível consultar os dados agora. Uma nova tentativa será feita automaticamente.");
+      } finally { updating = false; }
+      if (cancelled) return;
+      retryFailures.current.count = failed ? retryFailures.current.count + 1 : 0;
+      setAutoRetry(current => ({ ...current, lastAt: Date.now() }));
+      // Re-render only when something may have changed; a failed attempt left the data as it was.
+      if (!failed) { setError(""); router.refresh(); }
+      schedule(incomplete || failed ? analyticsRetryDelay(Math.max(1, retryFailures.current.count)) : ANALYTICS_REFRESH_MS);
+    };
+    const first = incomplete
+      ? retryFailures.current.count ? analyticsRetryDelay(retryFailures.current.count) : 5_000
+      : Number.isFinite(updated) ? Math.max(1000, ANALYTICS_REFRESH_MS - (Date.now() - updated)) : ANALYTICS_REFRESH_MS;
+    const start = window.setTimeout(() => schedule(first), 0);
     const resumed = () => {
-      if (incomplete || Date.now() - updated >= ANALYTICS_REFRESH_MS) void refresh();
+      if (document.visibilityState !== "visible" || updating) return;
+      if (incomplete ? retryFailures.current.count < ANALYTICS_MAX_AUTOMATIC_FAILURES : Date.now() - updated >= ANALYTICS_REFRESH_MS) void refresh();
     };
     document.addEventListener("visibilitychange", resumed);
-    return () => { window.clearTimeout(timer); window.clearInterval(interval); document.removeEventListener("visibilitychange", resumed); };
-  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt, baseAnalyticsReady, router]);
+    return () => { cancelled = true; window.clearTimeout(start); window.clearTimeout(timer); document.removeEventListener("visibilitychange", resumed); };
+  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt, baseAnalyticsReady, router, retryRun]);
+  function retryAutomaticNow() {
+    retryFailures.current.count = 0;
+    setRetryRun(value => value + 1);
+  }
 
   const selectedEntities = hierarchyEntities.filter(entity => appliedEntityKeys.includes(entity.key));
   const scopeCurrent = scopeData === null || scopeSnapshotKey === dataSnapshotKey;
@@ -697,10 +730,18 @@ export function ClientAnalyticsDashboard({
         <span>{navigating
           ? "Nenhum resultado será exibido até a navegação e a coleta terminarem."
           : scopedData.coverage.status === "complete"
-            ? "Os dias já foram coletados. Estamos aguardando a confirmação dos totais deste período. A análise será exibida por inteiro quando estiver pronta; uma nova tentativa será feita automaticamente."
+            ? "Os dias já foram coletados. Estamos aguardando a confirmação dos totais deste período. A análise será exibida por inteiro quando estiver pronta."
             : `A coleta confirmou ${scopedData.coverage.coveredDays} de ${scopedData.coverage.totalDays} dias. O dashboard permanece bloqueado até confirmar 100% do período.`}</span>
+        {!navigating && autoRetry.phase !== "idle" && <span className="analytics-retry-status" aria-live="polite">
+          {autoRetry.phase === "running" && <><RefreshCw size={13} className="analytics-spin" /> Consultando agora…</>}
+          {autoRetry.phase === "waiting" && autoRetry.nextAt && <>Próxima tentativa automática às {retryClock.format(autoRetry.nextAt)}{autoRetry.lastAt ? ` · última às ${retryClock.format(autoRetry.lastAt)}` : ""}.</>}
+          {autoRetry.phase === "paused" && <>Tentativas automáticas pausadas após {ANALYTICS_MAX_AUTOMATIC_FAILURES} falhas seguidas{autoRetry.lastAt ? ` (última às ${retryClock.format(autoRetry.lastAt)})` : ""}.</>}
+        </span>}
       </p></div>
-      {canCollect && !navigating && <button className="analytics-text-button" type="button" onClick={() => collect()} disabled={pending}>
+      {!navigating && autoRetry.phase === "paused" && !canCollect && <button className="analytics-text-button" type="button" onClick={retryAutomaticNow}>
+        Tentar novamente <ArrowUpRight size={14} />
+      </button>}
+      {canCollect && !navigating && <button className="analytics-text-button" type="button" onClick={() => { retryFailures.current.count = 0; collect(); }} disabled={pending || autoRetry.phase === "running"}>
         {pending ? "Atualizando…" : "Tentar atualizar novamente"} <ArrowUpRight size={14} />
       </button>}
     </div>}

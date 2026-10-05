@@ -14,6 +14,19 @@ const data = (status = "complete") => ({ selectedAccountIds: input.accountIds, w
   coverage: { status }, summary: { primary_results: null } }) as unknown as AnalyticsDashboardData;
 beforeEach(() => { vi.clearAllMocks(); mocks.refresh.mockResolvedValue({ confirmed: true }); });
 describe("exact period analytics", () => {
+  it("does not repeat the heavy analytics read when the caller's read and a valid cache already confirm the period", async () => {
+    const initial = { ...data(), metaAggregate: { confirmed: true, collectedAt: "2026-10-05T12:00:00Z", version: 1 } } as AnalyticsDashboardData;
+    mocks.refresh.mockResolvedValue({ confirmed: true, cached: true });
+    expect(await getFreshClientAnalytics({ ...input, initial })).toBe(initial);
+    expect(mocks.analytics).not.toHaveBeenCalled();
+  });
+  it("re-reads after a cache hit when the initial read lacked the confirmed aggregate", async () => {
+    const exact = { ...data(), summary: { primary_results: 7 } };
+    mocks.refresh.mockResolvedValue({ confirmed: true, cached: true });
+    mocks.analytics.mockResolvedValueOnce(exact);
+    expect(await getFreshClientAnalytics({ ...input, initial: data() })).toEqual(exact);
+    expect(mocks.analytics).toHaveBeenCalledTimes(1);
+  });
   it("loads a new full-account period from Meta before returning the refreshed aggregate", async () => {
     const initial = data(), exact = { ...data(), summary: { primary_results: 103 } };
     mocks.analytics.mockResolvedValueOnce(initial).mockResolvedValueOnce(exact);

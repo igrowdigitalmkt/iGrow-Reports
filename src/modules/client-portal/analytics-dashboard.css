@@ -101,6 +101,7 @@
 .analytics-coverage-banner p { font-size: 11px; line-height: 1.6; }
 .analytics-coverage-banner p strong { display: block; color: #ecc988; font-weight: 550; }
 .analytics-coverage-banner p > span { display: block; color: #beaf96; }
+.analytics-coverage-banner p > .analytics-retry-status { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: #9fb4c9; font-variant-numeric: tabular-nums; }
 .analytics-text-button { display: flex; align-items: center; gap: 5px; color: #edca8b; border: 0; padding: 0; font-size: 11px !important; background: transparent; flex-shrink: 0; }
 .analytics-section-toolbar { display: flex; justify-content: space-between; gap: 18px; align-items: center; padding: 0 0 17px; }
 .analytics-tabs { display: flex; gap: 18px; flex-wrap: wrap; }

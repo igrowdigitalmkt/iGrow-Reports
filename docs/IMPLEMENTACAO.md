@@ -421,3 +421,13 @@ Retorno do responsável após o primeiro convite real (silviorm12@gmail.com): e-
 - Teste novo em `tests/meta-delivery.test.ts`. `pnpm check`: 78 arquivos, 640 testes aprovados.
 - Homologado (responsável, conta silviorm12@gmail.com): criação de senha com 8 caracteres funcionou; `app_metadata.password_set = true` confirmado no Auth de produção.
 
+### 5/10/2026 — Incidente: banco de produção sobrecarregado (dashboard principal, 3 meses)
+
+- Sintoma: cliente em 3 meses (07/07–04/10) via "Aguardando a análise completa" sem indicação de atividade; depois "a Meta ainda não confirmou os agregados".
+- Causa nos logs da Vercel: tempo limite de instrução no Postgres (`57014`) em `client-analytics-rpc` (90 dias) e nas leituras/gravações de `meta_dashboard_scopes` ("Não foi possível validar/preservar os agregados"). Projeto Supabase em compute **Nano** (t4g.nano). Às ~15:05 o Supabase passou a responder 522 até a consultas triviais (indisponível). Contribuíram: cada abertura da página fazia 3–4 leituras `get_client_analytics`; a tela repetia ação + nova renderização a cada 30 s sem limite; uma leitura diagnóstica de todos os payloads de `meta_dashboard_scopes` (interrompida por tempo esgotado).
+- Correções (código):
+  - `getFreshClientAnalytics` aceita a leitura já feita pelo chamador (`initial`) e não repete a leitura quando o cache do agregado ainda vale (`refreshMetaDashboardScope` sinaliza `cached`). A página do cliente passa a leitura existente.
+  - Tentativas automáticas com espera crescente (30 s, 1, 2, 4 min; máx. 10 min) e pausa após 4 falhas seguidas; tentativa com falha não força nova renderização. O aviso mostra "Consultando agora…", horário da próxima e da última tentativa, ou pausa com botão "Tentar novamente".
+- Pendente: otimizar `get_client_analytics` para 90+ dias e o tamanho dos payloads de `meta_dashboard_scopes` (leitura de todos excedeu 3 min); avaliar compute maior no Supabase; recuperação do banco (reinício do projeto exige decisão do responsável).
+- `pnpm check`: 78 arquivos, 643 testes aprovados.
+

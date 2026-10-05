@@ -10,12 +10,17 @@ import { getClientAnalytics } from "./analytics";
 export async function getFreshClientAnalytics(input: {
   supabase: SupabaseClient<Database>; agencyId: string; clientId: string;
   dateFrom: string; dateTo: string; accountIds?: string[];
+  // A read the caller just made for the same client, period and accounts.
+  initial?: Awaited<ReturnType<typeof getClientAnalytics>>;
 }) {
   const { supabase, clientId, dateFrom, dateTo, accountIds } = input;
-  const initial = await getClientAnalytics(supabase, clientId, dateFrom, dateTo, accountIds);
+  // The analytics RPC is the heaviest database read; never repeat it needlessly.
+  const initial = input.initial ?? await getClientAnalytics(supabase, clientId, dateFrom, dateTo, accountIds);
   if (initial.coverage.status !== "complete" || !initial.selectedAccountIds.length) return initial;
   try {
-    await refreshMetaDashboardScope({ agencyId: input.agencyId, clientId, data: initial });
+    const refreshed = await refreshMetaDashboardScope({ agencyId: input.agencyId, clientId, data: initial });
+    // A still-valid cached aggregate is already part of the initial read.
+    if (refreshed && "cached" in refreshed && refreshed.cached && initial.metaAggregate?.confirmed) return initial;
     return await getClientAnalytics(supabase, clientId, dateFrom, dateTo, accountIds);
   } catch (error) {
     console.error("meta-dashboard-scope-refresh", {
