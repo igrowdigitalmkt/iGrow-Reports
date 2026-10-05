@@ -376,3 +376,10 @@ O responsável enviou capturas do Ads Manager (28/09–04/10/2026). Contas ofici
 - Ocorrência intermitente: uma abertura da URL com `compare=previous` logo após o deploy `8f53ca1` caiu no `error.tsx` (erro de Server Component, React #441 no cliente, mensagem oculta em produção). A mesma URL abriu normalmente minutos depois e não se repetiu. Causa não identificada; sem acesso aos logs da Vercel nesta sessão. Se reaparecer, consultar os logs da função pela digest do erro.
 - Exportações em produção não baixadas nesta rodada (download exige aprovação do responsável); cobertas por testes unitários com a mesma estrutura de dados.
 
+### 5/10/2026 — Conferência do período anterior e ordenação de entidades
+
+- Ads Manager (responsável), Escola Crescer 21/09–27/09/2026: R$ 2.804,08, 368.175 impressões, CPM R$ 7,62, 25 conversas, 5.731 visualizações da página de destino (3.173 + 2.558) — idênticos à tela. Alcance 161.362 (Ads Manager) contra 160.708 (API), −0,4%. Somado às observações anteriores (Colégio idêntico; Escola 28/09–04/10 −3), alcance é a única divergência: métrica estimada e deduplicada; a API de insights por conta não reproduz necessariamente o total exibido no Ads Manager. Não corrigível por código; documentar para o cliente que alcance pode diferir levemente.
+- Diferença de apresentação: com tipos sem veiculação em campanhas sem gasto, o Ads Manager mostra "—" no total; a tela mostra 5.731 e R$ 0,49 porque considera apenas tipos de resultado retornados por campanhas com dados.
+- Usabilidade: a lista de entidades (25 por página) mostrava primeiro campanhas com R$ 0,00 e escondia as que gastaram. Agora ordena por valor usado decrescente (Decimal exato; sem valor ao fim, ordem original preservada). A entidade exibida por padrão passa a ser a de maior gasto. Colunas Campanha/Conjunto só aparecem nos níveis em que não repetem o próprio nome.
+- `pnpm check`: 75 arquivos, 624 testes aprovados.
+

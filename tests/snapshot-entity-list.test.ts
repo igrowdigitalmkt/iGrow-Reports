@@ -29,3 +29,10 @@ it("does not alter frozen entity names or order",() => {
 it.each([0,-1,1.5])("rejects invalid page %s",page => {
   expect(() => snapshotEntityPage(entities,"",page)).toThrow("inválida");
 });
+
+it("orders by exact spend, highest first, keeping entities without spend last",() => {
+  const withSpend = (id: string,value: string | null) => ({ ...entities[0],id,name: id,indicators: value === null ? [] : [{ key: "spend",nativeKey: "spend",label: "Valor usado",value,state: "available" as const,unit: "currency",aggregationRule: "sum" }] });
+  const list = [withSpend("zero","0"),withSpend("none",null),withSpend("big","1295.21"),withSpend("bigger","1508.87"),withSpend("tiny","0.000000000000000001")];
+  expect(snapshotEntityPage(list,"",1).items.map(entity => entity.id)).toEqual(["bigger","big","tiny","zero","none"]);
+  expect(list.map(entity => entity.id)).toEqual(["zero","none","big","bigger","tiny"]);
+});

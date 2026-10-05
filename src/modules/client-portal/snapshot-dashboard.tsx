@@ -227,11 +227,11 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
           </small>}
         </article>; })}</div>
         <div className="snapshot-table-wrap"><table>
-          <caption>Entidades do nível selecionado ({entityList.total})</caption>
-          <thead><tr><th scope="col">Nome</th><th scope="col">Campanha</th><th scope="col">Conjunto</th><th scope="col">Valor usado</th></tr></thead>
+          <caption>Entidades do nível selecionado ({entityList.total}), por valor usado</caption>
+          <thead><tr><th scope="col">Nome</th>{(level === "adset" || level === "ad") && <th scope="col">Campanha</th>}{level === "ad" && <th scope="col">Conjunto</th>}<th scope="col">Valor usado</th></tr></thead>
           <tbody>{entityList.items.map(item => <tr key={item.id}><th scope="row"><button type="button" onClick={() => setEntityId(item.id)}>{item.name}</button></th>
-            <td>{item.hierarchy?.campaignId ? campaignNames.get(item.hierarchy.campaignId) ?? item.hierarchy.campaignId : "—"}</td>
-            <td>{item.hierarchy?.adsetId ? adsetNames.get(item.hierarchy.adsetId) ?? item.hierarchy.adsetId : "—"}</td>
+            {(level === "adset" || level === "ad") && <td>{item.hierarchy?.campaignId ? campaignNames.get(item.hierarchy.campaignId) ?? item.hierarchy.campaignId : "—"}</td>}
+            {level === "ad" && <td>{item.hierarchy?.adsetId ? adsetNames.get(item.hierarchy.adsetId) ?? item.hierarchy.adsetId : "—"}</td>}
             <td>{formatSnapshotDecimal(item.indicators.find(metric => metric.key === "spend")?.value ?? null,"currency",item.currency ?? account?.currency ?? null)}</td>
           </tr>)}</tbody>
         </table></div>
