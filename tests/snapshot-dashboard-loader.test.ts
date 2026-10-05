@@ -56,6 +56,31 @@ it("hides both periods when only the previous ad scope is missing",async () => {
   expect(result.view).toMatchObject({ status: "pending",scopes: [],missing: [] });
   expect(result.comparison?.view).toMatchObject({ status: "pending",scopes: [] }); expect(result.comparison?.view.missing).toHaveLength(1);
 });
+it("hides a ready previous period when the current period is incomplete",async () => {
+  const rpc = rpcMock(),original = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name,args) => args.p_date_from === query.from && args.p_entity_level === "ad" ? { data: null,error: null } as never : original(name,args));
+  const result = await loadSnapshotDashboard(client(rpc),clientId,{ ...query,compare: "previous" },now);
+  expect(result.view).toMatchObject({ status: "pending",scopes: [] }); expect(result.view.missing).toHaveLength(1);
+  expect(result.comparison?.view).toMatchObject({ status: "pending",scopes: [],missing: [] });
+});
+it("retains independent collection dates and a stale previous confirmation",async () => {
+  const rpc = rpcMock(),original = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name,args) => {
+    const result = await original(name,args);
+    if (args.p_date_from === "2026-09-28") (result.data as unknown as { collectedAt: string }).collectedAt = "2026-10-04T10:00:00Z";
+    return result;
+  });
+  const result = await loadSnapshotDashboard(client(rpc),clientId,{ ...query,compare: "previous" },now);
+  expect(result.view).toMatchObject({ status: "ready",collectedAt: now.toISOString() });
+  expect(result.comparison?.view).toMatchObject({ status: "stale",collectedAt: "2026-10-04T10:00:00Z" });
+  expect(result.comparison?.view.scopes).toHaveLength(4);
+});
+it("does not release current data when account access is revoked between period reads",async () => {
+  const rpc = rpcMock(),original = rpc.getMockImplementation()!; let catalogs = 0;
+  rpc.mockImplementation(async (name,args) => name === "list_client_snapshot_accounts" && ++catalogs === 2 ? { data: [],error: null } as never : original(name,args));
+  await expect(loadSnapshotDashboard(client(rpc),clientId,{ ...query,compare: "previous" },now)).rejects.toThrow("fora do escopo");
+  expect(rpc.mock.calls.filter(([name,args]) => name === "get_confirmed_collection_snapshot" && args.p_date_from === "2026-09-28")).toHaveLength(0);
+});
 it("hides the comparison when the previous period fails reconciliation",async () => {
   const rpc = rpcMock(),original = rpc.getMockImplementation()!;
   rpc.mockImplementation(async (name,args) => { const result = await original(name,args); if(args.p_date_from === "2026-09-28" && args.p_entity_level === "campaign") (result.data as unknown as { metrics: { value: string }[] }).metrics[0].value = "200"; return result; });

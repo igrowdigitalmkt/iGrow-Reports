@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect,useRef,useState,useTransition } from "react";
+import { useEffect,useRef,useState,useTransition,type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Clock3,Layers3,RefreshCw } from "lucide-react";
@@ -14,6 +14,7 @@ import { exportMetaSnapshotCsv,exportMetaSnapshotJson } from "../meta/snapshot-e
 import { SnapshotPdfUnsupportedTextError } from "../reports/snapshot-pdf-error";
 import { compareSnapshotIndicator,resolveSnapshotComparison,snapshotComparisonDescription } from "../meta/snapshot-comparison";
 import { exportSnapshotComparisonCsv,exportSnapshotComparisonJson } from "../meta/snapshot-comparison-export";
+import { resolveAnalyticsRange } from "./range";
 
 const levels: { key: EntityLevel; label: string }[] = [
   { key: "account",label: "Conta" },{ key: "campaign",label: "Campanhas" },
@@ -22,6 +23,7 @@ const levels: { key: EntityLevel; label: string }[] = [
 export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: SnapshotDashboardData; clientId: string; canCollect?: boolean }) {
   const router = useRouter();
   const [pending,startTransition] = useTransition();
+  const [changingSelection,startSelectionTransition] = useTransition();
   const [accountId,setAccountId] = useState(data.selectedAccountIds[0] ?? "");
   const [level,setLevel] = useState<EntityLevel>("account");
   const [entityId,setEntityId] = useState("");
@@ -92,22 +94,39 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
       } catch { setError("Não foi possível solicitar a atualização. Tente novamente."); }
     });
   }
+  function applySelection(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (exporting || changingSelection) return;
+    const fields = new FormData(event.currentTarget);
+    const from = String(fields.get("from") ?? ""),to = String(fields.get("to") ?? "");
+    const accounts = String(fields.get("accounts") ?? "");
+    try {
+      resolveAnalyticsRange({ periodo: "custom",from,to },data.accounts.filter(item => !accounts || item.id === accounts).map(item => item.timezone_name));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Confira as datas do período."); return;
+    }
+    setError(""); setMessage("");
+    const query = new URLSearchParams({ periodo: "custom",from,to,accounts,compare: fields.get("compare") === "previous" ? "previous" : "" });
+    startSelectionTransition(() => router.push(`/cliente/${encodeURIComponent(clientId)}/snapshots?${query}`,{ scroll: false }));
+  }
   useEffect(() => {
+    if (exporting || changingSelection || pending) return;
     const refresh = () => { if (document.visibilityState === "visible") startTransition(() => router.refresh()); };
     const timer = window.setInterval(refresh,data.view.status === "pending" ? 30_000 : 60_000);
     document.addEventListener("visibilitychange",refresh);
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange",refresh); };
-  },[data.view.status,router]);
-  return <section className="snapshot-dashboard" aria-label="Análise confirmada" aria-busy={pending}>
+  },[data.view.status,router,exporting,changingSelection,pending]);
+  return <section className="snapshot-dashboard" aria-label="Análise confirmada" aria-busy={pending || changingSelection}>
     <div className="snapshot-toolbar">
       <Link href={`/cliente/${clientId}`} className="snapshot-link">Voltar ao dashboard</Link>
-      {canCollect && !!data.selectedAccountIds.length && <button type="button" onClick={() => requestRefresh()} disabled={pending || exporting}>{data.comparison ? "Atualizar período atual" : "Atualizar dados"}</button>}
-      {canCollect && data.comparison && <button type="button" onClick={() => requestRefresh("previous")} disabled={pending || exporting}>Atualizar período anterior</button>}
-      <button type="button" onClick={() => startTransition(() => router.refresh())} disabled={pending || exporting}>
+      {canCollect && !!data.selectedAccountIds.length && <button type="button" onClick={() => requestRefresh()} disabled={pending || exporting || changingSelection}>{data.comparison ? "Atualizar período atual" : "Atualizar dados"}</button>}
+      {canCollect && data.comparison && <button type="button" onClick={() => requestRefresh("previous")} disabled={pending || exporting || changingSelection}>Atualizar período anterior</button>}
+      <button type="button" onClick={() => startTransition(() => router.refresh())} disabled={pending || exporting || changingSelection}>
         <RefreshCw size={16} className={pending ? "snapshot-spin" : ""} />{pending ? "Consultando…" : "Consultar atualização"}
       </button>
     </div>
-    <form className="snapshot-filters" method="get">
+    <form className="snapshot-filters" method="get" onSubmit={applySelection}>
+      <fieldset aria-label="Filtros da análise" disabled={exporting || changingSelection} style={{ display: "contents" }}>
       <input type="hidden" name="periodo" value="custom" />
       <label>De<input type="date" name="from" defaultValue={data.dateFrom} disabled={exporting} required /></label>
       <label>Até<input type="date" name="to" defaultValue={data.dateTo} disabled={exporting} required /></label>
@@ -119,13 +138,16 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
         <option value="">Sem comparação</option><option value="previous">Período anterior de mesma duração</option>
       </select></label>
       <button type="submit" disabled={exporting}>Aplicar período</button>
+      </fieldset>
     </form>
     {message && <p role="status">{message}</p>}
     {error && <p role="alert">{error}</p>}
     {exporting && <div className="snapshot-toolbar"><p role="status" aria-live="polite">{exportProgress}</p>
       <button type="button" onClick={() => exportController.current?.abort()}>Cancelar exportação</button>
     </div>}
-    {data.view.status === "pending" ? <div className="snapshot-status" role="status" aria-live="polite">
+    {changingSelection ? <div className="snapshot-status" role="status" aria-live="polite"><Layers3 size={24} /><h2>Carregando o período selecionado</h2>
+      <p>A análise será exibida por inteiro quando a consulta dos filtros selecionados terminar.</p>
+    </div> : data.view.status === "pending" ? <div className="snapshot-status" role="status" aria-live="polite">
       <Layers3 size={24} /><h2>{data.blockedReason === "no_accounts" ? "Nenhuma conta vinculada" : "Aguardando a análise completa"}</h2>
       <p>{data.blockedReason === "no_accounts" ? "Vincule uma conta de anúncios a este cliente para acompanhar seu desempenho."
         : data.blockedReason === "spend" || data.blockedReason === "hierarchy" || data.blockedReason === "invalid"

@@ -14,4 +14,6 @@ Esta implementação não cria migrações, credenciais, agendamentos ou coletas
 
 A tela mostra a diferença absoluta de cada indicador e informa quando existem entidades somente no período anterior. O CSV inclui identidade do cliente e da conexão, provedor, versões da API e do contrato, chave nativa, regra de agregação, janela de atribuição e IDs da hierarquia. Campos de atribuição ausentes continuam vazios.
 
+Ao aplicar novos filtros, a tela oculta os indicadores e exportações da seleção anterior durante a navegação. Datas inválidas são informadas antes da consulta. A consulta automática fica suspensa durante a navegação, outra consulta em andamento e a exportação. Sem JavaScript, o formulário mantém a navegação GET nativa.
+
 Publicação inicial confirmada pela API de deployments do GitHub: commit `acef026a2258efd17f9e02b663633f7683324387`, ambiente `Production`, estado `success`, URL `https://i-grow-reports-9dcvyntgc-i-grow-digital.vercel.app`. Essa evidência confirma a publicação, mas não substitui a homologação da interação com dados reais e sessão autenticada.
