@@ -1,5 +1,11 @@
 # Publicação da iGrow
 
+## Verificação de produção em 4 de outubro de 2026
+
+O deploy `BUzyYMkWDMAtCFg66GKZUd3554sK`, commit `c0e7b46`, foi confirmado na Vercel como Ready / Production / Current, no domínio `i-grow-reports.vercel.app`, com publicação às 21h57 GMT-3. Isso confirma o código publicado até aquela revisão, incluindo a correção do bloqueio de carregamento do painel original. Não significa que todos os fluxos novos estejam operacionais.
+
+No projeto Supabase existente, as funções `list_client_snapshot_accounts` e `request_meta_collection_refresh` não estavam disponíveis no catálogo público, e a tela de migrations não apresentava histórico CLI. A análise por snapshots depende de atualização do banco antes de funcionar. Consultar [OPERACAO.md](OPERACAO.md) e executar o diagnóstico somente de leitura antes de definir as migrations pendentes. Nenhuma migration remota foi aplicada nesta verificação. O histórico de instalação abaixo permanece como referência, não como lista atual completa de migrations.
+
 ## Estado atual do ambiente
 
 A infraestrutura principal já foi provisionada em 30/09/2026:

@@ -5,10 +5,18 @@ import type { Database } from "@/types/database";
 vi.mock("server-only", () => ({}));
 import { authorizeCollectionJob, enqueueCollectionJob, enqueueCollectionJobs, finishCollectionJob, persistCollectionResult,requestMetaCollectionRefresh,claimCollectionJob } from "@/modules/integrations/repository";
 import { collectionIdempotencyKey } from "@/modules/integrations/data-contract";
+import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 
 const result = { metrics: [], complete: true, reconciliation: {}, rawPayloads: [{ endpoint: "insights", payload: { rows: [] }, httpStatus: 200 }] };
 
 describe("collection result persistence", () => {
+  it("classifies missing refresh RPC without exposing PostgREST details",async () => {
+    const identity = { clientId: "c",connectionId: "i",provider: "meta" as const,externalAccountId: "act_1",dateFrom: "2026-10-01",dateTo: "2026-10-03",level: "account" as const,apiVersion: "v24.0",contractVersion: 3 };
+    const rpc = vi.fn().mockResolvedValue({ data: null,error: { code: "PGRST202",message: "sensitive details" } });
+    await expect(requestMetaCollectionRefresh({ rpc } as unknown as SupabaseClient<Database>,[identity])).rejects.toBeInstanceOf(CollectionSchemaUnavailableError);
+    rpc.mockResolvedValue({ data: null,error: { code: "42501",message: "sensitive details" } });
+    await expect(requestMetaCollectionRefresh({ rpc } as unknown as SupabaseClient<Database>,[identity])).rejects.toThrow("Não foi possível solicitar a atualização.");
+  });
   it("claims Meta work through its provider-specific RPC",async () => {
     const rpc = vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null,error: null }) }));
     await claimCollectionJob({ rpc } as unknown as SupabaseClient<Database>,new Date("2026-10-04T12:00:00Z"),"meta");

@@ -4,6 +4,7 @@ import type { Database, Json } from "@/types/database";
 import { collectionIdempotencyKey, type CollectionIdentity } from "./data-contract";
 import type { ProviderCollectionResult } from "./worker-contract";
 import { z } from "zod";
+import { requireCollectionRpc } from "./collection-schema-error";
 
 export async function requestMetaCollectionRefresh(service: SupabaseClient<Database>,identities: CollectionIdentity[]) {
   if (!identities.length || identities.length>400) throw new Error("Seleção de coleta inválida.");
@@ -21,6 +22,7 @@ export async function requestMetaCollectionRefresh(service: SupabaseClient<Datab
     p_api_version: first.apiVersion,p_contract_version: first.contractVersion,
     p_scopes: identities.map(identity => ({ externalAccountId: identity.externalAccountId,level: identity.level })),
   });
+  requireCollectionRpc(error);
   if (error) throw new Error("Não foi possível solicitar a atualização.");
   const result = z.object({ created: z.number().int().nonnegative(),rescheduled: z.number().int().nonnegative(),preserved: z.number().int().nonnegative() }).parse(data);
   if (result.created+result.rescheduled+result.preserved!==identities.length) throw new Error("Resposta de atualização inválida.");

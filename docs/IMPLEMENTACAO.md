@@ -1,5 +1,13 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — compatibilidade com o banco publicado
+
+A inspeção remota confirmou que o código até `c0e7b46` estava publicado no domínio original, mas RPCs necessárias à análise por snapshots estavam ausentes. A rota agora trata especificamente `PGRST202` nas leituras do catálogo e snapshots: mantém a autenticação e o shell do cliente, informa indisponibilidade temporária e oferece retorno ao dashboard. Não renderiza indicadores, solicitação de coleta ou exportação nesse estado. Erros de autorização/banco e métricas inválidas não são convertidos em configuração pendente. A solicitação de atualização também distingue RPC indisponível de sucesso na fila.
+
+O diagnóstico operador `supabase/diagnostics/snapshot-readiness.sql` consulta somente catálogos PostgreSQL, sem dados de clientes, credenciais ou alterações de schema. Verifica 33 requisitos de RPCs, permissões, RLS, colunas e contrato de retry; retorna a migration de origem e os estados individual/global. A suíte PGlite executa o SQL antes da instalação e após todas as migrations, depois remove uma função, concede uma permissão indevida e desabilita RLS em transações descartáveis para confirmar detecção de falhas. Não é prova de homologação completa, cache PostgREST atualizado ou executor configurado.
+
+Lint, TypeScript, build e 497 verificações SQL/RLS aprovados no `pnpm check`; 512 testes da aplicação aprovados após a última regressão de repository. Documentação de publicação registra a revisão remota confirmada e a diferença entre código publicado e funcionamento completo. Não houve aplicação de migration remota, configuração de segredo, provisionamento de cron ou coleta externa neste incremento.
+
 ## Atualização de 4 de outubro de 2026 — exportação dos snapshots confirmados
 
 A análise por snapshots permite exportar CSV e JSON de todas as entidades da conta e do nível selecionados. Busca e paginação não recortam o relatório. Não há soma entre contas, moedas ou níveis. Análise pendente, escopo ausente/duplicado ou provedor incompatível bloqueiam a exportação; dados antigos confirmados conservam `stale` e seu horário original.

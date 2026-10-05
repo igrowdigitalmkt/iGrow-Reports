@@ -1,5 +1,15 @@
 # Operação da fundação
 
+## Verificação do banco antes da ativação
+
+Executar como operador o arquivo somente de leitura [snapshot-readiness.sql](../supabase/diagnostics/snapshot-readiness.sql). Ele consulta apenas catálogos PostgreSQL, funciona mesmo sem as tabelas de ingestão instaladas e retorna requisitos de leitura, worker e atualização. `ready=false` identifica requisito ausente/incompatível; `schema_ready=false` em todas as linhas significa que pelo menos um requisito falhou. A coluna `migration` indica onde o requisito foi introduzido, não uma autorização para reaplicar isoladamente esse arquivo.
+
+O diagnóstico verifica assinaturas das RPCs, security definer, execução pelo papel esperado, bloqueio de execução por anon/clientes nas RPCs de serviço, RLS, colunas e retorno do contador de retry. Ele não comprova o corpo das funções, políticas completas, versão do cache PostgREST, segredo/agendamento do executor ou uma coleta real. Aprovação do diagnóstico não substitui os testes funcionais e de autorização.
+
+Não usar `supabase db push` indiscriminadamente em produção: as migrations anteriores foram aplicadas pelo SQL Editor e não há histórico CLI registrado no projeto verificado. Primeiro comparar os objetos atuais com a sequência local, identificar o ponto de continuidade e registrar/aplicar apenas alterações pendentes na ordem. Não recriar o proprietário ou limpar dados para sincronizar o histórico. Após a atualização, repetir o diagnóstico e homologar as RPCs com sessão real.
+
+Quando PostgREST retorna `PGRST202` na consulta do catálogo ou do snapshot, a análise por snapshots informa indisponibilidade temporária e oferece retorno ao dashboard. Esse código pode indicar função ausente, assinatura incompatível ou cache desatualizado; a tela não determina qual das causas ocorreu e não promete coleta automática. A operação de atualização também retorna essa indisponibilidade sem anunciar sucesso. Erros de permissão, conexão ou conteúdo inválido seguem os caminhos próprios.
+
 ## Exportação da análise confirmada
 
 Na rota de snapshots, CSV e JSON exportam todas as entidades da conta e do nível exibidos, mesmo quando a busca ou a paginação mostram apenas parte da lista. O arquivo não soma contas, moedas ou níveis. Os controles aparecem somente após liberação da análise inteira e podem exportar snapshots antigos sinalizados como `stale`; conservam o horário da coleta original.

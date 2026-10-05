@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { pgtap } from "@electric-sql/pglite-pgtap";
+import assert from "node:assert/strict";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const db = new PGlite({ extensions: { pgtap } });
@@ -36,11 +37,29 @@ try {
     grant select,insert,update,delete on storage.objects to anon,authenticated,service_role;
     create extension pgtap with schema extensions;
   `);
+  const preflight = await readFile(resolve(root,"supabase/diagnostics/snapshot-readiness.sql"),"utf8");
+  const uninstalled = await db.query(preflight);
+  assert.ok(uninstalled.rows.length>0 && uninstalled.rows.every(row => !row.ready && !row.schema_ready),"Diagnóstico deve funcionar antes da instalação da estrutura.");
   const migrationsDir = resolve(root, "supabase/migrations");
   for (const file of (await readdir(migrationsDir)).filter((name) => name.endsWith(".sql")).sort()) {
     await db.exec(await readFile(resolve(migrationsDir, file), "utf8"));
     console.log(`Migration aplicada em PGlite: ${file}`);
   }
+  const ready = await db.query(preflight);
+  assert.ok(ready.rows.length>0,"Diagnóstico deve conferir requisitos reais.");
+  assert.deepEqual(ready.rows.filter(row => !row.ready),[],"Schema atualizado deve satisfazer o diagnóstico.");
+  await db.exec("begin; drop function public.list_client_snapshot_accounts(uuid);");
+  const missingCatalog = await db.query(preflight);
+  assert.ok(missingCatalog.rows.some(row => row.kind==="function" && row.object_name==="public.list_client_snapshot_accounts(uuid)" && !row.ready));
+  assert.ok(missingCatalog.rows.every(row => !row.schema_ready));
+  await db.exec("rollback; begin; grant execute on function public.request_meta_collection_refresh(uuid,uuid,date,date,text,integer,jsonb) to authenticated;");
+  const unsafeGrant = await db.query(preflight);
+  assert.ok(unsafeGrant.rows.some(row => row.kind==="access" && row.object_name.startsWith("public.request_meta_collection_refresh") && !row.ready));
+  await db.exec("rollback; begin; alter table public.integration_snapshots disable row level security;");
+  const unsafeTable = await db.query(preflight);
+  assert.ok(unsafeTable.rows.some(row => row.kind==="rls" && row.object_name==="public.integration_snapshots" && !row.ready));
+  await db.exec("rollback;");
+  console.log("Diagnóstico de snapshots aprovado: schema completo, função ausente, grant indevido e RLS desabilitado.");
   const results = [];
   for (const file of (await readdir(resolve(root, "supabase/tests"))).filter(name => name.endsWith(".test.sql")).sort()) {
     try {

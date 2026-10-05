@@ -7,6 +7,7 @@ import { buildMetaCollectionIdentity } from "@/modules/meta/queue-identity";
 import { readConfirmedSnapshotBundle } from "@/modules/integrations/snapshot-bundle-reader";
 import type { SnapshotBundle } from "@/modules/integrations/snapshot-bundle-reader";
 import { SnapshotValidationError } from "@/modules/integrations/snapshot-validation-error";
+import { requireCollectionRpc } from "@/modules/integrations/collection-schema-error";
 import { projectMetaSnapshotView, type MetaSnapshotView } from "@/modules/meta/snapshot-view";
 import { reconcileMetaSnapshotBundle } from "@/modules/meta/snapshot-reconciliation";
 import { resolveAnalyticsRange } from "./range";
@@ -48,6 +49,7 @@ export async function resolveSnapshotDashboardSelection(client: SupabaseClient<D
   query: { periodo?: string; from?: string; to?: string; accounts?: string },now = new Date()) {
   z.uuid().parse(clientId);
   const { data,error } = await client.rpc("list_client_snapshot_accounts",{ p_client_id: clientId });
+  requireCollectionRpc(error);
   if (error) throw new Error("Não foi possível consultar as contas autorizadas para a análise.");
   const accounts = z.array(accountSchema).max(100).parse(data);
   const selected = query.accounts ? z.array(z.uuid()).min(1).max(100).parse(query.accounts.split(",")) : accounts.map(account => account.id);

@@ -5,6 +5,7 @@ import { requireClientDashboardAccess } from "./context";
 import { loadSnapshotDashboard,resolveSnapshotDashboardSelection } from "./snapshot-dashboard-loader";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { enqueueCollectionJobs,requestMetaCollectionRefresh } from "@/modules/integrations/repository";
+import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 
 export async function requestMissingSnapshotData(input: unknown) {
   const parsed = z.object({ clientId: z.uuid(),from: z.iso.date(),to: z.iso.date(),accountIds: z.array(z.uuid()).min(1).max(100),refresh: z.boolean().optional() }).safeParse(input);
@@ -32,7 +33,8 @@ export async function requestMissingSnapshotData(input: unknown) {
     const created = await enqueueCollectionJobs(service,data.view.missing);
     revalidatePath(`/cliente/${parsed.data.clientId}/snapshots`);
     return { success: true as const,created };
-  } catch {
+  } catch (error) {
+    if (error instanceof CollectionSchemaUnavailableError) return { error: error.message };
     return { error: "Não foi possível solicitar os dados. Confira o acesso às contas e tente novamente." };
   }
 }

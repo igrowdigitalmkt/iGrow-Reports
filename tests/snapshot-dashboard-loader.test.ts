@@ -4,6 +4,7 @@ import type { Database } from "@/types/database";
 vi.mock("server-only",() => ({}));
 vi.mock("@/lib/env",() => ({ getMetaApiConfig: () => ({ apiVersion: "v24.0" }) }));
 import { loadSnapshotDashboard,resolveSnapshotDashboardSelection } from "@/modules/client-portal/snapshot-dashboard-loader";
+import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 const clientId = "11111111-0000-4000-8000-000000000001";
 const account = { id: "50000000-0000-4000-8000-000000000001",connection_id: "40000000-0000-4000-8000-000000000001",external_id: "act_1",name: "Conta A",currency: "BRL",timezone_name: "America/Sao_Paulo" };
 const query = { periodo: "custom",from: "2026-10-01",to: "2026-10-03" };
@@ -37,6 +38,17 @@ function rpcMock() {
 }
 const client = (rpc: ReturnType<typeof rpcMock>) => ({ rpc }) as unknown as SupabaseClient<Database>;
 beforeEach(() => { missing = ""; campaignSpend = "100"; adsetSpend = "100"; adSpend = "100"; missingChildren = false; badCurrency = false; orphan = false; empty = false; });
+it("blocks a missing catalog RPC without trying to read or fabricate accounts",async () => {
+  const rpc = vi.fn().mockResolvedValue({ data: null,error: { code: "PGRST202",message: "sensitive schema details" } });
+  await expect(loadSnapshotDashboard(client(rpc),clientId,query,now)).rejects.toBeInstanceOf(CollectionSchemaUnavailableError);
+  expect(rpc).toHaveBeenCalledTimes(1);
+});
+it("propagates missing snapshot RPC without returning a data-pending collection",async () => {
+  const rpc = rpcMock(); const original = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name,args) => name === "get_confirmed_collection_snapshot"
+    ? { data: null,error: { code: "PGRST202",message: "sensitive schema details" } } as never : original(name,args));
+  await expect(loadSnapshotDashboard(client(rpc),clientId,query,now)).rejects.toBeInstanceOf(CollectionSchemaUnavailableError);
+});
 it("loads only authenticated snapshots for every selected level without collecting from Meta",async () => {
   const rpc = rpcMock();
   const data = await loadSnapshotDashboard(client(rpc),clientId,query,now);

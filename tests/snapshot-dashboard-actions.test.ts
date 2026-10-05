@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase/service",() => ({ createSupabaseServiceClient: mocks.ser
 vi.mock("@/modules/integrations/repository",() => ({ enqueueCollectionJobs: mocks.enqueue,requestMetaCollectionRefresh: mocks.refresh }));
 vi.mock("@/lib/env",() => ({ getMetaApiConfig: () => ({ apiVersion: "v24.0" }) }));
 import { requestMissingSnapshotData } from "@/modules/client-portal/snapshot-dashboard-actions";
+import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 const input = { clientId: "11111111-0000-4000-8000-000000000001",from: "2026-10-01",to: "2026-10-03",accountIds: ["50000000-0000-4000-8000-000000000001"] };
 const identity = { clientId: input.clientId,connectionId: "authorized",externalAccountId: "act_1",provider: "meta",level: "ad",dateFrom: input.from,dateTo: input.to,apiVersion: "v24.0",contractVersion: 3 };
 beforeEach(() => {
@@ -29,6 +30,17 @@ it("can request repair when snapshot reads would fail",async () => {
   expect(await requestMissingSnapshotData({ ...input,refresh: true })).toEqual({ success: true,created: 4 });
   expect(mocks.load).not.toHaveBeenCalled();
   expect(mocks.selection).toHaveBeenCalledWith("session",input.clientId,expect.objectContaining({ accounts: input.accountIds.join(",") }));
+});
+it("returns a setup message without privileged writes when catalog is missing",async () => {
+  mocks.selection.mockRejectedValue(new CollectionSchemaUnavailableError());
+  const result = await requestMissingSnapshotData({ ...input,refresh: true });
+  expect(result).toEqual({ error: new CollectionSchemaUnavailableError().message });
+  expect(mocks.service).not.toHaveBeenCalled(); expect(mocks.revalidate).not.toHaveBeenCalled();
+});
+it("does not report successful queueing when the refresh RPC is missing",async () => {
+  mocks.refresh.mockRejectedValue(new CollectionSchemaUnavailableError());
+  expect(await requestMissingSnapshotData({ ...input,refresh: true })).toEqual({ error: new CollectionSchemaUnavailableError().message });
+  expect(mocks.revalidate).not.toHaveBeenCalled();
 });
 it("does not use service credentials when refresh scope authorization fails",async () => {
   mocks.selection.mockRejectedValue(new Error("foreign account"));
