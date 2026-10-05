@@ -25,7 +25,7 @@ import {
 import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, validateCollectionRange } from "./collection";
 
 import { liveDeliveryStatuses } from "./delivery";
-import { META_ANALYTICS_MAX_AGE_MS, META_ANALYTICS_VERSION, META_ATTRIBUTION_REFRESH_DAYS } from "./analytics-contract";
+import { META_ANALYTICS_MAX_AGE_MS, META_ANALYTICS_VERSION, META_ATTRIBUTION_REFRESH_DAYS, META_DETAIL_RETENTION_DAYS } from "./analytics-contract";
 import { applyProviderResults, hasOverlappingMetaSelection, insightActionTypes, periodInsightValues, selectedPeriodInsightRows, sumPeriodInsightValues } from "./insight-values";
 
 const TOKEN_KIND = "meta_access_token";
@@ -698,6 +698,7 @@ export async function collectMetaClientInsights(input: {
   const failures: Array<{ accountId: string; since: string; until: string; scope: "daily" | "period" | "account"; code: string }> = [];
   const slices = splitCollectionRange(input.since, input.until);
   const historicalCutoff = new Date(Date.now() - META_ATTRIBUTION_REFRESH_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const detailCutoff = new Date(Date.now() - META_DETAIL_RETENTION_DAYS * 86_400_000).toISOString().slice(0, 10);
 
   async function recordFailure(accountId: string, slice: { since: string; until: string }, error: unknown, scope: "daily" | "account") {
     const code = error instanceof MetaApiError ? String(error.code ?? error.httpStatus) : "persistence_or_validation";
@@ -807,7 +808,8 @@ export async function collectMetaClientInsights(input: {
 
           // When core coverage has gaps, finish account/campaign recovery first. Heavy adset/ad
           // queries must never consume the execution window before the requested period is complete.
-          if (!missingCoreSlice) {
+          // Ad set/ad detail outside the retention window would be pruned the next day.
+          if (!missingCoreSlice && slice.until >= detailCutoff) {
             try {
               const [adsetInsights, adInsights] = await Promise.all([
                 client.getDailyInsights({ adAccountId: account.external_id, ...slice, level: "adset" }),

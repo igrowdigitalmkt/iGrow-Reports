@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { authorizeWorkerRequest } from "@/modules/integrations/worker-auth";
 import { runDailyMetaRefresh } from "@/modules/meta/daily-refresh";
+import { pruneMetaHistory } from "@/modules/meta/retention";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -15,10 +16,18 @@ export async function GET(request: Request) {
   const service = createSupabaseServiceClient();
   if (!service) return Response.json({ error: "Agendamento indisponível." }, { status: 503, headers });
   try {
-    // Leave room for the request in flight when the budget ends.
-    const result = await runDailyMetaRefresh(service, { budgetMs: 240_000 });
+    // Leave room for the request in flight and for retention when the budget ends.
+    const result = await runDailyMetaRefresh(service, { budgetMs: 200_000 });
     console.info("meta-daily-refresh", { executionId, ...result });
-    return Response.json({ executionId, ...result }, { headers });
+    // Retention runs after the refresh; its failure never hides the refresh result.
+    let retention = null;
+    try {
+      retention = await pruneMetaHistory(service);
+      console.info("meta-retention", { executionId, ...retention });
+    } catch {
+      console.error("meta-retention-failed", { executionId });
+    }
+    return Response.json({ executionId, ...result, retention }, { headers });
   } catch {
     console.error("meta-daily-refresh-failed", { executionId });
     return Response.json({ executionId, error: "Não foi possível concluir a atualização diária." }, { status: 500, headers });

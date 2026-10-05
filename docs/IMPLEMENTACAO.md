@@ -471,3 +471,12 @@ Espaço em produção (5/10, consulta leve): banco 103 MB de 500 MB; `meta_daily
 - Dashboard deixa de recoletar a cada hora: `ANALYTICS_REFRESH_MS` = 26 h (coleta automática só se faltar dia ou se a última coleta tiver mais de 26 h). Agregados exatos do Meta valem 24 h (`META_ANALYTICS_MAX_AGE_MS` e migração `202610050005_dashboard_scope_daily_validity.sql`, SHA256 `89d20a86a15dd6ce…`, aplicada em produção em 5/10 e verificada); continuam invalidados por qualquer coleta mais nova.
 - Testes: `tests/meta-daily-refresh.test.ts` (6), `tests/meta-daily-cron-route.test.ts` (2); `metric-integrity.test.sql` passa a provar a expiração com 25 h. `pnpm check`: 80 arquivos, 651 testes, test:db, test:rollout e build aprovados.
 
+### 5/10/2026 — Retenção por nível (plano gratuito)
+
+- `META_DETAIL_RETENTION_DAYS = 180` (`src/modules/meta/analytics-contract.ts`): linhas diárias e ações de conjuntos e anúncios com mais de 180 dias são removidas por `pruneMetaHistory` (`src/modules/meta/retention.ts`), conta a conta, no job diário após a atualização (falha da retenção não esconde o resultado da atualização). Contas e campanhas mantêm histórico completo. A coleta deixa de buscar conjuntos/anúncios para fatias anteriores ao corte.
+- Agregados exatos (`meta_dashboard_scopes`) com mais de 48 h são removidos para todos os clientes.
+- Impacto medido em produção (5/10, contagem): 3.336 linhas de conjunto/anúncio anteriores a 180 dias (ad 2.391 de 5.428; adset 945 de 3.008), ~31% das linhas diárias, além das ações correspondentes. Primeira execução: próximo disparo do agendamento (06:00).
+- Detalhe de conjuntos/anúncios de períodos antigos continua disponível pelo agregado exato do Meta (consultado por período); só a reserva diária local deixa de existir para esses períodos.
+- Não feito: deduplicação de `meta_daily_actions` x `metadata.canonical_values` (exige mudar a lista de tipos de ação do cálculo; avaliar com o teste de equivalência antes).
+- Testes: `tests/meta-retention.test.ts`, `tests/meta-daily-cron-route.test.ts` (3). `pnpm check`: 81 arquivos, 653 testes aprovados.
+
