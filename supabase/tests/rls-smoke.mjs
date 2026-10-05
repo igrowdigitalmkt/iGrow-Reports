@@ -9,6 +9,7 @@ import { resolve } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { pgtap } from "@electric-sql/pglite-pgtap";
 import assert from "node:assert/strict";
+import { verifySnapshotRollout } from "./snapshot-rollout.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const db = new PGlite({ extensions: { pgtap } });
@@ -41,7 +42,13 @@ try {
   const uninstalled = await db.query(preflight);
   assert.ok(uninstalled.rows.length>0 && uninstalled.rows.every(row => !row.ready && !row.schema_ready),"Diagnóstico deve funcionar antes da instalação da estrutura.");
   const migrationsDir = resolve(root, "supabase/migrations");
+  const rolloutMode = process.argv.includes("--snapshot-rollout");
+  let rolledOut = false;
   for (const file of (await readdir(migrationsDir)).filter((name) => name.endsWith(".sql")).sort()) {
+    if (rolloutMode && file.startsWith("2026100400")) {
+      if (!rolledOut) { await verifySnapshotRollout(db,root); rolledOut = true; }
+      continue;
+    }
     await db.exec(await readFile(resolve(migrationsDir, file), "utf8"));
     console.log(`Migration aplicada em PGlite: ${file}`);
   }

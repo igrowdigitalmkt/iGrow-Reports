@@ -2,6 +2,8 @@
 
 ## Verificação do banco antes da ativação
 
+O inventário remoto posterior confirmou ausência integral das quatro tabelas de ingestão e existência das dependências anteriores. O procedimento e o pacote transacional para esse caso estão em [ATIVACAO_SNAPSHOTS.md](ATIVACAO_SNAPSHOTS.md). O gerador prepara arquivos locais; não executa alterações remotas.
+
 Executar como operador o arquivo somente de leitura [snapshot-readiness.sql](../supabase/diagnostics/snapshot-readiness.sql). Ele consulta apenas catálogos PostgreSQL, funciona mesmo sem as tabelas de ingestão instaladas e retorna requisitos de leitura, worker e atualização. `ready=false` identifica requisito ausente/incompatível; `schema_ready=false` em todas as linhas significa que pelo menos um requisito falhou. A coluna `migration` indica onde o requisito foi introduzido, não uma autorização para reaplicar isoladamente esse arquivo.
 
 O diagnóstico verifica assinaturas das RPCs, security definer, execução pelo papel esperado, bloqueio de execução por anon/clientes nas RPCs de serviço, RLS, colunas e retorno do contador de retry. Ele não comprova o corpo das funções, políticas completas, versão do cache PostgREST, segredo/agendamento do executor ou uma coleta real. Aprovação do diagnóstico não substitui os testes funcionais e de autorização.

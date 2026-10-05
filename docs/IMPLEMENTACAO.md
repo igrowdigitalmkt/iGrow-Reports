@@ -1,5 +1,13 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — pacote transacional para ativação
+
+Inventário SQL remoto somente de leitura confirmou que todas as quatro tabelas da ingestão estão ausentes, assim como as funções consultadas de claim, saúde, catálogo, leitura e atualização. As seis tabelas anteriores usadas pela nova estrutura, os três papéis Supabase e os helpers de autorização estão presentes. Isso permite preparar a instalação da ingestão a partir de `202610040001`, sem reaplicar as migrations da plataforma anterior.
+
+`pnpm prepare:snapshot-rollout` gera SQL e manifesto locais das 13 migrations de ingestão. Confere a sequência, registra SHA256 das fontes/pacote, usa transação e lock consultivo, limita espera/execução, verifica pré-requisitos e recusa tabelas/funções já existentes. Antes do commit executa os 33 requisitos do diagnóstico; falha cancela a confirmação. A notificação PostgREST só é enviada no commit. Não atualiza histórico CLI, não conecta ao banco e não configura executor, segredo ou coleta.
+
+`pnpm test:rollout` instala a fundação anterior e testa o pacote real em PGlite descartável com cliente fictício preexistente. Verifica recusa de pré-requisito ausente/instalação parcial, rollback de erro tardio após DDL, recusa por permissão indevida na pós-validação, preservação integral do cliente, sucesso e reaplicação bloqueada. Depois executa as mesmas 497 verificações SQL/RLS sobre a instalação pelo pacote. `pnpm check` agora valida as migrations individualmente e também esse caminho operacional. Lint, TypeScript, 512 testes de aplicação, as duas execuções SQL/RLS e build aprovados. Pacote preparado, mas não aplicado em produção neste incremento.
+
 ## Atualização de 4 de outubro de 2026 — compatibilidade com o banco publicado
 
 A inspeção remota confirmou que o código até `c0e7b46` estava publicado no domínio original, mas RPCs necessárias à análise por snapshots estavam ausentes. A rota agora trata especificamente `PGRST202` nas leituras do catálogo e snapshots: mantém a autenticação e o shell do cliente, informa indisponibilidade temporária e oferece retorno ao dashboard. Não renderiza indicadores, solicitação de coleta ou exportação nesse estado. Erros de autorização/banco e métricas inválidas não são convertidos em configuração pendente. A solicitação de atualização também distingue RPC indisponível de sucesso na fila.
