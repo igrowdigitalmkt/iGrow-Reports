@@ -4,6 +4,31 @@ import type { Database, Json } from "@/types/database";
 import { collectionIdempotencyKey, type CollectionIdentity } from "./data-contract";
 import type { ProviderCollectionResult } from "./worker-contract";
 
+// One statement either registers the entire missing-scope request or rolls it
+// back. Duplicate identities reuse their existing jobs without resetting leases.
+export async function enqueueCollectionJobs(service: SupabaseClient<Database>,identities: CollectionIdentity[]) {
+  if (!identities.length || identities.length > 400) throw new Error("Seleção de coleta inválida.");
+  const first = identities[0];
+  const keys = new Set<string>();
+  const now = new Date().toISOString();
+  const rows = identities.map(identity => {
+    if (identity.clientId !== first.clientId || identity.connectionId !== first.connectionId || identity.provider !== first.provider
+      || identity.dateFrom !== first.dateFrom || identity.dateTo !== first.dateTo || identity.apiVersion !== first.apiVersion
+      || identity.contractVersion !== first.contractVersion) throw new Error("Escopos incompatíveis na solicitação de coleta.");
+    const idempotencyKey = collectionIdempotencyKey(identity);
+    if (keys.has(idempotencyKey)) throw new Error("Escopo de coleta duplicado.");
+    keys.add(idempotencyKey);
+    return { client_id: identity.clientId,connection_id: identity.connectionId,provider: identity.provider,
+      external_account_id: identity.externalAccountId,date_from: identity.dateFrom,date_to: identity.dateTo,
+      entity_level: identity.level,api_version: identity.apiVersion,contract_version: identity.contractVersion,
+      idempotency_key: idempotencyKey,priority: 100,status: "queued",next_attempt_at: now };
+  });
+  const { data,error } = await service.from("integration_collection_jobs")
+    .upsert(rows,{ onConflict: "idempotency_key",ignoreDuplicates: true }).select("id");
+  if (error) throw new Error("Não foi possível registrar a solicitação de coleta.");
+  return data?.length ?? 0;
+}
+
 export async function enqueueCollectionJob(service: SupabaseClient<Database>, identity: CollectionIdentity, priority = 100) {
   const idempotencyKey = collectionIdempotencyKey(identity);
   const { data, error } = await service.from("integration_collection_jobs").upsert({

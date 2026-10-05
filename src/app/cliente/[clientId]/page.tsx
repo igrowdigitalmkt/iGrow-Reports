@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { z } from "zod";
 import { requireClientDashboardAccess } from "@/modules/client-portal/context";
 import { ClientPortalShell } from "@/modules/client-portal/portal-shell";
@@ -91,6 +92,9 @@ export default async function ClientOverviewPage({ params, searchParams }: {
     userEmail={user.email} agencyMode={agencyMode} showClientSwitcher={!agencyMode && accesses.length > 1}>
     {filterError && <p role="alert" className="client-alert">{filterError} Exibindo os últimos 30 dias completos.</p>}
     {access.client.archivedAt && <p className="client-alert">Cliente arquivado. Histórico preservado para consulta.</p>}
+    {agencyMode && !access.client.archivedAt && <p className="client-alert"><Link href={`/cliente/${clientId}/snapshots?periodo=custom&from=${data.dateFrom}&to=${data.dateTo}${data.selectedAccountIds.length ? `&accounts=${data.selectedAccountIds.join(",")}` : ""}`}>
+      Abrir análise confirmada por conta e nível
+    </Link></p>}
     <ClientAnalyticsDashboard
       key={JSON.stringify([data.dateFrom, data.dateTo, data.selectedAccountIds])}
       entities={entities} workspaceName={workspaceName} clientName={access.client.name}

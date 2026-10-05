@@ -1,5 +1,13 @@
 # Operação da fundação
 
+## Homologação da análise por snapshots
+
+A rota `/cliente/[clientId]/snapshots` requer as migrations até `202610040012_snapshot_account_catalog.sql` e `META_GRAPH_API_VERSION`. O acesso usa a sessão autenticada; nem a tela nem suas consultas automáticas usam a credencial Meta. Um link no dashboard em modo agência preserva o período/contas selecionados. A fonte do dashboard principal continua sendo a anterior.
+
+O loader exige snapshots dos quatro níveis para cada conta selecionada no contrato 3 e API configurada. Ausência de qualquer escopo, divergência de gasto entre conta/campanhas ou hierarquia órfã bloqueia a análise inteira. Snapshots antigos permanecem disponíveis como `stale`. Moedas e fusos são comparados ao catálogo autorizado; não há agregação automática entre contas. Consultas separadas não garantem uma geração transacional única. Os gastos de conjuntos/anúncios ainda não são reconciliados com os subtotais de seus pais.
+
+`Solicitar dados faltantes` é reservado aos operadores com permissão de coleta. A ação reconstrói o escopo por consultas autenticadas e registra jobs por um único upsert de serviço. Jobs já existentes são preservados, inclusive claims vigentes e estados terminais. Repetir a solicitação não reinicia jobs confirmados/falhos nem gera uma nova versão. Sem executor, a solicitação permanece na fila; a consulta automática somente verifica a disponibilidade. Provisionar/homologar o executor separadamente antes de disponibilizar esse fluxo operacionalmente. Este incremento não instala cron, não executa coleta real nem aplica migrations remotas.
+
 Esta entrega é uma base de desenvolvimento. Não existe implantação operacional, coleta Meta, geração de PDF, envio WhatsApp ou agendamento QStash validado. O acompanhamento do que foi executado fica em [IMPLEMENTACAO.md](IMPLEMENTACAO.md).
 
 ## Execução e diagnóstico

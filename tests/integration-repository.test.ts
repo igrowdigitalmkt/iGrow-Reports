@@ -3,12 +3,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 vi.mock("server-only", () => ({}));
-import { authorizeCollectionJob, enqueueCollectionJob, finishCollectionJob, persistCollectionResult } from "@/modules/integrations/repository";
+import { authorizeCollectionJob, enqueueCollectionJob, enqueueCollectionJobs, finishCollectionJob, persistCollectionResult } from "@/modules/integrations/repository";
 import { collectionIdempotencyKey } from "@/modules/integrations/data-contract";
 
 const result = { metrics: [], complete: true, reconciliation: {}, rawPayloads: [{ endpoint: "insights", payload: { rows: [] }, httpStatus: 200 }] };
 
 describe("collection result persistence", () => {
+  it("registers a missing-scope bundle in one idempotent statement without resetting existing jobs",async () => {
+    const identity = { clientId: "c",connectionId: "i",provider: "meta" as const,externalAccountId: "act_1",dateFrom: "2026-10-01",dateTo: "2026-10-03",level: "account" as const,apiVersion: "v24.0",contractVersion: 3 };
+    const table = { upsert: vi.fn().mockReturnThis(),select: vi.fn().mockResolvedValue({ data: [{ id: "j1" },{ id: "j2" }],error: null }) };
+    const service = { from: vi.fn(() => table) } as unknown as SupabaseClient<Database>;
+    expect(await enqueueCollectionJobs(service,[identity,{ ...identity,level: "campaign" }])).toBe(2);
+    expect(table.upsert).toHaveBeenCalledTimes(1);
+    expect(table.upsert.mock.calls[0][0]).toHaveLength(2);
+    expect(table.upsert.mock.calls[0][1]).toEqual({ onConflict: "idempotency_key",ignoreDuplicates: true });
+    await expect(enqueueCollectionJobs(service,[identity,identity])).rejects.toThrow("duplicado");
+    await expect(enqueueCollectionJobs(service,[identity,{ ...identity,clientId: "foreign" }])).rejects.toThrow("incompatíveis");
+    expect(table.upsert).toHaveBeenCalledTimes(1);
+  });
   it("returns the integration identified by the authorized claim", async () => {
     const rpc = vi.fn(async () => ({ data: "integration-a", error: null }));
     expect(await authorizeCollectionJob({ rpc } as unknown as SupabaseClient<Database>, "job", 2)).toBe("integration-a");

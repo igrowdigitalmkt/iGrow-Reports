@@ -1,5 +1,17 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — dashboard ligado aos snapshots e solicitação à fila
+
+A rota autenticada `/cliente/[clientId]/snapshots` consulta exclusivamente snapshots persistidos, sem chamar a Meta durante a navegação. O dashboard atual oferece acesso à nova análise no modo agência, preservando período e contas; sua fonte anterior permanece até a homologação da troca. A nova tela permite escolher período, conta, nível e entidade, mostra indicadores decimais e nomes de hierarquia, conserva dados antigos sinalizados e reconsulta a disponibilidade automaticamente. Loading e erro possuem estados próprios.
+
+A migration `202610040012_snapshot_account_catalog.sql` acrescenta catálogo autenticado de contas/conexão para construir as identidades no servidor, sem expor credenciais. Ela verifica cliente ativo, papel da agência ou vínculo do cliente, conta ativa/não arquivada e associação da conexão ao cliente. A leitura histórica continua disponível quando a integração desconecta; revogação de acesso ou conta impede a consulta.
+
+Antes de liberar indicadores, o loader exige os quatro níveis por conta, compara gasto de conta com a soma das campanhas usando decimais e tolerância de arredondamento e verifica campanhas/conjuntos dos descendentes. Escopos faltantes, gasto divergente ou hierarquia órfã bloqueiam toda a análise. Moeda e fuso devem corresponder ao catálogo autorizado. Níveis e contas permanecem separados, sem soma de alcance ou duplicação de gasto entre pais e filhos. A conciliação não compara ainda os subtotais de gasto de conjuntos/anúncios com os respectivos pais.
+
+Operadores com `canCollect` podem solicitar os dados faltantes. A Server Action revalida sessão/papel, resolve a seleção por catálogo e leitura autenticados e registra todos os jobs faltantes em um único upsert idempotente. Não reinicia jobs existentes, não libera dados parciais e sanitiza erros. Clientes/leitores não recebem essa operação. A consulta automática da tela apenas lê; não executa o worker.
+
+Layout renderizado com fixtures em Chrome local, inspecionado em 1440 e 390 pixels sem overflow. Testes cobrem leitura até apresentação, permissão da solicitação, catálogo SQL, vínculos revogados, precisão e reconciliação. `pnpm check` aprovado: lint, TypeScript, 442 testes de aplicação, 472 verificações SQL/RLS em PGlite e build de produção. Migration remota, executor periódico, novas tentativas de jobs terminais, séries diárias, comparação, relatórios e substituição definitiva do dashboard anterior permanecem pendentes. Nenhuma coleta externa ou alteração remota foi executada.
+
 ## Atualização de 4 de outubro de 2026 — indicadores para apresentação dos snapshots
 
 `projectMetaSnapshotView` converte a leitura conjunta em dados de apresentação por conta e nível. Conserva valores decimais como strings, estados de disponibilidade, unidades, regras de agregação e proveniência de cada snapshot. O nome vem do snapshot, com ID como alternativa; vínculos de hierarquia são preservados e status de entrega permanece desconhecido porque não integra o contrato atual.
