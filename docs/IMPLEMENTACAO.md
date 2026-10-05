@@ -358,3 +358,13 @@ O responsável enviou capturas do Ads Manager (28/09–04/10/2026). Contas ofici
 - Testes: `tests/snapshot-series-actions.test.ts` (3) e 1 em `snapshot-series-loader.test.ts`. `pnpm check`: 74 arquivos, 620 testes aprovados.
 - Homologado em produção (`fd6cb90`): "Atualizar série" no Colégio Crescer reenfileirou os 7 dias e confirmou todos; 04/10 passou de R$ 120,12 para R$ 120,13 e a soma diária ficou R$ 544,12, igual ao agregado do período e ao Ads Manager.
 
+### 5/10/2026 — Resultados derivados nas exportações do nível de conta
+
+- `accountCampaignResults(view, conta)` em `snapshot-view.ts` reaproveita a derivação da tela.
+- CSV do nível de conta: linhas `tipo_linha = resultado_derivado`, indicador `campaign_results:<chave nativa>` (contagem, regra `soma_das_campanhas_por_tipo`) e `campaign_cost_per_result:<chave>` (moeda, regra `gasto_das_campanhas_do_tipo_dividido_pelos_resultados_6_casas`). Linhas `indicador` armazenadas continuam inalteradas.
+- JSON do nível de conta: campo separado `campaignDerivedResults` (nota, regras, resultados por tipo com custo, `primaryResults`, `costPerResult`); `entities` inalterado.
+- PDF do nível de conta: seção "Resultados somados das campanhas" com explicação e disponibilidade "Derivado". Verificado com pdfplumber e renderização (`artifacts/snapshot-pdf/account-derived-results.pdf`, fictício).
+- Custos derivados (tela e exportações) arredondados a 6 casas, meio para cima: são divisões sem fim exato (antes saíam com até 80 dígitos).
+- Não incluído: exportações em modo comparação (CSV/JSON/PDF comparativos continuam só com valores armazenados).
+- Testes: `tests/snapshot-derived-export.test.ts` (3). `pnpm check`: 75 arquivos, 623 testes aprovados.
+

@@ -79,7 +79,7 @@ it("costs each result type with the spend of its own campaigns, as Ads Manager d
     campaign("c2", [spend("279.65"), indicator("result:provider_known", "1"), indicator("result:provider:action:offsite_conversion.fb_pixel_complete_registration", "10", "Cadastros")]),
     campaign("c3", [spend("0"), indicator("result:provider_known", "1")]),
   ]);
-  expect(split.breakdown.map(item => [item.label, item.cost!.slice(0, 8)])).toEqual([["Cliques", "0.193609"], ["Cadastros", "27.965"]]);
+  expect(split.breakdown.map(item => [item.label, item.cost])).toEqual([["Cliques", "0.193609"], ["Cadastros", "27.965"]]);
 });
 
 it("withholds per-type costs when a spending campaign has no single result type", () => {

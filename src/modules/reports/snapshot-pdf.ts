@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { EntityLevel } from "../integrations/data-contract";
-import type { MetaSnapshotView, MetaSnapshotIndicator } from "../meta/snapshot-view";
+import { accountCampaignResults, type MetaSnapshotView, type MetaSnapshotIndicator } from "../meta/snapshot-view";
 import { confirmedMetaSnapshotScope } from "../meta/snapshot-export";
 import { SnapshotPdfUnsupportedTextError } from "./snapshot-pdf-error";
 import { compareSnapshotIndicator,resolveSnapshotComparison,snapshotComparisonDescription } from "../meta/snapshot-comparison";
@@ -126,6 +126,16 @@ function* snapshotPdfSteps(input: SnapshotPdfInput, fonts: SnapshotPdfFonts) {
         row([`${indicator.label}\n${units[indicator.unit] ?? indicator.unit}`,reportValue,states[indicator.state]],metricIndex % 2 === 0,index);
       });
     } else text("Nenhum indicador retornado para esta entidade.", 9, false, colors.muted);
+    const derived = input.level === "account" ? accountCampaignResults(input.view,input.externalAccountId) : null;
+    if (derived) {
+      ensure(40); y += 4;
+      text("Resultados somados das campanhas", 10, true);
+      text("A Meta não informa resultados no total da conta. Valores somados das campanhas desta conta, separadamente por tipo; tipos diferentes não são somados entre si. Custo por tipo = gasto das campanhas daquele tipo dividido pelos seus resultados, com seis casas decimais.", 8, false, colors.muted);
+      if (derived.breakdown.length) tableHeader();
+      else text("Nenhum resultado registrado nas campanhas.", 9, false, colors.muted);
+      derived.breakdown.forEach((item, itemIndex) => row([`${item.label}\nResultado (contagem)`,
+        item.value + (item.cost != null ? `\nCusto por resultado: ${entity.currency ? `${entity.currency} ` : ""}${item.cost}` : ""),"Derivado"],itemIndex % 2 === 0,index));
+    }
     y += 8;
     yield { completed: index + 1, total: scope.entities.length };
   }

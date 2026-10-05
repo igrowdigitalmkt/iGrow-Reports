@@ -58,7 +58,9 @@ export function projectMetaSnapshotView(bundle: SnapshotBundle): MetaSnapshotVie
 // null when that spend cannot be attributed to a single type.
 export type SnapshotResultBreakdown = { key: string; label: string; value: string; cost?: string | null };
 
-const ResultAmount = Decimal.clone({ precision: 80 });
+const ResultAmount = Decimal.clone({ precision: 80, rounding: Decimal.ROUND_HALF_UP });
+// Derived costs are non-terminating divisions; keep six decimal places, as percentage changes do.
+export const DERIVED_COST_PLACES = 6;
 const known = (indicators: MetaSnapshotIndicator[]) => indicators.find(item => item.key === "result:provider_known")?.value === "1";
 const providerResults = (indicators: MetaSnapshotIndicator[]) => indicators.filter(item => item.nativeKey.startsWith("result:provider:") && item.value !== null);
 
@@ -86,7 +88,7 @@ function campaignResults(campaigns: MetaSnapshotEntityView[]): SnapshotResultBre
   }
   return [...totals].map(([key, { label, value, spend }]) => ({
     key, label, value: value.toFixed(),
-    cost: spendAttributable && !value.isZero() ? spend.div(value).toFixed() : null,
+    cost: spendAttributable && !value.isZero() ? spend.div(value).toDecimalPlaces(DERIVED_COST_PLACES).toFixed() : null,
   }));
 }
 
@@ -103,7 +105,7 @@ export function splitSnapshotResultIndicators(indicators: MetaSnapshotIndicator[
   if (derived) {
     const spend = general.find(item => item.key === "spend")?.value ?? null;
     primary = derived.length === 1 ? derived[0].value : derived.length === 0 ? "0" : null;
-    cost = primary !== null && spend !== null && !new ResultAmount(primary).isZero() ? new ResultAmount(spend).div(primary).toFixed() : null;
+    cost = primary !== null && spend !== null && !new ResultAmount(primary).isZero() ? new ResultAmount(spend).div(primary).toDecimalPlaces(DERIVED_COST_PLACES).toFixed() : null;
   }
   return {
     breakdown,
@@ -112,4 +114,15 @@ export function splitSnapshotResultIndicators(indicators: MetaSnapshotIndicator[
     primary, cost,
     indicators: [...general.filter(item => resultKeys.has(item.key)), ...general.filter(item => !resultKeys.has(item.key))],
   };
+}
+
+// Account-level results derived from the campaign scope of the same account and
+// period, or null when the account reports its own results or campaigns are missing.
+export function accountCampaignResults(view: MetaSnapshotView, externalAccountId: string) {
+  const scope = (level: string) => view.scopes.find(item => item.identity.externalAccountId === externalAccountId && item.identity.level === level);
+  const account = scope("account")?.entities[0];
+  const campaigns = scope("campaign")?.entities;
+  if (!account || !campaigns) return null;
+  const split = splitSnapshotResultIndicators(account.indicators, campaigns);
+  return split.derivedFromCampaigns ? { breakdown: split.breakdown, primary: split.primary, cost: split.cost, currency: account.currency } : null;
 }
