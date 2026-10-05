@@ -419,4 +419,5 @@ Retorno do responsável após o primeiro convite real (silviorm12@gmail.com): e-
 - `metaAccountDelivers` em `src/modules/meta/delivery.ts`: somente 1 (ACTIVE) e 9 (IN_GRACE_PERIOD) veiculam; outros status marcam campanhas, conjuntos e anúncios como INACTIVE. `getMetaEntityStatuses` lê o status da conta ao vivo (`getAdAccount`) e usa o último sincronizado se a leitura falhar; status desconhecido não bloqueia.
 - Removido o aviso visível "Carregando conjuntos e anúncios deste período…" na aba de campanhas; mantido anúncio apenas para leitores de tela.
 - Teste novo em `tests/meta-delivery.test.ts`. `pnpm check`: 78 arquivos, 640 testes aprovados.
+- Homologado (responsável, conta silviorm12@gmail.com): criação de senha com 8 caracteres funcionou; `app_metadata.password_set = true` confirmado no Auth de produção.
 
