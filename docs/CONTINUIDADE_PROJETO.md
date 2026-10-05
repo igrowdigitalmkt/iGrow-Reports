@@ -17,7 +17,7 @@ O escopo integral está em `docs/PLANEJAMENTO_V1.md`. Não acrescentar cobrança
 - Shell: PowerShell, Windows. Fuso: America/Sao_Paulo.
 - GitHub: `https://github.com/igrowdigitalmkt/iGrow-Reports`.
 - Branch em uso: `master`. Não criar um projeto novo nem substituir a aplicação.
-- Último commit de código: `5e601f1` (feat: séries diárias e gráfico de evolução, 5/10/2026).
+- Último commit de código: `187f10d` (fix: lint e mock server-only após séries diárias, 5/10/2026), sobre `5e601f1` (feat: séries diárias e gráfico de evolução).
 - Domínio original: `https://i-grow-reports.vercel.app`.
 - Publicação confirmada pela API de deployments do GitHub para esse SHA: ambiente `Production`, estado `success`, URL `https://i-grow-reports-5by04a2bw-i-grow-digital.vercel.app`.
 - Next.js 16.3.8, React 19.3, TypeScript 6, pnpm 11.19.0, Node esperado >=24 e <25, Supabase, Vercel, Decimal.js e jsPDF no fluxo novo de PDF.
@@ -52,7 +52,7 @@ Em paralelo, foi implementado um novo fluxo persistido por snapshots. Atenção:
 - CSV e JSON incluem os dois períodos, inclusive entidades exclusivas do anterior. CSV registra origem, versões, regra, atribuição e hierarquia, protege fórmulas e escapa textos. JSON conserva strings decimais.
 - PDF A4 das entidades atuais, com valores anteriores, estado, IDs, versões e data original. Indica quantidade de entidades exclusivas do anterior, disponíveis integralmente no CSV/JSON. Paginação, fontes locais licenciadas, cabeçalhos/rodapés, nomes extensos, progresso e cancelamento. Emojis/caracteres sem glifo bloqueiam PDF com orientação para CSV/JSON, sem perda silenciosa de texto. Serialização final ainda síncrona.
 - Troca de filtros com transição própria: números/tabelas/exportações anteriores ficam ocultos enquanto a nova seleção carrega. Datas inválidas recebem mensagem antes de navegar. Consultas automáticas pausam durante navegação, exportação e outra consulta. Formulário mantém GET nativo sem JavaScript.
-- Série diária: `snapshot-series-loader.ts`, `snapshot-series-chart.tsx`, `snapshot-series-panel.tsx`, `snapshot-series-section.tsx`, `snapshot-series-actions.ts`, `snapshot-series.css` e 8 testes implementados e publicados em `5e601f1` (5/10/2026). Aguardando `pnpm check` local e homologação com dados reais.
+- Série diária: `snapshot-series-loader.ts`, `snapshot-series-chart.tsx`, `snapshot-series-panel.tsx`, `snapshot-series-section.tsx`, `snapshot-series-actions.ts`, `snapshot-series.css` e 8 testes implementados em `5e601f1`, com correções em `187f10d` (5/10/2026). `pnpm check` local aprovado em 5/10/2026: 71 arquivos de teste, 597 testes, test:db, test:rollout e build. Pendente: homologação com sessão e dados reais.
 - Última verificação confirmada: **589 testes de aplicação**, lint, TypeScript, build, duas execuções de **497 verificações SQL/RLS** em PGlite aprovados (antes da adição das séries). `pnpm check` com os 8 novos testes pendente de execução local.
 
 ## 5. Banco real: o que já foi aplicado
@@ -144,11 +144,11 @@ Silvio quer continuidade autônoma e mais tempo implementando, com atualizaçõe
 
 Não expor tokens, segredos ou arquivos de ambiente. Não inventar credenciais ou funcionamento. Se falta uma dependência externa, avançar no código/testes independentes e explicar o bloqueio exato. Não atribuir percentual geral de conclusão sem uma lista ponderada de critérios concluídos e homologados.
 
-O próximo chat deve distinguir três estados em todo relatório: implementado/testado localmente, publicado, homologado com serviço/dados reais. As séries diárias estão implementadas e publicadas em `5e601f1`; `pnpm check` e homologação autenticada permanecem pendentes.
+O próximo chat deve distinguir três estados em todo relatório: implementado/testado localmente, publicado, homologado com serviço/dados reais. As séries diárias estão implementadas (`5e601f1` + `187f10d`), enviadas ao GitHub e validadas por `pnpm check` local; deploy desse SHA na Vercel ainda não foi conferido e a homologação autenticada permanece pendente.
 
 ## 10. Primeira ação sugerida para o próximo chat
 
-Ler este guia, AGENTS.md e o planejamento; conferir árvore/revisão. Executar `pnpm check` para validar as séries diárias (commit `5e601f1`). Tentar homologação autenticada do novo fluxo com sessão real. Se navegador/credenciais impedirem, avançar para C.3 (migração da fonte principal para snapshots) ou D (auditoria V1). Atualizar este guia e IMPLEMENTACAO ao concluir cada incremento.
+Ler este guia, AGENTS.md e o planejamento; conferir árvore/revisão. Conferir o deploy de `187f10d` na Vercel. Tentar homologação autenticada do novo fluxo com sessão real. Se navegador/credenciais impedirem, avançar para C.3 (migração da fonte principal para snapshots) ou D (auditoria V1). Atualizar este guia e IMPLEMENTACAO ao concluir cada incremento.
 
 ## 11. Alternância entre Codex e Claude
 

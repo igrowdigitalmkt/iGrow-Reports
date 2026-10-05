@@ -289,3 +289,10 @@ Arquivo modificado:
 - `src/app/cliente/[clientId]/snapshots/page.tsx` — `SnapshotSeriesSection` abaixo do dashboard, primeira conta do período vigente.
 
 Sem alteração de schema, migration, segredo ou coleta real. `pnpm check` com os 8 novos testes e homologação autenticada permanecem pendentes de execução local.
+
+### 5/10/2026 — Validação local das séries diárias
+
+- `187f10d`: removido parâmetro `unit` não usado em `snapshot-series-panel.tsx` e adicionado mock de `server-only` em `tests/snapshot-availability.test.ts`.
+- `pnpm check` executado na máquina do usuário após `git pull`: 71 arquivos de teste e 597 testes aprovados, `test:db` e `test:rollout` verdes, build Next.js 16.3.8 concluído com `/cliente/[clientId]/snapshots` dinâmica.
+- Contexto da sessão claude.ai (cloud) trazido para o Claude Code desktop; esta sessão roda direto no checkout local.
+- Pendente: confirmar deploy de `187f10d` na Vercel e homologar a série com sessão autenticada e dados reais.
