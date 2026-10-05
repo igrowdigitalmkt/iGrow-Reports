@@ -54,7 +54,9 @@ export function projectMetaSnapshotView(bundle: SnapshotBundle): MetaSnapshotVie
   };
 }
 
-export type SnapshotResultBreakdown = { key: string; label: string; value: string };
+// cost: spend of the campaigns optimized for this result type divided by its count;
+// null when that spend cannot be attributed to a single type.
+export type SnapshotResultBreakdown = { key: string; label: string; value: string; cost?: string | null };
 
 const ResultAmount = Decimal.clone({ precision: 80 });
 const known = (indicators: MetaSnapshotIndicator[]) => indicators.find(item => item.key === "result:provider_known")?.value === "1";
@@ -65,14 +67,27 @@ const providerResults = (indicators: MetaSnapshotIndicator[]) => indicators.filt
 // campaigns; different types are never added together.
 function campaignResults(campaigns: MetaSnapshotEntityView[]): SnapshotResultBreakdown[] | null {
   if (!campaigns.length || !campaigns.every(campaign => known(campaign.indicators))) return null;
-  const totals = new Map<string, { label: string; value: Decimal }>();
+  const totals = new Map<string, { label: string; value: Decimal; spend: Decimal }>();
+  let spendAttributable = true;
   for (const campaign of campaigns) {
-    for (const item of providerResults(campaign.indicators)) {
+    const results = providerResults(campaign.indicators);
+    const spend = campaign.indicators.find(item => item.key === "spend")?.value ?? null;
+    // A campaign with spend but zero or several result types cannot assign its
+    // spend to one type, so per-type costs would be understated or mixed.
+    if (spend === null || (results.length !== 1 && !new ResultAmount(spend).isZero())) spendAttributable = false;
+    for (const item of results) {
       const current = totals.get(item.nativeKey);
-      totals.set(item.nativeKey, { label: item.label, value: (current?.value ?? new ResultAmount(0)).plus(item.value!) });
+      totals.set(item.nativeKey, {
+        label: item.label,
+        value: (current?.value ?? new ResultAmount(0)).plus(item.value!),
+        spend: (current?.spend ?? new ResultAmount(0)).plus(results.length === 1 && spend !== null ? spend : 0),
+      });
     }
   }
-  return [...totals].map(([key, { label, value }]) => ({ key, label, value: value.toFixed() }));
+  return [...totals].map(([key, { label, value, spend }]) => ({
+    key, label, value: value.toFixed(),
+    cost: spendAttributable && !value.isZero() ? spend.div(value).toFixed() : null,
+  }));
 }
 
 // Split native result indicators from the general list. When Meta reports more
@@ -80,7 +95,7 @@ function campaignResults(campaigns: MetaSnapshotEntityView[]): SnapshotResultBre
 export function splitSnapshotResultIndicators(indicators: MetaSnapshotIndicator[], accountCampaigns?: MetaSnapshotEntityView[]) {
   const own = known(indicators) ? providerResults(indicators).map(item => ({ key: item.nativeKey, label: item.label, value: item.value! })) : null;
   const derived = !own && accountCampaigns ? campaignResults(accountCampaigns) : null;
-  const breakdown = own ?? derived ?? [];
+  const breakdown: SnapshotResultBreakdown[] = own ?? derived ?? [];
   const general = indicators.filter(item => item.key !== "result:provider_known" && !item.nativeKey.startsWith("result:provider:"));
   const resultKeys = new Set(["primary_results", "cost_per_result"]);
   let primary = general.find(item => item.key === "primary_results")?.value ?? null;

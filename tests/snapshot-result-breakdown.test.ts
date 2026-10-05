@@ -56,7 +56,7 @@ it("adds one result type across campaigns when Meta omits account-level results"
     campaign("c3", [indicator("result:provider_known", "1")]),
   ]);
   expect(split.derivedFromCampaigns).toBe(true);
-  expect(split.breakdown).toEqual([{ key: "result:provider:action:landing_page_view", label: "LPV", value: "0.3" }]);
+  expect(split.breakdown).toEqual([{ key: "result:provider:action:landing_page_view", label: "LPV", value: "0.3", cost: null }]);
   expect(split.primary).toBe("0.3");
   expect(split.cost).toBe("335");
 });
@@ -69,6 +69,27 @@ it("keeps campaign result types separate and leaves cost uncalculated", () => {
   expect(split.mixedResults).toBe(true);
   expect(split.primary).toBeNull();
   expect(split.cost).toBeNull();
+  expect(split.breakdown.map(item => item.cost)).toEqual([null, null]);
+});
+
+it("costs each result type with the spend of its own campaigns, as Ads Manager does", () => {
+  const spend = (value: string) => ({ ...indicator("spend", value), unit: "currency" });
+  const split = splitSnapshotResultIndicators(account, [
+    campaign("c1", [spend("264.47"), indicator("result:provider_known", "1"), indicator("result:provider:action:link_click", "1366", "Cliques")]),
+    campaign("c2", [spend("279.65"), indicator("result:provider_known", "1"), indicator("result:provider:action:offsite_conversion.fb_pixel_complete_registration", "10", "Cadastros")]),
+    campaign("c3", [spend("0"), indicator("result:provider_known", "1")]),
+  ]);
+  expect(split.breakdown.map(item => [item.label, item.cost!.slice(0, 8)])).toEqual([["Cliques", "0.193609"], ["Cadastros", "27.965"]]);
+});
+
+it("withholds per-type costs when a spending campaign has no single result type", () => {
+  const spend = (value: string) => ({ ...indicator("spend", value), unit: "currency" });
+  const split = splitSnapshotResultIndicators(account, [
+    campaign("c1", [spend("10"), indicator("result:provider_known", "1"), indicator("result:provider:action:link_click", "5")]),
+    campaign("c2", [spend("4"), indicator("result:provider_known", "1"), indicator("result:provider:action:lead", "0")]),
+    campaign("c3", [spend("3"), indicator("result:provider_known", "1")]),
+  ]);
+  expect(split.breakdown.every(item => item.cost === null)).toBe(true);
 });
 
 it("does not derive account results when any campaign result is unidentified", () => {

@@ -340,3 +340,13 @@ Problemas encontrados na homologação e corrigidos:
 - `pnpm check`: 73 arquivos, 614 testes aprovados.
 - Verificado em produção após `15964e5` (28/09–04/10/2026): Colégio Crescer — R$ 544,11, resultados de tipos diferentes listados separadamente (Cliques no link 1.366; Cadastros concluídos no site 10), custo não calculado; Escola Crescer — 140 visualizações da página de destino, R$ 56,40, R$ 0,40 por resultado; Escola Crescer (Reserva) — sem veiculação, resultados 0. Falta o responsável conferir esses números no Ads Manager com a mesma janela de atribuição.
 
+### 5/10/2026 — Conferência com o Ads Manager (responsável)
+
+O responsável enviou capturas do Ads Manager (28/09–04/10/2026). Contas oficialmente usadas: Colégio Crescer e Escola Crescer; "Escola Crescer (Reserva)" não é usada (continua vinculada; desvincular só com decisão do responsável).
+
+- Colégio Crescer: Ads Manager R$ 544,12, 71.407 impressões, 39.044 alcance, 1.366 cliques no link (R$ 0,19) e 10 cadastros (R$ 27,97), total "Múltiplas conversões". Primeira coleta (11:20) tinha R$ 544,11 e 71.406; após "Atualizar dados" (11:40) os valores ficaram idênticos ao Ads Manager. Diferença era ajuste tardio do Meta, não erro de cálculo.
+- Escola Crescer: R$ 56,40, 7.814 impressões, CPM R$ 7,22, 140 visualizações da página de destino (71 + 69), R$ 0,40 por resultado e 3 conversas — idênticos. Alcance: 7.230 (API) contra 7.233 (Ads Manager) mesmo após atualização; alcance é estimado e não aditivo, diferença registrada como limitação conhecida.
+- Implementado: custo por tipo de resultado no nível de conta = gasto das campanhas daquele tipo ÷ resultados do tipo (reproduz R$ 0,19 e R$ 27,97). Omitido quando alguma campanha com gasto tem zero ou vários tipos de resultado, porque o gasto não seria atribuível.
+- Limitação observada: a série diária não é atualizada por "Atualizar dados" (só o período). Dias recentes podem receber ajustes do Meta; a série de 04/10 continua com a coleta das 11:20.
+- `pnpm check`: 73 arquivos, 616 testes aprovados.
+

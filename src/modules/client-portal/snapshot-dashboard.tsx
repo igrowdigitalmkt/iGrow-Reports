@@ -214,9 +214,10 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
             <small>Esta entidade tem tipos diferentes de resultado, que não são somados:</small>
             <ul className="snapshot-result-breakdown">{resultBreakdown.map(item => <li key={item.key}>
               <span>{item.label}</span><b>{formatSnapshotDecimal(item.value,"count",null)}</b>
+              {item.cost != null && <small>{formatSnapshotDecimal(item.cost,"currency",entity.currency ?? account?.currency ?? null)} por resultado</small>}
             </li>)}</ul>
           </>}
-          {indicator.key === "cost_per_result" && mixedResults && <small>Não calculado: um único custo misturaria tipos diferentes de resultado.</small>}
+          {indicator.key === "cost_per_result" && mixedResults && <small>Não calculado: um único custo misturaria tipos diferentes de resultado.{resultBreakdown.some(item => item.cost != null) && " O custo de cada tipo aparece em Resultados."}</small>}
           {indicator.state === "unavailable" && !((mixedResults || results.derivedFromCampaigns) && (indicator.key === "primary_results" || indicator.key === "cost_per_result")) && <small>Indicador não disponível neste escopo confirmado.</small>}
           {indicator.state === "error" && <small>Não foi possível confirmar este indicador.</small>}
           {change && <small>
