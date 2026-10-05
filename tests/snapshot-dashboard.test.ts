@@ -18,8 +18,16 @@ it("renders loading guidance without any partial indicator cards",() => {
   expect(html).not.toContain("Exportar JSON");
 });
 it("exposes collection requests only to authorized operators",() => {
-  expect(renderToStaticMarkup(createElement(SnapshotDashboard,{ data,clientId: "c",canCollect: false }))).not.toContain("Solicitar dados faltantes");
-  expect(renderToStaticMarkup(createElement(SnapshotDashboard,{ data,clientId: "c",canCollect: true }))).toContain("Solicitar dados faltantes");
+  const missingData = { ...data,view: { ...data.view,missing: [{ clientId: "c",connectionId: "i",provider: "meta" as const,externalAccountId: "act_1",dateFrom: data.dateFrom,dateTo: data.dateTo,level: "account" as const,apiVersion: "v24.0",contractVersion: 3 }] } };
+  expect(renderToStaticMarkup(createElement(SnapshotDashboard,{ data: missingData,clientId: "c",canCollect: false }))).not.toContain("Solicitar dados faltantes");
+  expect(renderToStaticMarkup(createElement(SnapshotDashboard,{ data: missingData,clientId: "c",canCollect: true }))).toContain("Solicitar dados faltantes");
+});
+it("offers only the missing previous period and hides every export while comparing",() => {
+  const previous = { ...data.view,missing: [{ clientId: "c",connectionId: "i",provider: "meta" as const,externalAccountId: "act_1",dateFrom: "2026-09-28",dateTo: "2026-09-30",level: "account" as const,apiVersion: "v24.0",contractVersion: 3 }] };
+  const html = renderToStaticMarkup(createElement(SnapshotDashboard,{ data: { ...data,comparison: { dateFrom: "2026-09-28",dateTo: "2026-09-30",view: previous,blockedReason: "missing" } },clientId: "c",canCollect: true }));
+  expect(html).toContain("Solicitar dados do período anterior");
+  expect(html).not.toContain("Solicitar dados do período atual");
+  expect(html).not.toContain("Exportar CSV"); expect(html).not.toContain('class="snapshot-card"');
 });
 it("keeps recovery available to an operator when stored metrics are invalid",() => {
   const invalid = { ...data,blockedReason: "invalid" as const };

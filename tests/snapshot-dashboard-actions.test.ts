@@ -10,6 +10,18 @@ import { requestMissingSnapshotData } from "@/modules/client-portal/snapshot-das
 import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 const input = { clientId: "11111111-0000-4000-8000-000000000001",from: "2026-10-01",to: "2026-10-03",accountIds: ["50000000-0000-4000-8000-000000000001"] };
 const identity = { clientId: input.clientId,connectionId: "authorized",externalAccountId: "act_1",provider: "meta",level: "ad",dateFrom: input.from,dateTo: input.to,apiVersion: "v24.0",contractVersion: 3 };
+it("derives previous dates on the server and reauthorizes the refresh scope",async () => {
+  const selection = { accounts: [{ id: input.accountIds[0],timezone_name: "America/Sao_Paulo" }],selectedAccountIds: input.accountIds,identities: [identity] };
+  mocks.selection.mockResolvedValueOnce(selection).mockResolvedValueOnce({ ...selection,identities: [{ ...identity,dateFrom: "2026-09-28",dateTo: "2026-09-30" }] });
+  expect(await requestMissingSnapshotData({ ...input,target: "previous",refresh: true })).toEqual({ success: true,created: 4 });
+  expect(mocks.selection).toHaveBeenNthCalledWith(2,"session",input.clientId,{ periodo: "custom",from: "2026-09-28",to: "2026-09-30",accounts: input.accountIds.join(",") });
+  expect(mocks.refresh).toHaveBeenCalledWith("service",[expect.objectContaining({ connectionId: "authorized",dateFrom: "2026-09-28",dateTo: "2026-09-30" })]);
+});
+it("blocks previous-period writes if its second authorization fails",async () => {
+  mocks.selection.mockResolvedValueOnce({ accounts: [{ id: input.accountIds[0],timezone_name: "America/Sao_Paulo" }],selectedAccountIds: input.accountIds }).mockRejectedValueOnce(new Error("revoked"));
+  expect(await requestMissingSnapshotData({ ...input,target: "previous",refresh: true })).toHaveProperty("error");
+  expect(mocks.service).not.toHaveBeenCalled(); expect(mocks.refresh).not.toHaveBeenCalled();
+});
 beforeEach(() => {
   vi.clearAllMocks(); mocks.access.mockResolvedValue({ canCollect: true,supabase: "session" });
   mocks.load.mockResolvedValue({ view: { missing: [identity] },blockedReason: "missing" });

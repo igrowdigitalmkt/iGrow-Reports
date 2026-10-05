@@ -11,6 +11,7 @@ export type MetaSnapshotEntityView = {
   currency: string | null; timezone: string; indicators: MetaSnapshotIndicator[];
   // Delivery status is not part of the collection contract.
   deliveryStatus: null;
+  attributionWindow?: string | null;
 };
 export type MetaSnapshotView = {
   status: "pending" | "ready" | "stale"; collectedAt: string | null;
@@ -44,7 +45,8 @@ export function projectMetaSnapshotView(bundle: SnapshotBundle): MetaSnapshotVie
           });
           return { id: entity.id, name: entity.metadata?.name ?? entity.id,
             hierarchy: entity.metadata ? { ...entity.metadata } : null, currency: entity.currency,
-            timezone: entity.timezone, indicators, deliveryStatus: null };
+            timezone: entity.timezone, indicators, deliveryStatus: null,
+            ...(entity.attributionWindow !== undefined ? { attributionWindow: entity.attributionWindow } : {}) };
         }),
       };
     }),

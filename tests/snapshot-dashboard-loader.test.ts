@@ -30,7 +30,7 @@ function rpcMock() {
     const value = level === "campaign" ? campaignSpend : level === "adset" ? adsetSpend : level === "ad" ? adSpend : "100";
     const metrics = empty || missingChildren && (level === "adset" || level === "ad") ? [] : [{
       clientId,connectionId: account.connection_id,provider: "meta",externalAccountId: "act_1",externalEntityId: id,
-      level,dateFrom: query.from,dateTo: query.to,timezone: account.timezone_name,currency: badCurrency ? "USD" : "BRL",
+      level,dateFrom: args.p_date_from,dateTo: args.p_date_to,timezone: account.timezone_name,currency: badCurrency ? "USD" : "BRL",
       nativeKey: "spend",value,state: "available",mappingVersion: 3,unit: "currency",aggregationRule: "sum",entity: metadata,
     }];
     return { data: { snapshotId: `s-${level}`,collectedAt: now.toISOString(),metrics },error: null };
@@ -42,6 +42,24 @@ it("blocks a missing catalog RPC without trying to read or fabricate accounts",a
   const rpc = vi.fn().mockResolvedValue({ data: null,error: { code: "PGRST202",message: "sensitive schema details" } });
   await expect(loadSnapshotDashboard(client(rpc),clientId,query,now)).rejects.toBeInstanceOf(CollectionSchemaUnavailableError);
   expect(rpc).toHaveBeenCalledTimes(1);
+});
+it("loads the same authorized four levels for the immediately preceding equal-length period",async () => {
+  const rpc = rpcMock(); const result = await loadSnapshotDashboard(client(rpc),clientId,{ ...query,compare: "previous" },now);
+  expect(result.view.status).toBe("ready"); expect(result.comparison).toMatchObject({ dateFrom: "2026-09-28",dateTo: "2026-09-30",view: { status: "ready" } });
+  expect(result.comparison?.view.scopes).toHaveLength(4);
+  expect(rpc.mock.calls.filter(([name,args]) => name === "get_confirmed_collection_snapshot" && args.p_date_from === "2026-09-28")).toHaveLength(4);
+});
+it("hides both periods when only the previous ad scope is missing",async () => {
+  const rpc = rpcMock(),original = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name,args) => args.p_date_from === "2026-09-28" && args.p_entity_level === "ad" ? { data: null,error: null } as never : original(name,args));
+  const result = await loadSnapshotDashboard(client(rpc),clientId,{ ...query,compare: "previous" },now);
+  expect(result.view).toMatchObject({ status: "pending",scopes: [],missing: [] });
+  expect(result.comparison?.view).toMatchObject({ status: "pending",scopes: [] }); expect(result.comparison?.view.missing).toHaveLength(1);
+});
+it("hides the comparison when the previous period fails reconciliation",async () => {
+  const rpc = rpcMock(),original = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name,args) => { const result = await original(name,args); if(args.p_date_from === "2026-09-28" && args.p_entity_level === "campaign") (result.data as unknown as { metrics: { value: string }[] }).metrics[0].value = "200"; return result; });
+  expect(await loadSnapshotDashboard(client(rpc),clientId,{ ...query,compare: "previous" },now)).toMatchObject({ blockedReason: "spend",view: { scopes: [] },comparison: { view: { scopes: [] } } });
 });
 it("propagates missing snapshot RPC without returning a data-pending collection",async () => {
   const rpc = rpcMock(); const original = rpc.getMockImplementation()!;

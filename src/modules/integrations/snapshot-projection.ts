@@ -7,6 +7,7 @@ const metricSchema = z.object({
   externalAccountId: z.string(), externalEntityId: z.string().min(1), level: z.string(),
   dateFrom: z.string(), dateTo: z.string(), timezone: z.string().min(1), currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
   value: z.string().nullable(), state: z.enum(["available", "zero", "unavailable", "error"]), mappingVersion: z.number().int(),
+  attributionWindow: z.string().nullable().optional(),
   unit: z.string().min(1),aggregationRule: z.string().min(1),
   entity: z.object({ name: z.string().max(500).nullable(),parentId: z.string().min(1).nullable(),campaignId: z.string().min(1).nullable(),adsetId: z.string().min(1).nullable() }).optional(),
 });
@@ -17,6 +18,7 @@ export type SnapshotEntityProjection = {
   states: Record<string, "available" | "zero" | "unavailable" | "error">;
   units: Record<string,string>; aggregationRules: Record<string,string>;
   metadata: CollectionEntityMetadata | null;
+  attributionWindow?: string | null;
 };
 export type SnapshotProjection = {
   status: "empty" | "ready" | "stale";
@@ -50,7 +52,11 @@ export function projectConfirmedSnapshot(input: unknown, identity: CollectionIde
       const value = new Decimal(metric.value);
       if (!value.isFinite() || value.isNegative() || (metric.state === "zero") !== value.isZero()) throw new Error("Estado da métrica incompatível com o valor.");
     } else if (metric.value !== null) throw new Error("Métrica indisponível com valor confirmado.");
-    const entity = entities.get(metric.externalEntityId) ?? { id: metric.externalEntityId, currency: null, timezone: metric.timezone, values: {}, states: {},units: {},aggregationRules: {},metadata: metric.entity ?? null };
+    const entity: SnapshotEntityProjection = entities.get(metric.externalEntityId) ?? { id: metric.externalEntityId, currency: null, timezone: metric.timezone, values: {}, states: {},units: {},aggregationRules: {},metadata: metric.entity ?? null };
+    if (metric.attributionWindow !== undefined) {
+      if (Object.hasOwn(entity,"attributionWindow") && entity.attributionWindow !== metric.attributionWindow) throw new Error("Janelas de atribuição divergentes no snapshot.");
+      entity.attributionWindow = metric.attributionWindow;
+    }
     if (JSON.stringify(entity.metadata)!==JSON.stringify(metric.entity ?? null)) throw new Error("Metadados da entidade divergentes no snapshot.");
     if (entity.timezone!==metric.timezone || (entity.currency!==null && metric.currency!==null && entity.currency!==metric.currency)) throw new Error("Metadados incompatíveis no snapshot.");
     if (Object.hasOwn(entity.values,metric.nativeKey)) throw new Error("Métrica duplicada na entidade.");

@@ -7,7 +7,7 @@ from pathlib import Path
 import pdfplumber
 
 root = Path(__file__).resolve().parent.parent / "artifacts" / "snapshot-pdf"
-for name in ("sample", "large", "empty-stale", "oversized", "unicode", "isolated"):
+for name in ("sample", "large", "empty-stale", "oversized", "unicode", "isolated", "comparison"):
     with pdfplumber.open(root / f"{name}.pdf") as document:
         text = "\n".join(page.extract_text() or "" for page in document.pages)
         for required in ("Origem dos dados", "snapshot-confirmado-123", "2026-10-04T12:34:56Z"):
@@ -30,4 +30,8 @@ for name in ("sample", "large", "empty-stale", "oversized", "unicode", "isolated
         if name == "isolated":
             assert "CONTA QUE NÃO DEVE APARECER" not in text
             assert "NÍVEL QUE NÃO DEVE APARECER" not in text
+        if name == "comparison":
+            text = " ".join(text.split())
+            for required in ("previous-confirmed-snapshot", "28/09/2026 a 30/09/2026", "Anterior:", "Diferença: 0", "o valor anterior é zero", "seis casas"):
+                assert required in text, (name, required)
         print(f"{name}: {len(document.pages)} pages; exact values, provenance and layout bounds approved")

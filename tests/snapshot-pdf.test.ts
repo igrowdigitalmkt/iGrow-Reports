@@ -7,6 +7,18 @@ const fonts = { regular: readFileSync("public/fonts/NotoSans-Regular.ttf").toStr
 mkdirSync("artifacts/snapshot-pdf", { recursive: true });
 const input = (count = 3) => ({ view: snapshotPdfFixture(count), externalAccountId: "act_123", level: "ad" as const, accountName: "Conta demonstrativa - iGrow" });
 afterEach(() => { vi.unstubAllGlobals(); });
+it("exports the confirmed previous period and blocks an incomplete comparison", () => {
+  const source = input(1); const previousView = structuredClone(source.view);
+  for (const scope of previousView.scopes) {
+    scope.identity.dateFrom = "2026-09-28"; scope.identity.dateTo = "2026-09-30";
+    scope.snapshotId = "previous-confirmed-snapshot";
+  }
+  const report = buildMetaSnapshotPdf({ ...source,previousView },fonts);
+  expect(report.filename).toContain("comparacao.pdf");
+  writeFileSync("artifacts/snapshot-pdf/comparison.pdf",Buffer.from(report.doc.output("arraybuffer")));
+  previousView.status = "pending";
+  expect(() => buildMetaSnapshotPdf({ ...source,previousView },fonts)).toThrow();
+});
 it("creates a real PDF with the authorized scope and leaves source values untouched", () => {
   const source = input(); const before = JSON.stringify(source);
   const report = buildMetaSnapshotPdf(source, fonts);

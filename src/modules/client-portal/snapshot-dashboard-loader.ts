@@ -18,10 +18,28 @@ export type SnapshotDashboardAccount = z.infer<typeof accountSchema>;
 export type SnapshotDashboardData = {
   accounts: SnapshotDashboardAccount[]; selectedAccountIds: string[]; dateFrom: string; dateTo: string;
   view: MetaSnapshotView; blockedReason: "missing" | "hierarchy" | "spend" | "invalid" | "no_accounts" | null;
+  comparison?: { dateFrom: string; dateTo: string; view: MetaSnapshotView; blockedReason: SnapshotDashboardData["blockedReason"] };
 };
 
 export async function loadSnapshotDashboard(client: SupabaseClient<Database>,clientId: string,
-  query: { periodo?: string; from?: string; to?: string; accounts?: string }, now = new Date()): Promise<SnapshotDashboardData> {
+  query: { periodo?: string; from?: string; to?: string; accounts?: string; compare?: string }, now = new Date()): Promise<SnapshotDashboardData> {
+  const current = await loadSingleSnapshotDashboard(client,clientId,query,now);
+  if (query.compare !== "previous" || !current.selectedAccountIds.length) return current;
+  const range = resolveAnalyticsRange({ periodo: "custom",from: current.dateFrom,to: current.dateTo },current.accounts.filter(account => current.selectedAccountIds.includes(account.id)).map(account => account.timezone_name),now);
+  // Sequential period reads retain the existing maximum of eight concurrent RPCs.
+  const previous = await loadSingleSnapshotDashboard(client,clientId,{ periodo: "custom",from: range.previousDateFrom,to: range.previousDateTo,accounts: current.selectedAccountIds.join(",") },now);
+  const compatible = current.accounts.filter(account => current.selectedAccountIds.includes(account.id)).every(account => previous.accounts.some(old => old.id === account.id && old.connection_id === account.connection_id && old.external_id === account.external_id && old.currency === account.currency && old.timezone_name === account.timezone_name));
+  const reason = compatible ? current.blockedReason ?? previous.blockedReason : "invalid";
+  const pending = current.view.status === "pending" || previous.view.status === "pending" || !compatible;
+  return { ...current,blockedReason: reason,
+    view: pending ? { status: "pending",missing: current.view.missing,scopes: [],collectedAt: null } : current.view,
+    comparison: { dateFrom: previous.dateFrom,dateTo: previous.dateTo,blockedReason: previous.blockedReason,
+      view: pending ? { status: "pending",missing: previous.view.missing,scopes: [],collectedAt: null } : previous.view },
+  };
+}
+
+async function loadSingleSnapshotDashboard(client: SupabaseClient<Database>,clientId: string,
+  query: { periodo?: string; from?: string; to?: string; accounts?: string }, now: Date): Promise<SnapshotDashboardData> {
   const selection = await resolveSnapshotDashboardSelection(client,clientId,query,now);
   const { identities,...base } = selection;
   const chosen = base.accounts.filter(account => base.selectedAccountIds.includes(account.id));

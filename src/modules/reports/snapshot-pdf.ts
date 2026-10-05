@@ -3,9 +3,10 @@ import type { EntityLevel } from "../integrations/data-contract";
 import type { MetaSnapshotView, MetaSnapshotIndicator } from "../meta/snapshot-view";
 import { confirmedMetaSnapshotScope } from "../meta/snapshot-export";
 import { SnapshotPdfUnsupportedTextError } from "./snapshot-pdf-error";
+import { compareSnapshotIndicator,resolveSnapshotComparison,snapshotComparisonDescription } from "../meta/snapshot-comparison";
 
 export type SnapshotPdfFonts = { regular: string; bold: string };
-export type SnapshotPdfInput = { view: MetaSnapshotView; externalAccountId: string; level: EntityLevel; accountName: string };
+export type SnapshotPdfInput = { view: MetaSnapshotView; externalAccountId: string; level: EntityLevel; accountName: string; previousView?: MetaSnapshotView };
 const levels: Record<EntityLevel, string> = { account: "Conta", campaign: "Campanhas", adset: "Conjuntos", ad: "Anúncios" };
 const states = { available: "Confirmado", zero: "Zero confirmado", unavailable: "Indisponível", error: "Não confirmado" };
 const units: Record<string, string> = { currency: "Moeda", count: "Contagem", percent: "Percentual", ratio: "Taxa" };
@@ -14,6 +15,7 @@ const colors = { ink: "#182b40", muted: "#596c7f", teal: "#087f8c", line: "#dbe5
 // Values stay strings throughout: PDF generation never aggregates or rounds.
 function* snapshotPdfSteps(input: SnapshotPdfInput, fonts: SnapshotPdfFonts) {
   const scope = confirmedMetaSnapshotScope(input.view, input.externalAccountId, input.level);
+  const comparison = input.previousView ? resolveSnapshotComparison(input.view,input.previousView,input.externalAccountId,input.level) : null;
   const doc = new jsPDF({ format: "a4", unit: "mm", compress: true, putOnlyUsedFonts: true });
   doc.addFileToVFS("NotoSans-Regular.ttf", fonts.regular); doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
   doc.addFileToVFS("NotoSans-Bold.ttf", fonts.bold); doc.addFont("NotoSans-Bold.ttf", "NotoSans", "bold");
@@ -93,6 +95,11 @@ function* snapshotPdfSteps(input: SnapshotPdfInput, fonts: SnapshotPdfFonts) {
   text(`${levels[input.level]} | ${scope.entities.length} ${scope.entities.length === 1 ? "entidade" : "entidades"} | Todas as entidades do nível selecionado`, 9, false, colors.muted);
   text(input.view.status === "stale" ? "Dados confirmados anteriormente. Aguardando atualização." : "Dados confirmados para o período selecionado.", 10, true, input.view.status === "stale" ? colors.amber : colors.teal);
   text(`Coleta original: ${scope.collectedAt}`, 8, false, colors.muted);
+  if (comparison) {
+    text(`Comparação com ${date(comparison.previous.identity.dateFrom)} a ${date(comparison.previous.identity.dateTo)} | Coleta anterior: ${comparison.previous.collectedAt}`, 9, false, colors.muted);
+    if (input.previousView?.status === "stale") text("O período anterior usa dados confirmados anteriormente, aguardando atualização.", 9, true, colors.amber);
+    text("Valores originais e diferenças preservam precisão decimal. A variação percentual é calculada e arredondada a seis casas; na descrição aparece com duas casas.", 8, false, colors.muted);
+  }
   text("Valores decimais preservados, sem arredondamento. Indicadores indisponíveis não representam zero. Busca e paginação da tela não limitam este relatório.", 9, false, colors.muted);
   y += 4;
   for (const [index, entity] of scope.entities.entries()) {
@@ -109,7 +116,15 @@ function* snapshotPdfSteps(input: SnapshotPdfInput, fonts: SnapshotPdfFonts) {
     if (indicators.length) {
       if (bottom - y < 27) continuedTable(index);
       else tableHeader();
-      indicators.forEach((indicator, metricIndex) => row([`${indicator.label}\n${units[indicator.unit] ?? indicator.unit}`, value(indicator, entity.currency), states[indicator.state]], metricIndex % 2 === 0, index));
+      indicators.forEach((indicator, metricIndex) => {
+        let reportValue = value(indicator,entity.currency);
+        if (comparison) {
+          const result = compareSnapshotIndicator(indicator,entity,comparison.previousEntities.get(entity.id));
+          reportValue += `\nAnterior: ${result.previousValue ?? "Indisponível"}\n${snapshotComparisonDescription(result)}`;
+          if (result.absoluteChange !== null) reportValue += `\nDiferença: ${result.absoluteChange}`;
+        }
+        row([`${indicator.label}\n${units[indicator.unit] ?? indicator.unit}`,reportValue,states[indicator.state]],metricIndex % 2 === 0,index);
+      });
     } else text("Nenhum indicador retornado para esta entidade.", 9, false, colors.muted);
     y += 8;
     yield { completed: index + 1, total: scope.entities.length };
@@ -117,12 +132,18 @@ function* snapshotPdfSteps(input: SnapshotPdfInput, fonts: SnapshotPdfFonts) {
   if (!scope.entities.length) text("Coleta confirmada sem entidades neste nível e período.", 11);
   ensure(55); y += 4; text("Origem dos dados", 12, true);
   text(`Snapshot: ${scope.snapshotId}\nAPI: ${scope.identity.apiVersion} | Contrato: ${scope.identity.contractVersion}\nColeta original: ${scope.collectedAt}`, 8, false, colors.muted);
+  if (comparison) {
+    text(`Snapshot anterior: ${comparison.previous.snapshotId}\nColeta anterior: ${comparison.previous.collectedAt}`,8,false,colors.muted);
+    const currentIds = new Set(scope.entities.map(entity => entity.id));
+    const onlyPrevious = comparison.previous.entities.filter(entity => !currentIds.has(entity.id)).length;
+    if (onlyPrevious) text(`${onlyPrevious} entidades do período anterior não foram retornadas no atual. CSV e JSON incluem os registros dos dois períodos.`,8,false,colors.muted);
+  }
   text("Dados fornecidos pela Meta Ads. Este arquivo contém uma única conta e nível. Valores de contas, moedas ou níveis diferentes não foram somados. CSV e JSON estão disponíveis para importação dos dados.", 8, false, colors.muted);
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {
     doc.setPage(page); style(8, false, colors.muted); doc.text(`iGrow Reports | ${page} / ${pages}`, left, 290);
   }
-  return { doc, entityCount: scope.entities.length, filename: `meta-${input.externalAccountId}-${input.level}-${scope.identity.dateFrom}-${scope.identity.dateTo}.pdf` };
+  return { doc, entityCount: scope.entities.length, filename: `meta-${input.externalAccountId}-${input.level}-${scope.identity.dateFrom}-${scope.identity.dateTo}${comparison ? "-comparacao" : ""}.pdf` };
 }
 
 export function buildMetaSnapshotPdf(input: SnapshotPdfInput, fonts: SnapshotPdfFonts) {

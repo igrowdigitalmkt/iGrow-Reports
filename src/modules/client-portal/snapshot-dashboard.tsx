@@ -12,6 +12,8 @@ import { requestMissingSnapshotData } from "./snapshot-dashboard-actions";
 import { snapshotEntityPage } from "../meta/snapshot-entity-list";
 import { exportMetaSnapshotCsv,exportMetaSnapshotJson } from "../meta/snapshot-export";
 import { SnapshotPdfUnsupportedTextError } from "../reports/snapshot-pdf-error";
+import { compareSnapshotIndicator,resolveSnapshotComparison,snapshotComparisonDescription } from "../meta/snapshot-comparison";
+import { exportSnapshotComparisonCsv,exportSnapshotComparisonJson } from "../meta/snapshot-comparison-export";
 
 const levels: { key: EntityLevel; label: string }[] = [
   { key: "account",label: "Conta" },{ key: "campaign",label: "Campanhas" },
@@ -35,6 +37,9 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const scope = data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === level);
   const entityList = snapshotEntityPage(scope?.entities ?? [],entityQuery,entityPage);
   const entity = entityList.items.find(item => item.id === entityId) ?? entityList.items[0];
+  const comparison = account && scope && data.comparison && data.view.status !== "pending"
+    ? resolveSnapshotComparison(data.view,data.comparison.view,account.external_id,level) : null;
+  const previousEntity = entity ? comparison?.previousEntities.get(entity.id) : undefined;
   const indicators = entity?.indicators.filter(item => item.key !== "result:provider_known") ?? [];
   const campaignNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities.map(item => [item.id,item.name]) ?? []);
   const adsetNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "adset")?.entities.map(item => [item.id,item.name]) ?? []);
@@ -48,10 +53,11 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
       if (!account) return;
       const report = format === "pdf" ? await (async () => {
         const { buildMetaSnapshotPdfAsync,loadSnapshotPdfFonts } = await import("../reports/snapshot-pdf");
-        const result = await buildMetaSnapshotPdfAsync({ view: data.view,externalAccountId: account.external_id,level,accountName: account.name },await loadSnapshotPdfFonts(),(completed,total) => setExportProgress(`Preparando PDF: ${completed} de ${total} entidades`),controller.signal);
+        const result = await buildMetaSnapshotPdfAsync({ view: data.view,previousView: data.comparison?.view,externalAccountId: account.external_id,level,accountName: account.name },await loadSnapshotPdfFonts(),(completed,total) => setExportProgress(`Preparando PDF: ${completed} de ${total} entidades`),controller.signal);
         return { ...result,content: result.doc.output("arraybuffer") };
-      })() : format === "csv" ? exportMetaSnapshotCsv(data.view,account.external_id,level)
-        : exportMetaSnapshotJson(data.view,account.external_id,level);
+      })() : data.comparison ? format === "csv" ? exportSnapshotComparisonCsv(data.view,data.comparison.view,account.external_id,level)
+        : exportSnapshotComparisonJson(data.view,data.comparison.view,account.external_id,level)
+        : format === "csv" ? exportMetaSnapshotCsv(data.view,account.external_id,level) : exportMetaSnapshotJson(data.view,account.external_id,level);
       if (format === "pdf") await new Promise(resolve => window.setTimeout(resolve,0));
       controller.signal.throwIfAborted();
       url = URL.createObjectURL(new Blob([report.content],{ type: format === "pdf" ? "application/pdf" : format === "csv" ? "text/csv;charset=utf-8" : "application/json;charset=utf-8" }));
@@ -72,14 +78,14 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
     }
   }
   useEffect(() => () => exportController.current?.abort(),[]);
-  function requestRefresh() {
+  function requestRefresh(target: "current" | "previous" = "current",refresh = true) {
     setError(""); setMessage("");
     startTransition(async () => {
       try {
-        const result = await requestMissingSnapshotData({ clientId,from: data.dateFrom,to: data.dateTo,accountIds: data.selectedAccountIds,refresh: true });
+        const result = await requestMissingSnapshotData({ clientId,from: data.dateFrom,to: data.dateTo,accountIds: data.selectedAccountIds,refresh,...(target === "previous" ? { target } : {}) });
         if ("error" in result) setError(result.error ?? "Não foi possível solicitar a atualização.");
-        else setMessage(result.created ? "Atualização solicitada. Os dados confirmados permanecem disponíveis até a conclusão."
-          : "A atualização já está na fila ou em andamento. Aguarde sua conclusão.");
+        else setMessage(result.created ? `Coleta solicitada para o período ${target === "previous" ? "anterior" : "atual"}. Aguarde a conclusão e a validação.`
+          : "A coleta deste período já está na fila ou em andamento. Aguarde sua conclusão.");
         router.refresh();
       } catch { setError("Não foi possível solicitar a atualização. Tente novamente."); }
     });
@@ -93,7 +99,8 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   return <section className="snapshot-dashboard" aria-label="Análise confirmada" aria-busy={pending}>
     <div className="snapshot-toolbar">
       <Link href={`/cliente/${clientId}`} className="snapshot-link">Voltar ao dashboard</Link>
-      {canCollect && !!data.selectedAccountIds.length && <button type="button" onClick={requestRefresh} disabled={pending || exporting}>Atualizar dados</button>}
+      {canCollect && !!data.selectedAccountIds.length && <button type="button" onClick={() => requestRefresh()} disabled={pending || exporting}>{data.comparison ? "Atualizar período atual" : "Atualizar dados"}</button>}
+      {canCollect && data.comparison && <button type="button" onClick={() => requestRefresh("previous")} disabled={pending || exporting}>Atualizar período anterior</button>}
       <button type="button" onClick={() => startTransition(() => router.refresh())} disabled={pending || exporting}>
         <RefreshCw size={16} className={pending ? "snapshot-spin" : ""} />{pending ? "Consultando…" : "Consultar atualização"}
       </button>
@@ -105,6 +112,9 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
       <label>Contas<select name="accounts" disabled={exporting} defaultValue={data.selectedAccountIds.length === 1 ? data.selectedAccountIds[0] : ""}>
         <option value="">Todas as contas vinculadas</option>
         {data.accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </select></label>
+      <label>Comparação<select name="compare" disabled={exporting} defaultValue={data.comparison ? "previous" : ""}>
+        <option value="">Sem comparação</option><option value="previous">Período anterior de mesma duração</option>
       </select></label>
       <button type="submit" disabled={exporting}>Aplicar período</button>
     </form>
@@ -118,25 +128,22 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
       <p>{data.blockedReason === "no_accounts" ? "Vincule uma conta de anúncios a este cliente para acompanhar seu desempenho."
         : data.blockedReason === "spend" || data.blockedReason === "hierarchy" || data.blockedReason === "invalid"
           ? "Os dados deste período ainda precisam ser conciliados. A análise será exibida somente após a confirmação de todas as contas e níveis."
-          : "A análise será exibida por inteiro quando todas as contas e níveis deste período estiverem confirmados."}</p>
+          : data.comparison ? "A análise e a comparação serão exibidas juntas quando todas as contas e níveis dos dois períodos estiverem confirmados."
+            : "A análise será exibida por inteiro quando todas as contas e níveis deste período estiverem confirmados."}</p>
       {data.blockedReason !== "no_accounts" && <small>A disponibilidade será consultada novamente automaticamente.</small>}
-      {canCollect && data.blockedReason === "missing" && <div className="snapshot-request"><button type="button" disabled={pending} onClick={() => {
-        setError(""); setMessage("");
-        startTransition(async () => {
-          try {
-            const result = await requestMissingSnapshotData({ clientId,from: data.dateFrom,to: data.dateTo,accountIds: data.selectedAccountIds });
-            if ("error" in result) setError(result.error ?? "Não foi possível solicitar os dados.");
-            else setMessage(result.created ? "Solicitação registrada. A análise aparecerá após a coleta e a validação."
-              : "A coleta deste período já foi solicitada. Aguarde sua conclusão.");
-            router.refresh();
-          } catch { setError("Não foi possível solicitar os dados. Tente novamente."); }
-        });
-      }}>{pending ? "Solicitando…" : "Solicitar dados faltantes"}</button></div>}
+      {canCollect && data.blockedReason === "missing" && <div className="snapshot-request">
+        {!!data.view.missing.length && <button type="button" disabled={pending} onClick={() => requestRefresh("current",false)}>{data.comparison ? "Solicitar dados do período atual" : "Solicitar dados faltantes"}</button>}
+        {!!data.comparison?.view.missing.length && <button type="button" disabled={pending} onClick={() => requestRefresh("previous",false)}>Solicitar dados do período anterior</button>}
+      </div>}
     </div> : <>
       <div className="snapshot-freshness" role="status"><Clock3 size={15} />
         {data.view.status === "stale" ? "Dados confirmados anteriormente · aguardando atualização" : "Análise confirmada"}
         {data.view.collectedAt && <time dateTime={data.view.collectedAt}>{new Intl.DateTimeFormat("pt-BR",{ dateStyle: "short",timeStyle: "short",timeZone: "America/Sao_Paulo" }).format(new Date(data.view.collectedAt))}</time>}
       </div>
+      {data.comparison && <p className="snapshot-freshness">Comparação: {data.comparison.dateFrom} a {data.comparison.dateTo}.
+        {data.comparison.view.status === "stale" ? " Período anterior confirmado anteriormente, aguardando atualização." : " Período anterior confirmado."}
+        {data.comparison.view.collectedAt && ` Coleta anterior: ${new Intl.DateTimeFormat("pt-BR",{ dateStyle: "short",timeStyle: "short",timeZone: "America/Sao_Paulo" }).format(new Date(data.comparison.view.collectedAt))}.`}
+      </p>}
       <div className="snapshot-selectors">
         <label>Conta exibida<select disabled={exporting} value={account?.id ?? ""} onChange={event => { setAccountId(event.target.value); setEntityId(""); setEntityQuery(""); setEntityPage(1); }}>
           {data.accounts.filter(item => data.selectedAccountIds.includes(item.id)).map(item => <option key={item.id} value={item.id}>{item.name} · {item.currency}</option>)}
@@ -166,6 +173,10 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
           </strong>
           {indicator.state === "unavailable" && <small>Indicador não disponível neste escopo confirmado.</small>}
           {indicator.state === "error" && <small>Não foi possível confirmar este indicador.</small>}
+          {comparison && <small>
+            Anterior: {formatSnapshotDecimal(compareSnapshotIndicator(indicator,entity,previousEntity).previousValue,indicator.unit,entity.currency)}<br />
+            {snapshotComparisonDescription(compareSnapshotIndicator(indicator,entity,previousEntity))}
+          </small>}
         </article>)}</div>
         <div className="snapshot-table-wrap"><table>
           <caption>Entidades do nível selecionado ({entityList.total})</caption>
