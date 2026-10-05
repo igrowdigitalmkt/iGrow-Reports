@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import type { CollectionIdentity } from "./data-contract";
 import { projectConfirmedSnapshot } from "./snapshot-projection";
+import { SnapshotValidationError } from "./snapshot-validation-error";
 
 // Pass the authenticated SSR client so the RPC evaluates the user's memberships.
 export async function readConfirmedCollectionSnapshot(client: SupabaseClient<Database>, identity: CollectionIdentity, now = Date.now()) {
@@ -12,5 +13,6 @@ export async function readConfirmedCollectionSnapshot(client: SupabaseClient<Dat
     p_entity_level: identity.level,p_api_version: identity.apiVersion,p_contract_version: identity.contractVersion,
   });
   if (error) throw new Error("Não foi possível consultar o snapshot confirmado.");
-  return projectConfirmedSnapshot(data,identity,now);
+  try { return projectConfirmedSnapshot(data,identity,now); }
+  catch { throw new SnapshotValidationError(); }
 }

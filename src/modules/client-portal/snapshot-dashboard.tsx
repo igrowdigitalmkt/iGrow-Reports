@@ -9,6 +9,7 @@ import type { EntityLevel } from "../integrations/data-contract";
 import { formatSnapshotDecimal } from "../meta/snapshot-format";
 import "./snapshot-dashboard.css";
 import { requestMissingSnapshotData } from "./snapshot-dashboard-actions";
+import { snapshotEntityPage } from "../meta/snapshot-entity-list";
 
 const levels: { key: EntityLevel; label: string }[] = [
   { key: "account",label: "Conta" },{ key: "campaign",label: "Campanhas" },
@@ -20,12 +21,15 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const [accountId,setAccountId] = useState(data.selectedAccountIds[0] ?? "");
   const [level,setLevel] = useState<EntityLevel>("account");
   const [entityId,setEntityId] = useState("");
+  const [entityQuery,setEntityQuery] = useState("");
+  const [entityPage,setEntityPage] = useState(1);
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
   const account = data.accounts.find(item => item.id === accountId && data.selectedAccountIds.includes(item.id))
     ?? data.accounts.find(item => data.selectedAccountIds.includes(item.id));
   const scope = data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === level);
-  const entity = scope?.entities.find(item => item.id === entityId) ?? scope?.entities[0];
+  const entityList = snapshotEntityPage(scope?.entities ?? [],entityQuery,entityPage);
+  const entity = entityList.items.find(item => item.id === entityId) ?? entityList.items[0];
   const indicators = entity?.indicators.filter(item => item.key !== "result:provider_known") ?? [];
   const campaignNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities.map(item => [item.id,item.name]) ?? []);
   const adsetNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "adset")?.entities.map(item => [item.id,item.name]) ?? []);
@@ -70,7 +74,7 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
     {data.view.status === "pending" ? <div className="snapshot-status" role="status" aria-live="polite">
       <Layers3 size={24} /><h2>{data.blockedReason === "no_accounts" ? "Nenhuma conta vinculada" : "Aguardando a análise completa"}</h2>
       <p>{data.blockedReason === "no_accounts" ? "Vincule uma conta de anúncios a este cliente para acompanhar seu desempenho."
-        : data.blockedReason === "spend" || data.blockedReason === "hierarchy"
+        : data.blockedReason === "spend" || data.blockedReason === "hierarchy" || data.blockedReason === "invalid"
           ? "Os dados deste período ainda precisam ser conciliados. A análise será exibida somente após a confirmação de todas as contas e níveis."
           : "A análise será exibida por inteiro quando todas as contas e níveis deste período estiverem confirmados."}</p>
       {data.blockedReason !== "no_accounts" && <small>A disponibilidade será consultada novamente automaticamente.</small>}
@@ -92,14 +96,15 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
         {data.view.collectedAt && <time dateTime={data.view.collectedAt}>{new Intl.DateTimeFormat("pt-BR",{ dateStyle: "short",timeStyle: "short",timeZone: "America/Sao_Paulo" }).format(new Date(data.view.collectedAt))}</time>}
       </div>
       <div className="snapshot-selectors">
-        <label>Conta exibida<select value={account?.id ?? ""} onChange={event => { setAccountId(event.target.value); setEntityId(""); }}>
+        <label>Conta exibida<select value={account?.id ?? ""} onChange={event => { setAccountId(event.target.value); setEntityId(""); setEntityQuery(""); setEntityPage(1); }}>
           {data.accounts.filter(item => data.selectedAccountIds.includes(item.id)).map(item => <option key={item.id} value={item.id}>{item.name} · {item.currency}</option>)}
         </select></label>
-        <label>Nível<select value={level} onChange={event => { setLevel(event.target.value as EntityLevel); setEntityId(""); }}>
+        <label>Nível<select value={level} onChange={event => { setLevel(event.target.value as EntityLevel); setEntityId(""); setEntityQuery(""); setEntityPage(1); }}>
           {levels.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
         </select></label>
-        {level !== "account" && !!scope?.entities.length && <label>Entidade<select value={entity?.id ?? ""} onChange={event => setEntityId(event.target.value)}>
-          {scope.entities.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        {level !== "account" && <label>Buscar entidade<input type="search" value={entityQuery} placeholder="Nome ou ID" onChange={event => { setEntityQuery(event.target.value); setEntityPage(1); setEntityId(""); }} /></label>}
+        {level !== "account" && !!entityList.items.length && <label>Entidade da página<select value={entity?.id ?? ""} onChange={event => setEntityId(event.target.value)}>
+          {entityList.items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select></label>}
       </div>
       {entity ? <>
@@ -115,15 +120,21 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
           {indicator.state === "error" && <small>Não foi possível confirmar este indicador.</small>}
         </article>)}</div>
         <div className="snapshot-table-wrap"><table>
-          <caption>Entidades do nível selecionado</caption>
+          <caption>Entidades do nível selecionado ({entityList.total})</caption>
           <thead><tr><th scope="col">Nome</th><th scope="col">Campanha</th><th scope="col">Conjunto</th><th scope="col">Valor usado</th></tr></thead>
-          <tbody>{scope?.entities.map(item => <tr key={item.id}><th scope="row"><button type="button" onClick={() => setEntityId(item.id)}>{item.name}</button></th>
+          <tbody>{entityList.items.map(item => <tr key={item.id}><th scope="row"><button type="button" onClick={() => setEntityId(item.id)}>{item.name}</button></th>
             <td>{item.hierarchy?.campaignId ? campaignNames.get(item.hierarchy.campaignId) ?? item.hierarchy.campaignId : "—"}</td>
             <td>{item.hierarchy?.adsetId ? adsetNames.get(item.hierarchy.adsetId) ?? item.hierarchy.adsetId : "—"}</td>
             <td>{formatSnapshotDecimal(item.indicators.find(metric => metric.key === "spend")?.value ?? null,"currency",item.currency ?? account?.currency ?? null)}</td>
           </tr>)}</tbody>
         </table></div>
-      </> : <div className="snapshot-status" role="status"><h2>Coleta confirmada sem entidades</h2><p>Não foram retornadas entidades neste nível e período.</p></div>}
+        {entityList.totalPages>1 && <nav className="snapshot-toolbar" aria-label="Páginas de entidades">
+          <button type="button" disabled={entityList.page===1} onClick={() => { setEntityPage(entityList.page-1); setEntityId(""); }}>Anterior</button>
+          <span>Página {entityList.page} de {entityList.totalPages}</span>
+          <button type="button" disabled={entityList.page===entityList.totalPages} onClick={() => { setEntityPage(entityList.page+1); setEntityId(""); }}>Próxima</button>
+        </nav>}
+      </> : <div className="snapshot-status" role="status"><h2>{scope?.entities.length ? "Nenhuma entidade encontrada" : "Coleta confirmada sem entidades"}</h2>
+        <p>{scope?.entities.length ? "Ajuste a busca para encontrar uma entidade deste nível." : "Não foram retornadas entidades neste nível e período."}</p></div>}
     </>}
   </section>;
 }

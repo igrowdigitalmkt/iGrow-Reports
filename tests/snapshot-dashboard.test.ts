@@ -19,6 +19,12 @@ it("exposes collection requests only to authorized operators",() => {
   expect(renderToStaticMarkup(createElement(SnapshotDashboard,{ data,clientId: "c",canCollect: false }))).not.toContain("Solicitar dados faltantes");
   expect(renderToStaticMarkup(createElement(SnapshotDashboard,{ data,clientId: "c",canCollect: true }))).toContain("Solicitar dados faltantes");
 });
+it("keeps recovery available to an operator when stored metrics are invalid",() => {
+  const invalid = { ...data,blockedReason: "invalid" as const };
+  const html = renderToStaticMarkup(createElement(SnapshotDashboard,{ data: invalid,clientId: "c",canCollect: true }));
+  expect(html).toContain("Atualizar dados"); expect(html).toContain("precisam ser conciliados");
+  expect(html).not.toContain('class="snapshot-card"');
+});
 it("renders confirmed indicators together with the account and collection time",() => {
   const ready: SnapshotDashboardData = { ...data,blockedReason: null,view: { status: "ready",missing: [],collectedAt: "2026-10-04T12:00:00Z",scopes: [{
     identity: { clientId: "c",connectionId: "i",provider: "meta",externalAccountId: "act_1",dateFrom: data.dateFrom,dateTo: data.dateTo,level: "account",apiVersion: "v24.0",contractVersion: 3 },

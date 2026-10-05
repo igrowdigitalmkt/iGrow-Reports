@@ -1,21 +1,58 @@
 import Decimal from "decimal.js";
 import type { SnapshotBundle } from "../integrations/snapshot-bundle-reader";
+import type { SnapshotEntityProjection } from "../integrations/snapshot-projection";
 
 const Amount = Decimal.clone({ precision: 60 });
 export type SnapshotReconciliation = { confirmed: boolean; reason: "missing" | "hierarchy" | "spend" | null };
 
-// Account and campaign snapshots are distinct requests. Confirm that they
-// describe compatible spend before presenting them as one analysis.
+function spend(entity: SnapshotEntityProjection): Decimal | null {
+  const value = entity.values.spend;
+  if (value == null || !value.trim()) return null;
+  try {
+    const parsed = new Amount(value);
+    return parsed.isFinite() && !parsed.isNegative() ? parsed : null;
+  } catch { return null; }
+}
+
+function matches(parent: Decimal,children: SnapshotEntityProjection[]) {
+  let total = new Amount(0);
+  for (const child of children) {
+    const value = spend(child);
+    if (value === null) return false;
+    total = total.plus(value);
+  }
+  const tolerance = Amount.max("0.005",parent.abs().times("0.0000000001"));
+  return total.minus(parent).abs().lte(tolerance);
+}
+
+function groupChildren(entities: SnapshotEntityProjection[],parent: "campaignId" | "adsetId") {
+  const groups = new Map<string,SnapshotEntityProjection[]>();
+  for (const entity of entities) {
+    const id = entity.metadata?.[parent];
+    if (!id) continue;
+    const children = groups.get(id) ?? [];
+    children.push(entity); groups.set(id,children);
+  }
+  return groups;
+}
+
+// Reconcile each parent against only its direct children, never combine levels.
 export function reconcileMetaSnapshotBundle(bundle: SnapshotBundle): SnapshotReconciliation {
   if (bundle.status === "pending") return { confirmed: false, reason: "missing" };
+  const accountScopes = bundle.scopes.filter(scope => scope.identity.level === "account");
+  if (!accountScopes.length || bundle.scopes.some(scope => !accountScopes.some(account =>
+    account.identity.externalAccountId === scope.identity.externalAccountId))) return { confirmed: false, reason: "missing" };
   for (const account of bundle.scopes.filter(scope => scope.identity.level === "account")) {
     const scopes = bundle.scopes.filter(scope => scope.identity.externalAccountId === account.identity.externalAccountId);
     const campaigns = scopes.find(scope => scope.identity.level === "campaign");
-    if (!campaigns) return { confirmed: false, reason: "missing" };
+    const adsets = scopes.find(scope => scope.identity.level === "adset");
+    const ads = scopes.find(scope => scope.identity.level === "ad");
+    if (!campaigns || !adsets || !ads || scopes.length !== 4) return { confirmed: false, reason: "missing" };
     if (account.snapshot.entities.length > 1) return { confirmed: false, reason: "spend" };
     const campaignIds = new Set(campaigns.snapshot.entities.map(entity => entity.id));
-    const adsets = scopes.find(scope => scope.identity.level === "adset");
-    const adsetMap = new Map(adsets?.snapshot.entities.map(entity => [entity.id,entity]) ?? []);
+    const adsetMap = new Map(adsets.snapshot.entities.map(entity => [entity.id,entity]));
+    const campaignChildren = groupChildren(adsets.snapshot.entities,"campaignId");
+    const adsetChildren = groupChildren(ads.snapshot.entities,"adsetId");
     for (const scope of scopes) for (const entity of scope.snapshot.entities) {
       if (scope.identity.level === "adset" || scope.identity.level === "ad") {
         if (!entity.metadata?.campaignId || !campaignIds.has(entity.metadata.campaignId)) return { confirmed: false, reason: "hierarchy" };
@@ -23,12 +60,17 @@ export function reconcileMetaSnapshotBundle(bundle: SnapshotBundle): SnapshotRec
           || adsetMap.get(entity.metadata.adsetId)?.metadata?.campaignId !== entity.metadata.campaignId)) return { confirmed: false, reason: "hierarchy" };
       }
     }
-    const spend = account.snapshot.entities[0]?.values.spend ?? (account.snapshot.entities.length === 0 ? "0" : null);
-    if (spend === null || campaigns.snapshot.entities.some(entity => entity.values.spend == null)) return { confirmed: false, reason: "spend" };
-    const sum = campaigns.snapshot.entities.reduce((total,entity) => total.plus(entity.values.spend!),new Amount(0));
-    const tolerance = Amount.max("0.005",new Amount(spend).abs().times("0.0000000001"));
-    if (sum.minus(spend).abs().gt(tolerance)) return { confirmed: false, reason: "spend" };
+    const accountSpend = account.snapshot.entities.length ? spend(account.snapshot.entities[0]) : new Amount(0);
+    if (accountSpend === null || !matches(accountSpend,campaigns.snapshot.entities)
+      || !matches(accountSpend,adsets.snapshot.entities) || !matches(accountSpend,ads.snapshot.entities)) return { confirmed: false, reason: "spend" };
+    for (const campaign of campaigns.snapshot.entities) {
+      const value = spend(campaign);
+      if (value === null || !matches(value,campaignChildren.get(campaign.id) ?? [])) return { confirmed: false, reason: "spend" };
+    }
+    for (const adset of adsets.snapshot.entities) {
+      const value = spend(adset);
+      if (value === null || !matches(value,adsetChildren.get(adset.id) ?? [])) return { confirmed: false, reason: "spend" };
+    }
   }
-  if (!bundle.scopes.some(scope => scope.identity.level === "account")) return { confirmed: false, reason: "missing" };
   return { confirmed: true, reason: null };
 }

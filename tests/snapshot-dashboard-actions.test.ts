@@ -1,8 +1,8 @@
 import { beforeEach,expect,it,vi } from "vitest";
-const mocks = vi.hoisted(() => ({ access: vi.fn(),load: vi.fn(),service: vi.fn(),enqueue: vi.fn(),refresh: vi.fn(),revalidate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ access: vi.fn(),load: vi.fn(),selection: vi.fn(),service: vi.fn(),enqueue: vi.fn(),refresh: vi.fn(),revalidate: vi.fn() }));
 vi.mock("next/cache",() => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/modules/client-portal/context",() => ({ requireClientDashboardAccess: mocks.access }));
-vi.mock("@/modules/client-portal/snapshot-dashboard-loader",() => ({ loadSnapshotDashboard: mocks.load }));
+vi.mock("@/modules/client-portal/snapshot-dashboard-loader",() => ({ loadSnapshotDashboard: mocks.load,resolveSnapshotDashboardSelection: mocks.selection }));
 vi.mock("@/lib/supabase/service",() => ({ createSupabaseServiceClient: mocks.service }));
 vi.mock("@/modules/integrations/repository",() => ({ enqueueCollectionJobs: mocks.enqueue,requestMetaCollectionRefresh: mocks.refresh }));
 vi.mock("@/lib/env",() => ({ getMetaApiConfig: () => ({ apiVersion: "v24.0" }) }));
@@ -14,6 +14,7 @@ beforeEach(() => {
   mocks.load.mockResolvedValue({ view: { missing: [identity] },blockedReason: "missing" });
   mocks.service.mockReturnValue("service"); mocks.enqueue.mockResolvedValue(1);
   mocks.refresh.mockResolvedValue({ created: 0,rescheduled: 4,preserved: 0 });
+  mocks.selection.mockResolvedValue({ identities: ["account","campaign","adset","ad"].map(level => ({ ...identity,level })) });
 });
 it("refreshes all authorized levels even when older confirmed data exists",async () => {
   mocks.load.mockResolvedValue({ view: { missing: [] },blockedReason: null,accounts: [{ id: input.accountIds[0],connection_id: "authorized",external_id: "act_1" }],selectedAccountIds: input.accountIds,dateFrom: input.from,dateTo: input.to });
@@ -21,6 +22,18 @@ it("refreshes all authorized levels even when older confirmed data exists",async
   expect(mocks.refresh).toHaveBeenCalledWith("service",expect.arrayContaining([expect.objectContaining({ clientId: input.clientId,connectionId: "authorized",externalAccountId: "act_1",level: "account",contractVersion: 3 })]));
   expect(mocks.refresh.mock.calls[0][1].map((scope: { level: string }) => scope.level)).toEqual(["account","campaign","adset","ad"]);
   expect(mocks.enqueue).not.toHaveBeenCalled();
+  expect(mocks.load).not.toHaveBeenCalled();
+});
+it("can request repair when snapshot reads would fail",async () => {
+  mocks.load.mockRejectedValue(new Error("invalid snapshot"));
+  expect(await requestMissingSnapshotData({ ...input,refresh: true })).toEqual({ success: true,created: 4 });
+  expect(mocks.load).not.toHaveBeenCalled();
+  expect(mocks.selection).toHaveBeenCalledWith("session",input.clientId,expect.objectContaining({ accounts: input.accountIds.join(",") }));
+});
+it("does not use service credentials when refresh scope authorization fails",async () => {
+  mocks.selection.mockRejectedValue(new Error("foreign account"));
+  expect(await requestMissingSnapshotData({ ...input,refresh: true })).toHaveProperty("error");
+  expect(mocks.service).not.toHaveBeenCalled(); expect(mocks.refresh).not.toHaveBeenCalled();
 });
 it("registers only missing identities resolved from authenticated reads",async () => {
   expect(await requestMissingSnapshotData({ ...input,connectionId: "foreign",contractVersion: 1 })).toEqual({ success: true,created: 1 });

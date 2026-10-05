@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 vi.mock("server-only",() => ({}));
 vi.mock("@/lib/env",() => ({ getMetaApiConfig: () => ({ apiVersion: "v24.0" }) }));
-import { loadSnapshotDashboard } from "@/modules/client-portal/snapshot-dashboard-loader";
+import { loadSnapshotDashboard,resolveSnapshotDashboardSelection } from "@/modules/client-portal/snapshot-dashboard-loader";
 const clientId = "11111111-0000-4000-8000-000000000001";
 const account = { id: "50000000-0000-4000-8000-000000000001",connection_id: "40000000-0000-4000-8000-000000000001",external_id: "act_1",name: "Conta A",currency: "BRL",timezone_name: "America/Sao_Paulo" };
 const query = { periodo: "custom",from: "2026-10-01",to: "2026-10-03" };
@@ -13,17 +13,21 @@ let campaignSpend = "100";
 let badCurrency = false;
 let orphan = false;
 let empty = false;
+let adsetSpend = "100";
+let adSpend = "100";
+let missingChildren = false;
 function rpcMock() {
   return vi.fn(async (name: string,args: Record<string,string>) => {
     if (name === "list_client_snapshot_accounts") return { data: [account],error: null };
     const level = args.p_entity_level;
     if (missing === level) return { data: null,error: null };
-    const id = level === "account" ? "act_1" : level === "campaign" ? "123" : "456";
+    const id = level === "account" ? "act_1" : level === "campaign" ? "123" : level === "adset" ? "456" : "789";
     const metadata = level === "account" ? { name: "Conta A",parentId: null,campaignId: null,adsetId: null }
       : level === "campaign" ? { name: "Campanha",parentId: "act_1",campaignId: "123",adsetId: null }
-        : { name: "Conjunto",parentId: orphan ? "999" : "123",campaignId: orphan ? "999" : "123",adsetId: "456" };
-    const value = level === "campaign" ? campaignSpend : "100";
-    const metrics = empty || level === "ad" || level === "adset" && !orphan ? [] : [{
+        : level === "adset" ? { name: "Conjunto",parentId: orphan ? "999" : "123",campaignId: orphan ? "999" : "123",adsetId: "456" }
+          : { name: "Anúncio",parentId: "456",campaignId: "123",adsetId: "456" };
+    const value = level === "campaign" ? campaignSpend : level === "adset" ? adsetSpend : level === "ad" ? adSpend : "100";
+    const metrics = empty || missingChildren && (level === "adset" || level === "ad") ? [] : [{
       clientId,connectionId: account.connection_id,provider: "meta",externalAccountId: "act_1",externalEntityId: id,
       level,dateFrom: query.from,dateTo: query.to,timezone: account.timezone_name,currency: badCurrency ? "USD" : "BRL",
       nativeKey: "spend",value,state: "available",mappingVersion: 3,unit: "currency",aggregationRule: "sum",entity: metadata,
@@ -32,7 +36,7 @@ function rpcMock() {
   });
 }
 const client = (rpc: ReturnType<typeof rpcMock>) => ({ rpc }) as unknown as SupabaseClient<Database>;
-beforeEach(() => { missing = ""; campaignSpend = "100"; badCurrency = false; orphan = false; empty = false; });
+beforeEach(() => { missing = ""; campaignSpend = "100"; adsetSpend = "100"; adSpend = "100"; missingChildren = false; badCurrency = false; orphan = false; empty = false; });
 it("loads only authenticated snapshots for every selected level without collecting from Meta",async () => {
   const rpc = rpcMock();
   const data = await loadSnapshotDashboard(client(rpc),clientId,query,now);
@@ -50,6 +54,20 @@ it("hides contradictory account/campaign spend",async () => {
   campaignSpend = "200";
   expect(await loadSnapshotDashboard(client(rpcMock()),clientId,query,now)).toMatchObject({ blockedReason: "spend",view: { scopes: [] } });
 });
+it.each(["adset","ad"])("hides the full analysis when %s spend contradicts its parent",async level => {
+  if (level === "adset") adsetSpend = "200"; else adSpend = "200";
+  expect(await loadSnapshotDashboard(client(rpcMock()),clientId,query,now)).toMatchObject({ blockedReason: "spend",view: { scopes: [] } });
+});
+it("does not accept positive-spend campaigns with confirmed empty descendants",async () => {
+  missingChildren = true;
+  expect(await loadSnapshotDashboard(client(rpcMock()),clientId,query,now)).toMatchObject({ blockedReason: "spend",view: { scopes: [] } });
+});
+it("resolves refresh identities from the catalog without reading unhealthy snapshots",async () => {
+  const rpc = rpcMock(); badCurrency = true;
+  const selection = await resolveSnapshotDashboardSelection(client(rpc),clientId,query,now);
+  expect(selection.identities.map(identity => identity.level)).toEqual(["account","campaign","adset","ad"]);
+  expect(rpc).toHaveBeenCalledTimes(1);
+});
 it("accepts decimal rounding within reconciliation tolerance",async () => {
   campaignSpend = "100.004";
   expect((await loadSnapshotDashboard(client(rpcMock()),clientId,query,now)).view.status).toBe("ready");
@@ -58,9 +76,21 @@ it("hides orphaned hierarchy even when spend matches",async () => {
   orphan = true;
   expect(await loadSnapshotDashboard(client(rpcMock()),clientId,query,now)).toMatchObject({ blockedReason: "hierarchy",view: { scopes: [] } });
 });
-it("rejects currency metadata inconsistent with the authorized account",async () => {
+it("withholds invalid currency metadata while keeping the operator able to request repair",async () => {
   badCurrency = true;
-  await expect(loadSnapshotDashboard(client(rpcMock()),clientId,query,now)).rejects.toThrow("Metadados");
+  expect(await loadSnapshotDashboard(client(rpcMock()),clientId,query,now)).toMatchObject({ blockedReason: "invalid",view: { scopes: [] } });
+});
+it("withholds malformed stored snapshots without disguising them as missing",async () => {
+  const rpc = rpcMock(); const original = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name,args) => name === "get_confirmed_collection_snapshot"
+    ? { data: { snapshotId: "invalid",collectedAt: "bad",metrics: [] },error: null } as never : original(name,args));
+  expect(await loadSnapshotDashboard(client(rpc),clientId,query,now)).toMatchObject({ blockedReason: "invalid",view: { missing: [],scopes: [] } });
+});
+it("does not turn snapshot access denial or database outages into a recoverable metric failure",async () => {
+  const rpc = rpcMock(); const original = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (name,args) => name === "get_confirmed_collection_snapshot"
+    ? { data: null,error: { message: "denied" } } as never : original(name,args));
+  await expect(loadSnapshotDashboard(client(rpc),clientId,query,now)).rejects.toThrow("Não foi possível consultar");
 });
 it("does not replace complete empty collections with invented metrics",async () => {
   empty = true;

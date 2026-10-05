@@ -1,5 +1,13 @@
 # Operação da fundação
 
+## Conciliação e reparação da análise
+
+Todos os níveis devem conciliar gasto com a conta, e cada campanha/conjunto deve conciliar com seus filhos diretos. A tolerância é o máximo entre `0.005` e `abs(gasto do pai) * 1e-10`, com precisão decimal. Filhos vazios só conciliam com gasto zero dentro dessa tolerância. Gasto desconhecido ou inválido bloqueia a análise inteira, inclusive quando outro nível possui total correto. A leitura ainda não garante uma geração transacional comum aos quatro snapshots.
+
+Se a validação de um snapshot falhar ou moeda/fuso divergirem do catálogo autorizado, a tela bloqueia os indicadores, conserva as contas e permite `Atualizar dados` ao operador autorizado. Essa ação consulta o catálogo diretamente e solicita um novo ciclo, sem precisar interpretar os valores defeituosos. Erros de RPC/acesso continuam falhando a requisição; não são apresentados como snapshot inválido ou vazio. Após revogação, o catálogo e a RPC de atualização impedem nova coleta.
+
+A busca/paginação de entidades é local ao nível e conta exibidos, com 25 linhas por página. Não limita a coleta nem substitui paginação de banco; todos os escopos requeridos continuam sendo consultados e validados antes da liberação da análise.
+
 ## Executor Meta e ciclos de atualização
 
 Aplicar migrations até `202610040013_collection_refresh_cycles.sql` antes de usar o executor e `Atualizar dados` da análise por snapshots. Configurar `INTEGRATION_WORKER_SECRET` somente no servidor e no chamador autorizado: token aleatório de 32 a 256 caracteres usando letras/dígitos/`_`/`-`. O endpoint aceita somente POST com `Authorization: Bearer <token>`, sem token em URL. Configuração ausente retorna 503; autorização inválida retorna 401. Nenhum segredo foi gerado ou salvo por este incremento.
@@ -14,7 +22,7 @@ O retorno contém ID de execução, número de jobs processados e motivo de para
 
 A rota `/cliente/[clientId]/snapshots` requer as migrations até `202610040012_snapshot_account_catalog.sql` e `META_GRAPH_API_VERSION`. O acesso usa a sessão autenticada; nem a tela nem suas consultas automáticas usam a credencial Meta. Um link no dashboard em modo agência preserva o período/contas selecionados. A fonte do dashboard principal continua sendo a anterior.
 
-O loader exige snapshots dos quatro níveis para cada conta selecionada no contrato 3 e API configurada. Ausência de qualquer escopo, divergência de gasto entre conta/campanhas ou hierarquia órfã bloqueia a análise inteira. Snapshots antigos permanecem disponíveis como `stale`. Moedas e fusos são comparados ao catálogo autorizado; não há agregação automática entre contas. Consultas separadas não garantem uma geração transacional única. Os gastos de conjuntos/anúncios ainda não são reconciliados com os subtotais de seus pais.
+O loader exige snapshots dos quatro níveis para cada conta selecionada no contrato 3 e API configurada. Ausência de qualquer escopo, divergência de gasto entre níveis ou hierarquia órfã bloqueia a análise inteira. Snapshots antigos permanecem disponíveis como `stale`. Moedas e fusos são comparados ao catálogo autorizado; não há agregação automática entre contas. Consultas separadas não garantem uma geração transacional única. Gastos de conjuntos/anúncios são comparados aos subtotais de seus pais e ao total da conta.
 
 `Solicitar dados faltantes` é reservado aos operadores com permissão de coleta. A ação reconstrói o escopo por consultas autenticadas e registra jobs por um único upsert de serviço. Jobs já existentes são preservados, inclusive claims vigentes e estados terminais. Repetir a solicitação não reinicia jobs confirmados/falhos nem gera uma nova versão. Sem executor, a solicitação permanece na fila; a consulta automática somente verifica a disponibilidade. Provisionar/homologar o executor separadamente antes de disponibilizar esse fluxo operacionalmente. Este incremento não instala cron, não executa coleta real nem aplica migrations remotas.
 

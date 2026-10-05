@@ -1,5 +1,15 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — conciliação completa e recuperação de dados inválidos
+
+A leitura por snapshots agora compara os gastos de todos os níveis ao total da conta e os subtotais de cada campanha aos seus conjuntos e de cada conjunto aos seus anúncios. A comparação usa decimais e a tolerância existente (máximo entre meio centavo e erro relativo de `1e-10`). Totais globais iguais não encobrem gasto atribuído ao pai errado. Pais com gasto positivo e coleções de filhos vazias bloqueiam a análise; pais com zero confirmado podem ter filhos vazios. Gasto ausente, negativo ou inválido não é convertido em zero. A hierarquia é indexada por pai para evitar varreduras repetidas das listas de anúncios.
+
+Snapshots inválidos têm classificação própria, distinta de negação de acesso ou falha de banco. A tela conserva o catálogo autorizado e oculta todos os indicadores quando a validação falha, mantendo a operação de atualização disponível ao operador. A solicitação de atualização resolve conta/período/versões diretamente pelo catálogo autenticado, sem depender da leitura dos snapshots anteriores; isso permite reparar metadados inválidos com uma nova coleta. Erros de acesso/banco continuam sendo propagados, sem converter revogação em dado vazio ou falha de métrica.
+
+A interface inclui busca por nome/ID sem sensibilidade a acentos e paginação local de 25 entidades. Seleção, tabela e indicadores usam as entidades da página atual; buscas sem correspondência diferem de coleta confirmada vazia. Trocar conta/nível limpa a busca, página e seleção. Uma lista que diminui após atualização ajusta a página aos limites válidos. Essa paginação reduz a renderização, mas ainda não pagina a consulta dos snapshots no banco.
+
+Testes incluem 2.500 anúncios em hierarquia disjunta, IDs iguais em contas diferentes, subtotais divergentes, valores inválidos, pais zero, recuperação sem ler snapshots defeituosos, negação de acesso e busca/paginação. `pnpm check` aprovado: lint, TypeScript, 487 testes de aplicação, 497 verificações SQL/RLS em PGlite e build de produção. Layout da lista paginada renderizado e inspecionado em Chrome local a 1440 e 390 pixels sem overflow da página. Nenhuma migration ou coleta externa foi executada. Homologação remota, séries diárias, comparação, relatórios e troca definitiva do dashboard principal continuam pendentes.
+
 ## Atualização de 4 de outubro de 2026 — executor HTTP e recuperação de coletas
 
 `POST /api/workers/meta` processa até quatro jobs sequencialmente, com token de servidor `INTEGRATION_WORKER_SECRET` comparado por digest em tempo constante. Falta de configuração retorna 503; requisições sem autorização não criam cliente de serviço. O executor não inicia novos claims depois de quatro minutos; esse orçamento não interrompe um job já em andamento. Respostas/logs conservam um ID de execução e códigos genéricos, sem copiar exceções, tokens ou detalhes do banco. `processed` conta jobs processados, inclusive os finalizados como falhos; não significa snapshots confirmados.
