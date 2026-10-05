@@ -263,3 +263,29 @@ CSV, JSON e PDF incluem comparação e origem dos dados. CSV e JSON preservam ta
 O incremento inicial passou por 582 testes da aplicação, lint, tipos, SQL/RLS, build e validação dos PDFs renderizados. A revisão seguinte acrescenta cobertura para metadados de atribuição e a apresentação das diferenças. Não houve alteração da fonte do dashboard principal, criação de credenciais, agendamento ou coleta real. Publicação da revisão e homologação com sessão autenticada precisam de confirmação independente.
 
 A troca de filtros agora tem estado de navegação próprio: valores e exportações anteriores ficam ocultos enquanto a nova seleção carrega. Consultas automáticas ficam suspensas durante navegação, exportação ou outra consulta. O formulário informa datas inválidas antes de iniciar a navegação. Testes adicionais verificam o bloqueio visual, período atual incompleto, preservação da data anterior de coleta e revogação de conta entre consultas. A suíte da aplicação passou com 589 testes; a navegação real autenticada ainda exige homologação no navegador.
+
+## Atualização de 5 de outubro de 2026 — séries diárias e gráfico de evolução
+
+Implementada a seção 6C do guia de continuidade: séries diárias persistidas e gráfico de evolução no novo fluxo `/cliente/[clientId]/snapshots`.
+
+Novos arquivos (commit `5e601f1`):
+
+- `src/modules/client-portal/snapshot-series-loader.ts` — carregador server-only que consulta snapshots individuais de 1 dia (dateFrom === dateTo, nível account) para o período selecionado. Valida associação via RPC `list_client_snapshot_accounts`, limita a 90 dias, lê 8 por vez (mesmo padrão do bundle reader), marca ausentes sem bloquear a série, transporta decimais como strings sem arredondamento e expõe unidades obtidas da projeção. Exporta também `resolveSeriesMissingIdentities`: uma `CollectionIdentity` por dia para a solicitação de coleta.
+
+- `src/components/charts/snapshot-series-chart.tsx` — gráfico ECharts tree-shaken (`echarts/core`). Tooltip usa `formatSnapshotDecimal`. Área para uma métrica; legenda para múltiplas. `connectNulls: false` preserva lacunas. Acessível via `role="img"` e tabela `<details>`.
+
+- `src/modules/client-portal/snapshot-series-actions.ts` — server action `requestSeriesData` que valida acesso, resolve identidades ausentes e enfileira via `enqueueCollectionJobs`.
+
+- `src/modules/client-portal/snapshot-series-section.tsx` — componente servidor: verifica limite de 90 dias e carrega a série.
+
+- `src/modules/client-portal/snapshot-series-panel.tsx` — componente cliente: `next/dynamic` (ssr: false), seletor múltiplo de métricas, botão de coleta de dias ausentes.
+
+- `src/modules/client-portal/snapshot-series.css` — estilos no tema escuro, incluindo placeholder animado.
+
+- `tests/snapshot-series-loader.test.ts` — 8 testes: série com 1 ponto/dia, ausentes marcados, todos ausentes, conta não autorizada, `CollectionSchemaUnavailableError`, período >90 dias, identidades 1/dia e decimais verbatim.
+
+Arquivo modificado:
+
+- `src/app/cliente/[clientId]/snapshots/page.tsx` — `SnapshotSeriesSection` abaixo do dashboard, primeira conta do período vigente.
+
+Sem alteração de schema, migration, segredo ou coleta real. `pnpm check` com os 8 novos testes e homologação autenticada permanecem pendentes de execução local.
