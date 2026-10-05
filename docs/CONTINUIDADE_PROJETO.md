@@ -1,7 +1,7 @@
 # Guia de continuidade — iGrow Reports
 
 Atualizado em 5 de outubro de 2026. Responsável: Silvio Melo, iGrow Digital.
-Este documento transfere o contexto do chat anterior. Leia-o antes de implementar.
+Este documento transfere o contexto entre assistentes, incluindo Codex e Claude. Leia-o antes de implementar. O histórico das conversas não é compartilhado automaticamente; o repositório e estes registros são a fonte de continuidade.
 
 ## 1. Objetivo completo
 
@@ -133,7 +133,7 @@ pnpm test:production
 
 Após build, conferir alterações geradas em `next-env.d.ts`; nos incrementos anteriores, restaurou-se somente esse arquivo gerado com `git restore -- next-env.d.ts`. Não descartar alterações úteis nem usar restore/reset global.
 
-Para mudança no PDF: ler a skill PDF disponível no novo chat, gerar PDFs pelos testes, executar `scripts/verify-snapshot-pdfs.py` com Python+pdfplumber, renderizar em Poppler e inspecionar imagens. PDFs fictícios ficam em `artifacts/snapshot-pdf/` e não são entregas reais. Runtime Python disponível nesta máquina: `C:\Users\Silvio Melo\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe`.
+Para mudança no PDF: consultar instruções de PDF disponíveis no ambiente, se houver; gerar PDFs pelos testes, executar `scripts/verify-snapshot-pdfs.py` com Python+pdfplumber, renderizar em Poppler e inspecionar imagens. A existência de uma skill específica do Codex não é pré-requisito para outro assistente realizar esse fluxo. PDFs fictícios ficam em `artifacts/snapshot-pdf/` e não são entregas reais. Runtime Python usado nesta máquina: `C:\Users\Silvio Melo\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe`. Esse caminho pertence à instalação local: conferir disponibilidade ou usar outro Python com as dependências necessárias.
 
 Para comprovar deploy, consultar API GitHub de deployments por SHA e seus statuses; exigir ambiente `Production` e estado `success`. Um push sozinho não confirma publicação. Esses endpoints responderam sem token no chat anterior. Não confundir sucesso do deployment com homologação funcional.
 
@@ -148,3 +148,16 @@ O próximo chat deve distinguir três estados em todo relatório: implementado/t
 ## 10. Primeira ação sugerida para o próximo chat
 
 Ler este guia, AGENTS.md e o planejamento; conferir árvore/revisão e inventariar a cobertura atual. Tentar a homologação autenticada se houver sessão acessível. Se navegador/credenciais impedirem esse passo, continuar a implementação das séries diárias do novo fluxo (seção 6C), com contrato e testes antes de alterar produção. Atualizar este guia e IMPLEMENTACAO ao concluir cada incremento.
+
+## 11. Alternância entre Codex e Claude
+
+- Ambos devem ler `AGENTS.md`, este guia e o planejamento, independentemente de quais arquivos seu ambiente carrega automaticamente. `CLAUDE.md` na raiz oferece o ponto de entrada para o Claude.
+- Não presumir acesso às ferramentas, plugins, navegador autenticado, sessões ou credenciais do assistente anterior. Verificar as capacidades disponíveis e usar ferramentas equivalentes permitidas pelo ambiente atual. Se não houver acesso ao repositório, informar essa limitação antes de alegar implementação.
+- Os registros de publicação, testes e banco acima são evidências históricas datadas. Conferir HEAD, alterações locais e resultados mais recentes; não tratá-los como verificação realizada pelo assistente atual. A documentação pode ficar desatualizada após outra rodada de trabalho.
+- Evitar edição simultânea pelos dois assistentes no mesmo checkout. Não sobrescrever nem descartar trabalho de outro assistente ou do usuário. Antes de alternar, registrar arquivos alterados, commit, testes executados, publicação confirmada, pendências e próximo passo concreto.
+- Atualizar este guia e `docs/IMPLEMENTACAO.md` ao concluir a etapa. Se houver trabalho incompleto, documentar o ponto exato, erros e comandos de reprodução; não fazer commit de segredos ou arquivos de ambiente.
+- Preservar as autorizações registradas e as regras do ambiente atual. O guia não autoriza ações externas novas além do escopo indicado na seção 9.
+
+### Mensagem para iniciar a continuidade em qualquer assistente
+
+Continue o desenvolvimento do iGrow Reports no repositório existente. Primeiro leia `AGENTS.md`, `docs/CONTINUIDADE_PROJETO.md` e `docs/PLANEJAMENTO_V1.md`; se existir, leia também `CLAUDE.md`. Esses documentos registram o objetivo completo, o estado confirmado, as pendências e o ponto de continuidade. Confira a branch, a revisão, as alterações locais e os registros mais recentes antes de editar. Preserve o trabalho existente e prossiga com implementação e testes na ordem indicada, sem reconstruir funcionalidades prontas. Diferencie implementado/testado, publicado e homologado com dados reais. Use as ferramentas disponíveis no seu ambiente, sem presumir acesso às sessões, credenciais ou ferramentas de outro assistente. Ao concluir cada etapa, atualize o guia e os registros com alterações, testes, commit, publicação e próximo passo. Quero mais tempo dedicado à implementação, atualizações objetivas e poucas interrupções para decisões rotineiras. Respeite o escopo e as autorizações registradas para ações externas.
