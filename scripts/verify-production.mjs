@@ -33,6 +33,11 @@ try {
     assert.match(response.headers.get("cache-control"), /no-store/);
     assert.deepEqual(await response.json(), { error: "Executor indisponível." });
   }
+  for (const weight of ["Regular", "Bold"]) {
+    const response = await fetch(`${origin}/fonts/NotoSans-${weight}.ttf`);
+    assert.equal(response.status, 200, "Fontes locais do PDF precisam estar disponíveis.");
+    assert.deepEqual([...new Uint8Array(await response.arrayBuffer()).subarray(0, 4)], [0, 1, 0, 0], "Fonte deve conter um arquivo TrueType.");
+  }
   console.log("Produção: demo bloqueada (404), painel protegido (307), resposta sem cache. Verificações aprovadas.");
 } finally {
   server.kill();

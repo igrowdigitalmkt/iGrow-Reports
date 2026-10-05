@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect,useState,useTransition } from "react";
+import { useEffect,useRef,useState,useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Clock3,Layers3,RefreshCw } from "lucide-react";
@@ -11,6 +11,7 @@ import "./snapshot-dashboard.css";
 import { requestMissingSnapshotData } from "./snapshot-dashboard-actions";
 import { snapshotEntityPage } from "../meta/snapshot-entity-list";
 import { exportMetaSnapshotCsv,exportMetaSnapshotJson } from "../meta/snapshot-export";
+import { SnapshotPdfUnsupportedTextError } from "../reports/snapshot-pdf-error";
 
 const levels: { key: EntityLevel; label: string }[] = [
   { key: "account",label: "Conta" },{ key: "campaign",label: "Campanhas" },
@@ -26,6 +27,9 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const [entityPage,setEntityPage] = useState(1);
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
+  const [exporting,setExporting] = useState(false);
+  const [exportProgress,setExportProgress] = useState("");
+  const exportController = useRef<AbortController | null>(null);
   const account = data.accounts.find(item => item.id === accountId && data.selectedAccountIds.includes(item.id))
     ?? data.accounts.find(item => data.selectedAccountIds.includes(item.id));
   const scope = data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === level);
@@ -34,24 +38,40 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const indicators = entity?.indicators.filter(item => item.key !== "result:provider_known") ?? [];
   const campaignNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities.map(item => [item.id,item.name]) ?? []);
   const adsetNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "adset")?.entities.map(item => [item.id,item.name]) ?? []);
-  function exportReport(format: "csv" | "json") {
-    setError("");
+  async function exportReport(format: "csv" | "json" | "pdf") {
+    if (exportController.current) return;
+    const controller = new AbortController(); exportController.current = controller;
+    setError(""); setMessage(""); setExportProgress("Preparando exportação…"); setExporting(true);
     let url: string | undefined;
     let link: HTMLAnchorElement | undefined;
     try {
       if (!account) return;
-      const report = format === "csv" ? exportMetaSnapshotCsv(data.view,account.external_id,level)
+      const report = format === "pdf" ? await (async () => {
+        const { buildMetaSnapshotPdfAsync,loadSnapshotPdfFonts } = await import("../reports/snapshot-pdf");
+        const result = await buildMetaSnapshotPdfAsync({ view: data.view,externalAccountId: account.external_id,level,accountName: account.name },await loadSnapshotPdfFonts(),(completed,total) => setExportProgress(`Preparando PDF: ${completed} de ${total} entidades`),controller.signal);
+        return { ...result,content: result.doc.output("arraybuffer") };
+      })() : format === "csv" ? exportMetaSnapshotCsv(data.view,account.external_id,level)
         : exportMetaSnapshotJson(data.view,account.external_id,level);
-      url = URL.createObjectURL(new Blob([report.content],{ type: format === "csv" ? "text/csv;charset=utf-8" : "application/json;charset=utf-8" }));
+      if (format === "pdf") await new Promise(resolve => window.setTimeout(resolve,0));
+      controller.signal.throwIfAborted();
+      url = URL.createObjectURL(new Blob([report.content],{ type: format === "pdf" ? "application/pdf" : format === "csv" ? "text/csv;charset=utf-8" : "application/json;charset=utf-8" }));
       link = document.createElement("a"); link.href = url; link.download = report.filename;
       document.body.appendChild(link); link.click();
       setMessage(`Exportação preparada com ${report.entityCount} entidades do nível selecionado. A busca e a paginação não limitam o arquivo.`);
-    } catch { setError("Não foi possível exportar a análise confirmada. Tente novamente."); }
+    } catch (failure) {
+      if (controller.signal.aborted) setMessage("Exportação cancelada.");
+      else if (failure instanceof SnapshotPdfUnsupportedTextError) setError("Alguns caracteres deste relatório não são suportados no PDF. Exporte CSV ou JSON para preservar os nomes completos.");
+      else setError("Não foi possível exportar a análise confirmada. Tente novamente.");
+    }
     finally {
       link?.remove();
       if (url) window.setTimeout(() => URL.revokeObjectURL(url!),1_000);
+      setExporting(false);
+      setExportProgress("");
+      exportController.current = null;
     }
   }
+  useEffect(() => () => exportController.current?.abort(),[]);
   function requestRefresh() {
     setError(""); setMessage("");
     startTransition(async () => {
@@ -73,23 +93,26 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   return <section className="snapshot-dashboard" aria-label="Análise confirmada" aria-busy={pending}>
     <div className="snapshot-toolbar">
       <Link href={`/cliente/${clientId}`} className="snapshot-link">Voltar ao dashboard</Link>
-      {canCollect && !!data.selectedAccountIds.length && <button type="button" onClick={requestRefresh} disabled={pending}>Atualizar dados</button>}
-      <button type="button" onClick={() => startTransition(() => router.refresh())} disabled={pending}>
+      {canCollect && !!data.selectedAccountIds.length && <button type="button" onClick={requestRefresh} disabled={pending || exporting}>Atualizar dados</button>}
+      <button type="button" onClick={() => startTransition(() => router.refresh())} disabled={pending || exporting}>
         <RefreshCw size={16} className={pending ? "snapshot-spin" : ""} />{pending ? "Consultando…" : "Consultar atualização"}
       </button>
     </div>
     <form className="snapshot-filters" method="get">
       <input type="hidden" name="periodo" value="custom" />
-      <label>De<input type="date" name="from" defaultValue={data.dateFrom} required /></label>
-      <label>Até<input type="date" name="to" defaultValue={data.dateTo} required /></label>
-      <label>Contas<select name="accounts" defaultValue={data.selectedAccountIds.length === 1 ? data.selectedAccountIds[0] : ""}>
+      <label>De<input type="date" name="from" defaultValue={data.dateFrom} disabled={exporting} required /></label>
+      <label>Até<input type="date" name="to" defaultValue={data.dateTo} disabled={exporting} required /></label>
+      <label>Contas<select name="accounts" disabled={exporting} defaultValue={data.selectedAccountIds.length === 1 ? data.selectedAccountIds[0] : ""}>
         <option value="">Todas as contas vinculadas</option>
         {data.accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
-      <button type="submit">Aplicar período</button>
+      <button type="submit" disabled={exporting}>Aplicar período</button>
     </form>
     {message && <p role="status">{message}</p>}
     {error && <p role="alert">{error}</p>}
+    {exporting && <div className="snapshot-toolbar"><p role="status" aria-live="polite">{exportProgress}</p>
+      <button type="button" onClick={() => exportController.current?.abort()}>Cancelar exportação</button>
+    </div>}
     {data.view.status === "pending" ? <div className="snapshot-status" role="status" aria-live="polite">
       <Layers3 size={24} /><h2>{data.blockedReason === "no_accounts" ? "Nenhuma conta vinculada" : "Aguardando a análise completa"}</h2>
       <p>{data.blockedReason === "no_accounts" ? "Vincule uma conta de anúncios a este cliente para acompanhar seu desempenho."
@@ -115,10 +138,10 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
         {data.view.collectedAt && <time dateTime={data.view.collectedAt}>{new Intl.DateTimeFormat("pt-BR",{ dateStyle: "short",timeStyle: "short",timeZone: "America/Sao_Paulo" }).format(new Date(data.view.collectedAt))}</time>}
       </div>
       <div className="snapshot-selectors">
-        <label>Conta exibida<select value={account?.id ?? ""} onChange={event => { setAccountId(event.target.value); setEntityId(""); setEntityQuery(""); setEntityPage(1); }}>
+        <label>Conta exibida<select disabled={exporting} value={account?.id ?? ""} onChange={event => { setAccountId(event.target.value); setEntityId(""); setEntityQuery(""); setEntityPage(1); }}>
           {data.accounts.filter(item => data.selectedAccountIds.includes(item.id)).map(item => <option key={item.id} value={item.id}>{item.name} · {item.currency}</option>)}
         </select></label>
-        <label>Nível<select value={level} onChange={event => { setLevel(event.target.value as EntityLevel); setEntityId(""); setEntityQuery(""); setEntityPage(1); }}>
+        <label>Nível<select disabled={exporting} value={level} onChange={event => { setLevel(event.target.value as EntityLevel); setEntityId(""); setEntityQuery(""); setEntityPage(1); }}>
           {levels.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
         </select></label>
         {level !== "account" && <label>Buscar entidade<input type="search" value={entityQuery} placeholder="Nome ou ID" onChange={event => { setEntityQuery(event.target.value); setEntityPage(1); setEntityId(""); }} /></label>}
@@ -128,8 +151,9 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
       </div>
       <div className="snapshot-toolbar">
         <p>Exportar todas as entidades da conta e do nível selecionados, com valores exatos e disponibilidade dos indicadores. Use JSON para preservar os decimais como texto ao importar.</p>
-        <button type="button" onClick={() => exportReport("csv")} disabled={pending || !scope}>Exportar CSV do nível</button>
-        <button type="button" onClick={() => exportReport("json")} disabled={pending || !scope}>Exportar JSON do nível</button>
+        <button type="button" onClick={() => exportReport("csv")} disabled={pending || exporting || !scope}>Exportar CSV do nível</button>
+        <button type="button" onClick={() => exportReport("json")} disabled={pending || exporting || !scope}>Exportar JSON do nível</button>
+        <button type="button" onClick={() => exportReport("pdf")} disabled={pending || exporting || !scope}>{exporting ? "Preparando exportação…" : "Exportar PDF do nível"}</button>
       </div>
       {entity ? <>
         <div className="snapshot-entity-heading"><h2>{level === "account" ? account?.name : entity.name}</h2>

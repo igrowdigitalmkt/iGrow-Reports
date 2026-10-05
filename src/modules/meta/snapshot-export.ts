@@ -13,7 +13,7 @@ function cell(value: string) {
   return `"${safe.replaceAll('"','""')}"`;
 }
 
-function confirmedScope(view: MetaSnapshotView,externalAccountId: string,level: EntityLevel) {
+export function confirmedMetaSnapshotScope(view: MetaSnapshotView,externalAccountId: string,level: EntityLevel) {
   if (view.status === "pending" || view.missing.length) throw new Error("A análise completa ainda não está disponível para exportação.");
   const scopes = view.scopes.filter(scope => scope.identity.externalAccountId === externalAccountId && scope.identity.level === level);
   if (scopes.length !== 1) throw new Error("O escopo da exportação não foi confirmado.");
@@ -23,7 +23,7 @@ function confirmedScope(view: MetaSnapshotView,externalAccountId: string,level: 
 }
 
 export function exportMetaSnapshotJson(view: MetaSnapshotView,externalAccountId: string,level: EntityLevel) {
-  const scope = confirmedScope(view,externalAccountId,level);
+  const scope = confirmedMetaSnapshotScope(view,externalAccountId,level);
   return {
     filename: `meta-${externalAccountId}-${level}-${scope.identity.dateFrom}-${scope.identity.dateTo}.json`,
     content: JSON.stringify({ formatVersion: 1,status: view.status,identity: scope.identity,
@@ -33,7 +33,7 @@ export function exportMetaSnapshotJson(view: MetaSnapshotView,externalAccountId:
 }
 
 export function exportMetaSnapshotCsv(view: MetaSnapshotView,externalAccountId: string,level: EntityLevel) {
-  const scope = confirmedScope(view,externalAccountId,level);
+  const scope = confirmedMetaSnapshotScope(view,externalAccountId,level);
   const identity = scope.identity;
   const provenance = [view.status,externalAccountId,level,identity.dateFrom,identity.dateTo,
     scope.snapshotId,scope.collectedAt,identity.apiVersion,String(identity.contractVersion)];

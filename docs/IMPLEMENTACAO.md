@@ -1,5 +1,17 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — PDF da análise confirmada
+
+A rota por snapshots agora oferece PDF ao lado de CSV/JSON após a liberação da análise completa. Exporta todas as entidades da conta e do nível escolhidos, independentemente da busca/paginação. O gerador compartilha a validação de escopo confirmado dos outros formatos; bloqueia análise pendente, faltantes, escopo duplicado, conta/nível ausente e provedor incompatível. Não consulta a Meta, enfileira jobs, soma níveis/contas ou converte valores decimais para ponto flutuante.
+
+O PDF A4 inclui valores exatos, disponibilidade dos indicadores, hierarquia, moeda/fuso, período, quantidade de entidades, horário original, ID do snapshot e versões do contrato/API. Dados `stale` permanecem exportáveis com aviso próprio; coleta vazia recebe um documento identificado sem zero artificial. Cabeçalhos e rodapés se repetem; nomes e linhas maiores que uma página são divididos, e tabelas em continuação identificam a entidade. Noto Sans licenciada sob SIL OFL é servida localmente e incorporada somente no momento da exportação. Caracteres sem glifo compatível bloqueiam o PDF com orientação para CSV/JSON, preservando os nomes nesses formatos.
+
+A geração assíncrona cede tempo à interface entre grupos de entidades, mostra progresso e permite cancelamento antes do download. Sair da página aborta a operação; cancelamento não entrega documento parcial. A conta, nível e período ficam protegidos contra alterações pelos controles durante a exportação. A serialização final do arquivo permanece síncrona.
+
+16 testes de PDF cobrem gates, precisão, 61 entidades, ausência de mutação, `stale`/vazio, nomes/linhas extensos, Unicode, isolamento, progresso, cancelamento e recuperação de fonte. Dois testes de renderização confirmam os três botões após liberação e sua ausência na análise pendente. `scripts/verify-snapshot-pdfs.py` extrai os arquivos reais e verifica conteúdo/proveniência, todas as entidades e margens/cabeçalhos de todas as páginas. PDFs de teste renderizados em Poppler e inspecionados visualmente; fontes e limites sem cortes. O documento com 61 entidades contém 38 páginas após o ajuste de continuação. `pnpm check` passou, incluindo as duas execuções de 497 verificações SQL/RLS. Após os últimos ajustes, 555 testes de aplicação, lint, build/TypeScript e `pnpm test:production` passaram, inclusive o acesso HTTP às duas fontes TrueType locais.
+
+Download interativo com sessão real não foi homologado: o controle de navegador ficou indisponível nesta sessão. Não foi mantida rota de fixtures no código publicado. Nenhum segredo, agendamento, migration ou coleta real foi configurado/executado neste incremento. Séries diárias, comparação entre períodos e troca da fonte principal permanecem pendentes.
+
 ## Atualização de 4 de outubro de 2026 — preparação operacional do executor
 
 A estrutura SQL de snapshots foi aplicada em produção após autorização explícita: migrations `202610040001` a `202610040013`, 33 requisitos aprovados sem falhas e tabela reconhecida pela API. O registro verificável está em [ATIVACAO_SNAPSHOTS.md](ATIVACAO_SNAPSHOTS.md). O POST publicado ainda retornou 503 sem token: executor indisponível, não uma fila operacional.
