@@ -12,6 +12,7 @@ vi.mock("@/modules/agencies/context", () => ({
 vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidate,
 }));
+vi.mock("@/lib/supabase/service", () => ({ createSupabaseServiceClient: () => null }));
 
 import { setClientPortalAccess, setClientPortalAccessByEmail } from "@/modules/client-portal/actions";
 

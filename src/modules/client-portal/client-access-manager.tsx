@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition, type FormEvent } from "react";
-import { CheckCircle2, RotateCcw, ShieldCheck, UserMinus, UserPlus } from "lucide-react";
+import { CheckCircle2, Mail, RotateCcw, ShieldCheck, UserMinus, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { setClientPortalAccessByEmail } from "./actions";
+import { inviteClientPortalUser, setClientPortalAccessByEmail } from "./actions";
 import type { ClientPortalAdminAccess } from "./types";
 
 type Props = {
@@ -74,6 +74,23 @@ export function ClientAccessManager({
     });
   }
 
+  function invite() {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return;
+    setError("");
+    setNotice("");
+    startTransition(async () => {
+      const result = await inviteClientPortalUser({ agencyId, clientId, email: normalized });
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      setNotice(result.status === "invited"
+        ? `Convite enviado para ${normalized}. Depois que a pessoa definir a senha pelo link do e-mail, clique em Liberar.`
+        : "Este e-mail já tem conta ou convite no iGrow Reports. Se a senha já foi definida, use Liberar; caso contrário, peça para a pessoa abrir o convite recebido.");
+    });
+  }
+
   function changeAccess(row: ClientPortalAdminAccess, active: boolean) {
     setError("");
     setNotice("");
@@ -105,7 +122,7 @@ export function ClientAccessManager({
       <div className="info-banner mb-0">
         <ShieldCheck size={18} />
         <p>
-          O acesso é individual e restrito a <strong>{clientName}</strong>. A conta informada precisa existir no iGrow Reports e estar com o e-mail confirmado.
+          O acesso é individual e restrito a <strong>{clientName}</strong>. A conta informada precisa existir no iGrow Reports e estar com o e-mail confirmado. Para quem ainda não tem conta, envie um convite e libere o acesso depois que a senha for definida.
         </p>
       </div>
 
@@ -150,7 +167,7 @@ export function ClientAccessManager({
         <label className="block text-sm font-medium" htmlFor={`portal-email-${clientId}`}>
           Liberar novo acesso
         </label>
-        <p className="muted mt-1 text-xs">Use exatamente o e-mail da conta autenticada do cliente.</p>
+        <p className="muted mt-1 text-xs">Use exatamente o e-mail da conta do cliente. Sem conta ainda? Clique em Convidar.</p>
         <div className="mt-3 flex gap-2">
           <input
             id={`portal-email-${clientId}`}
@@ -167,6 +184,10 @@ export function ClientAccessManager({
             <UserPlus size={15} />
             {pending ? "Salvando…" : "Liberar"}
           </Button>
+          <button type="button" className="button button-secondary" disabled={pending || archived || !email.trim()} onClick={invite}>
+            <Mail size={15} />
+            Convidar
+          </button>
         </div>
         {archived && <p className="mt-3 text-xs text-amber-400">Reative o cliente antes de conceder novos acessos.</p>}
       </form>

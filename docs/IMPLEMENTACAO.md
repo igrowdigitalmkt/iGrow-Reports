@@ -383,3 +383,11 @@ O responsável enviou capturas do Ads Manager (28/09–04/10/2026). Contas ofici
 - Usabilidade: a lista de entidades (25 por página) mostrava primeiro campanhas com R$ 0,00 e escondia as que gastaram. Agora ordena por valor usado decrescente (Decimal exato; sem valor ao fim, ordem original preservada). A entidade exibida por padrão passa a ser a de maior gasto. Colunas Campanha/Conjunto só aparecem nos níveis em que não repetem o próprio nome.
 - `pnpm check`: 75 arquivos, 624 testes aprovados.
 
+### 5/10/2026 — Convite de cliente para a Área do Cliente
+
+- Lacuna encontrada ao preparar a homologação de perfil cliente: "Acesso do cliente" só libera contas já existentes e confirmadas; não havia como a agência convidar um cliente sem conta. Tentativa de liberar silviorm12@gmail.com foi recusada sem efeito (conta inexistente).
+- `inviteClientPortalUser` (`src/modules/client-portal/actions.ts`): proprietário/administrador, agência da sessão, cliente ativo da agência; envia `auth.admin.inviteUserByEmail` pela chave de serviço e registra `audit_logs` (`client_portal.invited`). Conta ou convite existente (`email_exists`/`user_already_exists`) não gera novo envio. Erros do provedor não são expostos.
+- Fluxo em duas etapas, sem migração: (1) Convidar → e-mail do Supabase com link para `/auth/confirmar` (template documentado em `docs/PUBLICACAO.md`) → definir senha; (2) agência clica em Liberar, que continua exigindo e-mail confirmado no banco. Liberação automática após a confirmação exigiria tabela de convites pendentes (migração), não feita.
+- Botão "Convidar" ao lado de "Liberar" no diálogo de acesso.
+- Testes: `tests/client-portal-invite.test.ts` (5). `pnpm check`: 76 arquivos, 629 testes aprovados.
+
