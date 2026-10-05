@@ -443,7 +443,7 @@ Medições (1 cliente, 3 contas, 4 campanhas, ~400 dias, cache de 3,2 MB por per
 - Divisão (365 dias): montagem principal ~6,0 s; leitura do cache ~0,27 s; enriquecimento ~0,3 s. Cada soma diária custa 1–3 ms e roda uma vez por dia dos dois períodos.
 - Produção trava em 90 dias apesar de ~2,7 s locais: compute Nano (t4g.nano) é de CPU com créditos; as repetições a cada 30 s esgotaram os créditos.
 
-Migrações (NÃO aplicadas em produção):
+Migrações (aplicadas em produção em 5/10/2026 pelo responsável, SQL Editor, numa transação; conteúdo conferido no editor: SHA256 `028066e0…` e `2a19c606…`; verificação posterior confirmou as quatro funções atualizadas; dashboard de 30 dias do Colégio Crescer abriu normalmente em ~2 s):
 - `202610050002_analytics_values_single_pass.sql`: `analytics_values` com um agregado por grupo de indicadores (mesmo contrato).
 - `202610050003_analytics_canonical_once.sql`: expansão canônica uma vez por linha (`canonical_daily_row` idempotente; `client_analytics_base` e `campaign_analytics_base` reescritas por substituição com verificação de versão — falham sem aplicar se o texto não corresponder).
 
@@ -451,4 +451,3 @@ Código (publicado):
 - Cache de agregados sem a cópia de `values` em `entityCatalog` (não lida por ninguém; reduz cada registro ~pela metade) e remoção, a cada gravação, dos registros do cliente com mais de 2 horas (só são servidos por 1 hora).
 
 Espaço em produção (5/10, consulta leve): banco 103 MB de 500 MB; `meta_daily_actions` 39 MB (99 mil linhas); `meta_dashboard_scopes` 28 MB (13 linhas); `meta_daily_insights` 20 MB (10,8 mil linhas). Espaço é o limite que chega primeiro no plano gratuito. Próximo candidato: ações diárias duplicam valores já presentes em `metadata.canonical_values` (v11) e cada linha carrega ~4,5 KB de metadados.
-
