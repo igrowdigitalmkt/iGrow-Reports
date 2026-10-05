@@ -49,14 +49,16 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
   if (!data.selectedAccountIds.length) return { confirmed: false as const };
   const scopeKey = createHash("md5").update([...data.selectedAccountIds].sort().join(",") + "|" + [...keys].sort().join(",")).digest("hex");
   const { service, apiVersion } = operationalDependencies();
-  const { data: cached, error: cacheError } = await service.from("meta_dashboard_scopes").select("collected_at,payload")
+  // Read only what the validity check needs; the payload itself can take megabytes.
+  const { data: cached, error: cacheError } = await service.from("meta_dashboard_scopes")
+    .select("collected_at,version:payload->version,actionTypes:payload->actionTypes")
     .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("scope_key", scopeKey)
     .eq("date_from", data.dateFrom).eq("date_to", data.dateTo).maybeSingle();
   if (cacheError) throw new MetaSetupError("Não foi possível validar os agregados da Meta.");
   if (cached && Date.now() >= Date.parse(cached.collected_at) && Date.now() - Date.parse(cached.collected_at) < META_ANALYTICS_MAX_AGE_MS
-    && cached.payload && typeof cached.payload === "object" && !Array.isArray(cached.payload) && cached.payload.version === META_ANALYTICS_VERSION
+    && cached.version === META_ANALYTICS_VERSION
     && Date.parse(data.coverage.latestCollectedAt ?? "1970-01-01") <= Date.parse(cached.collected_at)) {
-    const actionTypes = Array.isArray(cached.payload.actionTypes) ? cached.payload.actionTypes.filter((value): value is string => typeof value === "string") : [];
+    const actionTypes = Array.isArray(cached.actionTypes) ? cached.actionTypes.filter((value): value is string => typeof value === "string") : [];
     return { confirmed: true as const, cached: true as const, version: META_ANALYTICS_VERSION, collectedAt: cached.collected_at, actionTypes };
   }
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
