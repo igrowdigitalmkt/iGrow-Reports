@@ -391,3 +391,16 @@ O responsável enviou capturas do Ads Manager (28/09–04/10/2026). Contas ofici
 - Botão "Convidar" ao lado de "Liberar" no diálogo de acesso.
 - Testes: `tests/client-portal-invite.test.ts` (5). `pnpm check`: 76 arquivos, 629 testes aprovados.
 
+### 5/10/2026 — Convite como liberação (migração `202610050001`)
+
+Retorno do responsável após o primeiro convite real (silviorm12@gmail.com): e-mail padrão do Supabase em inglês; o link levava à tela de login; o botão "Liberar" era desnecessário. Mudanças:
+
+- Migração `supabase/migrations/202610050001_client_portal_invitations.sql` (SHA256 `7507e116a388ca9b15de099eb3129b188ae1d0a9cffabab71480dff9d12b51bf`): tabela `client_portal_invitations` (sem acesso direto; RLS ativo) e RPCs `invite_client_portal_user`, `accept_client_portal_invitations`, `revoke_client_portal_invitation`, `list_client_portal_invitations`. Convite pendente por 7 dias, um por e-mail/cliente, reenvio substitui, auditoria em `audit_logs`. O aceite só ocorre para conta com e-mail confirmado igual ao convidado; cria ou reativa `client_users`. 24 verificações pgTAP em `supabase/tests/client-portal-invitations.test.sql`.
+- **Migração ainda não aplicada no Supabase de produção.** Até ser aplicada, "Convidar" mostra que a atualização do banco precisa ser aplicada; o resto do site não depende dela (a listagem trata a ausência).
+- `inviteClientPortalUser`: registra o convite e envia convite de conta (sem conta confirmada) ou link de acesso (`signInWithOtp`, sem criar usuário) para conta existente ou já convidada; se o e-mail falhar, o convite é cancelado. Botão "Liberar" removido; lista mostra convites pendentes com "Cancelar"; "Revogar/Reativar" de acessos existentes mantidos.
+- Aceite automático: login por senha, definição de senha, `/auth/confirmar` (tipos `invite`, `recovery`, `magiclink`, `email`) e página `/sem-acesso`.
+- Link do modelo padrão do Supabase: `LinkSessionHandler` em `/entrar` lê `#access_token`/`#refresh_token`, limpa o endereço e chama `establishLinkSessionAction`, que valida com `setSession` no servidor, aceita convites e leva convites/recuperação a "Defina sua senha".
+- Corrigido: usuário somente cliente que entrava pelo login caía em "Falta vincular seu espaço de trabalho"; `/sem-acesso` agora envia quem tem acesso de cliente para `/cliente`.
+- Modelos de e-mail em português: `docs/EMAIL_TEMPLATES.md` (aplicação no painel do Supabase pendente). SMTP padrão do Supabase tem limite baixo de envios; recomendado SMTP próprio.
+- Testes: `tests/client-portal-invite.test.ts` (8), `tests/auth-link-session.test.ts` (3). `pnpm check`: 77 arquivos, 635 testes, test:db (inclui os 24 novos), test:rollout e build aprovados.
+

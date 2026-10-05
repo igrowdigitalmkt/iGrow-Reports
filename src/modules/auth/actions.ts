@@ -9,6 +9,8 @@ import { AGENCY_COOKIE, requireUserSession } from "@/modules/agencies/context";
 import { invitationTokenSchema, loginSchema, passwordSchema } from "./schemas";
 import { safeRedirect } from "./redirect";
 import type { AuthActionState } from "./types";
+import { acceptPendingClientInvitations } from "@/modules/client-portal/invitations";
+import { z } from "zod";
 
 export async function loginAction(_state: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const parsed = loginSchema.safeParse({ email: formData.get("email"), password: formData.get("password") });
@@ -18,6 +20,7 @@ export async function loginAction(_state: AuthActionState, formData: FormData): 
 
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: "Não foi possível entrar. Confira seu e-mail e senha ou tente novamente em instantes." };
+  await acceptPendingClientInvitations(supabase);
   (await cookies()).delete(AGENCY_COOKIE);
   revalidatePath("/", "layout");
   redirect(safeRedirect(formData.get("next")));
@@ -44,8 +47,30 @@ export async function setPasswordAction(_state: AuthActionState, formData: FormD
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return { error: "Não foi possível salvar a senha. Tente novamente ou solicite um novo convite." };
+  await acceptPendingClientInvitations(supabase);
   revalidatePath("/", "layout");
   redirect("/dashboard");
+}
+
+const linkSessionSchema = z.object({
+  accessToken: z.string().min(20).max(4096),
+  refreshToken: z.string().min(8).max(1024),
+  type: z.enum(["invite","recovery","magiclink","signup","email"]).nullable(),
+});
+
+// Email links from Supabase's default templates return the session in the URL
+// fragment, which the server never receives. The browser hands it over once;
+// the session is validated by Supabase before any cookie is written.
+export async function establishLinkSessionAction(input: unknown): Promise<{ error: string } | { redirectTo: string }> {
+  const parsed = linkSessionSchema.safeParse(input);
+  if (!parsed.success) return { error: "Este link não é válido ou expirou. Solicite um novo convite ao responsável." };
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { error: "Não configurado. Peça ao responsável para configurar a autenticação." };
+  const { error } = await supabase.auth.setSession({ access_token: parsed.data.accessToken, refresh_token: parsed.data.refreshToken });
+  if (error) return { error: "Este link não é válido ou expirou. Solicite um novo convite ao responsável." };
+  await acceptPendingClientInvitations(supabase);
+  (await cookies()).delete(AGENCY_COOKIE);
+  return { redirectTo: parsed.data.type === "invite" || parsed.data.type === "recovery" ? "/auth/definir-senha" : "/dashboard" };
 }
 
 export async function acceptInvitationAction(_state: AuthActionState, formData: FormData): Promise<AuthActionState> {

@@ -4,7 +4,7 @@ import { canManageAgency, roleLabels } from "@/modules/agencies/roles";
 import { DashboardWorkspace } from "@/modules/operations/dashboard-workspace";
 import type { ClientItem } from "@/modules/clients/schema";
 import { getAgencyClientPortalAccesses } from "@/modules/client-portal/admin";
-import type { ClientPortalAdminAccess } from "@/modules/client-portal/types";
+import type { ClientPortalAdminAccess, ClientPortalPendingInvitation } from "@/modules/client-portal/types";
 import { getMetaAdminSnapshot } from "@/modules/meta/admin";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
@@ -30,6 +30,7 @@ export default async function DashboardPage({
   if (error) throw new Error("Não foi possível consultar os clientes deste espaço de trabalho.");
   const clients: ClientItem[] = [];
   let portalAccesses: ClientPortalAdminAccess[] = [];
+  let portalInvitations: ClientPortalPendingInvitation[] = [];
   let clientPortalAdminReady = false;
   let metaSnapshot: MetaAdminSnapshot | undefined;
   let reportsSnapshot: ReportsAdminSnapshot | undefined;
@@ -45,6 +46,7 @@ export default async function DashboardPage({
     if (key === "clientes" && canManageClientAccess) {
       const portalAdmin = await getAgencyClientPortalAccesses(context.supabase, context.agency.id);
       portalAccesses = portalAdmin.accesses;
+      portalInvitations = portalAdmin.invitations;
       clientPortalAdminReady = portalAdmin.ready;
     }
   }
@@ -56,5 +58,5 @@ export default async function DashboardPage({
   }
   // A referência é capturada no servidor por requisição e enviada como valor estável ao cliente.
   // eslint-disable-next-line react-hooks/purity
-  return <DashboardWorkspace referenceTime={Date.now()} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
+  return <DashboardWorkspace referenceTime={Date.now()} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} portalInvitations={portalInvitations} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
 }

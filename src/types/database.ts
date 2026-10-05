@@ -253,6 +253,22 @@ export type Database = {
         Args: { p_agency_id: string; p_client_id: string; p_email: string; p_active: boolean };
         Returns: string;
       };
+      invite_client_portal_user: {
+        Args: { p_agency_id: string; p_client_id: string; p_email: string };
+        Returns: { invitation_id: string | null; existing_account: boolean; already_active: boolean }[];
+      };
+      accept_client_portal_invitations: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      revoke_client_portal_invitation: {
+        Args: { p_agency_id: string; p_invitation_id: string };
+        Returns: undefined;
+      };
+      list_client_portal_invitations: {
+        Args: { p_agency_id: string };
+        Returns: { id: string; client_id: string; email: string; created_at: string; expires_at: string }[];
+      };
       upsert_integration_secret: {
         Args: {
           p_agency_id: string; p_integration_id: string; p_secret_kind: string; p_key_id: string;

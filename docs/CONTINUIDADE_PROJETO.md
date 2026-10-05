@@ -155,6 +155,7 @@ Estado em 5/10/2026 (fim da sessão Claude Code desktop): coleta imediata, anál
 2b. (Feito, exceto modo comparação) Resultados derivados das campanhas nas exportações do nível de conta.
 3. Comparação de períodos homologada em produção (5/10/2026). Falta: baixar CSV/JSON/PDF reais, acesso de perfis cliente/leitor, conferir período anterior no Ads Manager, investigar erro intermitente se reaparecer.
 4. Decidir a troca da fonte do dashboard principal para snapshots (C.3), agora que a coleta funciona sem agendador.
+4b. **Aplicar a migração `202610050001_client_portal_invitations.sql` no SQL Editor (somente ela; não reaplicar as anteriores)** e os modelos de `docs/EMAIL_TEMPLATES.md` no painel do Supabase; depois homologar convite real (silviorm12@gmail.com) e a visão de cliente.
 5. Restante da V1 sem implementação: aprovação de relatórios, link público com revogação, comentário do gestor, agendamento de geração/entrega e WhatsApp (webhook/outbox). Exigem novas migrations aplicadas pelo responsável.
 
 ## 11. Alternância entre Codex e Claude

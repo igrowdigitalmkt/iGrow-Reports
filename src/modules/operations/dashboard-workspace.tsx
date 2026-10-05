@@ -14,7 +14,7 @@ import { demoClients, getDemoSnapshot } from "./demo-data";
 import { deliveryRate, emptySnapshot, type DashboardPeriod, type DashboardSnapshot, type ReportRow } from "./dashboard-data";
 import { ClientManager } from "@/modules/clients/client-manager";
 import type { ClientItem } from "@/modules/clients/schema";
-import type { ClientPortalAdminAccess } from "@/modules/client-portal/types";
+import type { ClientPortalAdminAccess, ClientPortalPendingInvitation } from "@/modules/client-portal/types";
 import { MetaIntegrationManager } from "@/modules/meta/integration-manager";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import { ReportManager } from "@/modules/reports/report-manager";
@@ -23,11 +23,11 @@ import { logoutAction } from "@/modules/auth/actions";
 
 const ActivityChart = dynamic(() => import("@/components/charts/activity-chart"), { ssr: false, loading: () => <div className="activity-chart skeleton" aria-label="Carregando gráfico" /> });
 
-interface Props { referenceTime?: number; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
+interface Props { referenceTime?: number; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const number = (value: number | null) => value === null ? "—" : value.toLocaleString("pt-BR");
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ referenceTime = 0, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], metaSnapshot, reportsSnapshot }: Props) {
+export function DashboardWorkspace({ referenceTime = 0, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
   const [period, setPeriod] = useState<DashboardPeriod>("30d");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("Todos os estados");
@@ -62,7 +62,7 @@ export function DashboardWorkspace({ referenceTime = 0, demo, section, identity,
 
       {section === "relatorios" && (demo ? <><div className="section-toolbar"><div className="flex items-center gap-2 muted text-sm"><Filter size={16} /><label className="sr-only" htmlFor="report-status">Filtrar relatórios por estado</label><select id="report-status" className="input compact-select" value={status} onChange={e => setStatus(e.target.value)}><option>Todos os estados</option><option>Entregue</option><option>Aguardando aprovação</option><option>Processando</option></select></div><span className="text-xs muted">Prévia com dados fictícios</span></div><ReportsTable rows={matchingReports} total={data.reports.length} demo={demo} base={base} onSelect={setSelectedReport} expanded /></> : agencyId && reportsSnapshot ? <ReportManager agencyId={agencyId} clients={clients ?? []} snapshot={reportsSnapshot} canEdit={canManageClientAccess} /> : null)}
 
-      {section === "clientes" && <ClientManager demo={demo} initialClients={clients} agencyId={agencyId} canEdit={canEditClients} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} metaSnapshot={metaSnapshot} search={search} />}
+      {section === "clientes" && <ClientManager demo={demo} initialClients={clients} agencyId={agencyId} canEdit={canEditClients} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} portalInvitations={portalInvitations} metaSnapshot={metaSnapshot} search={search} />}
 
       {section === "integracoes" && <>
         <div className="info-banner"><ShieldCheck size={19} /><p>Credenciais externas são processadas somente no servidor. Proprietários e administradores gerenciam segredos; editores podem configurar clientes e atualizar dados quando a integração estiver pronta.</p></div>
