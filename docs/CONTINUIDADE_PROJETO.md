@@ -153,7 +153,7 @@ Estado em 5/10/2026 (fim da sessão Claude Code desktop): coleta imediata, anál
 1. (Feito) Conferência com o Ads Manager: valores idênticos após atualização, exceto alcance da Escola Crescer (−3). Ver IMPLEMENTACAO.
 2. (Feito) "Atualizar série" na evolução diária.
 2b. (Feito, exceto modo comparação) Resultados derivados das campanhas nas exportações do nível de conta.
-3. Homologar exportações, comparação de períodos e acesso de perfis cliente/leitor em produção.
+3. Comparação de períodos homologada em produção (5/10/2026). Falta: baixar CSV/JSON/PDF reais, acesso de perfis cliente/leitor, conferir período anterior no Ads Manager, investigar erro intermitente se reaparecer.
 4. Decidir a troca da fonte do dashboard principal para snapshots (C.3), agora que a coleta funciona sem agendador.
 5. Restante da V1 sem implementação: aprovação de relatórios, link público com revogação, comentário do gestor, agendamento de geração/entrega e WhatsApp (webhook/outbox). Exigem novas migrations aplicadas pelo responsável.
 

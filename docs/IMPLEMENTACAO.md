@@ -368,3 +368,11 @@ O responsável enviou capturas do Ads Manager (28/09–04/10/2026). Contas ofici
 - Não incluído: exportações em modo comparação (CSV/JSON/PDF comparativos continuam só com valores armazenados).
 - Testes: `tests/snapshot-derived-export.test.ts` (3). `pnpm check`: 75 arquivos, 623 testes aprovados.
 
+### 5/10/2026 — Homologação da comparação de períodos (produção)
+
+- Colégio Crescer, 28/09–04/10/2026 contra 21/09–27/09/2026: "Solicitar dados do período anterior" criou 12 jobs, todos confirmados pela coleta imediata; análise e comparação liberadas juntas.
+- Escola Crescer: valor usado R$ 56,40 contra R$ 2.804,08 (−97,99%), impressões 7.814 contra 368.175, alcance 7.230 contra 160.708, CPM R$ 7,22 contra R$ 7,62 (−5,23%). Colégio Crescer: período anterior com valor usado R$ 0,00 e demais indicadores indisponíveis (sem veiculação); percentual omitido por base zero, como especificado. Números do período anterior ainda não conferidos no Ads Manager.
+- Resultados derivados das campanhas não são comparados (card sem "Anterior"); possível melhoria futura.
+- Ocorrência intermitente: uma abertura da URL com `compare=previous` logo após o deploy `8f53ca1` caiu no `error.tsx` (erro de Server Component, React #441 no cliente, mensagem oculta em produção). A mesma URL abriu normalmente minutos depois e não se repetiu. Causa não identificada; sem acesso aos logs da Vercel nesta sessão. Se reaparecer, consultar os logs da função pela digest do erro.
+- Exportações em produção não baixadas nesta rodada (download exige aprovação do responsável); cobertas por testes unitários com a mesma estrutura de dados.
+
