@@ -905,9 +905,8 @@ export function ClientAnalyticsDashboard({
             {pending ? "Aplicando…" : "Aplicar seleção"}
           </button>
         </div>
-        {hierarchyLoading && <div className="analytics-notice" role="status">
-          <RefreshCw size={17} className="analytics-spin" /><p>Carregando conjuntos e anúncios deste período. As campanhas já estão disponíveis.</p>
-        </div>}
+        {/* Ad sets and ads load in the background; announce only to assistive technology. */}
+        <p className="sr-only" role="status">{hierarchyLoading ? "Carregando conjuntos e anúncios deste período." : ""}</p>
         {hierarchyError && <div className="analytics-notice analytics-notice-error" role="alert"><Info size={17} /><p>{hierarchyError}</p></div>}
         <article className="analytics-card analytics-campaign-card">
           <div className="analytics-card-heading"><div><span className="analytics-card-kicker">META ADS · HIERARQUIA</span>

@@ -413,3 +413,10 @@ Retorno do responsável após o primeiro convite real (silviorm12@gmail.com): e-
 - `pnpm check`: 78 arquivos, 639 testes, test:db, test:rollout e build aprovados.
 - Senha mínima reduzida de 12 para 8 caracteres a pedido do responsável (`passwordSchema`, formulário e `docs/INTEGRACOES.md`). Supabase Auth do projeto exige mínimo 6 (`PASSWORD_MIN_LENGTH=6`, conferido no painel sem alteração), então o limite efetivo é o do site.
 
+### 5/10/2026 — Dashboard principal: veiculação e aviso de carregamento
+
+- Relato do responsável: "PROCESSO SELETIVO" e "PROCESSO SELETIVO 2" (conta Escola Crescer) apareciam como em veiculação, mas a conta parou de veicular por falha de pagamento. Confirmado: `meta_ad_accounts.account_status = 3` (UNSETTLED) para Escola Crescer; o Meta mantém `effective_status = ACTIVE` nas campanhas nesse caso.
+- `metaAccountDelivers` em `src/modules/meta/delivery.ts`: somente 1 (ACTIVE) e 9 (IN_GRACE_PERIOD) veiculam; outros status marcam campanhas, conjuntos e anúncios como INACTIVE. `getMetaEntityStatuses` lê o status da conta ao vivo (`getAdAccount`) e usa o último sincronizado se a leitura falhar; status desconhecido não bloqueia.
+- Removido o aviso visível "Carregando conjuntos e anúncios deste período…" na aba de campanhas; mantido anúncio apenas para leitores de tela.
+- Teste novo em `tests/meta-delivery.test.ts`. `pnpm check`: 78 arquivos, 640 testes aprovados.
+

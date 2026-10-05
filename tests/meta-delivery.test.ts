@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { liveDeliveryStatuses } from "@/modules/meta/delivery";
+import { liveDeliveryStatuses, metaAccountDelivers } from "@/modules/meta/delivery";
 import type { MetaAd, MetaAdSet, MetaCampaign } from "@/modules/meta/client";
 import { entityDeliveryActive, entityDeliveryLabel } from "@/modules/client-portal/analytics-hierarchy";
 
@@ -10,6 +10,15 @@ const ad = { id: "3", name: "Ad", campaign_id: "1", adset_id: "2", effective_sta
 const status = (campaigns: MetaCampaign[] = [campaign], sets: MetaAdSet[] = [set], ads: MetaAd[] = [ad]) => liveDeliveryStatuses(campaigns, sets, ads, now);
 
 describe("live Meta delivery", () => {
+  it("stops every entity when the ad account cannot deliver, such as after a failed payment", () => {
+    for (const accountStatus of [3, "3", 2, 101]) {
+      expect(Object.values(liveDeliveryStatuses([campaign], [set], [ad], now, accountStatus))).toEqual(["INACTIVE", "INACTIVE", "INACTIVE"]);
+    }
+    expect(liveDeliveryStatuses([campaign], [set], [ad], now, 1)["campaign:1"]).toBe("ACTIVE");
+    expect(liveDeliveryStatuses([campaign], [set], [ad], now, 9)["campaign:1"]).toBe("ACTIVE");
+    expect(liveDeliveryStatuses([campaign], [set], [ad], now, null)["campaign:1"]).toBe("ACTIVE");
+    expect(metaAccountDelivers("1")).toBe(true);
+  });
   it("requires current ACTIVE campaign, scheduled set and active ad", () => {
     expect(status()).toEqual({ "campaign:1": "ACTIVE", "adset:2": "ACTIVE", "ad:3": "ACTIVE" });
   });

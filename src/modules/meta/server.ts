@@ -194,7 +194,7 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
     const { data: links, error: linkError } = await service.from("client_ad_accounts").select("ad_account_id")
       .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("active", true).in("ad_account_id", input.accountIds);
     if (linkError || links?.length !== input.accountIds.length) return statuses;
-    const { data: accounts, error } = await service.from("meta_ad_accounts").select("id,external_id,timezone_name")
+    const { data: accounts, error } = await service.from("meta_ad_accounts").select("id,external_id,timezone_name,account_status")
       .eq("agency_id", input.agencyId).eq("meta_connection_id", connection.id).in("id", input.accountIds).is("archived_at", null);
     if (error || !accounts) return statuses;
     const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
@@ -202,9 +202,13 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
     await Promise.allSettled(accounts.map(async account => {
       // Account edges establish ownership and paginate the entire live catalog.
       // Never reuse captured statuses, partial pages, or exact objects from another account.
-      const [campaignsResult, adsetsResult, adsResult] = await Promise.allSettled([
+      const [campaignsResult, adsetsResult, adsResult, accountResult] = await Promise.allSettled([
         client.listCampaigns(account.external_id), client.listAdSets(account.external_id), client.listAds(account.external_id),
+        client.getAdAccount(account.external_id),
       ]);
+      // Live account status first; the last synced status covers a failed read.
+      const accountStatus = accountResult.status === "fulfilled" && accountResult.value.account_status !== undefined
+        ? accountResult.value.account_status : account.account_status;
       const campaigns = campaignsResult.status === "fulfilled" ? campaignsResult.value : [];
       const adsets = adsetsResult.status === "fulfilled" ? adsetsResult.value : [];
       const ads = adsResult.status === "fulfilled" ? adsResult.value : [];
@@ -217,7 +221,7 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
           if (url.protocol === "https:" && (url.hostname.endsWith(".fbcdn.net") || url.hostname.endsWith(".facebook.com"))) thumbnails[`${account.id}:ad:${ad.id}`] = url.href;
         } catch { /* Missing or invalid creative images do not block analytics. */ }
       }
-      const live = liveDeliveryStatuses(campaigns, adsets, ads);
+      const live = liveDeliveryStatuses(campaigns, adsets, ads, Date.now(), accountStatus);
       for (const [key, status] of Object.entries(live)) statuses[`${account.id}:${key}`] = status;
     }));
   } catch { /* A Meta outage must not mislabel entities or block historical analytics. */ }
