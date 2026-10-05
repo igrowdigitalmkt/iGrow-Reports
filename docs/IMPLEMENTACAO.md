@@ -356,4 +356,5 @@ O responsável enviou capturas do Ads Manager (28/09–04/10/2026). Contas ofici
 - `requestSeriesData` aceita `refresh`; identidades vêm sempre do catálogo autenticado.
 - Botões da série ganharam estilo do tema (antes usavam o padrão do navegador).
 - Testes: `tests/snapshot-series-actions.test.ts` (3) e 1 em `snapshot-series-loader.test.ts`. `pnpm check`: 74 arquivos, 620 testes aprovados.
+- Homologado em produção (`fd6cb90`): "Atualizar série" no Colégio Crescer reenfileirou os 7 dias e confirmou todos; 04/10 passou de R$ 120,12 para R$ 120,13 e a soma diária ficou R$ 544,12, igual ao agregado do período e ao Ads Manager.
 
