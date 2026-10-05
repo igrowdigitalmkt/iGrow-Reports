@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserMemberships, requireUserSession } from "@/modules/agencies/context";
 import type { Database } from "@/types/database";
+import { needsPasswordSetup } from "@/modules/auth/password-state";
 
 export type ClientPortalAccess = {
   agencyId: string;
@@ -37,6 +38,7 @@ export async function getClientPortalAccesses(
 
 export async function requireClientPortalAccess(clientId: string) {
   const { supabase, user } = await requireUserSession(`/cliente/${clientId}`);
+  if (needsPasswordSetup(user)) redirect("/auth/definir-senha");
   const accesses = await getClientPortalAccesses(supabase);
   const selected = accesses.find(({ client }) => client.id === clientId);
   if (!selected) redirect("/cliente?estado=sem-acesso");
@@ -46,6 +48,7 @@ export async function requireClientPortalAccess(clientId: string) {
 // Agency memberships and client grants are re-read under the authenticated user's RLS.
 export async function requireClientDashboardAccess(clientId: string) {
   const { supabase, user } = await requireUserSession(`/cliente/${clientId}`);
+  if (needsPasswordSetup(user)) redirect("/auth/definir-senha");
   const { data: client } = await supabase.from("clients")
     .select("id,agency_id,name,logo_path,archived_at").eq("id", clientId).maybeSingle();
   if (client) {

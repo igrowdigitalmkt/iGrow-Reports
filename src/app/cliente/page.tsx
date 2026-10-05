@@ -3,6 +3,7 @@ import { ArrowRight, Building2, CircleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { requireUserSession } from "@/modules/agencies/context";
+import { needsPasswordSetup } from "@/modules/auth/password-state";
 import { getClientPortalAccesses } from "@/modules/client-portal/context";
 import { ClientPortalShell } from "@/modules/client-portal/portal-shell";
 
@@ -19,6 +20,8 @@ export default async function ClientPortalPage({
 }) {
   const params = await searchParams;
   const { supabase, user } = await requireUserSession("/cliente");
+  // Invited accounts that signed in by email link still need a password.
+  if (needsPasswordSetup(user)) redirect("/auth/definir-senha");
   const accesses = await getClientPortalAccesses(supabase);
 
   if (accesses.length === 1 && params.estado !== "sem-acesso") {

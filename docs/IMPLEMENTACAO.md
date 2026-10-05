@@ -404,3 +404,11 @@ Retorno do responsável após o primeiro convite real (silviorm12@gmail.com): e-
 - Modelos de e-mail em português: `docs/EMAIL_TEMPLATES.md` (aplicação no painel do Supabase pendente). SMTP padrão do Supabase tem limite baixo de envios; recomendado SMTP próprio.
 - Testes: `tests/client-portal-invite.test.ts` (8), `tests/auth-link-session.test.ts` (3). `pnpm check`: 77 arquivos, 635 testes, test:db (inclui os 24 novos), test:rollout e build aprovados.
 
+### 5/10/2026 — Homologação do convite em produção e senha obrigatória
+
+- Migração `202610050001` aplicada no SQL Editor de produção pelo responsável (conteúdo conferido no editor: SHA256 `7507e116…` igual ao arquivo). Verificação: tabela existe; as quatro RPCs existem e negam a chave de serviço (42501), como projetado.
+- Modelos de e-mail: o painel do Supabase só permite editar modelos com SMTP próprio configurado ("Set up custom SMTP to edit templates"). Sem SMTP, os e-mails seguem no modelo padrão em inglês; o site trata o link do modelo padrão. `docs/EMAIL_TEMPLATES.md` fica pronto para quando houver SMTP.
+- Homologado: convite para silviorm12@gmail.com (conta já criada pelo primeiro convite) enviou link de acesso; ao abrir, o responsável entrou na Área do Cliente; convite aceito às 16:33 UTC, vínculo ativo com `created_by` da agência, auditoria `client_portal.invited` e `client_user.granted`.
+- Problema encontrado: a conta entrou sem nunca ter criado senha. Correção: `password-state.ts` marca `app_metadata.password_set` ao definir a senha (chave de serviço); contas com `invited_at` sem a marca são enviadas a "Defina sua senha" ao entrar por link e ao abrir `/cliente`. Conferido em produção que só a conta convidada tem `invited_at` (agência e cliente existente não são afetados). Título da página de senha: "Seu acesso".
+- `pnpm check`: 78 arquivos, 639 testes, test:db, test:rollout e build aprovados.
+

@@ -53,7 +53,8 @@ Em paralelo, foi implementado um novo fluxo persistido por snapshots. Atenção:
 - PDF A4 das entidades atuais, com valores anteriores, estado, IDs, versões e data original. Indica quantidade de entidades exclusivas do anterior, disponíveis integralmente no CSV/JSON. Paginação, fontes locais licenciadas, cabeçalhos/rodapés, nomes extensos, progresso e cancelamento. Emojis/caracteres sem glifo bloqueiam PDF com orientação para CSV/JSON, sem perda silenciosa de texto. Serialização final ainda síncrona.
 - Troca de filtros com transição própria: números/tabelas/exportações anteriores ficam ocultos enquanto a nova seleção carrega. Datas inválidas recebem mensagem antes de navegar. Consultas automáticas pausam durante navegação, exportação e outra consulta. Formulário mantém GET nativo sem JavaScript.
 - Série diária: `snapshot-series-loader.ts`, `snapshot-series-chart.tsx`, `snapshot-series-panel.tsx`, `snapshot-series-section.tsx`, `snapshot-series-actions.ts`, `snapshot-series.css` e 8 testes implementados em `5e601f1`, com correções em `187f10d` (5/10/2026). `pnpm check` local aprovado em 5/10/2026: 71 arquivos de teste, 597 testes, test:db, test:rollout e build. Pendente: homologação com sessão e dados reais.
-- Última verificação confirmada: **589 testes de aplicação**, lint, TypeScript, build, duas execuções de **497 verificações SQL/RLS** em PGlite aprovados (antes da adição das séries). `pnpm check` com os 8 novos testes pendente de execução local.
+- Migrações aplicadas após o pacote de snapshots: `202610050001_client_portal_invitations.sql` (5/10/2026, SQL Editor, pelo responsável).
+- Última verificação confirmada (histórica): **589 testes de aplicação**, lint, TypeScript, build, duas execuções de **497 verificações SQL/RLS** em PGlite aprovados (antes da adição das séries). `pnpm check` com os 8 novos testes pendente de execução local.
 
 ## 5. Banco real: o que já foi aplicado
 
@@ -155,7 +156,7 @@ Estado em 5/10/2026 (fim da sessão Claude Code desktop): coleta imediata, anál
 2b. (Feito, exceto modo comparação) Resultados derivados das campanhas nas exportações do nível de conta.
 3. Comparação de períodos homologada em produção (5/10/2026). Falta: baixar CSV/JSON/PDF reais, acesso de perfis cliente/leitor, conferir período anterior no Ads Manager, investigar erro intermitente se reaparecer.
 4. Decidir a troca da fonte do dashboard principal para snapshots (C.3), agora que a coleta funciona sem agendador.
-4b. **Aplicar a migração `202610050001_client_portal_invitations.sql` no SQL Editor (somente ela; não reaplicar as anteriores)** e os modelos de `docs/EMAIL_TEMPLATES.md` no painel do Supabase; depois homologar convite real (silviorm12@gmail.com) e a visão de cliente.
+4b. (Feito) Migração `202610050001` aplicada em produção em 5/10/2026 e convite homologado. Pendente: SMTP próprio (necessário para editar modelos de e-mail e para limite de envio) e homologar a visão de cliente (dados restritos, sem coleta).
 5. Restante da V1 sem implementação: aprovação de relatórios, link público com revogação, comentário do gestor, agendamento de geração/entrega e WhatsApp (webhook/outbox). Exigem novas migrations aplicadas pelo responsável.
 
 ## 11. Alternância entre Codex e Claude
