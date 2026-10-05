@@ -14,6 +14,8 @@ it("renders loading guidance without any partial indicator cards",() => {
   expect(html).toContain("Aguardando a análise completa");
   expect(html).not.toContain('class="snapshot-card"');
   expect(html).not.toContain("Indisponível");
+  expect(html).not.toContain("Exportar CSV");
+  expect(html).not.toContain("Exportar JSON");
 });
 it("exposes collection requests only to authorized operators",() => {
   expect(renderToStaticMarkup(createElement(SnapshotDashboard,{ data,clientId: "c",canCollect: false }))).not.toContain("Solicitar dados faltantes");
@@ -34,6 +36,8 @@ it("renders confirmed indicators together with the account and collection time",
   const html = renderToStaticMarkup(createElement(SnapshotDashboard,{ data: ready,clientId: "c" }));
   expect(html).toContain("Análise confirmada"); expect(html).toContain("123.456.789.012.345.678,12");
   expect(html).toContain("Valor usado"); expect(html).not.toContain("Aguardando a análise completa");
+  expect(html).toContain("Exportar CSV do nível");
+  expect(html).toContain("Exportar JSON do nível");
 });
 it("formats exact large decimals without converting to Number",() => {
   expect(formatSnapshotDecimal("123456789012345678.12345678","currency","BRL")).toBe("R$ 123.456.789.012.345.678,12");

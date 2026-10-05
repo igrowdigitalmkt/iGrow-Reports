@@ -1,5 +1,13 @@
 # Operação da fundação
 
+## Exportação da análise confirmada
+
+Na rota de snapshots, CSV e JSON exportam todas as entidades da conta e do nível exibidos, mesmo quando a busca ou a paginação mostram apenas parte da lista. O arquivo não soma contas, moedas ou níveis. Os controles aparecem somente após liberação da análise inteira e podem exportar snapshots antigos sinalizados como `stale`; conservam o horário da coleta original.
+
+O CSV usa UTF-8 com BOM, separador `;`, células entre aspas e linhas CRLF. Cada indicador ocupa uma linha com valor decimal original, unidade, disponibilidade, regra de agregação, hierarquia, período e identificação do snapshot. Uma linha `escopo` registra a proveniência inclusive em coleções vazias, sem criar zero fictício. Textos com prefixos de fórmula recebem apóstrofo para impedir execução automática por planilhas. Ao importar, definir a coluna `valor_exato` como texto para evitar arredondamento automático da planilha.
+
+O JSON possui `formatVersion: 1`, situação da análise, identidade do escopo, snapshot, horário e entidades completas. Mantém valores decimais como strings, ausentes como `null` e textos sem a transformação de proteção própria do CSV. Os arquivos são preparados localmente com os dados já autorizados da página; a exportação não consulta a Meta nem inicia coleta. PDF, séries diárias e comparações ainda não integram esse fluxo.
+
 ## Conciliação e reparação da análise
 
 Todos os níveis devem conciliar gasto com a conta, e cada campanha/conjunto deve conciliar com seus filhos diretos. A tolerância é o máximo entre `0.005` e `abs(gasto do pai) * 1e-10`, com precisão decimal. Filhos vazios só conciliam com gasto zero dentro dessa tolerância. Gasto desconhecido ou inválido bloqueia a análise inteira, inclusive quando outro nível possui total correto. A leitura ainda não garante uma geração transacional comum aos quatro snapshots.

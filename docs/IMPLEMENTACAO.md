@@ -1,5 +1,13 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — exportação dos snapshots confirmados
+
+A análise por snapshots permite exportar CSV e JSON de todas as entidades da conta e do nível selecionados. Busca e paginação não recortam o relatório. Não há soma entre contas, moedas ou níveis. Análise pendente, escopo ausente/duplicado ou provedor incompatível bloqueiam a exportação; dados antigos confirmados conservam `stale` e seu horário original.
+
+O CSV conserva decimais originais e estados zero/ausente/erro, além de unidade, regra de agregação, hierarquia, período, versão e ID do snapshot. Usa BOM UTF-8, separador ponto e vírgula, escape de aspas e proteção de prefixos de fórmula em textos. Uma linha de escopo permite documentar coleções vazias sem fabricar métricas. O JSON versionado conserva strings decimais, valores nulos e entidades completas para importação sem conversão numérica automática. O download é local à página autorizada, sem chamada Meta ou nova coleta.
+
+`pnpm check` aprovado: lint, TypeScript, 500 testes de aplicação, 497 verificações SQL/RLS e build. Regressões cobrem precisão, caracteres especiais, fórmulas, 61 entidades, isolamento por conta/nível, coleção vazia e bloqueio de análise incompleta. Controles renderizados e inspecionados em Chrome local a 1440 e 390 pixels sem overflow. A inspeção usa fixtures; download com sessão real e homologação remota continuam pendentes. PDF, séries diárias, comparações e substituição definitiva da fonte principal ainda não estão implementados nesse fluxo. Nenhuma migration remota ou coleta externa foi executada.
+
 ## Atualização de 4 de outubro de 2026 — conciliação completa e recuperação de dados inválidos
 
 A leitura por snapshots agora compara os gastos de todos os níveis ao total da conta e os subtotais de cada campanha aos seus conjuntos e de cada conjunto aos seus anúncios. A comparação usa decimais e a tolerância existente (máximo entre meio centavo e erro relativo de `1e-10`). Totais globais iguais não encobrem gasto atribuído ao pai errado. Pais com gasto positivo e coleções de filhos vazias bloqueiam a análise; pais com zero confirmado podem ter filhos vazios. Gasto ausente, negativo ou inválido não é convertido em zero. A hierarquia é indexada por pai para evitar varreduras repetidas das listas de anúncios.

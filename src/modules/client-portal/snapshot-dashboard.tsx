@@ -10,6 +10,7 @@ import { formatSnapshotDecimal } from "../meta/snapshot-format";
 import "./snapshot-dashboard.css";
 import { requestMissingSnapshotData } from "./snapshot-dashboard-actions";
 import { snapshotEntityPage } from "../meta/snapshot-entity-list";
+import { exportMetaSnapshotCsv,exportMetaSnapshotJson } from "../meta/snapshot-export";
 
 const levels: { key: EntityLevel; label: string }[] = [
   { key: "account",label: "Conta" },{ key: "campaign",label: "Campanhas" },
@@ -33,6 +34,24 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const indicators = entity?.indicators.filter(item => item.key !== "result:provider_known") ?? [];
   const campaignNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities.map(item => [item.id,item.name]) ?? []);
   const adsetNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "adset")?.entities.map(item => [item.id,item.name]) ?? []);
+  function exportReport(format: "csv" | "json") {
+    setError("");
+    let url: string | undefined;
+    let link: HTMLAnchorElement | undefined;
+    try {
+      if (!account) return;
+      const report = format === "csv" ? exportMetaSnapshotCsv(data.view,account.external_id,level)
+        : exportMetaSnapshotJson(data.view,account.external_id,level);
+      url = URL.createObjectURL(new Blob([report.content],{ type: format === "csv" ? "text/csv;charset=utf-8" : "application/json;charset=utf-8" }));
+      link = document.createElement("a"); link.href = url; link.download = report.filename;
+      document.body.appendChild(link); link.click();
+      setMessage(`Exportação preparada com ${report.entityCount} entidades do nível selecionado. A busca e a paginação não limitam o arquivo.`);
+    } catch { setError("Não foi possível exportar a análise confirmada. Tente novamente."); }
+    finally {
+      link?.remove();
+      if (url) window.setTimeout(() => URL.revokeObjectURL(url!),1_000);
+    }
+  }
   function requestRefresh() {
     setError(""); setMessage("");
     startTransition(async () => {
@@ -106,6 +125,11 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
         {level !== "account" && !!entityList.items.length && <label>Entidade da página<select value={entity?.id ?? ""} onChange={event => setEntityId(event.target.value)}>
           {entityList.items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select></label>}
+      </div>
+      <div className="snapshot-toolbar">
+        <p>Exportar todas as entidades da conta e do nível selecionados, com valores exatos e disponibilidade dos indicadores. Use JSON para preservar os decimais como texto ao importar.</p>
+        <button type="button" onClick={() => exportReport("csv")} disabled={pending || !scope}>Exportar CSV do nível</button>
+        <button type="button" onClick={() => exportReport("json")} disabled={pending || !scope}>Exportar JSON do nível</button>
       </div>
       {entity ? <>
         <div className="snapshot-entity-heading"><h2>{level === "account" ? account?.name : entity.name}</h2>
