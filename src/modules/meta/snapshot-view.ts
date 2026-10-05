@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import type { SnapshotBundle } from "../integrations/snapshot-bundle-reader";
 import type { CollectionEntityMetadata, CollectionIdentity, MetricValueState } from "../integrations/data-contract";
 import { metaMetricLabel } from "./metric-labels";
@@ -55,18 +56,45 @@ export function projectMetaSnapshotView(bundle: SnapshotBundle): MetaSnapshotVie
 
 export type SnapshotResultBreakdown = { key: string; label: string; value: string };
 
+const ResultAmount = Decimal.clone({ precision: 80 });
+const known = (indicators: MetaSnapshotIndicator[]) => indicators.find(item => item.key === "result:provider_known")?.value === "1";
+const providerResults = (indicators: MetaSnapshotIndicator[]) => indicators.filter(item => item.nativeKey.startsWith("result:provider:") && item.value !== null);
+
+// Meta reports native results per campaign, not for the account aggregate. When
+// every campaign identified its results, add each result type separately across
+// campaigns; different types are never added together.
+function campaignResults(campaigns: MetaSnapshotEntityView[]): SnapshotResultBreakdown[] | null {
+  if (!campaigns.length || !campaigns.every(campaign => known(campaign.indicators))) return null;
+  const totals = new Map<string, { label: string; value: Decimal }>();
+  for (const campaign of campaigns) {
+    for (const item of providerResults(campaign.indicators)) {
+      const current = totals.get(item.nativeKey);
+      totals.set(item.nativeKey, { label: item.label, value: (current?.value ?? new ResultAmount(0)).plus(item.value!) });
+    }
+  }
+  return [...totals].map(([key, { label, value }]) => ({ key, label, value: value.toFixed() }));
+}
+
 // Split native result indicators from the general list. When Meta reports more
 // than one result type for an entity, list each type instead of adding them.
-export function splitSnapshotResultIndicators(indicators: MetaSnapshotIndicator[]) {
-  const known = indicators.find(item => item.key === "result:provider_known")?.value === "1";
-  const breakdown: SnapshotResultBreakdown[] = known ? indicators
-    .filter(item => item.nativeKey.startsWith("result:provider:") && item.value !== null)
-    .map(item => ({ key: item.nativeKey, label: item.label, value: item.value! })) : [];
+export function splitSnapshotResultIndicators(indicators: MetaSnapshotIndicator[], accountCampaigns?: MetaSnapshotEntityView[]) {
+  const own = known(indicators) ? providerResults(indicators).map(item => ({ key: item.nativeKey, label: item.label, value: item.value! })) : null;
+  const derived = !own && accountCampaigns ? campaignResults(accountCampaigns) : null;
+  const breakdown = own ?? derived ?? [];
   const general = indicators.filter(item => item.key !== "result:provider_known" && !item.nativeKey.startsWith("result:provider:"));
   const resultKeys = new Set(["primary_results", "cost_per_result"]);
+  let primary = general.find(item => item.key === "primary_results")?.value ?? null;
+  let cost = general.find(item => item.key === "cost_per_result")?.value ?? null;
+  if (derived) {
+    const spend = general.find(item => item.key === "spend")?.value ?? null;
+    primary = derived.length === 1 ? derived[0].value : derived.length === 0 ? "0" : null;
+    cost = primary !== null && spend !== null && !new ResultAmount(primary).isZero() ? new ResultAmount(spend).div(primary).toFixed() : null;
+  }
   return {
     breakdown,
     mixedResults: breakdown.length > 1,
+    derivedFromCampaigns: derived !== null,
+    primary, cost,
     indicators: [...general.filter(item => resultKeys.has(item.key)), ...general.filter(item => !resultKeys.has(item.key))],
   };
 }

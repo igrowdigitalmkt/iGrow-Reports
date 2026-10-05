@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { splitSnapshotResultIndicators, type MetaSnapshotIndicator } from "@/modules/meta/snapshot-view";
+import { splitSnapshotResultIndicators, type MetaSnapshotEntityView, type MetaSnapshotIndicator } from "@/modules/meta/snapshot-view";
 import { metaMetricLabel } from "@/modules/meta/metric-labels";
 
 const indicator = (nativeKey: string, value: string | null, label = nativeKey): MetaSnapshotIndicator => ({
@@ -42,4 +42,41 @@ it("gives readable names to uncatalogued Meta action types", () => {
   expect(metaMetricLabel("action:onsite_conversion.purchase", "action:onsite_conversion.purchase")).toBe("Compras na Meta");
   expect(metaMetricLabel("action:some_new_type", "action:some_new_type")).toBe("Ação Meta: some new type");
   expect(metaMetricLabel("action:some_new_type", "Rótulo salvo")).toBe("Rótulo salvo");
+});
+
+const campaign = (id: string, indicators: MetaSnapshotIndicator[]) => ({
+  id, name: id, hierarchy: null, currency: "BRL", timezone: "America/Sao_Paulo", indicators, deliveryStatus: null,
+}) as MetaSnapshotEntityView;
+const account = [indicator("spend", "100.5"), indicator("primary_results", null), indicator("cost_per_result", null), indicator("result:provider_known", null)];
+
+it("adds one result type across campaigns when Meta omits account-level results", () => {
+  const split = splitSnapshotResultIndicators(account, [
+    campaign("c1", [indicator("result:provider_known", "1"), indicator("result:provider:action:landing_page_view", "0.1", "LPV")]),
+    campaign("c2", [indicator("result:provider_known", "1"), indicator("result:provider:action:landing_page_view", "0.2", "LPV")]),
+    campaign("c3", [indicator("result:provider_known", "1")]),
+  ]);
+  expect(split.derivedFromCampaigns).toBe(true);
+  expect(split.breakdown).toEqual([{ key: "result:provider:action:landing_page_view", label: "LPV", value: "0.3" }]);
+  expect(split.primary).toBe("0.3");
+  expect(split.cost).toBe("335");
+});
+
+it("keeps campaign result types separate and leaves cost uncalculated", () => {
+  const split = splitSnapshotResultIndicators(account, [
+    campaign("c1", [indicator("result:provider_known", "1"), indicator("result:provider:action:link_click", "7", "Cliques")]),
+    campaign("c2", [indicator("result:provider_known", "1"), indicator("result:provider:action:offsite_conversion.fb_pixel_complete_registration", "3", "Cadastros")]),
+  ]);
+  expect(split.mixedResults).toBe(true);
+  expect(split.primary).toBeNull();
+  expect(split.cost).toBeNull();
+});
+
+it("does not derive account results when any campaign result is unidentified", () => {
+  const split = splitSnapshotResultIndicators(account, [
+    campaign("c1", [indicator("result:provider_known", "1"), indicator("result:provider:action:lead", "2")]),
+    campaign("c2", [indicator("result:provider_known", null)]),
+  ]);
+  expect(split.derivedFromCampaigns).toBe(false);
+  expect(split.breakdown).toEqual([]);
+  expect(split.primary).toBeNull();
 });

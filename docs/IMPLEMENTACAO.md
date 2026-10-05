@@ -335,4 +335,7 @@ Problemas encontrados na homologação e corrigidos:
 - Ações sem rótulo apareciam com a chave técnica (`action:offsite_complete_registration_add_meta_leads`). `metaMetricLabel` ganhou rótulos para ações observadas e nomes legíveis para eventos personalizados, profundidade de mensagens, prefixos `onsite/offsite/omni` e fallback "Ação Meta: …" (somente quando o chamador não forneceu rótulo próprio).
 - Seletor da série mostrava "Result:Provider Known"; agora oferece `primary_results` e `result:provider:*` como "Resultado: …".
 - Testes: `tests/snapshot-result-breakdown.test.ts` (4). `pnpm check`: 73 arquivos, 611 testes, test:db, test:rollout e build aprovados.
+- Segunda verificação em produção mostrou que o card continuava "Indisponível": o Meta não retorna `results` no nível de conta (payloads brutos: conta `known=0`; campanhas/conjuntos/anúncios `known=1`). No nível de conta, a tela agora soma os resultados nativos das campanhas da mesma conta e período, separadamente por tipo (Decimal exato), somente quando todas as campanhas identificaram seus resultados; custo por resultado só com um tipo. O card informa que o valor é somado das campanhas e não exibe comparação para esse valor derivado. Exportações CSV/JSON/PDF ainda não incluem esse derivado (continuam com o valor armazenado da conta).
+- "Cadastros concluídos" duplicado: `action:omni_complete_registration` passa a ser "(todos os canais)".
+- `pnpm check`: 73 arquivos, 614 testes aprovados.
 

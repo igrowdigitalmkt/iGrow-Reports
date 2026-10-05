@@ -25,7 +25,7 @@ const labels: Record<string, string> = {
   "action:onsite_conversion.messaging_conversation_started_7d": "Conversas por mensagem iniciadas",
   "action:onsite_conversion.messaging_first_reply": "Novos contatos de mensagem",
   "action:onsite_conversion.total_messaging_connection": "Contatos de mensagem",
-  "action:complete_registration": "Cadastros concluídos", "action:omni_complete_registration": "Cadastros concluídos",
+  "action:complete_registration": "Cadastros concluídos", "action:omni_complete_registration": "Cadastros concluídos (todos os canais)",
   "action:offsite_conversion.fb_pixel_complete_registration": "Cadastros concluídos no site",
   "action:lead": "Leads", "action:onsite_conversion.lead_grouped": "Leads na Meta",
   "action:offsite_conversion.fb_pixel_lead": "Leads no site", "action:omni_purchase": "Compras",

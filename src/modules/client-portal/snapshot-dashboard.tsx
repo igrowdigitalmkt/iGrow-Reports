@@ -45,7 +45,9 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const previousEntity = entity ? comparison?.previousEntities.get(entity.id) : undefined;
   const currentEntityIds = new Set(scope?.entities.map(item => item.id));
   const previousOnlyCount = comparison?.previous.entities.filter(item => !currentEntityIds.has(item.id)).length ?? 0;
-  const { indicators,breakdown: resultBreakdown,mixedResults } = splitSnapshotResultIndicators(entity?.indicators ?? []);
+  const accountCampaigns = level === "account" ? data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities : undefined;
+  const results = splitSnapshotResultIndicators(entity?.indicators ?? [],accountCampaigns);
+  const { indicators,breakdown: resultBreakdown,mixedResults } = results;
   const campaignNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities.map(item => [item.id,item.name]) ?? []);
   const adsetNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "adset")?.entities.map(item => [item.id,item.name]) ?? []);
   async function exportReport(format: "csv" | "json" | "pdf") {
@@ -195,13 +197,19 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
           <p>{entity.currency ?? account?.currency} · {entity.timezone}</p>
         </div>
         <div className="snapshot-cards">{indicators.map(indicator => {
-          const change = comparison ? compareSnapshotIndicator(indicator,entity,previousEntity) : null;
+          // Campaign-derived account results have no stored indicator to compare.
+          const derivedResult = results.derivedFromCampaigns && (indicator.key === "primary_results" || indicator.key === "cost_per_result");
+          const change = comparison && !derivedResult ? compareSnapshotIndicator(indicator,entity,previousEntity) : null;
           return <article key={indicator.key} className="snapshot-card">
           <h3>{indicator.label}</h3>
-          <strong title={indicator.value ?? undefined} className={indicator.value === null ? "snapshot-unavailable" : ""}>
-            {formatSnapshotDecimal(indicator.value,indicator.unit,entity.currency ?? account?.currency ?? null)}
-          </strong>
-          {indicator.key === "primary_results" && indicator.value !== null && resultBreakdown.length === 1 && <small>{resultBreakdown[0].label}</small>}
+          {(() => {
+            const value = indicator.key === "primary_results" ? results.primary : indicator.key === "cost_per_result" ? results.cost : indicator.value;
+            return <strong title={value ?? undefined} className={value === null ? "snapshot-unavailable" : ""}>
+              {formatSnapshotDecimal(value,indicator.unit,entity.currency ?? account?.currency ?? null)}
+            </strong>;
+          })()}
+          {indicator.key === "primary_results" && results.primary !== null && resultBreakdown.length === 1 && <small>{resultBreakdown[0].label}</small>}
+          {indicator.key === "primary_results" && results.derivedFromCampaigns && <small>Somado das campanhas, por tipo de resultado: o Meta não informa resultados no total da conta.</small>}
           {indicator.key === "primary_results" && mixedResults && <>
             <small>Esta entidade tem tipos diferentes de resultado, que não são somados:</small>
             <ul className="snapshot-result-breakdown">{resultBreakdown.map(item => <li key={item.key}>
@@ -209,7 +217,7 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
             </li>)}</ul>
           </>}
           {indicator.key === "cost_per_result" && mixedResults && <small>Não calculado: um único custo misturaria tipos diferentes de resultado.</small>}
-          {indicator.state === "unavailable" && !(mixedResults && (indicator.key === "primary_results" || indicator.key === "cost_per_result")) && <small>Indicador não disponível neste escopo confirmado.</small>}
+          {indicator.state === "unavailable" && !((mixedResults || results.derivedFromCampaigns) && (indicator.key === "primary_results" || indicator.key === "cost_per_result")) && <small>Indicador não disponível neste escopo confirmado.</small>}
           {indicator.state === "error" && <small>Não foi possível confirmar este indicador.</small>}
           {change && <small>
             Anterior: {formatSnapshotDecimal(change.previousValue,indicator.unit,entity.currency ?? account?.currency ?? null)}<br />
