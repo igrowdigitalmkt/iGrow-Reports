@@ -1,5 +1,17 @@
 # Progresso da implementação
 
+## Atualização de 4 de outubro de 2026 — preparação operacional do executor
+
+A estrutura SQL de snapshots foi aplicada em produção após autorização explícita: migrations `202610040001` a `202610040013`, 33 requisitos aprovados sem falhas e tabela reconhecida pela API. O registro verificável está em [ATIVACAO_SNAPSHOTS.md](ATIVACAO_SNAPSHOTS.md). O POST publicado ainda retornou 503 sem token: executor indisponível, não uma fila operacional.
+
+Implementado `GET /api/workers/meta/health`, protegido pelo mesmo Bearer. Verifica configuração Meta, criptografia e consultas vazias nas quatro tabelas sem reivindicar jobs, ler registros de cliente ou acessar a Meta. Retorna somente flags e mensagens sanitizadas, sempre sem cache. Essa verificação não homologa tokens Meta, RPCs ou coleta real.
+
+`pnpm worker:schedule` prepara um schedule QStash de quinze minutos e identidade estável por origem. Só `--apply` faz chamadas externas: exige verificação protegida positiva, consulta o ID antes de criar, recusa agendamento existente, separa token QStash do Bearer encaminhado, bloqueia redirects e solicita redação do Authorization nos registros QStash. Não carrega `.env` automaticamente, grava segredos, configura hospedagem ou altera planos. A pré-consulta não elimina corrida entre operadores; provisionar uma vez por responsável.
+
+25 novos testes cobrem proteção antes do acesso privilegiado, dependências ausentes, erros sanitizados, destino/origem QStash inválidos, identidade estável, bloqueio antes da criação, configuração existente, tokens separados, redação e respostas ambíguas. `pnpm check` passou com lint, TypeScript, build e as duas execuções de 497 verificações SQL/RLS. Após as últimas alterações, 537 testes de aplicação, lint, TypeScript e verificações HTTP do build de produção passaram.
+
+Nenhum segredo foi gerado/configurado, agendamento criado ou job real processado neste incremento. O arquivo operacional local disponível não contém os dois tokens requeridos. A frequência preparada representa 96 chamadas/dia; conferir capacidade/timeout/custo do plano existente antes da ativação. O dashboard principal conserva sua fonte anterior.
+
 ## Atualização de 4 de outubro de 2026 — pacote transacional para ativação
 
 Inventário SQL remoto somente de leitura confirmou que todas as quatro tabelas da ingestão estão ausentes, assim como as funções consultadas de claim, saúde, catálogo, leitura e atualização. As seis tabelas anteriores usadas pela nova estrutura, os três papéis Supabase e os helpers de autorização estão presentes. Isso permite preparar a instalação da ingestão a partir de `202610040001`, sem reaplicar as migrations da plataforma anterior.

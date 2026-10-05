@@ -18,6 +18,7 @@
     "test:db": "node supabase/tests/rls-smoke.mjs",
     "test:rollout": "node supabase/tests/rls-smoke.mjs --snapshot-rollout",
     "prepare:snapshot-rollout": "node scripts/snapshot-rollout.mjs",
+    "worker:schedule": "node scripts/worker-schedule.mjs",
     "test:production": "node scripts/verify-production.mjs",
     "check:deploy": "node scripts/check-deployment.mjs",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:db && pnpm test:rollout && pnpm build"

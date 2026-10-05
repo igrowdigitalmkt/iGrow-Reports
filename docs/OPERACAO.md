@@ -2,7 +2,7 @@
 
 ## Verificação do banco antes da ativação
 
-O inventário remoto posterior confirmou ausência integral das quatro tabelas de ingestão e existência das dependências anteriores. O procedimento e o pacote transacional para esse caso estão em [ATIVACAO_SNAPSHOTS.md](ATIVACAO_SNAPSHOTS.md). O gerador prepara arquivos locais; não executa alterações remotas.
+O inventário remoto anterior à aplicação confirmou ausência integral das quatro tabelas de ingestão e existência das dependências anteriores. Em 4 de outubro de 2026, o pacote foi aplicado em produção e os 33 requisitos foram aprovados. O procedimento, hash e comprovantes estão em [ATIVACAO_SNAPSHOTS.md](ATIVACAO_SNAPSHOTS.md). O gerador prepara arquivos locais; não executa alterações remotas.
 
 Executar como operador o arquivo somente de leitura [snapshot-readiness.sql](../supabase/diagnostics/snapshot-readiness.sql). Ele consulta apenas catálogos PostgreSQL, funciona mesmo sem as tabelas de ingestão instaladas e retorna requisitos de leitura, worker e atualização. `ready=false` identifica requisito ausente/incompatível; `schema_ready=false` em todas as linhas significa que pelo menos um requisito falhou. A coluna `migration` indica onde o requisito foi introduzido, não uma autorização para reaplicar isoladamente esse arquivo.
 
@@ -29,6 +29,18 @@ Se a validação de um snapshot falhar ou moeda/fuso divergirem do catálogo aut
 A busca/paginação de entidades é local ao nível e conta exibidos, com 25 linhas por página. Não limita a coleta nem substitui paginação de banco; todos os escopos requeridos continuam sendo consultados e validados antes da liberação da análise.
 
 ## Executor Meta e ciclos de atualização
+
+### Verificação e preparação do agendamento
+
+`GET /api/workers/meta/health` usa o mesmo Bearer do executor e retorna `ready` e os checks `meta`, `encryption` e `database`. Confere a configuração da API Meta, a chave de criptografia e acesso às quatro tabelas de ingestão por consultas com `limit=0`. Não lê registros de cliente, não reivindica jobs e não consulta a Meta. Retorna 503 quando uma dependência falha, 401 para token inválido e `Cache-Control: no-store`. Não comprova a validade do token Meta de uma conexão, as RPCs completas, a capacidade do plano ou uma coleta real.
+
+`pnpm worker:schedule` prepara, sem conexão externa, um agendamento QStash a cada 15 minutos (96 chamadas por dia). Requer `NEXT_PUBLIC_APP_URL` no ambiente e mostra somente destino, frequência, identidade estável e presença das configurações. Para ativar explicitamente, usar `pnpm worker:schedule --apply` com `INTEGRATION_WORKER_SECRET` e `QSTASH_TOKEN` definidos no ambiente do operador. `QSTASH_URL` aceita a origem oficial da região da conta; o padrão é `https://qstash.upstash.io`. O comando não carrega arquivos `.env` automaticamente nem grava segredos em arquivos.
+
+A ativação primeiro exige os três checks do endpoint protegidos, depois consulta o ID do agendamento. Se já existe, para sem sobrescrever; se a consulta falha, não cria. Essa conferência não é um lock distribuído: apenas um operador deve provisionar por vez. Não segue redirects ao transmitir credenciais, não imprime corpos de erro e solicita redação do Authorization encaminhado no painel QStash. A integração segue a [API oficial de criação de schedules](https://upstash.com/docs/qstash/api-reference/schedules/create-a-schedule).
+
+Cada execução encaminha POST com o Bearer do executor. Retries HTTP do QStash estão em zero; recuperação de jobs e backoff continuam na fila da aplicação, nas próximas execuções. O plano QStash determina o timeout disponível, e o plano Vercel determina a duração efetiva: conferir ambos antes de ativar, considerando a lease de quinze minutos. O comando não altera planos, gera segredos, configura Vercel ou homologa coleta; sucesso na criação só confirma o cadastro do agendamento. Para pausar, usar o painel QStash e conferir o ID retornado.
+
+Em 4 de outubro de 2026, após a instalação SQL, uma chamada sem token ao POST publicado retornou 503 `Executor indisponível`: o executor ainda não estava configurado. O arquivo operacional local disponível também não continha `INTEGRATION_WORKER_SECRET` nem `QSTASH_TOKEN`. Segredos novos na interface devem ser inseridos pelo responsável; não enviar esses valores pelo chat.
 
 Aplicar migrations até `202610040013_collection_refresh_cycles.sql` antes de usar o executor e `Atualizar dados` da análise por snapshots. Configurar `INTEGRATION_WORKER_SECRET` somente no servidor e no chamador autorizado: token aleatório de 32 a 256 caracteres usando letras/dígitos/`_`/`-`. O endpoint aceita somente POST com `Authorization: Bearer <token>`, sem token em URL. Configuração ausente retorna 503; autorização inválida retorna 401. Nenhum segredo foi gerado ou salvo por este incremento.
 

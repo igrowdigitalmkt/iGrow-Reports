@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const origin = "http://127.0.0.1:3101";
 const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", "3101"], {
   cwd: root, windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
-  env: { ...process.env, ENABLE_DEMO: "false", NEXT_PUBLIC_SUPABASE_URL: "", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "", NEXT_TELEMETRY_DISABLED: "1" },
+  env: { ...process.env, ENABLE_DEMO: "false", NEXT_PUBLIC_SUPABASE_URL: "", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "", INTEGRATION_WORKER_SECRET: "", NEXT_TELEMETRY_DISABLED: "1" },
 });
 let output = "";
 server.stdout.on("data", data => { output += data; });
@@ -27,6 +27,12 @@ try {
   assert.equal(protectedPage.status, 307, "Dashboard exige contexto autenticado.");
   assert.equal(new URL(protectedPage.headers.get("location"), origin).pathname, "/entrar");
   assert.match(protectedPage.headers.get("cache-control"), /no-store/);
+  for (const [path, method] of [["/api/workers/meta", "POST"], ["/api/workers/meta/health", "GET"]]) {
+    const response = await fetch(`${origin}${path}`, { method });
+    assert.equal(response.status, 503, "Executor sem configuração deve ficar indisponível.");
+    assert.match(response.headers.get("cache-control"), /no-store/);
+    assert.deepEqual(await response.json(), { error: "Executor indisponível." });
+  }
   console.log("Produção: demo bloqueada (404), painel protegido (307), resposta sem cache. Verificações aprovadas.");
 } finally {
   server.kill();
