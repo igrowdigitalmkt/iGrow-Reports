@@ -2,7 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import { resolveAnalyticsRange, type AnalyticsPeriod } from "@/modules/client-portal/range";
-import { collectMetaClientInsights } from "./server";
+import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
+import { collectMetaClientInsights, refreshMetaDashboardScope } from "./server";
 
 // Revision window for Meta daily rows (decision of 5/10/2026, PLANEJAMENTO_V1
 // addendum): the last 7 days change every day (7-day click attribution, late
@@ -149,26 +150,65 @@ export async function backfillMetaHistory(service: SupabaseClient<Database>, tar
   return result;
 }
 
-export type WarmResult = { warmed: number; failed: number; skippedByBudget: number };
+export type WarmResult = { warmed: number; failed: number; skippedByBudget: number; aggregates: number; aggregateFailures: number };
+
+type WarmAccount = { id: string; name: string; currency: string; timezone_name: string };
+
+// Same account scope as the dashboard (active link, not archived, business
+// portfolio, connection of this client), so stored periods match its requests.
+async function dashboardAccounts(service: SupabaseClient<Database>, target: MetaClientTarget): Promise<WarmAccount[]> {
+  const { data: links } = await service.from("client_ad_accounts").select("ad_account_id")
+    .eq("agency_id", target.agency_id).eq("client_id", target.client_id).eq("active", true);
+  const ids = (links ?? []).map(link => link.ad_account_id);
+  if (!ids.length) return [];
+  const { data: connections } = await service.from("meta_connections").select("id")
+    .eq("agency_id", target.agency_id).eq("client_id", target.client_id);
+  const connectionIds = new Set((connections ?? []).map(connection => connection.id));
+  const { data: accounts } = await service.from("meta_ad_accounts").select("id,name,currency,timezone_name,archived_at,business_id,meta_connection_id")
+    .eq("agency_id", target.agency_id).in("id", ids);
+  return (accounts ?? []).filter(account => !account.archived_at && /^\d+$/.test(account.business_id ?? "") && connectionIds.has(account.meta_connection_id))
+    .map(account => ({ id: account.id, name: account.name, currency: account.currency, timezone_name: account.timezone_name }));
+}
 
 // Pre-computes the standard dashboard periods after the collection so the first
-// view of the day is served from the stored result (public.warm_client_analytics).
+// view of the day is served from the stored result (public.warm_client_analytics),
+// then, while time remains, refreshes Meta's exact-period aggregates for them
+// (most viewed periods first), which the first view would otherwise wait for.
 export async function warmStandardPeriods(service: SupabaseClient<Database>, targets: MetaClientTarget[], options: { now?: Date; budgetMs: number }): Promise<WarmResult> {
   const started = performance.now();
-  const result: WarmResult = { warmed: 0, failed: 0, skippedByBudget: 0 };
+  const result: WarmResult = { warmed: 0, failed: 0, skippedByBudget: 0, aggregates: 0, aggregateFailures: 0 };
+  const plans: Array<{ target: MetaClientTarget; accounts: WarmAccount[]; ranges: Array<{ dateFrom: string; dateTo: string }> }> = [];
   for (const target of targets) {
-    // Same account scope as the dashboard, so the stored period matches its request.
-    const { data: links } = await service.from("client_ad_accounts").select("ad_account_id")
-      .eq("agency_id", target.agency_id).eq("client_id", target.client_id).eq("active", true);
-    const ids = (links ?? []).map(link => link.ad_account_id);
-    const { data: accounts } = ids.length ? await service.from("meta_ad_accounts").select("timezone_name,archived_at,business_id")
-      .eq("agency_id", target.agency_id).in("id", ids) : { data: [] };
-    const timezones = (accounts ?? []).filter(account => !account.archived_at && account.business_id).map(account => account.timezone_name);
-    for (const period of STANDARD_PERIODS) {
+    const accounts = await dashboardAccounts(service, target);
+    const timezones = accounts.map(account => account.timezone_name);
+    const ranges = STANDARD_PERIODS.map(period => resolveAnalyticsRange({ periodo: period }, timezones.length ? timezones : REFRESH_TIMEZONE, options.now ?? new Date()));
+    plans.push({ target, accounts, ranges });
+    for (const range of ranges) {
       if (performance.now() - started >= options.budgetMs) { result.skippedByBudget += 1; continue; }
-      const range = resolveAnalyticsRange({ periodo: period }, timezones.length ? timezones : REFRESH_TIMEZONE, options.now ?? new Date());
       const { data, error } = await service.rpc("warm_client_analytics", { p_client_id: target.client_id, p_date_from: range.dateFrom, p_date_to: range.dateTo });
       if (error || data !== true) result.failed += 1; else result.warmed += 1;
+    }
+  }
+  for (let index = 0; index < STANDARD_PERIODS.length; index++) {
+    for (const plan of plans) {
+      if (!plan.accounts.length || performance.now() - started >= options.budgetMs) continue;
+      const range = plan.ranges[index];
+      const days = Math.round((Date.parse(`${range.dateTo}T12:00:00Z`) - Date.parse(`${range.dateFrom}T12:00:00Z`)) / 86_400_000) + 1;
+      const currencies = new Set(plan.accounts.map(account => account.currency));
+      const data = {
+        dateFrom: range.dateFrom, dateTo: range.dateTo,
+        previousDateFrom: shift(range.dateFrom, -days), previousDateTo: shift(range.dateFrom, -1),
+        selectedAccountIds: plan.accounts.map(account => account.id),
+        accounts: plan.accounts.map(account => ({ id: account.id, name: account.name, currency: account.currency, timezoneName: account.timezone_name })),
+        currency: currencies.size === 1 ? plan.accounts[0].currency : null,
+        coverage: { latestCollectedAt: null },
+      } as unknown as AnalyticsDashboardData;
+      try {
+        await refreshMetaDashboardScope({ agencyId: plan.target.agency_id, clientId: plan.target.client_id, data });
+        result.aggregates += 1;
+      } catch {
+        result.aggregateFailures += 1;
+      }
     }
   }
   return result;

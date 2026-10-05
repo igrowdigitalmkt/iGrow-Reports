@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ collect: vi.fn() }));
+const mocks = vi.hoisted(() => ({ collect: vi.fn(), refreshScope: vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/modules/meta/server", () => ({ collectMetaClientInsights: mocks.collect }));
+vi.mock("@/modules/meta/server", () => ({ collectMetaClientInsights: mocks.collect, refreshMetaDashboardScope: mocks.refreshScope }));
 import { backfillMetaHistory, planBackfillBlock, planMetaRefreshWindows, runDailyMetaRefresh, warmStandardPeriods } from "@/modules/meta/daily-refresh";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
@@ -98,9 +98,15 @@ it("collects the next history block per client and reports complete ones", async
 
 it("pre-computes the standard periods with the dashboard's dates for the client's accounts", async () => {
   const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
-  const db = tableService({ client_ad_accounts: [{ ad_account_id: "acc" }], meta_ad_accounts: [{ timezone_name: "America/Sao_Paulo", archived_at: null, business_id: "1" }] }, rpc);
+  mocks.refreshScope.mockResolvedValue({ confirmed: true });
+  const db = tableService({ client_ad_accounts: [{ ad_account_id: "acc" }], meta_connections: [{ id: "conn" }],
+    meta_ad_accounts: [{ id: "acc", name: "Conta", currency: "BRL", timezone_name: "America/Sao_Paulo", archived_at: null, business_id: "1", meta_connection_id: "conn" },
+      { id: "other", name: "Outra", currency: "BRL", timezone_name: "America/Sao_Paulo", archived_at: null, business_id: "1", meta_connection_id: "foreign" }] }, rpc);
   expect(await warmStandardPeriods(db, [{ agency_id: "a", client_id: "c1" }], { now: new Date("2026-10-06T09:00:00Z"), budgetMs: 60_000 }))
-    .toEqual({ warmed: 5, failed: 0, skippedByBudget: 0 });
+    .toEqual({ warmed: 5, failed: 0, skippedByBudget: 0, aggregates: 5, aggregateFailures: 0 });
+  // Exact Meta aggregates use the same accounts and previous period as the dashboard.
+  expect(mocks.refreshScope).toHaveBeenNthCalledWith(1, { agencyId: "a", clientId: "c1", data: expect.objectContaining({
+    dateFrom: "2026-09-06", dateTo: "2026-10-05", previousDateFrom: "2026-08-07", previousDateTo: "2026-09-05", selectedAccountIds: ["acc"], currency: "BRL" }) });
   expect(rpc).toHaveBeenNthCalledWith(1, "warm_client_analytics", { p_client_id: "c1", p_date_from: "2026-09-06", p_date_to: "2026-10-05" });
   expect(rpc).toHaveBeenNthCalledWith(5, "warm_client_analytics", { p_client_id: "c1", p_date_from: "2025-10-06", p_date_to: "2026-10-05" });
 });

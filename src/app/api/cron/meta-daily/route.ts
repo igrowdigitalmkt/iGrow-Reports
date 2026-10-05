@@ -9,7 +9,7 @@ export const maxDuration = 300;
 
 // Work stops starting new requests here, leaving margin for the request in flight.
 const TOTAL_BUDGET_MS = 260_000;
-const PHASE_CAP_MS = { refresh: 120_000, backfill: 60_000, warm: 60_000 };
+const PHASE_CAP_MS = { refresh: 100_000, backfill: 50_000, warm: 100_000 };
 
 // Vercel Cron (vercel.json) calls this once a day with Authorization: Bearer CRON_SECRET.
 // Phases: revision window, one older history block, retention, standard periods.
