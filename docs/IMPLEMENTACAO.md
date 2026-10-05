@@ -311,3 +311,12 @@ Revisão do código de `5e601f1` (escrito em container sem execução intermedi�
 - Deploy de `187f10d` confirmado pela API GitHub: Production, success.
 - Pendente: homologação autenticada com dados reais; a coleta real de snapshots diários depende da ativação do executor (seção B do guia).
 
+### 5/10/2026 — Coleta imediata após solicitação (sem agendador externo)
+
+Motivação: o fluxo por snapshots só recebe dados quando o executor roda, e o ambiente de produção (cópia `.env.diag` de 3/10) não tem `INTEGRATION_WORKER_SECRET` nem QStash. Sem isso, nenhuma solicitação de coleta era processada em produção.
+
+- `src/modules/meta/inline-drain.ts`: `scheduleMetaQueueDrain(service)` agenda com `after()` um `runWorkerBatch` sobre `runOneMetaIntegrationJob` (até 20 jobs, 180 s de orçamento para novos claims). Erros são registrados sem detalhes do provedor/banco. Desligável por `INLINE_COLLECTION_DISABLED=true`.
+- Chamado após enfileirar em `requestMissingSnapshotData` (ausentes e atualização) e `requestSeriesData`. `snapshots/page.tsx` exporta `maxDuration = 300` (mesmo valor já aceito pela rota do executor em produção).
+- Testes: `tests/inline-drain.test.ts` (4) e asserção em `tests/snapshot-dashboard-actions.test.ts`. `pnpm check`: 72 arquivos, 607 testes, test:db, test:rollout e build aprovados.
+- Não homologado: nenhuma coleta real foi executada por este caminho. Primeiro uso real deve ser observado (logs da Vercel, estado dos jobs, snapshot confirmado vs. Ads Manager).
+

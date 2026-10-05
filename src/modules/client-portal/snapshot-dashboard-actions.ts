@@ -7,6 +7,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { enqueueCollectionJobs,requestMetaCollectionRefresh } from "@/modules/integrations/repository";
 import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 import { resolveAnalyticsRange } from "./range";
+import { scheduleMetaQueueDrain } from "@/modules/meta/inline-drain";
 
 export async function requestMissingSnapshotData(input: unknown) {
   const parsed = z.object({ clientId: z.uuid(),from: z.iso.date(),to: z.iso.date(),accountIds: z.array(z.uuid()).min(1).max(100),refresh: z.boolean().optional(),target: z.enum(["current","previous"]).optional() }).safeParse(input);
@@ -25,6 +26,7 @@ export async function requestMissingSnapshotData(input: unknown) {
       const service = createSupabaseServiceClient();
       if (!service) return { error: "A coleta está temporariamente indisponível." };
       const result = await requestMetaCollectionRefresh(service,selection.identities);
+      scheduleMetaQueueDrain(service);
       revalidatePath(`/cliente/${parsed.data.clientId}/snapshots`);
       return { success: true as const,created: result.created+result.rescheduled };
     }
@@ -37,6 +39,7 @@ export async function requestMissingSnapshotData(input: unknown) {
     const service = createSupabaseServiceClient();
     if (!service) return { error: "A coleta está temporariamente indisponível. Tente novamente mais tarde." };
     const created = await enqueueCollectionJobs(service,data.view.missing);
+    scheduleMetaQueueDrain(service);
     revalidatePath(`/cliente/${parsed.data.clientId}/snapshots`);
     return { success: true as const,created };
   } catch (error) {

@@ -6,6 +6,7 @@ import { requireClientDashboardAccess } from "./context";
 import { resolveSeriesMissingIdentities } from "./snapshot-series-loader";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { enqueueDailyCollectionJobs } from "@/modules/integrations/repository";
+import { scheduleMetaQueueDrain } from "@/modules/meta/inline-drain";
 import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 
 export async function requestSeriesData(input: unknown) {
@@ -34,6 +35,7 @@ export async function requestSeriesData(input: unknown) {
     if (!service) return { error: "A coleta está temporariamente indisponível." };
 
     const created = await enqueueDailyCollectionJobs(service, identities);
+    scheduleMetaQueueDrain(service);
     revalidatePath(`/cliente/${parsed.data.clientId}/snapshots`);
     return { success: true as const, created };
   } catch (error) {

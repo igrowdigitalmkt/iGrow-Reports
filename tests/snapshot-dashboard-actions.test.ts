@@ -1,10 +1,11 @@
 import { beforeEach,expect,it,vi } from "vitest";
-const mocks = vi.hoisted(() => ({ access: vi.fn(),load: vi.fn(),selection: vi.fn(),service: vi.fn(),enqueue: vi.fn(),refresh: vi.fn(),revalidate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ access: vi.fn(),load: vi.fn(),selection: vi.fn(),service: vi.fn(),enqueue: vi.fn(),refresh: vi.fn(),revalidate: vi.fn(),drain: vi.fn() }));
 vi.mock("next/cache",() => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/modules/client-portal/context",() => ({ requireClientDashboardAccess: mocks.access }));
 vi.mock("@/modules/client-portal/snapshot-dashboard-loader",() => ({ loadSnapshotDashboard: mocks.load,resolveSnapshotDashboardSelection: mocks.selection }));
 vi.mock("@/lib/supabase/service",() => ({ createSupabaseServiceClient: mocks.service }));
 vi.mock("@/modules/integrations/repository",() => ({ enqueueCollectionJobs: mocks.enqueue,requestMetaCollectionRefresh: mocks.refresh }));
+vi.mock("@/modules/meta/inline-drain",() => ({ scheduleMetaQueueDrain: mocks.drain }));
 vi.mock("@/lib/env",() => ({ getMetaApiConfig: () => ({ apiVersion: "v24.0" }) }));
 import { requestMissingSnapshotData } from "@/modules/client-portal/snapshot-dashboard-actions";
 import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
@@ -63,6 +64,7 @@ it("registers only missing identities resolved from authenticated reads",async (
   expect(await requestMissingSnapshotData({ ...input,connectionId: "foreign",contractVersion: 1 })).toEqual({ success: true,created: 1 });
   expect(mocks.load).toHaveBeenCalledWith("session",input.clientId,{ periodo: "custom",from: input.from,to: input.to,accounts: input.accountIds.join(",") });
   expect(mocks.enqueue).toHaveBeenCalledWith("service",[identity]);
+  expect(mocks.drain).toHaveBeenCalledWith("service");
   expect(mocks.access.mock.invocationCallOrder[0]).toBeLessThan(mocks.service.mock.invocationCallOrder[0]);
   expect(mocks.revalidate).toHaveBeenCalledWith(`/cliente/${input.clientId}/snapshots`);
 });

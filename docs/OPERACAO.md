@@ -58,6 +58,12 @@ O retorno contém ID de execução, número de jobs processados e motivo de para
 
 `Atualizar dados` revalida `canCollect` e reconstitui o período/contas por leitura autenticada. Uma RPC exclusiva de serviço insere escopos ausentes e recoloca jobs confirmados/falhos na fila atomicamente. Jobs já queued/collecting/partial são preservados, inclusive o backoff. A tentativa vitalícia nunca é zerada: `retry_epoch_attempt` cria um orçamento de retries por ciclo. Snapshots confirmados anteriores permanecem acessíveis enquanto a atualização é coletada. Solicitações repetidas durante fila/coleta não reiniciam jobs; uma nova solicitação após estado terminal inicia outro ciclo. A atualização não garante que snapshots de níveis distintos pertençam à mesma geração transacional.
 
+### Coleta imediata após solicitação
+
+Desde 5/10/2026, "Solicitar dados", "Atualizar dados" e "Solicitar coleta dos dias ausentes" em `/cliente/[clientId]/snapshots` processam a fila Meta na mesma invocação, depois de responder (`after()` em `src/modules/meta/inline-drain.ts`; página com `maxDuration = 300`). Usa o mesmo claim, lease, fencing e autorização por job do executor agendado: até 20 jobs, sem novos claims após 180 s. Não depende de `INTEGRATION_WORKER_SECRET` nem de QStash; precisa apenas de `SUPABASE_SECRET_KEY`/service role, criptografia e a conexão Meta já presentes. A tela se atualiza sozinha a cada 30–60 s.
+
+O agendamento externo continua recomendado para atualização periódica sem clique e para retomar jobs restantes ou interrompidos (lease de 15 minutos). Para desativar a coleta imediata sem deploy de código: `INLINE_COLLECTION_DISABLED=true` no ambiente.
+
 ## Homologação da análise por snapshots
 
 A rota `/cliente/[clientId]/snapshots` requer as migrations até `202610040012_snapshot_account_catalog.sql` e `META_GRAPH_API_VERSION`. O acesso usa a sessão autenticada; nem a tela nem suas consultas automáticas usam a credencial Meta. Um link no dashboard em modo agência preserva o período/contas selecionados. A fonte do dashboard principal continua sendo a anterior.

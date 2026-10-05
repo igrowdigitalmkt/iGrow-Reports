@@ -7,6 +7,8 @@ import { CollectionSchemaUnavailableError } from "@/modules/integrations/collect
 import { SnapshotUnavailable } from "@/modules/client-portal/snapshot-unavailable";
 import { SnapshotSeriesSection } from "@/modules/client-portal/snapshot-series-section";
 
+// Server Actions on this page drain the collection queue after responding (inline-drain.ts).
+export const maxDuration = 300;
 export const metadata: Metadata = { title: "Análise confirmada",robots: { index: false,follow: false },referrer: "no-referrer" };
 export default async function SnapshotDashboardPage({ params,searchParams }: {
   params: Promise<{ clientId: string }>;
