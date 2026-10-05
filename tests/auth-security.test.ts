@@ -59,7 +59,8 @@ describe("credenciais e encerramento de sessão", () => {
   it("exige o token completo e senhas confirmadas", () => {
     expect(invitationTokenSchema.safeParse("a".repeat(64)).success).toBe(true);
     expect(invitationTokenSchema.safeParse("a".repeat(63)).success).toBe(false);
-    expect(passwordSchema.safeParse({ password: "senha-curta", confirmation: "senha-curta" }).success).toBe(false);
+    expect(passwordSchema.safeParse({ password: "curta12", confirmation: "curta12" }).success).toBe(false);
+    expect(passwordSchema.safeParse({ password: "senha123", confirmation: "senha123" }).success).toBe(true);
     expect(passwordSchema.safeParse({ password: "uma-frase-de-senha", confirmation: "outra-senha-diferente" }).success).toBe(false);
   });
 });

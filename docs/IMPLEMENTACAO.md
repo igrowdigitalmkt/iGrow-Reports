@@ -411,4 +411,5 @@ Retorno do responsável após o primeiro convite real (silviorm12@gmail.com): e-
 - Homologado: convite para silviorm12@gmail.com (conta já criada pelo primeiro convite) enviou link de acesso; ao abrir, o responsável entrou na Área do Cliente; convite aceito às 16:33 UTC, vínculo ativo com `created_by` da agência, auditoria `client_portal.invited` e `client_user.granted`.
 - Problema encontrado: a conta entrou sem nunca ter criado senha. Correção: `password-state.ts` marca `app_metadata.password_set` ao definir a senha (chave de serviço); contas com `invited_at` sem a marca são enviadas a "Defina sua senha" ao entrar por link e ao abrir `/cliente`. Conferido em produção que só a conta convidada tem `invited_at` (agência e cliente existente não são afetados). Título da página de senha: "Seu acesso".
 - `pnpm check`: 78 arquivos, 639 testes, test:db, test:rollout e build aprovados.
+- Senha mínima reduzida de 12 para 8 caracteres a pedido do responsável (`passwordSchema`, formulário e `docs/INTEGRACOES.md`). Supabase Auth do projeto exige mínimo 6 (`PASSWORD_MIN_LENGTH=6`, conferido no painel sem alteração), então o limite efetivo é o do site.
 

@@ -30,10 +30,10 @@ export function SetPasswordForm() {
   const [state, action, pending] = useActionState(setPasswordAction, { error: null });
   return <form action={action} className="mt-7">
     <label htmlFor="password" className="text-sm font-medium text-slate-300">Nova senha</label>
-    <input id="password" name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={128} className={fieldClass} disabled={pending} aria-describedby="password-hint" />
-    <p id="password-hint" className="mt-2 text-xs text-slate-500">Use pelo menos 12 caracteres.</p>
+    <input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={128} className={fieldClass} disabled={pending} aria-describedby="password-hint" />
+    <p id="password-hint" className="mt-2 text-xs text-slate-500">Use pelo menos 8 caracteres.</p>
     <label htmlFor="confirmation" className="mt-5 block text-sm font-medium text-slate-300">Confirme a senha</label>
-    <input id="confirmation" name="confirmation" type="password" autoComplete="new-password" required minLength={12} maxLength={128} className={fieldClass} disabled={pending} />
+    <input id="confirmation" name="confirmation" type="password" autoComplete="new-password" required minLength={8} maxLength={128} className={fieldClass} disabled={pending} />
     <FormError error={state.error} />
     <button type="submit" disabled={pending} className={submitClass}>{pending ? "Salvando…" : "Salvar senha e continuar"}<ArrowRight size={17} /></button>
   </form>;

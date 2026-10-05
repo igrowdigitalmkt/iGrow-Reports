@@ -6,7 +6,7 @@ export const loginSchema = z.object({
 });
 
 export const passwordSchema = z.object({
-  password: z.string().min(12, "Use uma senha com pelo menos 12 caracteres.").max(128),
+  password: z.string().min(8, "Use uma senha com pelo menos 8 caracteres.").max(128),
   confirmation: z.string(),
 }).refine((data) => data.password === data.confirmation, {
   message: "As senhas precisam ser iguais.",

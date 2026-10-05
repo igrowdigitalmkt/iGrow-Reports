@@ -24,7 +24,7 @@ Configure `Site URL` e a lista permitida de redirecionamentos no Supabase para c
 {{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=invite
 ```
 
-Para recuperação, use a mesma rota com `type=recovery`. Após validar o link, a aplicação abre `/auth/definir-senha`, com senha mínima de 12 caracteres. O formulário de solicitação de recuperação e o envio de emails pela aplicação ainda não foram implementados. Não use o template padrão de fluxo implicit sem adaptar o retorno para a implementação SSR.
+Para recuperação, use a mesma rota com `type=recovery`. Após validar o link, a aplicação abre `/auth/definir-senha`, com senha mínima de 8 caracteres. O formulário de solicitação de recuperação e o envio de emails pela aplicação ainda não foram implementados. Não use o template padrão de fluxo implicit sem adaptar o retorno para a implementação SSR.
 
 Depois de provisionar a conta Auth, um proprietário ou administrador pode emitir um convite de agência pela RPC documentada em [BANCO.md](BANCO.md). O usuário acessa `/convite?token=<token>` e confirma o aceite. A emissão não envia email ou WhatsApp automaticamente; só compartilhe links com os destinatários autorizados. Nenhum desses fluxos foi homologado contra um projeto remoto nesta entrega.
 
