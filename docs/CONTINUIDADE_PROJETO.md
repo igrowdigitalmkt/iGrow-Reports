@@ -157,6 +157,7 @@ Estado em 5/10/2026 (fim da sessão Claude Code desktop): coleta imediata, anál
 3. Comparação de períodos homologada em produção (5/10/2026). Falta: baixar CSV/JSON/PDF reais, acesso de perfis cliente/leitor, conferir período anterior no Ads Manager, investigar erro intermitente se reaparecer.
 4. Decidir a troca da fonte do dashboard principal para snapshots (C.3), agora que a coleta funciona sem agendador.
 4b. (Feito) Migração `202610050001` aplicada em produção em 5/10/2026 e convite homologado. Pendente: SMTP próprio (necessário para editar modelos de e-mail e para limite de envio) e homologar a visão de cliente (dados restritos, sem coleta).
+4c. **Aplicar em produção `202610050002_analytics_values_single_pass.sql` e `202610050003_analytics_canonical_once.sql`** (SQL Editor, nessa ordem). Comprovadas equivalentes por `pnpm check:analytics-equivalence`. Depois, reduzir espaço de `meta_daily_actions`/metadados (ver IMPLEMENTACAO, medição de 5/10).
 5. Restante da V1 sem implementação: aprovação de relatórios, link público com revogação, comentário do gestor, agendamento de geração/entrega e WhatsApp (webhook/outbox). Exigem novas migrations aplicadas pelo responsável.
 
 ## 11. Alternância entre Codex e Claude

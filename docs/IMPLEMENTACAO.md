@@ -431,3 +431,24 @@ Retorno do responsável após o primeiro convite real (silviorm12@gmail.com): e-
 - Pendente: otimizar `get_client_analytics` para 90+ dias e o tamanho dos payloads de `meta_dashboard_scopes` (leitura de todos excedeu 3 min); avaliar compute maior no Supabase; recuperação do banco (reinício do projeto exige decisão do responsável).
 - `pnpm check`: 78 arquivos, 643 testes aprovados.
 
+### 5/10/2026 — Medição e otimização do dashboard principal (plano gratuito)
+
+Ferramentas novas (locais, PGlite com todas as migrações):
+- `pnpm bench:analytics [clientes] [contas] [campanhas] [dias] [--legacy] [--split]` (`scripts/analytics-bench.mjs`): dados sintéticos no formato de produção (metadados v11 com ~105 valores canônicos, 15 ações por linha, cache de agregados com ~1.100 entidades por conta). `--legacy` mede sem as migrações de 5/10; `--split` separa montagem principal, leitura do cache e enriquecimento. PGlite é WASM de uma thread: comparar tempos entre si, não como latência de produção.
+- `pnpm check:analytics-equivalence` (`scripts/analytics-values-equivalence.mjs`): 400 entradas aleatórias de `private.analytics_values` e as quatro RPCs do dashboard (30 dias, 60 dias com uma conta, campanhas selecionadas, hierarquia) em dois bancos idênticos, antes e depois. Resultado: 0 diferenças; as quatro respostas idênticas.
+
+Medições (1 cliente, 3 contas, 4 campanhas, ~400 dias, cache de 3,2 MB por período):
+- Antes: 30 dias 1,27 s · 90 dias 2,75 s · 180 dias 5,95 s · 365 dias 9,31 s.
+- Depois das migrações 0002+0003: 0,99 s · 2,71 s · 4,73 s · 6,20 s (~30% menos CPU nos períodos longos).
+- Divisão (365 dias): montagem principal ~6,0 s; leitura do cache ~0,27 s; enriquecimento ~0,3 s. Cada soma diária custa 1–3 ms e roda uma vez por dia dos dois períodos.
+- Produção trava em 90 dias apesar de ~2,7 s locais: compute Nano (t4g.nano) é de CPU com créditos; as repetições a cada 30 s esgotaram os créditos.
+
+Migrações (NÃO aplicadas em produção):
+- `202610050002_analytics_values_single_pass.sql`: `analytics_values` com um agregado por grupo de indicadores (mesmo contrato).
+- `202610050003_analytics_canonical_once.sql`: expansão canônica uma vez por linha (`canonical_daily_row` idempotente; `client_analytics_base` e `campaign_analytics_base` reescritas por substituição com verificação de versão — falham sem aplicar se o texto não corresponder).
+
+Código (publicado):
+- Cache de agregados sem a cópia de `values` em `entityCatalog` (não lida por ninguém; reduz cada registro ~pela metade) e remoção, a cada gravação, dos registros do cliente com mais de 2 horas (só são servidos por 1 hora).
+
+Espaço em produção (5/10, consulta leve): banco 103 MB de 500 MB; `meta_daily_actions` 39 MB (99 mil linhas); `meta_dashboard_scopes` 28 MB (13 linhas); `meta_daily_insights` 20 MB (10,8 mil linhas). Espaço é o limite que chega primeiro no plano gratuito. Próximo candidato: ações diárias duplicam valores já presentes em `metadata.canonical_values` (v11) e cada linha carrega ~4,5 KB de metadados.
+

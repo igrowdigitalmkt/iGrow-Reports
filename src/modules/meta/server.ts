@@ -154,7 +154,8 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
       entityValues[account.id + ":" + key] = values;
       entityCatalog.push({ key, id, level, name: String(row[level + "_name"] ?? id),
         parentId: level === "campaign" ? null : String(level === "adset" ? row.campaign_id : row.adset_id),
-        campaignId: String(row.campaign_id), accountId: account.id, accountName: account.name, currency: account.currency, values });
+        // Values live once, in entityValues; readers attach them by key.
+        campaignId: String(row.campaign_id), accountId: account.id, accountName: account.name, currency: account.currency });
     }
   }
   const summary = sumPeriodInsightValues(relevant.map(period => accountPeriodValues(period, true)), !!data.currency);
@@ -179,6 +180,11 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
         previousDateFrom: data.previousDateFrom, previousDateTo: data.previousDateTo, accountIds: data.selectedAccountIds, entityKeys: keys },
       estimatedMetricKeys: relevant.length > 1 ? ["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_outbound_clicks", "unique_ctr", "unique_inline_link_click_ctr", "unique_outbound_clicks_ctr"] : [] } as unknown as Json });
   if (error) throw new MetaSetupError("Não foi possível preservar os agregados da Meta.");
+  // Aggregates are only served for an hour (private.valid_dashboard_scope); older
+  // rows of this client are never read again and each can take megabytes.
+  const { error: pruneError } = await service.from("meta_dashboard_scopes").delete()
+    .eq("agency_id", input.agencyId).eq("client_id", input.clientId).lt("collected_at", new Date(Date.now() - 2 * META_ANALYTICS_MAX_AGE_MS).toISOString());
+  if (pruneError) console.error("meta-dashboard-scope-prune", { clientId: input.clientId, code: pruneError.code });
   return { confirmed: true as const, version: META_ANALYTICS_VERSION, collectedAt, actionTypes };
 }
 
