@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # iGrow Reports — entrada para continuidade
 
 Este projeto é mantido alternadamente com Claude e Codex. A continuidade deve ficar no repositório, sem depender do histórico de um chat.
