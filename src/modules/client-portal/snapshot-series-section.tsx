@@ -1,13 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { loadSnapshotSeries, type SnapshotSeriesData } from "./snapshot-series-loader";
+import { loadSnapshotSeries, MAX_SERIES_DAYS, type SnapshotSeriesData } from "./snapshot-series-loader";
 import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 import { SnapshotSeriesPanel } from "./snapshot-series-panel";
-
-// Max days for on-demand series loading without a background cache.
-// Beyond this the user gets a prompt to narrow the period.
-const MAX_SERIES_DAYS = 90;
 
 function dayCount(from: string, to: string) {
   return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;

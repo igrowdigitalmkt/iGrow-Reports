@@ -14,24 +14,33 @@ const accountSchema = z.object({
   name: z.string().min(1), currency: z.string().regex(/^[A-Z]{3}$/), timezone_name: z.string().min(1),
 });
 
+export const MAX_SERIES_DAYS = 90;
+
+// ready: confirmed account row. empty: confirmed collection with no delivery rows
+// (not zero, not missing). missing: no confirmed snapshot. invalid: snapshot exists
+// but fails validation or does not match the account currency/timezone.
+export type SnapshotSeriesDayStatus = "ready" | "empty" | "missing" | "invalid";
+
 export type SnapshotSeriesPoint = {
   date: string;
-  // nativeKey → value (decimal string) | null (unavailable/missing)
+  status: SnapshotSeriesDayStatus;
+  // nativeKey → decimal string, or null when the indicator is absent that day
   values: Record<string, string | null>;
-  missing: boolean;
+  collectedAt: string | null;
 };
 
 export type SnapshotSeriesData = {
-  // Account-level series: one point per calendar day (dateFrom === dateTo)
+  accountName: string;
   points: SnapshotSeriesPoint[];
-  // Indicator keys present in this series (union of all available days)
+  // Indicator keys with one consistent unit across every confirmed day
   keys: string[];
-  // unit per nativeKey (e.g. "currency", "count", "percent")
   units: Record<string, string>;
-  currency: string | null;
+  currency: string;
   timezone: string;
-  // Days that have no confirmed snapshot yet
   missingDates: string[];
+  invalidDates: string[];
+  // The chart is released only when every day is confirmed (ready or empty).
+  complete: boolean;
 };
 
 function shiftDate(value: string, days: number) {
@@ -40,29 +49,22 @@ function shiftDate(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function daysBetween(from: string, to: string): string[] {
+export function seriesDates(from: string, to: string): string[] {
+  z.iso.date().parse(from);
+  z.iso.date().parse(to);
+  if (from > to) throw new Error("Período inválido para a série diária.");
   const dates: string[] = [];
-  let current = from;
-  while (current <= to) {
+  for (let current = from; current <= to; current = shiftDate(current, 1)) {
     dates.push(current);
-    current = shiftDate(current, 1);
+    if (dates.length > MAX_SERIES_DAYS) throw new Error(`A série diária suporta até ${MAX_SERIES_DAYS} dias.`);
   }
   return dates;
 }
 
-// Load account-level daily snapshots for the selected period.
-// Each day is fetched independently; missing days are noted but do not block the series.
-// Max concurrent reads bound to 8 to stay within RPC limits (same pattern as bundle reader).
-export async function loadSnapshotSeries(
-  client: SupabaseClient<Database>,
-  clientId: string,
-  accountId: string,
-  dateFrom: string,
-  dateTo: string,
-  now = new Date(),
-): Promise<SnapshotSeriesData> {
+async function resolveSeriesScope(client: SupabaseClient<Database>, clientId: string, accountId: string, dateFrom: string, dateTo: string) {
   z.uuid().parse(clientId);
   z.uuid().parse(accountId);
+  const dates = seriesDates(dateFrom, dateTo);
 
   const { data, error } = await client.rpc("list_client_snapshot_accounts", { p_client_id: clientId });
   requireCollectionRpc(error);
@@ -74,96 +76,92 @@ export async function loadSnapshotSeries(
   const config = getMetaApiConfig();
   if (!config) throw new Error("A versão da API Meta não está configurada.");
 
-  const dates = daysBetween(dateFrom, dateTo);
-  // Cap at 90 days to avoid excessive RPC fan-out; caller should pre-check.
-  if (dates.length > 90) throw new Error("A série diária suporta até 90 dias.");
+  // Identities derive from the authenticated catalog, never from client input.
+  const identities = dates.map(date => buildMetaCollectionIdentity({
+    clientId, connectionId: account.connection_id, externalAccountId: account.external_id,
+    dateFrom: date, dateTo: date, apiVersion: config.apiVersion, level: "account",
+  }));
+  return { account, dates, identities };
+}
 
+async function readDay(client: SupabaseClient<Database>, identity: CollectionIdentity, account: z.infer<typeof accountSchema>, nowMs: number): Promise<SnapshotSeriesPoint & { units: Record<string, string> }> {
+  const date = identity.dateFrom;
+  const absent = (status: SnapshotSeriesDayStatus) => ({ date, status, values: {}, collectedAt: null, units: {} });
+  let snapshot;
+  try {
+    snapshot = await readConfirmedCollectionSnapshot(client, identity, nowMs);
+  } catch (error) {
+    if (error instanceof SnapshotValidationError) return absent("invalid");
+    throw error;
+  }
+  if (snapshot.status === "empty") return absent("missing");
+  if (!snapshot.entities.length) return { date, status: "empty", values: {}, collectedAt: snapshot.collectedAt, units: {} };
+  const entity = snapshot.entities.find(item => item.id === account.external_id);
+  if (snapshot.entities.length !== 1 || !entity || entity.currency !== account.currency || entity.timezone !== account.timezone_name) {
+    return absent("invalid");
+  }
+  return { date, status: "ready", values: { ...entity.values }, collectedAt: snapshot.collectedAt, units: entity.units };
+}
+
+// Account-level daily series: one exact 1-day snapshot per calendar day. Values are
+// never derived by distributing a period aggregate across days.
+export async function loadSnapshotSeries(
+  client: SupabaseClient<Database>,
+  clientId: string,
+  accountId: string,
+  dateFrom: string,
+  dateTo: string,
+  now = new Date(),
+): Promise<SnapshotSeriesData> {
+  const { account, identities } = await resolveSeriesScope(client, clientId, accountId, dateFrom, dateTo);
   const nowMs = now.getTime();
-  const missingDates: string[] = [];
-  const allKeys = new Set<string>();
-
-  const baseIdentity = {
-    clientId,
-    connectionId: account.connection_id,
-    externalAccountId: account.external_id,
-    apiVersion: config.apiVersion,
-    level: "account" as const,
-  };
-
-  const points: SnapshotSeriesPoint[] = [];
-  const allUnits: Record<string, string> = {};
-
-  // Batch reads 8 at a time
-  for (let offset = 0; offset < dates.length; offset += 8) {
-    const batch = dates.slice(offset, offset + 8);
-    const results = await Promise.all(batch.map(async (date): Promise<SnapshotSeriesPoint> => {
-      const identity: CollectionIdentity = buildMetaCollectionIdentity({ ...baseIdentity, dateFrom: date, dateTo: date });
-      try {
-        const snapshot = await readConfirmedCollectionSnapshot(client, identity, nowMs);
-        if (snapshot.status === "empty") {
-          missingDates.push(date);
-          return { date, values: {}, missing: true };
-        }
-        // Account level: take the first (and only expected) entity
-        const entity = snapshot.entities[0];
-        if (!entity) return { date, values: {}, missing: false };
-        const values: Record<string, string | null> = {};
-        for (const [key, value] of Object.entries(entity.values)) {
-          values[key] = value;
-          allKeys.add(key);
-          if (entity.units[key] && !allUnits[key]) allUnits[key] = entity.units[key];
-        }
-        return { date, values, missing: false };
-      } catch (err) {
-        if (err instanceof SnapshotValidationError) {
-          missingDates.push(date);
-          return { date, values: {}, missing: true };
-        }
-        throw err;
-      }
-    }));
-    points.push(...results);
+  const days: Awaited<ReturnType<typeof readDay>>[] = [];
+  for (let offset = 0; offset < identities.length; offset += 8) {
+    days.push(...await Promise.all(identities.slice(offset, offset + 8).map(identity => readDay(client, identity, account, nowMs))));
   }
 
+  const units: Record<string, string> = {};
+  const conflicting = new Set<string>();
+  for (const day of days) {
+    for (const key of Object.keys(day.values)) {
+      const unit = day.units[key];
+      if (!unit) { conflicting.add(key); continue; }
+      if (units[key] && units[key] !== unit) conflicting.add(key);
+      units[key] ??= unit;
+    }
+  }
+  for (const key of conflicting) delete units[key];
+
+  const missingDates = days.filter(day => day.status === "missing").map(day => day.date);
+  const invalidDates = days.filter(day => day.status === "invalid").map(day => day.date);
   return {
-    points,
-    keys: [...allKeys],
-    units: allUnits,
+    accountName: account.name,
+    points: days.map(day => ({ date: day.date, status: day.status, values: day.values, collectedAt: day.collectedAt })),
+    keys: Object.keys(units),
+    units,
     currency: account.currency,
     timezone: account.timezone_name,
     missingDates,
+    invalidDates,
+    complete: !missingDates.length && !invalidDates.length,
   };
 }
 
-// Build the collection identities for missing days (account level only, for daily series requests).
+// Identities for the days still without a confirmed snapshot (account level only).
 export async function resolveSeriesMissingIdentities(
   client: SupabaseClient<Database>,
   clientId: string,
   accountId: string,
   dateFrom: string,
   dateTo: string,
+  now = new Date(),
 ): Promise<CollectionIdentity[]> {
-  z.uuid().parse(clientId);
-  z.uuid().parse(accountId);
-
-  const { data, error } = await client.rpc("list_client_snapshot_accounts", { p_client_id: clientId });
-  requireCollectionRpc(error);
-  if (error) throw new Error("Não foi possível consultar as contas.");
-  const accounts = z.array(accountSchema).max(100).parse(data);
-  const account = accounts.find(a => a.id === accountId);
-  if (!account) throw new Error("Conta não autorizada.");
-
-  const config = getMetaApiConfig();
-  if (!config) throw new Error("A versão da API Meta não está configurada.");
-
-  const dates = daysBetween(dateFrom, dateTo);
-  if (dates.length > 90) throw new Error("A série diária suporta até 90 dias.");
-
-  // For daily series, we only collect the account level per day.
-  return dates.map(date =>
-    buildMetaCollectionIdentity({
-      clientId, connectionId: account.connection_id, externalAccountId: account.external_id,
-      dateFrom: date, dateTo: date, apiVersion: config.apiVersion, level: "account",
-    })
-  );
+  const { account, identities } = await resolveSeriesScope(client, clientId, accountId, dateFrom, dateTo);
+  const missing: CollectionIdentity[] = [];
+  for (let offset = 0; offset < identities.length; offset += 8) {
+    const batch = identities.slice(offset, offset + 8);
+    const days = await Promise.all(batch.map(identity => readDay(client, identity, account, now.getTime())));
+    days.forEach((day, index) => { if (day.status === "missing") missing.push(batch[index]); });
+  }
+  return missing;
 }

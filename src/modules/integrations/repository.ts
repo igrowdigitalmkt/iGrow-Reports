@@ -32,14 +32,25 @@ export async function requestMetaCollectionRefresh(service: SupabaseClient<Datab
 // One statement either registers the entire missing-scope request or rolls it
 // back. Duplicate identities reuse their existing jobs without resetting leases.
 export async function enqueueCollectionJobs(service: SupabaseClient<Database>,identities: CollectionIdentity[]) {
+  return insertCollectionJobs(service,identities,(identity,first) => identity.dateFrom === first.dateFrom && identity.dateTo === first.dateTo);
+}
+
+// Daily series: same account and level, one exact calendar day per identity.
+export async function enqueueDailyCollectionJobs(service: SupabaseClient<Database>,identities: CollectionIdentity[]) {
+  return insertCollectionJobs(service,identities,(identity,first) => identity.dateFrom === identity.dateTo
+    && identity.externalAccountId === first.externalAccountId && identity.level === first.level);
+}
+
+async function insertCollectionJobs(service: SupabaseClient<Database>,identities: CollectionIdentity[],
+  compatible: (identity: CollectionIdentity,first: CollectionIdentity) => boolean) {
   if (!identities.length || identities.length > 400) throw new Error("Seleção de coleta inválida.");
   const first = identities[0];
   const keys = new Set<string>();
   const now = new Date().toISOString();
   const rows = identities.map(identity => {
     if (identity.clientId !== first.clientId || identity.connectionId !== first.connectionId || identity.provider !== first.provider
-      || identity.dateFrom !== first.dateFrom || identity.dateTo !== first.dateTo || identity.apiVersion !== first.apiVersion
-      || identity.contractVersion !== first.contractVersion) throw new Error("Escopos incompatíveis na solicitação de coleta.");
+      || identity.apiVersion !== first.apiVersion || identity.contractVersion !== first.contractVersion
+      || !compatible(identity,first)) throw new Error("Escopos incompatíveis na solicitação de coleta.");
     const idempotencyKey = collectionIdempotencyKey(identity);
     if (keys.has(idempotencyKey)) throw new Error("Escopo de coleta duplicado.");
     keys.add(idempotencyKey);

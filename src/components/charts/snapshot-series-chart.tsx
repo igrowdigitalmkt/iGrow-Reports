@@ -50,7 +50,7 @@ export function SnapshotSeriesChart({
       type: "line" as const,
       data: points.map(p => {
         const raw = p.values[metric.nativeKey];
-        if (raw === null || raw === undefined || p.missing) return null;
+        if (raw === null || raw === undefined || p.status !== "ready") return null;
         // Parse to float for chart rendering; precision is only for display
         const n = parseFloat(raw);
         return Number.isFinite(n) ? n : null;
@@ -140,7 +140,7 @@ export function SnapshotSeriesChart({
                   <td>{new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${p.date}T12:00:00Z`))}</td>
                   {metrics.map(m => (
                     <td key={m.nativeKey}>
-                      {p.missing ? "—" : formatSnapshotDecimal(p.values[m.nativeKey] ?? null, m.unit, currency)}
+                      {p.status === "empty" ? "Sem veiculação" : p.status !== "ready" ? "—" : formatSnapshotDecimal(p.values[m.nativeKey] ?? null, m.unit, currency)}
                     </td>
                   ))}
                 </tr>

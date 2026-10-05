@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireClientDashboardAccess } from "./context";
 import { resolveSeriesMissingIdentities } from "./snapshot-series-loader";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { enqueueCollectionJobs } from "@/modules/integrations/repository";
+import { enqueueDailyCollectionJobs } from "@/modules/integrations/repository";
 import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 
 export async function requestSeriesData(input: unknown) {
@@ -28,12 +28,12 @@ export async function requestSeriesData(input: unknown) {
       parsed.data.from,
       parsed.data.to,
     );
-    if (!identities.length) return { error: "Nenhum dia encontrado para a série solicitada." };
+    if (!identities.length) return { error: "Todos os dias deste período já têm coleta confirmada ou aguardam verificação." };
 
     const service = createSupabaseServiceClient();
     if (!service) return { error: "A coleta está temporariamente indisponível." };
 
-    const created = await enqueueCollectionJobs(service, identities);
+    const created = await enqueueDailyCollectionJobs(service, identities);
     revalidatePath(`/cliente/${parsed.data.clientId}/snapshots`);
     return { success: true as const, created };
   } catch (error) {

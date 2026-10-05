@@ -68,17 +68,14 @@ export function SnapshotSeriesPanel({
   });
 
   const missingCount = series?.missingDates.length ?? 0;
+  const invalidCount = series?.invalidDates.length ?? 0;
   const totalDays = series?.points.length ?? 0;
-  const readyDays = totalDays - missingCount;
+  const confirmedDays = totalDays - missingCount - invalidCount;
 
-  const metrics: SeriesChartMetric[] = selectedKeys.map(key => {
-    const unit = series?.units[key] ?? (
-      key === "spend" || key.startsWith("cost") || key === "cpc" || key === "cpp" || key === "cpm" ? "currency"
-      : key === "ctr" || key === "frequency" || key.includes("ctr") ? "percent"
-      : "count"
-    );
-    return { nativeKey: key, label: niceLabel(key), unit, currency: series?.currency ?? null };
-  });
+  // Units come only from the confirmed snapshots; keys with inconsistent units are excluded upstream.
+  const metrics: SeriesChartMetric[] = series
+    ? selectedKeys.filter(key => series.units[key]).map(key => ({ nativeKey: key, label: niceLabel(key), unit: series.units[key], currency: series.currency }))
+    : [];
 
   function requestCollection() {
     setError(""); setMessage("");
@@ -116,8 +113,9 @@ export function SnapshotSeriesPanel({
   return (
     <div className="snapshot-series">
       <div className="snapshot-series-header"><TrendingUp size={18} /><h2>Evolução diária</h2>
-        {readyDays > 0 && <span className="snapshot-series-coverage">{readyDays} de {totalDays} dias confirmados</span>}
+        <span className="snapshot-series-coverage">{confirmedDays} de {totalDays} dias confirmados</span>
       </div>
+      <p className="snapshot-series-note">Conta {series.accountName} · {series.currency} · fuso {series.timezone}. Cada ponto é a coleta confirmada daquele dia.</p>
 
       {message && <p role="status" className="snapshot-series-msg">{message}</p>}
       {error && <p role="alert" className="snapshot-series-msg snapshot-series-error">{error}</p>}
@@ -126,7 +124,7 @@ export function SnapshotSeriesPanel({
         <div className="snapshot-series-missing">
           <p>{missingCount === totalDays
             ? "Nenhum dia deste período tem dados confirmados na série diária."
-            : `${missingCount} ${missingCount === 1 ? "dia ainda não tem" : "dias ainda não têm"} dados confirmados e ${missingCount === 1 ? "aparece" : "aparecem"} como lacuna no gráfico.`}
+            : `${missingCount} ${missingCount === 1 ? "dia ainda não tem" : "dias ainda não têm"} dados confirmados. O gráfico será exibido quando todos os dias do período estiverem confirmados.`}
           </p>
           {canCollect && (
             <button type="button" disabled={pending} onClick={requestCollection}>
@@ -136,7 +134,13 @@ export function SnapshotSeriesPanel({
         </div>
       )}
 
-      {availableKeys.length > 0 && (
+      {invalidCount > 0 && (
+        <div className="snapshot-series-missing">
+          <p>{invalidCount} {invalidCount === 1 ? "dia tem" : "dias têm"} dados que não passaram na conferência de conta, moeda ou fuso. O gráfico permanece oculto até a verificação da coleta.</p>
+        </div>
+      )}
+
+      {series.complete && availableKeys.length > 0 && (
         <div className="snapshot-series-selector">
           <label htmlFor="series-metrics-select">Indicadores exibidos</label>
           <select
@@ -157,7 +161,7 @@ export function SnapshotSeriesPanel({
         </div>
       )}
 
-      {readyDays > 0 && metrics.length > 0 ? (
+      {series.complete && metrics.length > 0 ? (
         <SnapshotSeriesChart
           points={series.points}
           metrics={metrics}
@@ -165,7 +169,7 @@ export function SnapshotSeriesPanel({
         />
       ) : (
         <div className="snapshot-series-empty">
-          <p>Nenhum dado confirmado para exibir no gráfico.</p>
+          <p>{series.complete ? "Nenhum indicador confirmado para exibir no gráfico." : "Gráfico indisponível até a confirmação de todos os dias do período."}</p>
         </div>
       )}
     </div>

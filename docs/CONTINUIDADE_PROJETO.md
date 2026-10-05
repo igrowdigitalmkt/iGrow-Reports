@@ -144,11 +144,11 @@ Silvio quer continuidade autônoma e mais tempo implementando, com atualizaçõe
 
 Não expor tokens, segredos ou arquivos de ambiente. Não inventar credenciais ou funcionamento. Se falta uma dependência externa, avançar no código/testes independentes e explicar o bloqueio exato. Não atribuir percentual geral de conclusão sem uma lista ponderada de critérios concluídos e homologados.
 
-O próximo chat deve distinguir três estados em todo relatório: implementado/testado localmente, publicado, homologado com serviço/dados reais. As séries diárias estão implementadas (`5e601f1` + `187f10d`), enviadas ao GitHub e validadas por `pnpm check` local; deploy desse SHA na Vercel ainda não foi conferido e a homologação autenticada permanece pendente.
+O próximo chat deve distinguir três estados em todo relatório: implementado/testado localmente, publicado, homologado com serviço/dados reais. As séries diárias estão implementadas (`5e601f1` + `187f10d`), enviadas ao GitHub e validadas por `pnpm check` local; deploy de `187f10d` confirmado (Production, success). Revisão posterior corrigiu enfileiramento multi-dia, bloqueio de gráfico parcial e estados por dia (ver IMPLEMENTACAO, 5/10/2026). Homologação autenticada permanece pendente.
 
 ## 10. Primeira ação sugerida para o próximo chat
 
-Ler este guia, AGENTS.md e o planejamento; conferir árvore/revisão. Conferir o deploy de `187f10d` na Vercel. Tentar homologação autenticada do novo fluxo com sessão real. Se navegador/credenciais impedirem, avançar para C.3 (migração da fonte principal para snapshots) ou D (auditoria V1). Atualizar este guia e IMPLEMENTACAO ao concluir cada incremento.
+Ler este guia, AGENTS.md e o planejamento; conferir árvore/revisão. Conferir o deploy do último commit na Vercel. Tentar homologação autenticada do novo fluxo com sessão real. Se navegador/credenciais impedirem, avançar para C.3 (migração da fonte principal para snapshots) ou D (auditoria V1). Atualizar este guia e IMPLEMENTACAO ao concluir cada incremento.
 
 ## 11. Alternância entre Codex e Claude
 

@@ -296,3 +296,18 @@ Sem alteração de schema, migration, segredo ou coleta real. `pnpm check` com o
 - `pnpm check` executado na máquina do usuário após `git pull`: 71 arquivos de teste e 597 testes aprovados, `test:db` e `test:rollout` verdes, build Next.js 16.3.8 concluído com `/cliente/[clientId]/snapshots` dinâmica.
 - Contexto da sessão claude.ai (cloud) trazido para o Claude Code desktop; esta sessão roda direto no checkout local.
 - Pendente: confirmar deploy de `187f10d` na Vercel e homologar a série com sessão autenticada e dados reais.
+
+### 5/10/2026 — Revisão das séries diárias contra C.1/C.2
+
+Revisão do código de `5e601f1` (escrito em container sem execução intermediária de testes) encontrou desvios do requisito e um defeito:
+
+- Defeito: "Solicitar coleta dos dias ausentes" sempre falhava com mais de um dia, porque `enqueueCollectionJobs` exige o mesmo período em todas as identidades. Criado `enqueueDailyCollectionJobs` em `src/modules/integrations/repository.ts`: mesma conta/conexão/nível/versões, um dia exato por identidade, upsert idempotente único.
+- A ação enfileirava todos os dias do período; agora só os dias sem snapshot confirmado.
+- O gráfico era exibido com lacunas (análise parcial). Agora `complete` só é verdadeiro com todos os dias confirmados; antes disso o painel mostra cobertura e oculta gráfico e seletor.
+- Estados por dia: `ready`, `empty` (coleta confirmada sem linhas, "Sem veiculação" na tabela, distinto de ausente e de zero), `missing` e `invalid` (falha de validação, entidade inesperada, moeda ou fuso diferente da conta). Antes, erro de validação virava "ausente" e seria reenfileirado inutilmente.
+- Indicadores cuja unidade muda entre dias são excluídos; unidade vem só do snapshot (removida heurística por nome).
+- Painel identifica conta, moeda e fuso (a série usa a primeira conta selecionada). Período invertido é rejeitado.
+- Testes: 14 em `tests/snapshot-series-loader.test.ts` (6 novos). `pnpm check` local: 71 arquivos, 603 testes, test:db, test:rollout e build aprovados; lint sem avisos após ajuste final.
+- Deploy de `187f10d` confirmado pela API GitHub: Production, success.
+- Pendente: homologação autenticada com dados reais; a coleta real de snapshots diários depende da ativação do executor (seção B do guia).
+
