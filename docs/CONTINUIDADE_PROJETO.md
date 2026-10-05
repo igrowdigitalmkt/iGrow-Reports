@@ -148,7 +148,13 @@ O próximo chat deve distinguir três estados em todo relatório: implementado/t
 
 ## 10. Primeira ação sugerida para o próximo chat
 
-Ler este guia, AGENTS.md e o planejamento; conferir árvore/revisão. Conferir o deploy do último commit na Vercel. Tentar homologação autenticada do novo fluxo com sessão real. Se navegador/credenciais impedirem, avançar para C.3 (migração da fonte principal para snapshots) ou D (auditoria V1). Atualizar este guia e IMPLEMENTACAO ao concluir cada incremento.
+Estado em 5/10/2026 (fim da sessão Claude Code desktop): coleta imediata, análise por snapshots e série diária homologadas em produção com dados reais do Colégio Crescer (ver IMPLEMENTACAO, 5/10/2026). Próximos passos, em ordem:
+
+1. Responsável confere no Ads Manager os números registrados em IMPLEMENTACAO (Colégio Crescer e Escola Crescer, 28/09–04/10/2026).
+2. Levar os resultados derivados das campanhas (nível de conta) para CSV/JSON/PDF, hoje só na tela.
+3. Homologar exportações, comparação de períodos e acesso de perfis cliente/leitor em produção.
+4. Decidir a troca da fonte do dashboard principal para snapshots (C.3), agora que a coleta funciona sem agendador.
+5. Restante da V1 sem implementação: aprovação de relatórios, link público com revogação, comentário do gestor, agendamento de geração/entrega e WhatsApp (webhook/outbox). Exigem novas migrations aplicadas pelo responsável.
 
 ## 11. Alternância entre Codex e Claude
 
