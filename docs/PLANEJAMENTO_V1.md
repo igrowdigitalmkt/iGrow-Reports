@@ -1853,6 +1853,19 @@ Cole a instrução abaixo junto com este planejamento:
 
 **O contexto que acompanha o projeto deve ser este documento completo.** A instrução da seção Z orienta a execução; as seções A a Y definem o que deverá ser construído.
 
+---
+
+**Adendo de 5/10/2026 — Coleta incremental e leitura pronta (decisão do responsável)**
+
+Motivo: em compute Nano (plano gratuito do Supabase), recalcular o dashboard a partir das linhas diárias a cada abertura esgotou a CPU (ver IMPLEMENTACAO, 5/10/2026). Decisão: armazenar uma vez, atualizar só o que ainda pode mudar e ler resultados prontos.
+
+1. Carga inicial: ao vincular uma conta, coletar o histórico disponível uma vez (Meta guarda até 37 meses; padrão a definir entre 13 e 25 meses).
+2. Atualização incremental por janela de revisão, configurável por plataforma. Meta: últimos 7 dias diariamente; 8–28 dias semanalmente; mais de 28 dias congelados (atribuição padrão 7 dias clique/1 dia visualização, mas conversões tardias, ajustes de cobrança e tráfego inválido revisam até ~28 dias). Google Ads e TikTok terão janelas próprias.
+3. Leitura pronta: cada período calculado (cliente, datas, contas) fica guardado com a impressão digital dos dados de origem e só é recalculado quando eles mudam (migração 202610050004). Períodos padrão (7, 30, 90, 180, 365 dias) são pré-calculados após a coleta diária.
+4. Métricas não somáveis entre dias (alcance, frequência, cliques únicos, resultados nativos por objetivo) continuam vindo da plataforma para o período exato, com uma chamada por conta e cache.
+5. Retenção por nível para caber no plano gratuito: conta e campanha com histórico completo; conjunto e anúncio pelos últimos 90–180 dias; eliminar dados duplicados (ações diárias repetidas nos metadados).
+6. Agendamento: um disparo diário (Vercel Cron, disponível no plano gratuito) executa a atualização incremental e o pré-cálculo; o executor de fila existente processa os pedidos.
+
 [1]: https://nextjs.org/docs/app?utm_source=chatgpt.com "Next.js Docs: App Router"
 [2]: https://supabase.com/docs/guides/database/postgres/row-level-security?utm_source=chatgpt.com "Row Level Security"
 [3]: https://www.postman.com/meta/facebook-marketing-api/collection/0zr4mes/facebook-marketing-api-mapi?utm_source=chatgpt.com "Facebook Marketing API (MAPI) | Get Started"

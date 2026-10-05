@@ -8,7 +8,7 @@ import { isDeepStrictEqual } from "node:util";
 import { createAnalyticsBenchDb } from "./analytics-bench-db.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const legacy = await createAnalyticsBenchDb(root, { exclude: ["202610050002_analytics_values_single_pass.sql", "202610050003_analytics_canonical_once.sql"] });
+const legacy = await createAnalyticsBenchDb(root, { exclude: ["202610050002_analytics_values_single_pass.sql", "202610050003_analytics_canonical_once.sql", "202610050004_client_analytics_cache.sql"] });
 const current = await createAnalyticsBenchDb(root);
 
 let seed = 7;

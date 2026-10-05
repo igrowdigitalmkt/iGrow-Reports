@@ -10,7 +10,7 @@ import { createAnalyticsBenchDb } from "./analytics-bench-db.mjs";
 const legacy = process.argv.includes("--legacy");
 const [clients = 1, accounts = 3, campaigns = 4, days = 730] = process.argv.slice(2).filter(arg => !arg.startsWith("--")).map(Number);
 const root = fileURLToPath(new URL("../", import.meta.url));
-const db = await createAnalyticsBenchDb(root, { exclude: legacy ? ["202610050002_analytics_values_single_pass.sql", "202610050003_analytics_canonical_once.sql"] : [] });
+const db = await createAnalyticsBenchDb(root, { exclude: legacy ? ["202610050002_analytics_values_single_pass.sql", "202610050003_analytics_canonical_once.sql", "202610050004_client_analytics_cache.sql"] : [] });
 const owner = "10000000-0000-4000-8000-0000000000b1";
 const agency = "aaaaaaaa-0000-4000-8000-0000000000b1";
 const end = "2026-10-04";
@@ -117,7 +117,13 @@ for (const span of [30, 90, 180, 365]) {
   // Collection timestamps differ per run; compare the analytical content only.
   const parsed = JSON.parse(body); delete parsed.coverage.latestCollectedAt;
   const digest = createHash("sha256").update(JSON.stringify(parsed)).digest("hex").slice(0, 12);
-  console.log(`${String(span).padStart(3)} dias: ${String(ms).padStart(6)} ms · resposta ${(body.length / 1024).toFixed(0)} KB · sha ${digest}${entitiesPerAccount > 0 ? ` · cache ${await scopeSize()}` : ""}`);
+  // Second read of the same period (served from private.client_analytics_cache when present).
+  await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false);`);
+  const again = performance.now();
+  await db.query(`select length(get_client_analytics('${client}','${from}','${end}',null)::text)`);
+  const repeat = Math.round(performance.now() - again);
+  await db.exec("reset role;");
+  console.log(`${String(span).padStart(3)} dias: ${String(ms).padStart(6)} ms · repetida ${String(repeat).padStart(5)} ms · resposta ${(body.length / 1024).toFixed(0)} KB · sha ${digest}${entitiesPerAccount > 0 ? ` · cache ${await scopeSize()}` : ""}`);
 }
 if (process.argv.includes("--split")) {
   // Superuser session with the owner's identity: private helpers are not granted to authenticated.
