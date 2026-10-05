@@ -52,3 +52,21 @@ export function projectMetaSnapshotView(bundle: SnapshotBundle): MetaSnapshotVie
     }),
   };
 }
+
+export type SnapshotResultBreakdown = { key: string; label: string; value: string };
+
+// Split native result indicators from the general list. When Meta reports more
+// than one result type for an entity, list each type instead of adding them.
+export function splitSnapshotResultIndicators(indicators: MetaSnapshotIndicator[]) {
+  const known = indicators.find(item => item.key === "result:provider_known")?.value === "1";
+  const breakdown: SnapshotResultBreakdown[] = known ? indicators
+    .filter(item => item.nativeKey.startsWith("result:provider:") && item.value !== null)
+    .map(item => ({ key: item.nativeKey, label: item.label, value: item.value! })) : [];
+  const general = indicators.filter(item => item.key !== "result:provider_known" && !item.nativeKey.startsWith("result:provider:"));
+  const resultKeys = new Set(["primary_results", "cost_per_result"]);
+  return {
+    breakdown,
+    mixedResults: breakdown.length > 1,
+    indicators: [...general.filter(item => resultKeys.has(item.key)), ...general.filter(item => !resultKeys.has(item.key))],
+  };
+}

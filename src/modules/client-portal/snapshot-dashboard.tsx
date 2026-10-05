@@ -10,6 +10,7 @@ import { formatSnapshotDecimal } from "../meta/snapshot-format";
 import "./snapshot-dashboard.css";
 import { requestMissingSnapshotData } from "./snapshot-dashboard-actions";
 import { snapshotEntityPage } from "../meta/snapshot-entity-list";
+import { splitSnapshotResultIndicators } from "../meta/snapshot-view";
 import { exportMetaSnapshotCsv,exportMetaSnapshotJson } from "../meta/snapshot-export";
 import { SnapshotPdfUnsupportedTextError } from "../reports/snapshot-pdf-error";
 import { compareSnapshotIndicator,resolveSnapshotComparison,snapshotComparisonDescription } from "../meta/snapshot-comparison";
@@ -44,7 +45,7 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const previousEntity = entity ? comparison?.previousEntities.get(entity.id) : undefined;
   const currentEntityIds = new Set(scope?.entities.map(item => item.id));
   const previousOnlyCount = comparison?.previous.entities.filter(item => !currentEntityIds.has(item.id)).length ?? 0;
-  const indicators = entity?.indicators.filter(item => item.key !== "result:provider_known") ?? [];
+  const { indicators,breakdown: resultBreakdown,mixedResults } = splitSnapshotResultIndicators(entity?.indicators ?? []);
   const campaignNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities.map(item => [item.id,item.name]) ?? []);
   const adsetNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "adset")?.entities.map(item => [item.id,item.name]) ?? []);
   async function exportReport(format: "csv" | "json" | "pdf") {
@@ -200,7 +201,15 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
           <strong title={indicator.value ?? undefined} className={indicator.value === null ? "snapshot-unavailable" : ""}>
             {formatSnapshotDecimal(indicator.value,indicator.unit,entity.currency ?? account?.currency ?? null)}
           </strong>
-          {indicator.state === "unavailable" && <small>Indicador não disponível neste escopo confirmado.</small>}
+          {indicator.key === "primary_results" && indicator.value !== null && resultBreakdown.length === 1 && <small>{resultBreakdown[0].label}</small>}
+          {indicator.key === "primary_results" && mixedResults && <>
+            <small>Esta entidade tem tipos diferentes de resultado, que não são somados:</small>
+            <ul className="snapshot-result-breakdown">{resultBreakdown.map(item => <li key={item.key}>
+              <span>{item.label}</span><b>{formatSnapshotDecimal(item.value,"count",null)}</b>
+            </li>)}</ul>
+          </>}
+          {indicator.key === "cost_per_result" && mixedResults && <small>Não calculado: um único custo misturaria tipos diferentes de resultado.</small>}
+          {indicator.state === "unavailable" && !(mixedResults && (indicator.key === "primary_results" || indicator.key === "cost_per_result")) && <small>Indicador não disponível neste escopo confirmado.</small>}
           {indicator.state === "error" && <small>Não foi possível confirmar este indicador.</small>}
           {change && <small>
             Anterior: {formatSnapshotDecimal(change.previousValue,indicator.unit,entity.currency ?? account?.currency ?? null)}<br />

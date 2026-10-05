@@ -35,9 +35,57 @@ const labels: Record<string, string> = {
   "action:offsite_conversion.fb_pixel_initiate_checkout": "Finalizações de compra iniciadas no site",
   "action:omni_view_content": "Visualizações de conteúdo",
   "action:offsite_conversion.fb_pixel_view_content": "Visualizações de conteúdo no site",
+  "action:omni_landing_page_view": "Visualizações da página de destino (todos os canais)",
+  "action:onsite_conversion.messaging_conversation_replied_7d": "Conversas por mensagem respondidas",
+  "action:onsite_conversion.messaging_block": "Bloqueios de mensagens",
+  "action:onsite_conversion.post_unlike": "Descurtidas da publicação",
+  "action:onsite_conversion.post_net_like": "Curtidas líquidas da publicação",
+  "action:onsite_conversion.post_net_comment": "Comentários líquidos da publicação",
+  "action:onsite_conversion.post_net_save": "Salvamentos líquidos da publicação",
+  "action:post_interaction_gross": "Interações com a publicação (brutas)",
+  "action:post_interaction_net": "Interações com a publicação (líquidas)",
+  "action:onsite_conversion.lead": "Leads na Meta", "action:omni_lead": "Leads",
+  "action:onsite_web_lead": "Leads no site", "action:contact_total": "Contatos",
+  "action:onsite_conversion.flow_complete": "Formulários instantâneos concluídos",
+  "action:onsite_app_purchase": "Compras no app", "action:omni_app_install": "Instalações do app",
 };
+
+const offsiteEvents: Record<string, string> = {
+  complete_registration: "Cadastro concluído", lead: "Lead", purchase: "Compra", add_to_cart: "Adição ao carrinho",
+  initiate_checkout: "Finalização de compra iniciada", view_content: "Visualização de conteúdo",
+  contact: "Contato", schedule: "Agendamento", submit_application: "Inscrição enviada", search: "Pesquisa",
+};
+
+function words(value: string) {
+  return value.replace(/[._]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Readable names for action types without a curated label. Custom pixel events
+// ("offsite_<event>_add_<name>") keep the advertiser-defined name visible.
+function actionLabel(key: string): string | null {
+  const type = key.slice("action:".length);
+  const depth = /^onsite_conversion\.messaging_user_depth_(\d+)_message_send$/.exec(type);
+  if (depth) return `Contatos com ${depth[1]} mensagens enviadas`;
+  const custom = /^offsite_([a-z_]+?)_add_(.+)$/.exec(type);
+  if (custom) return `${offsiteEvents[custom[1]] ?? words(custom[1])} (evento personalizado: ${words(custom[2])})`;
+  if (type.startsWith("offsite_conversion.custom.")) return `Conversão personalizada ${type.slice("offsite_conversion.custom.".length)}`;
+  if (type.startsWith("offsite_conversion.fb_pixel_custom")) return "Evento personalizado do pixel";
+  const prefix = type.startsWith("onsite_conversion.") ? "na Meta" : type.startsWith("offsite_conversion.") ? "no site" : null;
+  const base = type.replace(/^(onsite|offsite)_conversion\./, "").replace(/^omni_/, "");
+  const known = labels[`action:${base}`];
+  if (known) return prefix ? `${known} ${prefix}` : known;
+  return null;
+}
+
 export function metaMetricLabel(key: string, fallback: string): string {
   if (key.startsWith("cost:action:")) return `Custo por ${metaMetricLabel(key.slice(5), fallback.replace(/^Custo por /i, "")).toLocaleLowerCase("pt-BR")}`;
   if (key.startsWith("value:action:")) return `Valor de conversão de ${metaMetricLabel(key.slice(6), fallback.replace(/^Valor de conversão de /i, "")).toLocaleLowerCase("pt-BR")}`;
-  return labels[key] ?? fallback;
+  const label = labels[key];
+  if (label) return label;
+  if (fallback === key && key.startsWith("action:")) {
+    const readable = actionLabel(key);
+    if (readable) return readable;
+    return `Ação Meta: ${words(key.slice("action:".length))}`;
+  }
+  return fallback;
 }

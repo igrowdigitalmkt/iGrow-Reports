@@ -23,6 +23,7 @@ function niceLabel(nativeKey: string): string {
   const key = nativeKey === "inline_link_clicks" ? "link_clicks" : nativeKey;
   const indicator = nativeKey.startsWith("result:provider:") ? nativeKey.slice("result:provider:".length) : key;
   const label = metaMetricLabel(indicator, indicator);
+  if (nativeKey.startsWith("result:provider:")) return `Resultado: ${label}`;
   if (label === indicator) {
     // Fallback: prettify the key
     return nativeKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -56,7 +57,7 @@ export function SnapshotSeriesPanel({
 
   // Determine available metrics from series data
   const availableKeys = series
-    ? series.keys.filter(k => DEFAULT_DISPLAY_KEYS.includes(k) || k.startsWith("result:"))
+    ? series.keys.filter(k => DEFAULT_DISPLAY_KEYS.includes(k) || k === "primary_results" || k.startsWith("result:provider:"))
     : [];
   const [selectedKeys, setSelectedKeys] = useState<string[]>(() => {
     // Default selection: spend + up to 1 result metric

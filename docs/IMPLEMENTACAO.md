@@ -320,3 +320,19 @@ Motivação: o fluxo por snapshots só recebe dados quando o executor roda, e o 
 - Testes: `tests/inline-drain.test.ts` (4) e asserção em `tests/snapshot-dashboard-actions.test.ts`. `pnpm check`: 72 arquivos, 607 testes, test:db, test:rollout e build aprovados.
 - Não homologado: nenhuma coleta real foi executada por este caminho. Primeiro uso real deve ser observado (logs da Vercel, estado dos jobs, snapshot confirmado vs. Ads Manager).
 
+### 5/10/2026 — Homologação real da coleta imediata e da série diária
+
+Evidência (produção, sessão autenticada do responsável, cliente Colégio Crescer, 3 contas, 28/09–04/10/2026):
+
+- "Solicitar dados faltantes" criou 12 jobs (3 contas × 4 níveis); a coleta imediata (`dc08412`) confirmou os 12 em cerca de 1 minuto, sem agendador externo. Análise liberada inteira após confirmação.
+- "Solicitar coleta dos dias ausentes" criou 7 jobs diários; todos confirmados. Gráfico ECharts renderizado com 7 de 7 dias.
+- Conciliação: soma dos valores usados diários da conta Colégio Crescer (0,00 + 41,21 + 103,00 + 82,54 + 72,79 + 124,45 + 120,12) = R$ 544,11, idêntica ao agregado do período coletado independentemente.
+- Não conferido ainda contra o Ads Manager; exportações, comparação e perfis cliente/leitor não testados nesta rodada.
+
+Problemas encontrados na homologação e corrigidos:
+
+- "Resultados" e "Custo por resultado" apareciam como "Indisponível" no nível de conta porque o Meta retornou dois tipos de resultado (cadastro por evento personalizado e conversa por mensagem). A regra de não somar está correta; agora o card lista cada tipo com seu valor e explica que não são somados; o custo explica por que não é calculado. Com um único tipo, o card mostra o nome do resultado. Os indicadores `result:provider:*` saíram da lista geral (eram duplicatas com o mesmo rótulo). Helper testável: `splitSnapshotResultIndicators` em `src/modules/meta/snapshot-view.ts`.
+- Ações sem rótulo apareciam com a chave técnica (`action:offsite_complete_registration_add_meta_leads`). `metaMetricLabel` ganhou rótulos para ações observadas e nomes legíveis para eventos personalizados, profundidade de mensagens, prefixos `onsite/offsite/omni` e fallback "Ação Meta: …" (somente quando o chamador não forneceu rótulo próprio).
+- Seletor da série mostrava "Result:Provider Known"; agora oferece `primary_results` e `result:provider:*` como "Resultado: …".
+- Testes: `tests/snapshot-result-breakdown.test.ts` (4). `pnpm check`: 73 arquivos, 611 testes, test:db, test:rollout e build aprovados.
+
