@@ -452,7 +452,7 @@ Código (publicado):
 
 Espaço em produção (5/10, consulta leve): banco 103 MB de 500 MB; `meta_daily_actions` 39 MB (99 mil linhas); `meta_dashboard_scopes` 28 MB (13 linhas); `meta_daily_insights` 20 MB (10,8 mil linhas). Espaço é o limite que chega primeiro no plano gratuito. Próximo candidato: ações diárias duplicam valores já presentes em `metadata.canonical_values` (v11) e cada linha carrega ~4,5 KB de metadados.
 
-### 5/10/2026 — Resultado pronto por período (migração `202610050004`, NÃO aplicada)
+### 5/10/2026 — Resultado pronto por período (migração `202610050004`, aplicada em produção pelo responsável em 5/10)
 
 - Arquitetura registrada no adendo de 5/10/2026 do `docs/PLANEJAMENTO_V1.md` (carga inicial, janela de revisão, leitura pronta, retenção).
 - `private.client_analytics_cache` guarda o resultado de cada período (cliente, datas, contas). `private.client_analytics_base` passa a ser o cache: confere período, autorização e contas antes de qualquer leitura guardada (casos inválidos seguem para o cálculo, que gera os mesmos erros), calcula a impressão digital e devolve o resultado guardado se ela coincidir; senão chama `private.client_analytics_compute` (o cálculo anterior, renomeado), guarda e apaga períodos do cliente sem uso há 3 dias.
@@ -461,4 +461,13 @@ Espaço em produção (5/10, consulta leve): banco 103 MB de 500 MB; `meta_daily
 - Testes: `supabase/tests/client-analytics-cache.test.sql` (10: guarda, mesmo resultado do cálculo, segunda leitura, alteração/remoção/configuração recalculam na mesma transação, sem vínculo é negado, cliente autorizado, conta de outro cliente rejeitada, tabela não exposta). Equivalência antes/depois: 400 casos + 4 RPCs idênticos.
 - Medição (1 cliente, 3 contas, ~400 dias): primeira abertura 1,1 s / 2,7 s / 5,2 s / 6,8 s (30/90/180/365 dias); aberturas seguintes 0,24 s / 0,30 s / 0,38 s / 0,47 s.
 - SHA256 do arquivo: `24d338973e9e1e99…`. `pnpm check`: 78 arquivos, 643 testes, test:db, test:rollout e build aprovados.
+- Verificado em produção: tabela e funções criadas, `get_client_analytics` volátil; após abrir o dashboard de 30 dias do Colégio Crescer, 2 períodos guardados (46 kB cada) e a segunda abertura não recalculou (horário do cálculo inalterado).
+- Validação do cache de agregados do Meta passou a ler só data, versão e tipos de ação (antes baixava o registro inteiro, até ~3 MB): abertura repetida do dashboard de 30 dias caiu de ~5,7 s para ~3,5 s (página completa, navegador).
+
+### 5/10/2026 — Atualização diária automática (janela de revisão)
+
+- `src/modules/meta/daily-refresh.ts`: `planMetaRefreshWindows` (últimos 7 dias completos todo dia; dias 8–28 às segundas; dia de referência em America/Sao_Paulo) e `runDailyMetaRefresh` (clientes ativos com conexão Meta e contas vinculadas, do menos recentemente atualizado para o mais; orçamento de tempo; falha de um cliente não interrompe os demais; autor nulo nas execuções automáticas).
+- `GET /api/cron/meta-daily` (Vercel Cron em `vercel.json`, `0 9 * * *` = 06:00 de Brasília) protegido por `Authorization: Bearer CRON_SECRET`; sem a variável responde 503. **Pendente: criar `CRON_SECRET` (32–256 caracteres `[A-Za-z0-9_-]`) nas variáveis de ambiente de produção da Vercel.**
+- Dashboard deixa de recoletar a cada hora: `ANALYTICS_REFRESH_MS` = 26 h (coleta automática só se faltar dia ou se a última coleta tiver mais de 26 h). Agregados exatos do Meta valem 24 h (`META_ANALYTICS_MAX_AGE_MS` e migração `202610050005_dashboard_scope_daily_validity.sql`, SHA256 `89d20a86a15dd6ce…`, **NÃO aplicada**); continuam invalidados por qualquer coleta mais nova.
+- Testes: `tests/meta-daily-refresh.test.ts` (6), `tests/meta-daily-cron-route.test.ts` (2); `metric-integrity.test.sql` passa a provar a expiração com 25 h. `pnpm check`: 80 arquivos, 651 testes, test:db, test:rollout e build aprovados.
 

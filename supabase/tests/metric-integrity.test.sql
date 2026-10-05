@@ -44,9 +44,9 @@ set local role authenticated;
 select is(get_client_analytics('11111111-0000-4000-8000-000000000071','2026-09-29','2026-09-30')->'metaAggregate'->>'confirmed','false','Cache anterior Ã  auditoria nÃ£o Ã© confirmado');
 select is((get_client_analytics('11111111-0000-4000-8000-000000000071','2026-09-29','2026-09-30')->'summary'->>'spend')::numeric,101::numeric,'Cache antigo nÃ£o contamina investimento');
 reset role;
-update meta_dashboard_scopes set collected_at=now()-interval '2 hours',payload=payload||'{"version":11}';
+update meta_dashboard_scopes set collected_at=now()-interval '25 hours',payload=payload||'{"version":11}';
 set local role authenticated;
-select is(get_client_analytics('11111111-0000-4000-8000-000000000071','2026-09-29','2026-09-30')->'metaAggregate'->>'confirmed','false','Cache com mais de uma hora nÃ£o Ã© confirmado');
+select is(get_client_analytics('11111111-0000-4000-8000-000000000071','2026-09-29','2026-09-30')->'metaAggregate'->>'confirmed','false','Cache com mais de um dia nÃ£o Ã© confirmado');
 reset role;
 update meta_dashboard_scopes set collected_at=now(),payload=
  '{"version":11,"summary":{"spend":99,"result:provider_known":1,"result:provider:action:onsite_conversion.messaging_conversation_started_7d":11},"previousSummary":{},"metrics":[],"accountValues":{"50000000-0000-4000-8000-000000000071":{"spend":99}},"entityValues":{"50000000-0000-4000-8000-000000000071:campaign:710":{"spend":99,"reach":777,"action:onsite_conversion.messaging_conversation_started_7d":null,"primary_results":null}},"entityCatalog":[{"key":"campaign:710","id":"710","level":"campaign","accountId":"50000000-0000-4000-8000-000000000071","name":"Campanha exata","currency":"BRL"}]}';

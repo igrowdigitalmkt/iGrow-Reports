@@ -650,7 +650,8 @@ export async function syncMetaAccountsForClient(input: {
 export async function collectMetaClientInsights(input: {
   agencyId: string;
   clientId: string;
-  actorId: string;
+  // null for scheduled runs without a signed-in user.
+  actorId: string | null;
   since: string;
   until: string;
   forceRefresh?: boolean;

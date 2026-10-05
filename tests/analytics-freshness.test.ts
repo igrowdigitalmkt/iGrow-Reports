@@ -7,7 +7,7 @@ describe("automatic analytics refresh", () => {
     status, previousStatus: "complete" as const, latestCollectedAt: new Date(now - age).toISOString(),
     coveredDays: 4, previousCoveredDays: 4, totalDays: 4,
   } });
-  it("preserves a complete analysis for the entire 60-minute tolerance", () => {
+  it("preserves a complete analysis until the daily refresh tolerance ends", () => {
     expect(needsAnalyticsRefresh(data(30 * 60_000), now)).toBe(false);
     expect(needsAnalyticsRefresh(data(ANALYTICS_REFRESH_MS - 1), now)).toBe(false);
     expect(needsAnalyticsRefresh(data(ANALYTICS_REFRESH_MS), now)).toBe(true);

@@ -157,7 +157,7 @@ Estado em 5/10/2026 (fim da sessão Claude Code desktop): coleta imediata, anál
 3. Comparação de períodos homologada em produção (5/10/2026). Falta: baixar CSV/JSON/PDF reais, acesso de perfis cliente/leitor, conferir período anterior no Ads Manager, investigar erro intermitente se reaparecer.
 4. Decidir a troca da fonte do dashboard principal para snapshots (C.3), agora que a coleta funciona sem agendador.
 4b. (Feito) Migração `202610050001` aplicada em produção em 5/10/2026 e convite homologado. Pendente: SMTP próprio (necessário para editar modelos de e-mail e para limite de envio) e homologar a visão de cliente (dados restritos, sem coleta).
-4c. (Feito) Migrações `202610050002` e `202610050003` aplicadas em produção em 5/10/2026. **Aplicar `202610050004_client_analytics_cache.sql`** (resultado pronto por período). Próximo: calcular totais por conta e dia na coleta (consulta de 1 ano rápida no plano gratuito) e reduzir espaço de `meta_daily_actions`/metadados (ver IMPLEMENTACAO, medição de 5/10).
+4c. (Feito) Migrações `202610050002` e `202610050003` aplicadas em produção em 5/10/2026. `202610050004` (resultado pronto por período) aplicada em 5/10. **Aplicar `202610050005_dashboard_scope_daily_validity.sql` e criar `CRON_SECRET` na Vercel** (atualização diária às 06:00). Próximo: calcular totais por conta e dia na coleta (consulta de 1 ano rápida no plano gratuito) e reduzir espaço de `meta_daily_actions`/metadados (ver IMPLEMENTACAO, medição de 5/10).
 5. Restante da V1 sem implementação: aprovação de relatórios, link público com revogação, comentário do gestor, agendamento de geração/entrega e WhatsApp (webhook/outbox). Exigem novas migrations aplicadas pelo responsável.
 
 ## 11. Alternância entre Codex e Claude
