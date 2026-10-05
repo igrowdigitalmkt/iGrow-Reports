@@ -265,6 +265,10 @@ export type Database = {
         Args: { p_agency_id: string; p_invitation_id: string };
         Returns: undefined;
       };
+      warm_client_analytics: {
+        Args: { p_client_id: string; p_date_from: string; p_date_to: string };
+        Returns: boolean;
+      };
       list_client_portal_invitations: {
         Args: { p_agency_id: string };
         Returns: { id: string; client_id: string; email: string; created_at: string; expires_at: string }[];

@@ -480,3 +480,11 @@ Espaço em produção (5/10, consulta leve): banco 103 MB de 500 MB; `meta_daily
 - Não feito: deduplicação de `meta_daily_actions` x `metadata.canonical_values` (exige mudar a lista de tipos de ação do cálculo; avaliar com o teste de equivalência antes).
 - Testes: `tests/meta-retention.test.ts`, `tests/meta-daily-cron-route.test.ts` (3). `pnpm check`: 81 arquivos, 653 testes aprovados.
 
+### 5/10/2026 — Pré-cálculo dos períodos padrão e carga do histórico em blocos
+
+- Migração `202610050006_warm_client_analytics.sql` (SHA256 `3b7bee583a4a5649…`, **NÃO aplicada**): `public.warm_client_analytics(cliente, de, até)`, executável só pela chave de serviço; roda o caminho autorizado normal (`private.client_analytics_base`) com a identidade do proprietário mais antigo da agência do cliente e restaura a identidade anterior (também em erro). Cliente arquivado ou sem proprietário: `false`. Testes: `supabase/tests/warm-client-analytics.test.sql` (11: aquece, restaura identidade, guarda com todas as contas, leitura do dono usa o pré-calculado sem recalcular, autenticado/visitante não acionam, aquecimento não libera acesso a terceiros, arquivado não é aquecido).
+- `src/modules/meta/daily-refresh.ts` reorganizado: `listActiveMetaClients`, `runDailyMetaRefresh`, `backfillMetaHistory` (um bloco de 56 dias por cliente por execução, recuando a partir do dia mais antigo coberto pela conta com menos histórico, até 395 dias; conjuntos/anúncios respeitam a retenção de 180 dias) e `warmStandardPeriods` (30, 7, 90, 180, 365 dias com as mesmas datas e contas que o dashboard usa).
+- `/api/cron/meta-daily`: fases em sequência e isoladas (atualização ≤120 s, bloco histórico ≤60 s, retenção, pré-cálculo ≤60 s; teto total 260 s). Falha de uma fase é registrada e as seguintes continuam.
+- Histórico completo de 13 meses de um cliente novo leva cerca de 7 execuções diárias.
+- `pnpm check`: 81 arquivos, 656 testes, test:db, test:rollout e build aprovados.
+
