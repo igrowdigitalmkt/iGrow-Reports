@@ -65,7 +65,9 @@ it("exports both periods and previous-only entities with source IDs and exact de
   expect(json.comparisons[0].indicators[0].absoluteChange).toBe("20"); expect(json.previous.snapshotId).toBe("previous-snapshot");
   const csv = exportSnapshotComparisonCsv(current,previous,"act_123","ad").content;
   expect(csv).toContain('"\'=FORMULA"'); expect(csv).toContain('"previous-only"'); expect(csv).toContain('"20";"24.961479"');
-  expect(csv.trim().split("\r\n")[0].split(";")).toHaveLength(21);
-  expect(csv.trim().split("\r\n").every(row => row.split(";").length === 21)).toBe(true);
+  expect(csv.trim().split("\r\n")[0].split(";")).toHaveLength(32);
+  expect(csv.trim().split("\r\n").every(row => row.split(";").length === 32)).toBe(true);
+  expect(csv).toContain('"client";"connection";"meta";"v24.0";"3";"spend";"sum"');
+  expect(csv).toContain('"adset-123";"campaign-123";"adset-123"');
   expect(JSON.stringify({ current,previous })).toBe(before);
 });

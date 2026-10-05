@@ -25,3 +25,14 @@ it("keeps a stale confirmed report exportable with its update notice", () => {
   const html = renderToStaticMarkup(createElement(SnapshotDashboard, { data: source, clientId: "client" }));
   expect(html).toContain("Exportar PDF do nível"); expect(html).toContain("aguardando atualização");
 });
+it("explains previous-only entities and renders a negative decimal change",() => {
+  const source = data(); const previous = structuredClone(source.view);
+  previous.scopes[0].identity.dateFrom = "2026-09-28"; previous.scopes[0].identity.dateTo = "2026-09-30";
+  source.view.scopes[0].entities[0].indicators[0].value = "80";
+  previous.scopes[0].entities[0].indicators[0].value = "100";
+  const extra = structuredClone(previous.scopes[0].entities[0]); extra.id = "previous-only"; previous.scopes[0].entities.push(extra);
+  source.comparison = { dateFrom: "2026-09-28",dateTo: "2026-09-30",view: previous,blockedReason: null };
+  const html = renderToStaticMarkup(createElement(SnapshotDashboard,{ data: source,clientId: "client" }));
+  expect(html).toContain("1 entidade foi retornada apenas no período anterior");
+  expect(html).toContain("Diferença: R$ -20,00"); expect(html).toContain("-20,00%");
+});

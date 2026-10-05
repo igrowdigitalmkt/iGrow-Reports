@@ -8,6 +8,11 @@ const metric = { provider: "meta",nativeKey: "spend",clientId: "c",connectionId:
 const snapshot = { snapshotId: "s",collectedAt: "2026-10-04T11:30:00Z",metrics: [metric] };
 
 describe("confirmed snapshot projection",() => {
+  it("preserves known attribution and rejects conflicting windows before comparing",() => {
+    expect(projectConfirmedSnapshot({ ...snapshot,metrics: [{ ...metric,attributionWindow: "7d_click" }] },identity,now).entities[0].attributionWindow).toBe("7d_click");
+    expect(() => projectConfirmedSnapshot({ ...snapshot,metrics: [{ ...metric,attributionWindow: "7d_click" },{ ...metric,nativeKey: "revenue",attributionWindow: "1d_click" }] },identity,now)).toThrow("atribuição divergentes");
+    expect(projectConfirmedSnapshot(snapshot,identity,now).entities[0]).not.toHaveProperty("attributionWindow");
+  });
   const metadata = { name: "Campanha A",parentId: "act_1",campaignId: "123",adsetId: null };
   const v3Metric = { ...metric,mappingVersion: 3,entity: metadata };
   it("requires hierarchy in Meta contract 3",() => {

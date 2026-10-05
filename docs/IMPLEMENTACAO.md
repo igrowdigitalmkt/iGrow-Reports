@@ -253,3 +253,11 @@ PDF com cabeçalho do espaço de trabalho, filtros, indicadores, gráficos e sel
 Migration 202610010019_dashboard_reports.sql aplicada no Supabase de produção em transação. A coleta Meta persiste os quatro níveis atomicamente. Google Ads e TikTok permanecem indisponíveis até implementação das integrações.
 
 Validação: lint, TypeScript, 107 testes unitários, suíte SQL/RLS, build de produção e 8 testes de navegação/layout. PDF paginado renderizado e inspecionado visualmente. Cenários de persistência, autorização, publicação e exclusão cobertos no banco descartável.
+
+## Atualização de 5 de outubro de 2026 — comparação de snapshots
+
+A rota de snapshots oferece comparação opcional com o período anterior de mesma duração. A análise inteira espera confirmação e conciliação dos dois períodos. As solicitações de atualização derivam as datas no servidor e reautorizam as contas. Diferenças usam aritmética decimal; bases anteriores iguais a zero não produzem percentuais.
+
+CSV, JSON e PDF incluem comparação e origem dos dados. CSV e JSON preservam também entidades exclusivas do período anterior; a tela e o PDF explicam essa diferença de cobertura. O CSV registra versões, regras, atribuição e hierarquia para conferência. A tela apresenta diferença absoluta e variação percentual por indicador.
+
+O incremento inicial passou por 582 testes da aplicação, lint, tipos, SQL/RLS, build e validação dos PDFs renderizados. A revisão seguinte acrescenta cobertura para metadados de atribuição e a apresentação das diferenças. Não houve alteração da fonte do dashboard principal, criação de credenciais, agendamento ou coleta real. Publicação da revisão e homologação com sessão autenticada precisam de confirmação independente.

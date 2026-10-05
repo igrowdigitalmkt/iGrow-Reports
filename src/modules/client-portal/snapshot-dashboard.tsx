@@ -40,6 +40,8 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
   const comparison = account && scope && data.comparison && data.view.status !== "pending"
     ? resolveSnapshotComparison(data.view,data.comparison.view,account.external_id,level) : null;
   const previousEntity = entity ? comparison?.previousEntities.get(entity.id) : undefined;
+  const currentEntityIds = new Set(scope?.entities.map(item => item.id));
+  const previousOnlyCount = comparison?.previous.entities.filter(item => !currentEntityIds.has(item.id)).length ?? 0;
   const indicators = entity?.indicators.filter(item => item.key !== "result:provider_known") ?? [];
   const campaignNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "campaign")?.entities.map(item => [item.id,item.name]) ?? []);
   const adsetNames = new Map(data.view.scopes.find(item => item.identity.externalAccountId === account?.external_id && item.identity.level === "adset")?.entities.map(item => [item.id,item.name]) ?? []);
@@ -162,22 +164,28 @@ export function SnapshotDashboard({ data,clientId,canCollect = false }: { data: 
         <button type="button" onClick={() => exportReport("json")} disabled={pending || exporting || !scope}>Exportar JSON do nível</button>
         <button type="button" onClick={() => exportReport("pdf")} disabled={pending || exporting || !scope}>{exporting ? "Preparando exportação…" : "Exportar PDF do nível"}</button>
       </div>
+      {comparison && <p className="snapshot-freshness">CSV e JSON incluem os dois períodos. O PDF apresenta as entidades atuais com seus valores anteriores.
+        {previousOnlyCount > 0 && ` ${previousOnlyCount} ${previousOnlyCount === 1 ? "entidade foi retornada apenas no período anterior e está disponível" : "entidades foram retornadas apenas no período anterior e estão disponíveis"} em CSV e JSON.`}
+      </p>}
       {entity ? <>
         <div className="snapshot-entity-heading"><h2>{level === "account" ? account?.name : entity.name}</h2>
           <p>{entity.currency ?? account?.currency} · {entity.timezone}</p>
         </div>
-        <div className="snapshot-cards">{indicators.map(indicator => <article key={indicator.key} className="snapshot-card">
+        <div className="snapshot-cards">{indicators.map(indicator => {
+          const change = comparison ? compareSnapshotIndicator(indicator,entity,previousEntity) : null;
+          return <article key={indicator.key} className="snapshot-card">
           <h3>{indicator.label}</h3>
           <strong title={indicator.value ?? undefined} className={indicator.value === null ? "snapshot-unavailable" : ""}>
             {formatSnapshotDecimal(indicator.value,indicator.unit,entity.currency ?? account?.currency ?? null)}
           </strong>
           {indicator.state === "unavailable" && <small>Indicador não disponível neste escopo confirmado.</small>}
           {indicator.state === "error" && <small>Não foi possível confirmar este indicador.</small>}
-          {comparison && <small>
-            Anterior: {formatSnapshotDecimal(compareSnapshotIndicator(indicator,entity,previousEntity).previousValue,indicator.unit,entity.currency)}<br />
-            {snapshotComparisonDescription(compareSnapshotIndicator(indicator,entity,previousEntity))}
+          {change && <small>
+            Anterior: {formatSnapshotDecimal(change.previousValue,indicator.unit,entity.currency ?? account?.currency ?? null)}<br />
+            {snapshotComparisonDescription(change)}
+            {change.absoluteChange !== null && <><br /><span title={change.absoluteChange}>Diferença: {formatSnapshotDecimal(change.absoluteChange,indicator.unit,entity.currency ?? account?.currency ?? null)}</span></>}
           </small>}
-        </article>)}</div>
+        </article>; })}</div>
         <div className="snapshot-table-wrap"><table>
           <caption>Entidades do nível selecionado ({entityList.total})</caption>
           <thead><tr><th scope="col">Nome</th><th scope="col">Campanha</th><th scope="col">Conjunto</th><th scope="col">Valor usado</th></tr></thead>
