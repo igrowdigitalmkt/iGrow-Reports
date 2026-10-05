@@ -151,7 +151,7 @@ O próximo chat deve distinguir três estados em todo relatório: implementado/t
 Estado em 5/10/2026 (fim da sessão Claude Code desktop): coleta imediata, análise por snapshots e série diária homologadas em produção com dados reais do Colégio Crescer (ver IMPLEMENTACAO, 5/10/2026). Próximos passos, em ordem:
 
 1. (Feito) Conferência com o Ads Manager: valores idênticos após atualização, exceto alcance da Escola Crescer (−3). Ver IMPLEMENTACAO.
-2. Permitir atualizar a série diária (dias recentes recebem ajustes do Meta).
+2. (Feito) "Atualizar série" na evolução diária.
 2b. Levar os resultados derivados das campanhas (nível de conta) para CSV/JSON/PDF, hoje só na tela.
 3. Homologar exportações, comparação de períodos e acesso de perfis cliente/leitor em produção.
 4. Decidir a troca da fonte do dashboard principal para snapshots (C.3), agora que a coleta funciona sem agendador.

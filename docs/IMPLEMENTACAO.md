@@ -350,3 +350,10 @@ O responsável enviou capturas do Ads Manager (28/09–04/10/2026). Contas ofici
 - Limitação observada: a série diária não é atualizada por "Atualizar dados" (só o período). Dias recentes podem receber ajustes do Meta; a série de 04/10 continua com a coleta das 11:20.
 - `pnpm check`: 73 arquivos, 616 testes aprovados.
 
+### 5/10/2026 — Atualização da série diária
+
+- Botão "Atualizar série" (operadores) no painel de evolução diária: solicita nova coleta de todos os dias do período pelo mesmo RPC de ciclos de atualização (`request_meta_collection_refresh`), um dia por chamada (`requestDailyMetaCollectionRefresh`, até 90). Os snapshots confirmados continuam visíveis até a nova confirmação; a fila é drenada logo em seguida.
+- `requestSeriesData` aceita `refresh`; identidades vêm sempre do catálogo autenticado.
+- Botões da série ganharam estilo do tema (antes usavam o padrão do navegador).
+- Testes: `tests/snapshot-series-actions.test.ts` (3) e 1 em `snapshot-series-loader.test.ts`. `pnpm check`: 74 arquivos, 620 testes aprovados.
+

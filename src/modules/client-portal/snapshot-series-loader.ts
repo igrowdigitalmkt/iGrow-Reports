@@ -147,6 +147,17 @@ export async function loadSnapshotSeries(
   };
 }
 
+// Identities for every day of the period (account level), for a series refresh.
+export async function resolveSeriesIdentities(
+  client: SupabaseClient<Database>,
+  clientId: string,
+  accountId: string,
+  dateFrom: string,
+  dateTo: string,
+): Promise<CollectionIdentity[]> {
+  return (await resolveSeriesScope(client, clientId, accountId, dateFrom, dateTo)).identities;
+}
+
 // Identities for the days still without a confirmed snapshot (account level only).
 export async function resolveSeriesMissingIdentities(
   client: SupabaseClient<Database>,

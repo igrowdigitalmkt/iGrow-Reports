@@ -78,13 +78,15 @@ export function SnapshotSeriesPanel({
     ? selectedKeys.filter(key => series.units[key]).map(key => ({ nativeKey: key, label: niceLabel(key), unit: series.units[key], currency: series.currency }))
     : [];
 
-  function requestCollection() {
+  function requestCollection(refresh = false) {
     setError(""); setMessage("");
     startTransition(async () => {
       try {
-        const result = await requestSeriesData({ clientId, accountId, from: dateFrom, to: dateTo });
+        const result = await requestSeriesData({ clientId, accountId, from: dateFrom, to: dateTo, refresh });
         if ("error" in result) { setError(result.error ?? "Não foi possível solicitar os dados."); return; }
-        setMessage(`Coleta solicitada para ${result.created} dias. Aguarde a confirmação.`);
+        setMessage(refresh
+          ? "Atualização da série solicitada. Os dias atuais continuam visíveis até a nova coleta ser confirmada."
+          : `Coleta solicitada para ${result.created} dias. Aguarde a confirmação.`);
         router.refresh();
       } catch { setError("Não foi possível solicitar os dados. Tente novamente."); }
     });
@@ -115,6 +117,11 @@ export function SnapshotSeriesPanel({
     <div className="snapshot-series">
       <div className="snapshot-series-header"><TrendingUp size={18} /><h2>Evolução diária</h2>
         <span className="snapshot-series-coverage">{confirmedDays} de {totalDays} dias confirmados</span>
+        {canCollect && confirmedDays > 0 && (
+          <button type="button" className="snapshot-series-refresh" disabled={pending} onClick={() => requestCollection(true)}>
+            {pending ? "Solicitando…" : "Atualizar série"}
+          </button>
+        )}
       </div>
       <p className="snapshot-series-note">Conta {series.accountName} · {series.currency} · fuso {series.timezone}. Cada ponto é a coleta confirmada daquele dia.</p>
 
@@ -128,7 +135,7 @@ export function SnapshotSeriesPanel({
             : `${missingCount} ${missingCount === 1 ? "dia ainda não tem" : "dias ainda não têm"} dados confirmados. O gráfico será exibido quando todos os dias do período estiverem confirmados.`}
           </p>
           {canCollect && (
-            <button type="button" disabled={pending} onClick={requestCollection}>
+            <button type="button" disabled={pending} onClick={() => requestCollection()}>
               {pending ? "Solicitando…" : "Solicitar coleta dos dias ausentes"}
             </button>
           )}

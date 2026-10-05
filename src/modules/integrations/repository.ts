@@ -29,6 +29,21 @@ export async function requestMetaCollectionRefresh(service: SupabaseClient<Datab
   return result;
 }
 
+// Daily series refresh: the refresh RPC takes one period per call, so request each
+// exact day of the same account and level in turn.
+export async function requestDailyMetaCollectionRefresh(service: SupabaseClient<Database>,identities: CollectionIdentity[]) {
+  if (!identities.length || identities.length>90) throw new Error("Seleção de coleta inválida.");
+  const first = identities[0];
+  const total = { created: 0,rescheduled: 0,preserved: 0 };
+  for (const identity of identities) {
+    if (identity.dateFrom!==identity.dateTo || identity.externalAccountId!==first.externalAccountId || identity.level!==first.level)
+      throw new Error("Escopos incompatíveis na solicitação.");
+    const result = await requestMetaCollectionRefresh(service,[identity]);
+    total.created += result.created; total.rescheduled += result.rescheduled; total.preserved += result.preserved;
+  }
+  return total;
+}
+
 // One statement either registers the entire missing-scope request or rolls it
 // back. Duplicate identities reuse their existing jobs without resetting leases.
 export async function enqueueCollectionJobs(service: SupabaseClient<Database>,identities: CollectionIdentity[]) {

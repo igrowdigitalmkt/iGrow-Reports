@@ -3,8 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ getMetaApiConfig: () => ({ apiVersion: "v24.0" }) }));
-import { loadSnapshotSeries, resolveSeriesMissingIdentities } from "@/modules/client-portal/snapshot-series-loader";
-import { enqueueDailyCollectionJobs } from "@/modules/integrations/repository";
+import { loadSnapshotSeries, resolveSeriesIdentities, resolveSeriesMissingIdentities } from "@/modules/client-portal/snapshot-series-loader";
+import { enqueueDailyCollectionJobs, requestDailyMetaCollectionRefresh } from "@/modules/integrations/repository";
 import { CollectionSchemaUnavailableError } from "@/modules/integrations/collection-schema-error";
 
 const clientId = "11111111-0000-4000-8000-000000000001";
@@ -178,4 +178,15 @@ it("enqueues daily identities with distinct dates in one request", async () => {
   expect(rows.map(row => [row.date_from, row.date_to])).toEqual([["2026-10-01", "2026-10-01"], ["2026-10-02", "2026-10-02"]]);
   await expect(enqueueDailyCollectionJobs(service, [{ ...identities[0], dateTo: "2026-10-02" }])).rejects.toThrow("incompatíveis");
   await expect(enqueueDailyCollectionJobs(service, [identities[0], { ...identities[1], externalAccountId: "act_2" }])).rejects.toThrow("incompatíveis");
+});
+
+it("refreshes daily identities one exact day at a time", async () => {
+  const identities = await resolveSeriesIdentities(client(rpcMock()), clientId, accountId, "2026-10-01", "2026-10-03");
+  expect(identities.map(id => id.dateFrom)).toEqual(["2026-10-01", "2026-10-02", "2026-10-03"]);
+  const rpc = vi.fn(async () => ({ data: { created: 0, rescheduled: 1, preserved: 0 }, error: null }));
+  const service = { rpc } as unknown as SupabaseClient<Database>;
+  await expect(requestDailyMetaCollectionRefresh(service, identities)).resolves.toEqual({ created: 0, rescheduled: 3, preserved: 0 });
+  expect(rpc).toHaveBeenCalledTimes(3);
+  expect((rpc.mock.calls[1] as unknown as [string, { p_date_from: string; p_date_to: string }])[1]).toMatchObject({ p_date_from: "2026-10-02", p_date_to: "2026-10-02" });
+  await expect(requestDailyMetaCollectionRefresh(service, [{ ...identities[0], dateTo: "2026-10-02" }])).rejects.toThrow("incompatíveis");
 });
