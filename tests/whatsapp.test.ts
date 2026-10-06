@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { parseStatusEvents, validWebhookSignature } from "@/modules/whatsapp/webhook";
 import { bodyParameterCount, bodyParameters, reportTemplates } from "@/modules/whatsapp/templates";
+import { parseEmbeddedSignupMessage } from "@/modules/whatsapp/embedded-signup";
 
 describe("webhook do WhatsApp", () => {
   const secret = "segredo-do-app";
@@ -44,5 +45,23 @@ describe("mensagens modelo", () => {
   it("preenche as variáveis na ordem do modelo", () => {
     expect(bodyParameterCount(template)).toBe(3);
     expect(bodyParameters(3, { recipient: "Ana", client: "Colégio", period: "01/09 a 30/09", workspace: "iGrow" }).map(item => item.text)).toEqual(["Ana", "Colégio", "01/09 a 30/09"]);
+  });
+});
+
+
+describe("cadastro integrado da Meta", () => {
+  const message = (event: string, data: Record<string, unknown> = {}) => JSON.stringify({ type: "WA_EMBEDDED_SIGNUP", event, data });
+  it("aceita só mensagens do Facebook e reconhece a coexistência", () => {
+    expect(parseEmbeddedSignupMessage("https://www.facebook.com", message("FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING", { waba_id: "123456", phone_number_id: "654321" })))
+      .toEqual({ kind: "finish", wabaId: "123456", phoneNumberId: "654321", coexistence: true });
+    expect(parseEmbeddedSignupMessage("https://www.facebook.com", message("FINISH", { waba_id: "123456", phone_number_id: "654321" })))
+      .toMatchObject({ kind: "finish", coexistence: false });
+    expect(parseEmbeddedSignupMessage("https://evil.example", message("FINISH", { waba_id: "123456", phone_number_id: "654321" }))).toBeNull();
+    expect(parseEmbeddedSignupMessage("https://facebook.com.evil.example", message("FINISH", { waba_id: "123456", phone_number_id: "654321" }))).toBeNull();
+  });
+  it("distingue cancelamento, erro e mensagens alheias", () => {
+    expect(parseEmbeddedSignupMessage("https://www.facebook.com", message("CANCEL", { current_step: "PHONE_NUMBER_SETUP" }))).toEqual({ kind: "cancel", step: "PHONE_NUMBER_SETUP" });
+    expect(parseEmbeddedSignupMessage("https://www.facebook.com", message("CANCEL", { error_message: "Falhou" }))).toEqual({ kind: "error", message: "Falhou" });
+    expect(parseEmbeddedSignupMessage("https://www.facebook.com", "texto qualquer")).toBeNull();
   });
 });

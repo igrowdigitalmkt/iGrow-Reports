@@ -3,7 +3,10 @@ import { META_LOGIN_APP_ID } from "./login-config";
 export type FacebookSdk = {
   __buffer?: unknown;
   init(options: { appId: string; version: string; xfbml: boolean; fedCM: false }): void;
-  login(callback: (response: { authResponse?: { accessToken?: string } }) => void, options: { config_id: string; response_type: "token"; override_default_response_type: true }): void;
+  login(callback: (response: { authResponse?: { accessToken?: string; code?: string } }) => void, options: {
+    config_id: string; response_type: "token" | "code"; override_default_response_type: true;
+    extras?: { setup?: Record<string, never>; featureType?: string; sessionInfoVersion?: string };
+  }): void;
 };
 declare global { interface Window { FB?: FacebookSdk; fbAsyncInit?: () => void } }
 

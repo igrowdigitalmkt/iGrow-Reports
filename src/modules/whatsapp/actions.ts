@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { canManageAgency } from "@/modules/agencies/roles";
-import { connectWhatsApp, listWhatsAppTemplates, selectWhatsAppTemplate, WhatsAppSetupError } from "./server";
+import { connectWhatsApp, connectWhatsAppEmbedded, listWhatsAppTemplates, selectWhatsAppTemplate, WhatsAppSetupError } from "./server";
+import { META_LOGIN_APP_ID } from "@/modules/meta/login-config";
 
 const failure = (error: unknown, fallback: string) => ({ error: error instanceof WhatsAppSetupError ? error.message : fallback });
 
@@ -42,4 +43,20 @@ export async function selectWhatsAppTemplateAction(input: unknown) {
     revalidatePath("/dashboard/integracoes");
     return { success: true as const };
   } catch (error) { return failure(error, "Não foi possível salvar a mensagem modelo."); }
+}
+
+export async function connectWhatsAppEmbeddedAction(input: unknown) {
+  const parsed = z.object({
+    code: z.string().trim().min(10).max(2000),
+    wabaId: z.string().regex(/^\d{5,30}$/), phoneNumberId: z.string().regex(/^\d{5,30}$/),
+    coexistence: z.boolean(),
+  }).safeParse(input);
+  if (!parsed.success) return { error: "A Meta não retornou a conta e o número escolhidos. Tente novamente." };
+  const context = await requireAgencyContext();
+  if (!canManageAgency(context.role)) return { error: "Apenas proprietários e administradores podem conectar o WhatsApp." };
+  try {
+    const result = await connectWhatsAppEmbedded({ agencyId: context.agency.id, appId: META_LOGIN_APP_ID, ...parsed.data });
+    revalidatePath("/dashboard/integracoes");
+    return { success: true as const, ...result };
+  } catch (error) { return failure(error, "Não foi possível conectar o WhatsApp agora."); }
 }

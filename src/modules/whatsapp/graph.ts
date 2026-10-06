@@ -34,6 +34,16 @@ export class WhatsAppGraph {
     return body;
   }
 
+  // Webhooks of a customer's WhatsApp account reach the app only after this subscription.
+  async subscribeApp(wabaId: string) {
+    await this.request<{ success?: boolean }>(`${id(wabaId)}/subscribed_apps`, { method: "POST" });
+  }
+
+  // A new number must be registered on Cloud API (not needed for coexistence numbers).
+  async registerNumber(phoneNumberId: string, pin: string) {
+    await this.request<{ success?: boolean }>(`${id(phoneNumberId)}/register`, { method: "POST", body: JSON.stringify({ messaging_product: "whatsapp", pin }) });
+  }
+
   phoneNumber(phoneNumberId: string) {
     return this.request<{ id: string; display_phone_number?: string; verified_name?: string; quality_rating?: string }>(
       `${id(phoneNumberId)}?fields=display_phone_number,verified_name,quality_rating`);

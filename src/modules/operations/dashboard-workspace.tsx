@@ -25,10 +25,10 @@ import { WhatsAppManager, type WhatsAppSummary } from "@/modules/whatsapp/whatsa
 import { DeliveriesView, type DeliveryItem } from "@/modules/whatsapp/deliveries-view";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 
-interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
+interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, recipients = [], deliveries = [], canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
+export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
   const { search } = useWorkspaceSearch();
   const [status, setStatus] = useState("Todos os estados");
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
@@ -60,7 +60,7 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
             </section>
           )}
         </div>
-        {!demo && agencyId && <WhatsAppManager connection={whatsapp} readiness={whatsappReadiness ?? { ready: false, missing: [] }} canManage={canManageClientAccess} />}
+        {!demo && agencyId && <WhatsAppManager connection={whatsapp} readiness={whatsappReadiness ?? { ready: false, missing: [] }} canManage={canManageClientAccess} embedded={whatsappEmbedded} />}
         <h2 className="section-label">Próximas integrações</h2>
         <section className="panel list-panel">
           {[...(demo ? [{ name: "WhatsApp Business", detail: "Envio dos relatórios aos destinatários autorizados", icon: <Send size={18} />, color: "green" }] : []), { name: "Google Ads", detail: "Campanhas de pesquisa, display e YouTube", icon: <span className="font-semibold">G</span>, color: "neutral" }].map(provider => <div className="list-row" key={provider.name}>

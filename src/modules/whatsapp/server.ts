@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptServerSecret, encryptServerSecret } from "@/lib/crypto";
 import { getEncryptionConfig, getMetaApiConfig } from "@/lib/env";
@@ -26,6 +27,13 @@ export function whatsAppReadiness(): WhatsAppReadiness {
   if (!process.env.META_APP_SECRET?.trim()) missing.push("META_APP_SECRET (assinatura dos avisos)");
   if (!process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim()) missing.push("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
   return { ready: missing.length === 0, missing };
+}
+
+// Embedded Signup needs the configuration created in the Meta app (WhatsApp > Embedded Signup).
+export function whatsAppEmbeddedSignup() {
+  const configId = process.env.WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID?.trim();
+  const meta = getMetaApiConfig();
+  return configId && /^\d{5,30}$/.test(configId) && meta ? { configId, apiVersion: meta.apiVersion } : null;
 }
 
 function dependencies() {
@@ -88,6 +96,31 @@ export async function connectWhatsApp(input: { agencyId: string; wabaId: string;
   }, { onConflict: "agency_id" });
   if (error) throw new WhatsAppSetupError(error.code === "23505" ? "Este número já está conectado a outro espaço de trabalho." : "Não foi possível salvar a conexão do WhatsApp.");
   return { displayPhone: phone.display_phone_number ?? null, template: template?.name ?? null, usableTemplates: reportTemplates(templates).length };
+}
+
+/**
+ * Embedded Signup: the Meta window returns an authorization code plus the chosen account and
+ * number. The code becomes a business token here; the rest is the same as a manual connection.
+ */
+export async function connectWhatsAppEmbedded(input: { agencyId: string; code: string; wabaId: string; phoneNumberId: string; coexistence: boolean; appId: string }) {
+  const { apiVersion } = dependencies();
+  const secret = process.env.META_APP_SECRET?.trim();
+  if (!secret) throw new WhatsAppSetupError("A conexão pelo Facebook ainda não está configurada no servidor.");
+  const exchange = await fetch(`https://graph.facebook.com/${apiVersion}/oauth/access_token?${new URLSearchParams({ client_id: input.appId, client_secret: secret, code: input.code })}`, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
+  const token = await exchange.json().catch(() => ({})) as { access_token?: string };
+  if (!exchange.ok || !token.access_token) throw new WhatsAppSetupError("A Meta não confirmou a autorização. Tente conectar novamente.");
+  const graph = new WhatsAppGraph({ accessToken: token.access_token, apiVersion });
+  try { await graph.subscribeApp(input.wabaId); }
+  catch { throw new WhatsAppSetupError("Não foi possível ativar os avisos de entrega desta conta do WhatsApp."); }
+  let registrationWarning: string | null = null;
+  if (!input.coexistence) {
+    // Two-step verification PIN for the new number; it can be reset in WhatsApp Manager.
+    const pin = String(randomInt(100000, 1000000));
+    try { await graph.registerNumber(input.phoneNumberId, pin); }
+    catch { registrationWarning = "O número pode precisar ser registrado no Gerenciador do WhatsApp antes do primeiro envio."; }
+  }
+  const result = await connectWhatsApp({ agencyId: input.agencyId, wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, accessToken: token.access_token });
+  return { ...result, registrationWarning };
 }
 
 export async function listWhatsAppTemplates(agencyId: string) {

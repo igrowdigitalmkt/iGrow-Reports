@@ -508,6 +508,18 @@ a.attention-item:hover { background: var(--surface-hover); }
 .whatsapp-guide[open] summary svg { transform: rotate(180deg); }
 .whatsapp-guide ol { display: grid; gap: 8px; margin: 12px 0; padding-left: 20px; line-height: 1.55; }
 .whatsapp-guide code { padding: 1px 5px; border-radius: 4px; background: var(--surface-raised); font-size: 12px; }
+.embedded-signup { display: grid; gap: 10px; }
+.embedded-signup-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.embedded-option { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--secondary); text-align: left; }
+.embedded-option:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-hover); }
+.embedded-option.is-primary { border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
+.embedded-option.is-primary svg { color: var(--green); }
+.embedded-option span { display: flex; flex-direction: column; gap: 2px; }
+.embedded-option strong { color: var(--text); font-size: 14px; font-weight: 600; }
+.embedded-option small { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.embedded-status { display: flex; align-items: center; gap: 10px; color: var(--secondary); font-size: 13px; }
+.whatsapp-advanced { justify-self: start; width: fit-content; }
+@media (max-width: 760px) { .embedded-signup-options { grid-template-columns: 1fr; } }
 .send-recipient-list { display: grid; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; }
 .send-recipient-list label, .send-result { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
 .send-recipient-list label.is-disabled { opacity: .55; cursor: not-allowed; }

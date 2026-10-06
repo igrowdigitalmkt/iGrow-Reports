@@ -6,6 +6,7 @@ import { ChevronDown, ExternalLink, RefreshCw, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { connectWhatsAppAction, listWhatsAppTemplatesAction, selectWhatsAppTemplateAction } from "./actions";
 import { SUGGESTED_TEMPLATE } from "./templates";
+import { EmbeddedSignupButton } from "./embedded-signup-button";
 
 export type WhatsAppSummary = {
   displayPhone: string | null; verifiedName: string | null; qualityRating: string | null;
@@ -13,9 +14,10 @@ export type WhatsAppSummary = {
 } | null;
 
 // Connection of the workspace's WhatsApp Business number and choice of the report template.
-export function WhatsAppManager({ connection, readiness, canManage }: { connection: WhatsAppSummary; readiness: { ready: boolean; missing: string[] }; canManage: boolean }) {
+export function WhatsAppManager({ connection, readiness, canManage, embedded }: { connection: WhatsAppSummary; readiness: { ready: boolean; missing: string[] }; canManage: boolean; embedded: { configId: string; apiVersion: string } | null }) {
   const router = useRouter();
-  const [editing, setEditing] = useState(!connection);
+  // Manual IDs and token become the advanced path once Embedded Signup is configured.
+  const [editing, setEditing] = useState(!connection && !embedded);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [templates, setTemplates] = useState<Array<{ name: string; language: string }> | null>(null);
@@ -73,6 +75,9 @@ export function WhatsAppManager({ connection, readiness, canManage }: { connecti
 
     {!readiness.ready && <p className="meta-inline-note">Configuração do servidor pendente: {readiness.missing.join(", ")}.</p>}
     {!canManage && !connection && <p className="meta-inline-note">Peça a um proprietário ou administrador para conectar o WhatsApp.</p>}
+
+    {!connection && canManage && embedded && readiness.ready && <EmbeddedSignupButton configId={embedded.configId} apiVersion={embedded.apiVersion} />}
+    {!connection && canManage && embedded && !editing && <button type="button" className="text-link whatsapp-advanced" onClick={() => setEditing(true)}>Conectar com IDs e token (avançado)</button>}
 
     {editing && canManage && <form className="whatsapp-form" action={connect}>
       <label>ID da conta do WhatsApp Business (WABA)<input className="input" name="wabaId" inputMode="numeric" required placeholder="Ex.: 102938475610293" /></label>
