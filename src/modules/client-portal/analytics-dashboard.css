@@ -184,14 +184,15 @@
 .analytics-observation > span { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; border-radius: 7px; background: var(--accent-bg); color: var(--accent); font-size: 12px; font-weight: 600; }
 .analytics-observation h4 { margin-bottom: 2px; color: var(--text); font-size: 14px; font-weight: 500; }
 .analytics-observation p { color: var(--muted); font-size: 13px; line-height: 1.55; }
-.analytics-action-list { margin: 8px 18px 0; }
+.analytics-action-list { max-height: 276px; margin: 8px 6px 0 18px; padding-right: 14px; overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.analytics-action-list::-webkit-scrollbar { width: 6px; }
+.analytics-action-list::-webkit-scrollbar-thumb { border-radius: 99px; background: var(--border-strong); }
+.analytics-action-list::-webkit-scrollbar-track { background: transparent; }
 .analytics-action-list > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); color: var(--secondary); font-size: 13px; }
 .analytics-action-list > div:last-child { border: 0; }
 .analytics-action-list span { display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.4; overflow-wrap: anywhere; }
 .analytics-action-list small { color: var(--muted); font-size: 12px; }
 .analytics-action-list strong { flex-shrink: 0; color: var(--text); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.analytics-show-more { display: flex; align-items: center; gap: 6px; margin: 4px 18px 0; padding: 8px 0; border: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 500; }
-.analytics-show-more:hover { color: var(--accent-hover); }
 .analytics-footnote { padding: 10px 18px 16px; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .analytics-empty-copy { padding: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .analytics-search { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--muted); }
