@@ -46,7 +46,11 @@ export async function recordRecipientConsent(input: unknown): Promise<RecipientR
   if (context.role === "viewer") return { error: "Seu perfil permite apenas consultar destinatários." };
   const parsed = scope.extend({ id: z.uuid(), phone: recipientInputSchema.shape.phone }).safeParse(input);
   const consent = consentInputSchema.safeParse(input);
-  if (!parsed.success || !consent.success) return { error: "Informe telefone, origem e uma data de autorização válida." };
+  if (!parsed.success || !consent.success) {
+    const fields = [...(parsed.error?.issues ?? []), ...(consent.error?.issues ?? [])].map(issue => issue.path.join(".") || issue.message);
+    console.error("recipient-consent-invalid", { fields });
+    return { error: `Informe telefone, origem e uma data de autorização válida (campos recusados: ${[...new Set(fields)].join(", ") || "desconhecido"}).` };
+  }
   if (parsed.data.agencyId !== context.agency.id) return { error: "O espaço de trabalho mudou. Atualize a página." };
   const { error } = await context.supabase.rpc("set_recipient_consent", { p_agency_id: context.agency.id, p_client_id: parsed.data.clientId, p_recipient_id: parsed.data.id, p_phone: parsed.data.phone, p_granted: consent.data.granted, p_source: consent.data.source, p_occurred_at: consent.data.occurredAt && Date.parse(consent.data.occurredAt) > Date.now() ? new Date().toISOString() : consent.data.occurredAt });
   if (error) return { error: "Registro recusado. Atualize os dados e confira se a autorização é posterior ao último descadastro e o destinatário está ativo." };
