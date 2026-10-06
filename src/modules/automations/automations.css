@@ -104,6 +104,15 @@
 .automation-recipients strong { font-size: 13px; font-weight: 500; }
 .automation-recipients small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .automation-step .automation-empty-note { padding: 0; }
+.automation-groups { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+.automation-groups-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.automation-groups-head strong { font-size: 13px; font-weight: 500; }
+.automation-group-search { position: relative; width: min(240px, 100%); }
+.automation-group-search svg { position: absolute; top: 50%; left: 10px; color: var(--muted); transform: translateY(-50%); }
+.automation-group-search .input { min-height: 32px; padding-left: 30px; font-size: 13px; }
+.automation-groups .automation-recipients { max-height: 264px; overflow-y: auto; }
+.automation-hint .spin { animation: qr-spin 1s linear infinite; }
+@keyframes qr-spin { to { transform: rotate(360deg); } }
 
 .automation-preview-sticky { position: sticky; top: 76px; display: grid; gap: 14px; }
 .automation-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

@@ -650,3 +650,11 @@ a.attention-item:hover { background: var(--surface-hover); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Official WhatsApp API kept as an advanced, collapsible option under the QR connection */
+.advanced-integration { margin-top: 12px; }
+.advanced-integration > summary { display: inline-flex; align-items: center; gap: 6px; padding: 6px 2px; color: var(--secondary); font-size: 13px; cursor: pointer; list-style: none; }
+.advanced-integration > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.advanced-integration[open] > summary::before { transform: rotate(90deg); }
+.advanced-integration > summary::-webkit-details-marker { display: none; }
+.advanced-integration > summary:hover { color: var(--text); }

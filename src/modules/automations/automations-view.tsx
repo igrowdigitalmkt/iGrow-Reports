@@ -68,7 +68,7 @@ export function AutomationsView({ snapshot, clients, recipients, canEdit, timezo
 
   if (!snapshot.ready) return <section className="panel empty-state"><CalendarClock size={22} /><h3>Agendamentos ainda não instalados</h3><p>O banco de dados deste espaço precisa receber a atualização de agendamentos. Assim que ela for aplicada, esta página passa a funcionar.</p></section>;
 
-  if (editing) return <AutomationEditor draft={editing} clients={activeClients} recipients={recipients} timezone={timezone} workspaceName={workspaceName} appUrl={appUrl} demo={demo}
+  if (editing) return <AutomationEditor draft={editing} clients={activeClients} recipients={recipients} timezone={timezone} workspaceName={workspaceName} appUrl={appUrl} demo={demo} groupsEnabled={channelReady && !demo}
     onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); router.refresh(); }} />;
 
   const create = () => activeClients[0] && setEditing(emptyDraft(activeClients[0].id));

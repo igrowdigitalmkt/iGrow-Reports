@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ArrowLeft, CircleAlert, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, CircleAlert, Loader2, Search, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ClientItem } from "@/modules/clients/schema";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
@@ -30,8 +30,8 @@ const GROUPS = ["Geral", "Investimento", "Alcance", "Resultados"] as const;
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 // One screen: who, what, when on the left; the message exactly as it will arrive on the right.
-export function AutomationEditor({ draft: initial, clients, recipients, timezone, workspaceName, appUrl, demo = false, onCancel, onSaved }: {
-  draft: EditorDraft; demo?: boolean; clients: ClientItem[]; recipients: SendableRecipient[]; timezone: string; workspaceName: string; appUrl: string | null;
+export function AutomationEditor({ draft: initial, clients, recipients, timezone, workspaceName, appUrl, demo = false, groupsEnabled = false, onCancel, onSaved }: {
+  draft: EditorDraft; demo?: boolean; groupsEnabled?: boolean; clients: ClientItem[]; recipients: SendableRecipient[]; timezone: string; workspaceName: string; appUrl: string | null;
   onCancel: () => void; onSaved: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
@@ -39,6 +39,9 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
   const [saving, startSaving] = useTransition();
   const [preview, setPreview] = useState<{ key: string; data: AnalyticsDashboardData | null; error?: string } | null>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const [groups, setGroups] = useState<Array<{ id: string; subject: string; size: number | null }> | null>(null);
+  const [groupError, setGroupError] = useState("");
+  const [groupQuery, setGroupQuery] = useState("");
   const update = (patch: Partial<EditorDraft>) => setDraft(current => ({ ...current, ...patch }));
 
   const client = clients.find(item => item.id === draft.clientId);
@@ -58,6 +61,17 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
     return () => { cancelled = true; };
   }, [draft.clientId, draft.periodKey, previewKey, demo]);
 
+  // Groups come live from the connected number; saved groups stay listed even if the fetch fails.
+  useEffect(() => {
+    if (!groupsEnabled) return;
+    let cancelled = false;
+    fetch("/api/whatsapp/qr/groups", { cache: "no-store" }).then(response => response.json()).then((body: { groups?: Array<{ id: string; subject: string; size: number | null }>; error?: string }) => {
+      if (cancelled) return;
+      if (body.groups) setGroups(body.groups); else setGroupError(body.error ?? "Não foi possível listar os grupos.");
+    }).catch(() => { if (!cancelled) setGroupError("Não foi possível listar os grupos."); });
+    return () => { cancelled = true; };
+  }, [groupsEnabled]);
+
   const loading = preview?.key !== previewKey;
   const rendered = renderMessage(draft.messageTemplate, {
     clientName: client?.name ?? "Cliente", recipientName: firstRecipient?.name ?? "Maria", workspaceName,
@@ -76,6 +90,14 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
     const end = element?.selectionEnd ?? start;
     update({ messageTemplate: draft.messageTemplate.slice(0, start) + token + draft.messageTemplate.slice(end) });
     requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(start + token.length, start + token.length); });
+  }
+
+  const selectedGroups = draft.targets.flatMap(target => target.groupId ? [{ id: target.groupId, subject: target.groupName, size: null }] : []);
+  const groupOptions = [...selectedGroups.filter(group => !groups?.some(item => item.id === group.id)), ...(groups ?? [])]
+    .filter(group => !groupQuery || group.subject.toLowerCase().includes(groupQuery.toLowerCase()));
+  function toggleGroup(group: { id: string; subject: string }) {
+    const on = draft.targets.some(target => target.groupId === group.id);
+    update({ targets: on ? draft.targets.filter(target => target.groupId !== group.id) : [...draft.targets, { groupId: group.id, groupName: group.subject }] });
   }
 
   function toggleRecipient(id: string) {
@@ -146,7 +168,15 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
               <span><strong>{recipient.name}</strong><small>{recipient.phone}{recipient.reason ? ` · ${recipient.reason}` : ""}</small></span>
             </label>
           </li>)}</ul> : <p className="automation-empty-note"><Users size={16} />Este cliente ainda não tem destinatários. Cadastre em Clientes › Destinatários.</p>}
-          <p className="automation-hint"><Sparkles size={14} />Grupos do WhatsApp aparecem aqui depois que você conectar seu número por QR Code em Integrações.</p>
+          {groupsEnabled ? <div className="automation-groups">
+            <div className="automation-groups-head"><strong>Grupos do WhatsApp</strong>
+              {(groups?.length ?? 0) > 8 && <label className="automation-group-search"><Search size={14} /><input className="input" placeholder="Buscar grupo" value={groupQuery} onChange={event => setGroupQuery(event.target.value)} aria-label="Buscar grupo" /></label>}</div>
+            {groups === null && !groupError ? <p className="automation-hint"><Loader2 size={14} className="spin" />Carregando os grupos do seu WhatsApp…</p>
+              : groupOptions.length ? <ul className="automation-recipients">{groupOptions.map(group => <li key={group.id}>
+                <label><input type="checkbox" checked={draft.targets.some(target => target.groupId === group.id)} onChange={() => toggleGroup(group)} />
+                  <span><strong>{group.subject}</strong><small>{group.size ? `${group.size} participantes` : "Grupo"}</small></span></label>
+              </li>)}</ul> : <p className="automation-hint">{groupError || (groupQuery ? "Nenhum grupo com esse nome." : "Este número não participa de nenhum grupo.")}</p>}
+          </div> : <p className="automation-hint"><Sparkles size={14} />Grupos do WhatsApp aparecem aqui depois que você conectar seu número por QR Code em Integrações.</p>}
         </section>
 
         <section className="panel automation-step">

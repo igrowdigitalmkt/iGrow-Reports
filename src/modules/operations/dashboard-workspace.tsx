@@ -24,14 +24,15 @@ import { logoutAction } from "@/modules/auth/actions";
 import { WhatsAppManager, type WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
 import { DeliveriesView, type DeliveryItem } from "@/modules/whatsapp/deliveries-view";
 import { AutomationsView } from "@/modules/automations/automations-view";
+import { QrConnection } from "@/modules/whatsapp-qr/qr-connection";
 import type { AutomationsSnapshot } from "@/modules/automations/types";
 import { demoAutomationClients, demoAutomationRecipients, demoAutomations } from "@/modules/automations/demo";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 
-interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
+interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; qrConnected?: boolean; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], automations, canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
+export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], automations, qrConnected = false, canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
   const { search } = useWorkspaceSearch();
   const [status, setStatus] = useState("Todos os estados");
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
@@ -63,7 +64,8 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
             </section>
           )}
         </div>
-        {!demo && agencyId && <WhatsAppManager connection={whatsapp} readiness={whatsappReadiness ?? { ready: false, missing: [] }} canManage={canManageClientAccess} embedded={whatsappEmbedded} />}
+        {!demo && agencyId && <QrConnection canManage={canManageClientAccess} />}
+        {!demo && agencyId && <details className="advanced-integration" open={!!whatsapp}><summary>Opção avançada: API oficial do WhatsApp (envio do relatório em PDF)</summary><WhatsAppManager connection={whatsapp} readiness={whatsappReadiness ?? { ready: false, missing: [] }} canManage={canManageClientAccess} embedded={whatsappEmbedded} /></details>}
         <h2 className="section-label">Próximas integrações</h2>
         <section className="panel list-panel">
           {[...(demo ? [{ name: "WhatsApp Business", detail: "Envio dos relatórios aos destinatários autorizados", icon: <Send size={18} />, color: "green" }] : []), { name: "Google Ads", detail: "Campanhas de pesquisa, display e YouTube", icon: <span className="font-semibold">G</span>, color: "neutral" }].map(provider => <div className="list-row" key={provider.name}>
@@ -80,7 +82,7 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
       {section === "entregas" && !demo && <DeliveriesView deliveries={deliveries} connected={!!whatsapp} />}
 
       {section === "agendamentos" && demo && <AutomationsView demo snapshot={demoAutomations} clients={demoAutomationClients} recipients={demoAutomationRecipients} canEdit timezone="America/Sao_Paulo" workspaceName={identity.agencyName} appUrl={null} channelReady={false} />}
-      {section === "agendamentos" && !demo && automations && <AutomationsView snapshot={automations} clients={clients ?? []} recipients={recipients} canEdit={canSendReports} timezone={identity.timezone || "America/Sao_Paulo"} workspaceName={identity.agencyName} appUrl={process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null} channelReady={false} />}
+      {section === "agendamentos" && !demo && automations && <AutomationsView snapshot={automations} clients={clients ?? []} recipients={recipients} canEdit={canSendReports} timezone={identity.timezone || "America/Sao_Paulo"} workspaceName={identity.agencyName} appUrl={process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null} channelReady={qrConnected} />}
 
       {(section === "templates" || (section === "entregas" && demo)) && <section className="panel feature-preview"><span className="feature-icon">{section === "templates" ? <FileChartColumn size={20} /> : <Send size={20} />}</span><span className="badge neutral">Em breve</span><h2>{section === "templates" ? "Modelos com blocos configuráveis" : "Acompanhe cada envio"}</h2><p>{section === "templates" ? "Monte a estrutura do relatório uma vez e aplique a vários clientes. Cada versão fica guardada." : "Veja quando o relatório foi entregue, lido e aberto por cada destinatário."}</p><p className="planned-note mt-2">Esta funcionalidade ainda não está disponível.</p></section>}
     </motion.div>

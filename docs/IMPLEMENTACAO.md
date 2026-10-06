@@ -561,3 +561,20 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
   - `runner.ts` + `sender.ts` + rota `GET /api/cron/report-automations` (Bearer `CRON_SECRET`): pega os agendamentos vencidos, registra a execução (trava contra duplicidade), não reenvia horários perdidos, revalida autorização no momento do envio, personaliza o nome por pessoa, espaça as mensagens de 4 a 9 s. Sem conexão por QR a execução fica como "Não enviado" com explicação. `resolveSender` ainda devolve nulo.
 - Menu: Agendamentos deixa de ser "Em breve". Testes: `tests/automations.test.ts`, `tests/automation-runner.test.ts`; lint, 679 testes unitários, testes de banco e build passaram.
 - Próximo: aplicar a migração (responsável); VPS + Evolution API; tela de conexão por QR com estado ao vivo e reconexão; grupos; chamada da rota a cada 5 min; descadastro por "PARAR"; PDF por e-mail; limite diário por número.
+
+### VPS e Evolution API (6/10/2026)
+
+- VPS Hostinger KVM 2 (conta da iGrow, separada da hospedagem do colégio), Ubuntu 24.04, IP `179.236.250.51`, localização EUA. Acesso por chave SSH dedicada `~/.ssh/igrow_vps` (pública `igrow-vps`) no computador do responsável; senha root só com o responsável.
+- Feito: atualizações e atualizações automáticas de segurança, firewall ufw (22/80/443), fail2ban, fuso America/Sao_Paulo, Docker 29.
+- Evolution API v2.3.7 em `/opt/evolution` (arquivos versionados em `infra/evolution/`): PostgreSQL 16 e Redis 7 só na rede interna, Caddy com HTTPS Let's Encrypt em `https://179-236-250-51.sslip.io`. Conteúdo de mensagens, contatos e conversas não é gravado. Segredos (`EVOLUTION_API_KEY`, `POSTGRES_PASSWORD`) gerados no servidor em `/opt/evolution/.env` (600), nunca exibidos. Conferido: 401 sem chave, 200 com chave, portas internas fechadas.
+- Pendente: backup diário (`infra/evolution/backup.sh` + `/etc/cron.d`) bloqueado pela permissão do assistente para tarefas persistentes no servidor; aguarda autorização do responsável. Depois: variáveis `EVOLUTION_API_URL`/`EVOLUTION_API_KEY` na Vercel, tela de conexão por QR, `resolveSender`, chamada da rota a cada 5 min a partir da VPS.
+
+### Conexão por QR Code no iGrow (6/10/2026)
+
+- Variáveis `EVOLUTION_API_URL` (`https://179-236-250-51.sslip.io`) e `EVOLUTION_API_KEY` cadastradas na Vercel pelo responsável (chave lida por ele no Web console da Hostinger; nunca exibida ao assistente).
+- `src/modules/whatsapp-qr/`: cliente da Evolution (`evolution.ts`), regras de número/código (`format.ts`), servidor (`server.ts`: estado, QR Code, código de pareamento de 8 caracteres, desconectar, grupos, `createQrSender`), tela `qr-connection.tsx` em Integrações (passos do celular, QR renovado a cada 30 s, consulta do estado a cada 3 s, conectado com nome/foto/número, desconectar, orientações contra bloqueio). Uma sessão por espaço: instância `igrow-<agencyId>`; sem nova migração.
+- Rotas `GET/POST /api/whatsapp/qr` (estado; conectar/código/desconectar só proprietário e administrador) e `GET /api/whatsapp/qr/groups`.
+- API oficial do WhatsApp passa a ficar em "Opção avançada" (aberta quando já conectada).
+- Agendamentos: o aviso de canal some quando o número está conectado; o editor lista os grupos do número com busca; a rota `/api/cron/report-automations` envia pelo número conectado (`createQrSender`).
+- Conferido no servidor: formato das respostas de criar, conectar (QR e código), estado, listar e apagar instância. Testes `tests/whatsapp-qr.test.ts` (encontrou e corrigiu número estrangeiro com +). 685 testes, lint e build passaram.
+- Pendente: homologar conexão real com o número do responsável; agendar a chamada da rota a cada 5 min na VPS (precisa copiar `CRON_SECRET` para a VPS, com autorização); backup diário da VPS (aguarda autorização); descadastro por "PARAR" (webhook da Evolution); PDF por e-mail.
