@@ -28,7 +28,7 @@ export async function loadSendableRecipients(supabase: SupabaseClient<Database>,
 }
 
 export async function loadDeliveries(supabase: SupabaseClient<Database>, agencyId: string, clients: ClientItem[], versions: AdminReportVersion[]): Promise<DeliveryItem[]> {
-  const { data, error } = await supabase.from("report_deliveries").select("id,client_id,recipient_id,report_version_id,status,error_message,status_at,created_at")
+  const { data, error } = await supabase.from("report_deliveries").select("id,client_id,recipient_id,report_version_id,status,error_code,error_message,status_at,created_at")
     .eq("agency_id", agencyId).order("created_at", { ascending: false }).limit(200);
   if (error || !data?.length) return [];
   const { data: recipients } = await supabase.from("client_recipients").select("id,name,phone").eq("agency_id", agencyId)
@@ -38,7 +38,7 @@ export async function loadDeliveries(supabase: SupabaseClient<Database>, agencyI
     const recipient = recipients?.find(item => item.id === row.recipient_id);
     const version = versions.find(item => item.id === row.report_version_id);
     return {
-      id: row.id, createdAt: row.created_at, statusAt: row.status_at, status: row.status, errorMessage: row.error_message,
+      id: row.id, createdAt: row.created_at, statusAt: row.status_at, status: row.status, errorMessage: row.error_message, errorCode: row.error_code,
       clientName: clients.find(client => client.id === row.client_id)?.name ?? "Cliente",
       recipientName: recipient?.name ?? "Destinatário", recipientPhone: recipient?.phone ?? "",
       reportTitle: version?.title ?? "Relatório", period: version ? `${brDate(version.dateFrom)} a ${brDate(version.dateTo)}` : null,

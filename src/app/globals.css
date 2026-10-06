@@ -543,7 +543,7 @@ a.attention-item:hover { background: var(--surface-hover); }
 .send-recipient-list span { display: flex; flex-direction: column; min-width: 0; }
 .send-recipient-list strong { font-size: 14px; font-weight: 500; }
 .send-recipient-list small { color: var(--muted); font-size: 12px; }
-.delivery-error { display: block; max-width: 260px; margin-top: 4px; overflow: hidden; color: var(--warn); font-size: 12px; text-overflow: ellipsis; }
+.delivery-error { display: block; max-width: 320px; margin-top: 4px; color: var(--warn); font-size: 12px; line-height: 1.4; white-space: normal; }
 .delivery-time { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
 @media (max-width: 760px) {
   .whatsapp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }

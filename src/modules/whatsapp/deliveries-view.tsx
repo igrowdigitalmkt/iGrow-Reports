@@ -2,7 +2,7 @@ import { Send } from "lucide-react";
 import type { ReportDeliveryStatus } from "@/types/database";
 
 export type DeliveryItem = {
-  id: string; createdAt: string; statusAt: string; status: ReportDeliveryStatus; errorMessage: string | null;
+  id: string; createdAt: string; statusAt: string; status: ReportDeliveryStatus; errorMessage: string | null; errorCode: string | null;
   clientName: string; recipientName: string; recipientPhone: string; reportTitle: string; period: string | null;
 };
 
@@ -17,6 +17,21 @@ const STATUS: Record<ReportDeliveryStatus, { label: string; tone: string }> = {
   uncertain: { label: "Sem confirmação", tone: "amber" },
   cancelled: { label: "Cancelado", tone: "neutral" },
 };
+
+// Most common WhatsApp Cloud API failures, in plain language with the action to take.
+const ERRORS: Record<string, string> = {
+  "131042": "A conta do WhatsApp está sem forma de pagamento válida. Configure o pagamento no Gerenciador do WhatsApp.",
+  "131026": "O número não pôde receber a mensagem (sem WhatsApp, bloqueado ou versão antiga).",
+  "131047": "Fora da janela de 24 horas: é preciso usar uma mensagem modelo aprovada.",
+  "131049": "A Meta limitou envios para este destinatário. Tente mais tarde.",
+  "131051": "Tipo de mensagem não suportado.",
+  "131053": "Não foi possível enviar o arquivo PDF.",
+  "132000": "As variáveis não correspondem à mensagem modelo.",
+  "132001": "A mensagem modelo não existe ou não está aprovada neste idioma.",
+  "133010": "O número de envio não está registrado na API.",
+  "368": "A conta foi restringida por violar políticas do WhatsApp.",
+};
+export const deliveryErrorText = (code: string | null, message: string | null) => (code && ERRORS[code]) || message;
 
 const dateTime = (value: string) => new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 
@@ -41,7 +56,7 @@ export function DeliveriesView({ deliveries, connected }: { deliveries: Delivery
         <td>{item.clientName}</td>
         <td><div className="client-cell"><span style={{ minWidth: 0 }}><strong>{item.recipientName}</strong><small>{item.recipientPhone}</small></span></div></td>
         <td><div className="client-cell"><span style={{ minWidth: 0 }}><strong>{item.reportTitle}</strong>{item.period && <small>{item.period}</small>}</span></div></td>
-        <td><span className={`badge ${STATUS[item.status].tone}`}><span className="status-dot" />{STATUS[item.status].label}</span>{item.errorMessage && <small className="delivery-error" title={item.errorMessage}>{item.errorMessage}</small>}<small className="delivery-time">atualizado {dateTime(item.statusAt)}</small></td>
+        <td><span className={`badge ${STATUS[item.status].tone}`}><span className="status-dot" />{STATUS[item.status].label}</span>{item.errorMessage && <small className="delivery-error" title={`${item.errorCode ? `Código ${item.errorCode}: ` : ""}${item.errorMessage}`}>{deliveryErrorText(item.errorCode, item.errorMessage)}</small>}<small className="delivery-time">atualizado {dateTime(item.statusAt)}</small></td>
       </tr>)}</tbody>
     </table></div></section>
   </>;
