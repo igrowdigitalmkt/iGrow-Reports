@@ -16,15 +16,14 @@ import { emptySnapshot, type ReportRow } from "./dashboard-data";
 import { ClientManager } from "@/modules/clients/client-manager";
 import type { ClientItem } from "@/modules/clients/schema";
 import type { ClientPortalAdminAccess, ClientPortalPendingInvitation } from "@/modules/client-portal/types";
-import { MetaIntegrationManager } from "@/modules/meta/integration-manager";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import { ReportManager } from "@/modules/reports/report-manager";
 import type { ReportsAdminSnapshot } from "@/modules/reports/types";
 import { logoutAction } from "@/modules/auth/actions";
-import { WhatsAppManager, type WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
+import type { WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
 import { DeliveriesView, type DeliveryItem } from "@/modules/whatsapp/deliveries-view";
 import { AutomationsView } from "@/modules/automations/automations-view";
-import { QrConnection } from "@/modules/whatsapp-qr/qr-connection";
+import { IntegrationsHub } from "./integrations-hub";
 import type { AutomationsSnapshot } from "@/modules/automations/types";
 import { demoAutomationClients, demoAutomationRecipients, demoAutomations } from "@/modules/automations/demo";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
@@ -54,26 +53,7 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
       {section === "clientes" && <ClientManager demo={demo} initialClients={clients} agencyId={agencyId} canEdit={canEditClients} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} portalInvitations={portalInvitations} metaSnapshot={metaSnapshot} search={search} />}
 
       {section === "integracoes" && <>
-        <div className="integration-cards">
-          {!demo && agencyId && metaSnapshot ? (
-            <MetaIntegrationManager agencyId={agencyId} clients={(clients ?? []).filter((client) => !client.archived_at)} initialClientId={initialMetaClientId} snapshot={metaSnapshot} canManage={canManageClientAccess} />
-          ) : (
-            <section className="panel integration-card meta-operational-card">
-              <div className="meta-card-header"><span className="provider-logo meta-logo">∞</span><div className="meta-card-title"><h2>Meta Ads</h2><p className="muted text-sm">Contas de anúncio, campanhas e resultados</p></div><span className="badge blue">{demo ? "Simulada" : "Não configurada"}</span></div>
-              <div className="planned-note mt-4"><Clock3 size={15} />{demo ? "Integração simulada no ambiente demonstrativo" : "Aguardando configuração"}</div>
-            </section>
-          )}
-        </div>
-        {!demo && agencyId && <QrConnection canManage={canManageClientAccess} />}
-        {!demo && agencyId && <details className="advanced-integration" open={!!whatsapp}><summary>Opção avançada: API oficial do WhatsApp (envio do relatório em PDF)</summary><WhatsAppManager connection={whatsapp} readiness={whatsappReadiness ?? { ready: false, missing: [] }} canManage={canManageClientAccess} embedded={whatsappEmbedded} /></details>}
-        <h2 className="section-label">Próximas integrações</h2>
-        <section className="panel list-panel">
-          {[...(demo ? [{ name: "WhatsApp Business", detail: "Envio dos relatórios aos destinatários autorizados", icon: <Send size={18} />, color: "green" }] : []), { name: "Google Ads", detail: "Campanhas de pesquisa, display e YouTube", icon: <span className="font-semibold">G</span>, color: "neutral" }].map(provider => <div className="list-row" key={provider.name}>
-            <span className={cn("provider-logo", provider.color)}>{provider.icon}</span>
-            <div className="list-row-main"><strong>{provider.name}</strong><small>{provider.detail}</small></div>
-            <span className="badge neutral">Em breve</span>
-          </div>)}
-        </section>
+        <IntegrationsHub demo={demo} agencyId={agencyId} clients={clients ?? []} metaSnapshot={metaSnapshot} initialMetaClientId={initialMetaClientId} canManage={canManageClientAccess} whatsapp={whatsapp} whatsappReadiness={whatsappReadiness ?? { ready: false, missing: [] }} whatsappEmbedded={whatsappEmbedded} />
         <p className="footnote"><ShieldCheck size={15} />Chaves e tokens ficam só no servidor. Apenas proprietários e administradores podem alterá-los.</p>
       </>}
 

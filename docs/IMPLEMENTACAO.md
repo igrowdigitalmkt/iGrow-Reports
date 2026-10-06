@@ -585,3 +585,9 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Ao conectar por QR, o iGrow configura na Evolution o aviso de mensagens recebidas para `POST /api/webhooks/evolution`, assinado pelo cabeçalho `x-igrow-token` (HMAC da chave da Evolution com o nome da sessão; sem segredo extra). A rota só reage a respostas como PARAR/SAIR/CANCELAR/STOP em conversa privada, descadastra e responde confirmando, pelo próprio número. Texto das mensagens não é guardado. Regras em `whatsapp-qr/opt-out.ts`, testes `tests/whatsapp-opt-out.test.ts`.
 - Os três modelos de mensagem terminam com "Para não receber mais estas mensagens, responda PARAR."
 - Pendente: aplicar a 0002; números conectados antes desta versão recebem o aviso ao reconectar.
+
+### Nova página de Integrações (6/10/2026)
+
+- A página era uma pilha de painéis largos (Meta com todos os detalhes técnicos, WhatsApp por QR com passos quebrando palavra por palavra, API oficial e lista de próximas). Agora é um catálogo em cartões compactos, 3 colunas (2 no tablet, 1 no celular), em dois grupos: "Dados de anúncios" (Meta Ads, Google Ads, TikTok Ads) e "Envio de relatórios" (WhatsApp da agência por QR, WhatsApp API oficial, E-mail).
+- Cada cartão mostra estado, um dado-chave (clientes e contas conectados e última sincronização; nome e número do WhatsApp) e um botão; a configuração completa abre num painel lateral (`components/ui/sheet.tsx`), reutilizando os gerenciadores existentes. Voltar do login do Facebook (`?client=`) reabre o painel da Meta. Código em `operations/integrations-hub.tsx`.
+- Conferido no navegador em `/demo/integracoes` (desktop e celular). O painel lateral com dados reais não foi conferido no navegador local (exige sessão); conferir em produção.
