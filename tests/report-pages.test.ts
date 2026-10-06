@@ -28,7 +28,8 @@ describe("templates prontos", () => {
     expect(new Set(SYSTEM_TEMPLATES.map(item => item.segment))).toEqual(new Set(["geral", "mensagens", "vendas", "leads", "seguidores", "trafego"]));
     for (const template of SYSTEM_TEMPLATES) {
       expect(unknownVariables(template.body)).toEqual([]);
-      expect(template.body).toContain("PARAR");
+      if (template.channel === "whatsapp") expect(template.body).toContain("PARAR");
+      if (template.channel === "email") expect(template.subject).toBeTruthy();
     }
   });
 

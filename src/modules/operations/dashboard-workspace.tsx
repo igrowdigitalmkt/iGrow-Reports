@@ -70,7 +70,7 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
 
       {section === "entregas" && <DeliveriesView deliveries={demo ? [] : deliveries} automations={demo ? demoAutomations : automations ?? null} clients={demo ? demoAutomationClients : clients ?? []} connected={!!whatsapp || demo} timezone={identity.timezone || "America/Sao_Paulo"} initialClientId={initialClientId} />}
 
-      {section === "templates" && <TemplatesView demo={demo} snapshot={demo ? { ready: true, items: [] } : templates ?? { ready: false, items: [] }} clients={demo ? [] : clients ?? []} canEdit={demo || canSendReports} workspaceName={identity.agencyName} />}
+      {section === "templates" && <TemplatesView demo={demo} snapshot={demo ? { ready: true, channelsReady: true, items: [] } : templates ?? { ready: false, channelsReady: false, items: [] }} canEdit={demo || canSendReports} workspaceName={identity.agencyName} whatsapp={demo ? null : whatsapp} />}
 
       {section === "agendamentos" && demo && <AutomationsView demo snapshot={demoAutomations} clients={demoAutomationClients} recipients={demoAutomationRecipients} canEdit templates={[]} timezone="America/Sao_Paulo" workspaceName={identity.agencyName} appUrl={null} channelReady={false} />}
       {section === "agendamentos" && !demo && automations && <AutomationsView snapshot={automations} templates={templates?.items ?? []} initialClientId={initialClientId} clients={clients ?? []} recipients={recipients} canEdit={canSendReports} timezone={identity.timezone || "America/Sao_Paulo"} workspaceName={identity.agencyName} appUrl={process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null} channelReady={qrConnected} />}

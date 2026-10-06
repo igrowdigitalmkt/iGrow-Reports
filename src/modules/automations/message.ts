@@ -1,6 +1,7 @@
 import { resultCostBreakdown } from "@/modules/client-portal/analytics-results";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
 import type { MessageTemplateSegment } from "@/types/database";
+import { balanceText, type BalanceSummary } from "@/modules/meta/balance";
 
 export type MessageContext = {
   clientName: string;
@@ -8,6 +9,8 @@ export type MessageContext = {
   workspaceName?: string | null;
   dashboardUrl?: string | null;
   data: AnalyticsDashboardData | null;
+  /** Funds left in the ad accounts, read from Meta when the message uses {{saldo}}. */
+  balance?: BalanceSummary | null;
 };
 
 export type MessageVariable = { key: string; label: string; group: "Geral" | "Investimento" | "Alcance" | "Resultados" | "Custos" };
@@ -22,6 +25,7 @@ export const MESSAGE_VARIABLES: MessageVariable[] = [
   { key: "investimento", label: "Valor investido", group: "Investimento" },
   { key: "receita", label: "Receita das compras", group: "Investimento" },
   { key: "roas", label: "ROAS", group: "Investimento" },
+  { key: "saldo", label: "Saldo disponível", group: "Investimento" },
   { key: "cpm", label: "CPM", group: "Investimento" },
   { key: "cpc", label: "CPC", group: "Investimento" },
   { key: "impressoes", label: "Impressões", group: "Alcance" },
@@ -47,7 +51,9 @@ const KNOWN = new Set(MESSAGE_VARIABLES.map(variable => variable.key));
 const PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/gi;
 const OPT_OUT = "\n\n_Para não receber mais estas mensagens, responda PARAR._";
 
-export type SystemTemplate = { id: string; name: string; segment: MessageTemplateSegment; description: string; body: string };
+export type TemplateChannel = "whatsapp" | "whatsapp_pdf" | "email";
+export const CHANNEL_LABELS: Record<TemplateChannel, string> = { whatsapp: "Mensagem de WhatsApp", whatsapp_pdf: "WhatsApp + PDF", email: "E-mail" };
+export type SystemTemplate = { id: string; name: string; segment: MessageTemplateSegment; channel: TemplateChannel; description: string; body: string; subject?: string };
 
 export const SEGMENT_LABELS: Record<MessageTemplateSegment, string> = {
   geral: "Geral",
@@ -62,28 +68,37 @@ export const SEGMENT_LABELS: Record<MessageTemplateSegment, string> = {
 // Ready-made templates, one for each of the most common campaign goals.
 export const SYSTEM_TEMPLATES: SystemTemplate[] = [
   {
-    id: "sistema-geral", name: "Resumo completo", segment: "geral", description: "Investimento, alcance, cliques e todos os resultados do período.",
-    body: "Olá, {{nome}}! 👋\n\nSegue o resumo de *{{cliente}}* ({{periodo}}):\n\n💰 Investimento: *{{investimento}}*\n👀 Alcance: {{alcance}} pessoas\n📢 Impressões: {{impressoes}}\n🖱️ Cliques: {{cliques}} (CTR {{ctr}})\n\n🎯 *Resultados*\n{{resultados}}\n\nQualquer dúvida, é só chamar por aqui." + OPT_OUT,
+    id: "sistema-geral", name: "Resumo completo", segment: "geral", channel: "whatsapp", description: "Investimento, alcance, cliques e todos os resultados do período.",
+    body: "Olá, {{nome}}! 👋\n\nSegue o resumo de *{{cliente}}* ({{periodo}}):\n\n💰 Investimento: *{{investimento}}*\n👀 Alcance: {{alcance}} pessoas\n📢 Impressões: {{impressoes}}\n🖱️ Cliques: {{cliques}} (CTR {{ctr}})\n🏦 Saldo disponível: {{saldo}}\n\n🎯 *Resultados*\n{{resultados}}\n\nQualquer dúvida, é só chamar por aqui." + OPT_OUT,
   },
   {
-    id: "sistema-mensagens", name: "Conversas iniciadas", segment: "mensagens", description: "Para campanhas que levam ao WhatsApp, Messenger ou Direct.",
+    id: "sistema-mensagens", name: "Conversas iniciadas", segment: "mensagens", channel: "whatsapp", description: "Para campanhas que levam ao WhatsApp, Messenger ou Direct.",
     body: "Olá, {{nome}}! 💬\n\nEm {{periodo}}, os anúncios de *{{cliente}}* geraram *{{conversas}} conversas* iniciadas.\n\n💰 Investimento: {{investimento}}\n📉 Custo por conversa: *{{custo_conversa}}*\n👀 Alcance: {{alcance}} pessoas\n\nVale conferir se todas as conversas foram respondidas. 😉" + OPT_OUT,
   },
   {
-    id: "sistema-vendas", name: "Vendas", segment: "vendas", description: "Compras, receita, ROAS e custo por compra.",
+    id: "sistema-vendas", name: "Vendas", segment: "vendas", channel: "whatsapp", description: "Compras, receita, ROAS e custo por compra.",
     body: "Olá, {{nome}}! 🛒\n\nResultado de vendas de *{{cliente}}* em {{periodo}}:\n\n✅ Compras: *{{compras}}*\n💵 Receita: *{{receita}}*\n📈 ROAS: *{{roas}}*\n💰 Investimento: {{investimento}}\n🎯 Custo por compra: {{custo_compra}}\n\nQualquer dúvida, estamos por aqui." + OPT_OUT,
   },
   {
-    id: "sistema-leads", name: "Leads e cadastros", segment: "leads", description: "Para formulários, cadastros e captação de contatos.",
+    id: "sistema-leads", name: "Leads e cadastros", segment: "leads", channel: "whatsapp", description: "Para formulários, cadastros e captação de contatos.",
     body: "Olá, {{nome}}! 📋\n\nCaptação de *{{cliente}}* em {{periodo}}:\n\n✅ Leads: *{{leads}}* (custo de {{custo_lead}} cada)\n📝 Cadastros: *{{cadastros}}* (custo de {{custo_cadastro}} cada)\n💰 Investimento: {{investimento}}\n🖱️ Cliques: {{cliques}} (CTR {{ctr}})\n\nLembrete: quanto mais rápido o primeiro contato, maior a chance de conversão." + OPT_OUT,
   },
   {
-    id: "sistema-seguidores", name: "Seguidores e perfil", segment: "seguidores", description: "Crescimento do Instagram: seguidores e visitas ao perfil.",
+    id: "sistema-seguidores", name: "Seguidores e perfil", segment: "seguidores", channel: "whatsapp", description: "Crescimento do Instagram: seguidores e visitas ao perfil.",
     body: "Olá, {{nome}}! 📸\n\nCrescimento do perfil de *{{cliente}}* em {{periodo}}:\n\n➕ Novos seguidores: *{{seguidores}}* ({{custo_seguidor}} cada)\n👤 Visitas ao perfil: {{visitas_perfil}}\n👀 Alcance: {{alcance}} pessoas\n💰 Investimento: {{investimento}}" + OPT_OUT,
   },
   {
-    id: "sistema-trafego", name: "Tráfego para o site", segment: "trafego", description: "Cliques, CTR e custo por clique.",
+    id: "sistema-trafego", name: "Tráfego para o site", segment: "trafego", channel: "whatsapp", description: "Cliques, CTR e custo por clique.",
     body: "Olá, {{nome}}! 🌐\n\nTráfego de *{{cliente}}* em {{periodo}}:\n\n🖱️ Cliques no link: *{{cliques}}*\n📊 CTR: {{ctr}}\n💸 CPC: *{{cpc}}*\n👀 Alcance: {{alcance}} pessoas\n💰 Investimento: {{investimento}}" + OPT_OUT,
+  },
+  {
+    id: "sistema-diario", name: "Parcial diária com saldo", segment: "geral", channel: "whatsapp", description: "Resumo de ontem com o saldo disponível, para acompanhar todo dia.",
+    body: "Bom dia, {{nome}}! ☀️\n\nParcial de *{{cliente}}* ({{periodo}}):\n\n💰 Investido: *{{investimento}}*\n🎯 Resultados:\n{{resultados}}\n\n🏦 Saldo disponível nas contas: *{{saldo}}*" + OPT_OUT,
+  },
+  {
+    id: "sistema-email", name: "Relatório por e-mail", segment: "geral", channel: "email", description: "E-mail com os números do período e o relatório em PDF anexo.",
+    subject: "Resultados de {{cliente}} · {{periodo}}",
+    body: "Olá, {{nome}}!\n\nSegue o resumo das campanhas de {{cliente}} no período de {{periodo}}.\n\nInvestimento: {{investimento}}\nAlcance: {{alcance}} pessoas\nImpressões: {{impressoes}}\nCliques no link: {{cliques}} (CTR {{ctr}})\nSaldo disponível: {{saldo}}\n\nResultados:\n{{resultados}}\n\nO relatório completo está em anexo. Qualquer dúvida, é só responder este e-mail.\n\nEquipe {{equipe}}",
   },
 ];
 
@@ -154,6 +169,7 @@ export function messageValues(context: MessageContext): Record<string, string> {
     equipe: context.workspaceName || "",
     link_painel: context.dashboardUrl || "",
     investimento: format.money(summary.spend),
+    saldo: balanceText(context.balance),
     receita: format.money(revenue),
     roas: format.ratio(roas),
     cpm: format.money(summary.cpm),

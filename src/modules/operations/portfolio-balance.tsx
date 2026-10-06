@@ -2,24 +2,9 @@
 
 import { useEffect, useState } from "react";
 import type { ClientAccountBilling } from "@/modules/meta/server";
+import { summarizeBalance } from "@/modules/meta/balance";
 
 type Balance = { status: "loading" } | { status: "ready"; funds: number | null; currency: string | null; postpaid: boolean; due: boolean } | { status: "error" };
-
-// Funds left across the client's ad accounts: prepaid balance or what is left of the spending limit.
-export function summarizeBalance(accounts: ClientAccountBilling[]) {
-  let funds: number | null = null;
-  for (const account of accounts) {
-    const remainingCap = account.spendCap != null ? Math.max(0, account.spendCap - (account.amountSpent ?? 0)) : null;
-    const limits = [account.availableBalance, remainingCap].filter((value): value is number => value != null);
-    if (limits.length) funds = (funds ?? 0) + Math.min(...limits);
-  }
-  const currencies = new Set(accounts.map(account => account.currency));
-  return {
-    funds, currency: currencies.size === 1 ? [...currencies][0] : null,
-    postpaid: funds == null && accounts.some(account => !account.prepaid),
-    due: accounts.some(account => (account.balanceDue ?? 0) > 0 && !account.delivering),
-  };
-}
 
 export function ClientBalance({ clientId, enabled, demo }: { clientId: string; enabled: boolean; demo?: { funds: number | null; postpaid?: boolean } }) {
   const [state, setState] = useState<Balance>(demo ? { status: "ready", funds: demo.funds, currency: "BRL", postpaid: !!demo.postpaid, due: false } : { status: "loading" });

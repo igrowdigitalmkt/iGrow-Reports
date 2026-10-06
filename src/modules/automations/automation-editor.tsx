@@ -14,6 +14,7 @@ import { MessageComposer } from "@/modules/templates/message-composer";
 import { SaveTemplateButton, TemplatePicker } from "@/modules/templates/template-tools";
 import type { SavedTemplate } from "@/modules/templates/types";
 import { SendNowButton } from "./send-now";
+import { useUnsavedGuard } from "@/components/ui/unsaved-guard";
 import { describeSchedule, PERIOD_LABELS, upcomingRuns, WEEKDAY_SHORT } from "./schedule";
 import type { AutomationItem } from "./types";
 import { WhatsAppPreview } from "./whatsapp-preview";
@@ -114,14 +115,20 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
   }
 
   function save() {
-    startSaving(async () => { if (await persist()) onSaved(); });
+    startSaving(async () => { const id = await persist(); if (id) { setBaseline(JSON.stringify({ ...draft, id })); onSaved(); } });
   }
 
   const destinations = draft.targets.length;
+  // Leaving with changes asks first; "Salvar" saves and then continues.
+  const [baseline, setBaseline] = useState(() => JSON.stringify(initial));
+  const dirty = JSON.stringify({ ...draft, id: draft.id ?? initial.id }) !== baseline && !demo;
+  const { guard, dialog } = useUnsavedGuard(dirty, async () => { const id = await persist(); if (id) setBaseline(JSON.stringify({ ...draft, id })); return !!id; });
+  const leave = () => guard(onCancel);
 
   return <div className="automation-editor">
+    {dialog}
     <div className="automation-editor-head">
-      <button type="button" className="button button-ghost button-sm" onClick={onCancel}><ArrowLeft size={15} />Agendamentos</button>
+      <button type="button" className="button button-ghost button-sm" onClick={leave}><ArrowLeft size={15} />Agendamentos</button>
       <h2>{draft.id ? "Editar agendamento" : "Novo agendamento"}</h2>
     </div>
 
@@ -211,7 +218,7 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
           {error && <p role="alert" className="meta-feedback error">{error}</p>}
           <label className="automation-active"><input type="checkbox" checked={draft.active} onChange={event => update({ active: event.target.checked })} /><span>Ativo — enviar automaticamente nos horários acima</span></label>
           <div className="automation-save">
-            <Button variant="secondary" onClick={onCancel} disabled={saving}>Cancelar</Button>
+            <Button variant="secondary" onClick={leave} disabled={saving}>Cancelar</Button>
             <Button onClick={save} disabled={saving || !draft.clientId}>{saving ? "Salvando…" : draft.id ? "Salvar alterações" : "Criar agendamento"}</Button>
           </div>
           <div className="automation-send-now">

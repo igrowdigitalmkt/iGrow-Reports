@@ -18,8 +18,11 @@ select throws_ok($$insert into message_templates(agency_id,name,segment,body) va
 select throws_ok($$insert into message_templates(agency_id,name,segment,body) values ('9aaaaaaa-0000-4000-8000-000000000001','Outro','astrologia','Texto')$$,'23514',null,'Segmento desconhecido é recusado');
 select lives_ok($$update message_templates set body='Novo texto', updated_at=now() where name='Vendas da loja'$$,'Editor atualiza template');
 
+select lives_ok($$insert into message_templates(agency_id,name,channel,subject,body) values ('9aaaaaaa-0000-4000-8000-000000000001','Resumo por e-mail','email','Resultados de {{cliente}}','Olá')$$,'Template de e-mail com assunto');
+select throws_ok($$insert into message_templates(agency_id,name,channel,body) values ('9aaaaaaa-0000-4000-8000-000000000001','Sem assunto','email','Olá')$$,'23514',null,'E-mail sem assunto é recusado');
+select throws_ok($$insert into message_templates(agency_id,name,channel,body) values ('9aaaaaaa-0000-4000-8000-000000000001','Canal','sms','Olá')$$,'23514',null,'Canal desconhecido é recusado');
 select set_config('request.jwt.claim.sub','90000000-0000-4000-8000-000000000002',true);
-select is((select count(*)::int from message_templates),1,'Leitor vê os templates do espaço');
+select is((select count(*)::int from message_templates),2,'Leitor vê os templates do espaço');
 select throws_ok($$insert into message_templates(agency_id,name,body) values ('9aaaaaaa-0000-4000-8000-000000000001','Leitor','Texto')$$,'42501',null,'Leitor não cria template');
 
 select set_config('request.jwt.claim.sub','90000000-0000-4000-8000-000000000003',true);

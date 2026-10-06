@@ -206,7 +206,7 @@ export type ReportAutomationRunRow = {
 };
 export type MessageTemplateSegment = "geral" | "mensagens" | "vendas" | "leads" | "seguidores" | "trafego" | "reconhecimento";
 export type MessageTemplateRow = {
-  id: string; agency_id: string; name: string; segment: MessageTemplateSegment; body: string; created_by: string | null; created_at: string; updated_at: string;
+  id: string; agency_id: string; name: string; segment: MessageTemplateSegment; channel: "whatsapp" | "whatsapp_pdf" | "email"; subject: string | null; body: string; created_by: string | null; created_at: string; updated_at: string;
 };
 
 export type Database = {

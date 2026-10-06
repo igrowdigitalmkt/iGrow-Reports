@@ -637,3 +637,11 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Botão "Ver relatórios" trocado pelo seletor de período 7/30/90 dias (`?periodo=`, padrão 30). `loadPortfolioRows` recebe o período e guarda alcance, impressões, datas e a série do período anterior.
 - Cartões: Investimento na carteira (com variação), Alcance (soma das contas; pessoas podem se repetir entre clientes), Impressões e cartão alto de Resultados com todos os tipos somados; abaixo, gráfico "Investimento por dia" (o mesmo componente do painel do cliente, barras com período anterior). Depois, os quadros existentes.
 - Tabela: "Entregando" → "Veiculando"; coluna "Saldo disponível" lida da Meta por cliente (`portfolio-balance.tsx`, mesma rota de saldo do painel; soma pré-pago limitado ao limite de gastos, "Cartão (pós-pago)" e "Pagamento pendente"; teste `tests/portfolio-balance.test.ts`). Removidos os cartões "Clientes veiculando", "Precisam de atenção" e "Relatórios gerados" (o quadro de atenção continua).
+
+### Bloco 3: Templates por canal (6/10/2026)
+
+- Abas por tipo: Mensagem de WhatsApp (editável), WhatsApp + PDF (explica que o texto é a mensagem modelo aprovada pela Meta, mostra a escolhida e o texto sugerido; configuração em Integrações) e E-mail (assunto + corpo, prévia em formato de e-mail com anexo; envio por e-mail ainda não existe: selo "envio em breve").
+- Removido o campo "Tipo de resultado" (coluna `segment` segue com padrão). Prévia sempre com dados fictícios de todas as métricas (sem escolher cliente).
+- Variável `{{saldo}}` (Saldo disponível): no envio automático é lida da Meta só quando a mensagem a usa (`getClientAccountBilling` + `summarizeBalance` em `meta/balance.ts`, com `balanceText`). Novos prontos: "Parcial diária com saldo" (WhatsApp) e "Relatório por e-mail"; "Resumo completo" ganhou a linha de saldo.
+- Aviso "Deseja sair sem salvar suas alterações? Descartar | Salvar" (`components/ui/unsaved-guard.tsx`): intercepta links da página, fechar/recarregar a aba e troca de template; aplicado também ao editor de agendamentos.
+- Migração `202610070005_template_channels.sql` (NÃO aplicada): colunas `channel` e `subject` em `message_templates` (e-mail exige assunto). Sem ela, templates de WhatsApp continuam salvando; e-mail mostra aviso. Teste de banco ampliado (11 verificações).

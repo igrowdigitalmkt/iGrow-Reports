@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeBalance } from "@/modules/operations/portfolio-balance";
+import { balanceText, summarizeBalance } from "@/modules/meta/balance";
 import type { ClientAccountBilling } from "@/modules/meta/server";
 
 const account = (patch: Partial<ClientAccountBilling>): ClientAccountBilling => ({
@@ -20,5 +20,12 @@ describe("saldo disponível na visão geral", () => {
 
   it("moedas diferentes não ganham símbolo de moeda", () => {
     expect(summarizeBalance([account({ availableBalance: 10 }), account({ availableBalance: 5, currency: "USD" })]).currency).toBeNull();
+  });
+
+  it("descreve o saldo por extenso para a mensagem", () => {
+    expect(balanceText({ funds: 1240.5, currency: "BRL", postpaid: false, due: false })).toMatch(/^R\$\s?1\.240,50$/);
+    expect(balanceText({ funds: null, currency: "BRL", postpaid: true, due: false })).toBe("pago no cartão (pós-pago)");
+    expect(balanceText({ funds: 10, currency: "BRL", postpaid: false, due: true })).toBe("pagamento pendente na Meta");
+    expect(balanceText(null)).toBe("—");
   });
 });

@@ -10,10 +10,13 @@ const SEGMENTS = ["geral", "mensagens", "vendas", "leads", "seguidores", "trafeg
 const templateSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(2, "Dê um nome com pelo menos 2 letras.").max(80, "Use até 80 caracteres no nome."),
-  segment: z.enum(SEGMENTS),
+  segment: z.enum(SEGMENTS).default("geral"),
+  channel: z.enum(["whatsapp", "email"]).default("whatsapp"),
+  subject: z.string().trim().max(200, "Use até 200 caracteres no assunto.").optional(),
   body: z.string().trim().min(1, "Escreva a mensagem.").max(4000, "A mensagem passou de 4.000 caracteres."),
 }).superRefine((value, ctx) => {
-  const unknown = unknownVariables(value.body);
+  if (value.channel === "email" && !value.subject) ctx.addIssue({ code: "custom", message: "Escreva o assunto do e-mail.", path: ["subject"] });
+  const unknown = unknownVariables(`${value.subject ?? ""} ${value.body}`);
   if (unknown.length) ctx.addIssue({ code: "custom", message: `Variável desconhecida: {{${unknown[0]}}}.`, path: ["body"] });
 });
 
@@ -27,16 +30,18 @@ export async function saveMessageTemplateAction(input: unknown) {
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const context = await requireAgencyContext();
   if (context.role === "viewer") return { error: "Leitores não podem salvar templates." };
-  const { id, name, segment, body } = parsed.data;
-  const row = { agency_id: context.agency.id, name, segment, body, updated_at: new Date().toISOString() };
+  const { id, name, segment, body, channel, subject } = parsed.data;
+  // The channel columns only go in for e-mail, so WhatsApp templates keep saving before migration 202610070005.
+  const row = { agency_id: context.agency.id, name, segment, body, updated_at: new Date().toISOString(), ...(channel === "email" ? { channel, subject: subject ?? null } : {}) };
   const result = id
-    ? await context.supabase.from("message_templates").update(row).eq("agency_id", context.agency.id).eq("id", id).select("id,name,segment,body,updated_at").single()
-    : await context.supabase.from("message_templates").insert({ ...row, created_by: context.user.id }).select("id,name,segment,body,updated_at").single();
+    ? await context.supabase.from("message_templates").update(row).eq("agency_id", context.agency.id).eq("id", id).select("*").single()
+    : await context.supabase.from("message_templates").insert({ ...row, created_by: context.user.id }).select("*").single();
+  if (result.error?.code === "PGRST204") return { error: "Templates de e-mail precisam de uma atualização do banco de dados (migração 202610070005)." };
   if (result.error?.code === "23505") return { error: "Já existe um template com esse nome. Escolha outro nome." };
   if (result.error || !result.data) return { error: "Não foi possível salvar o template." };
   refresh();
   const saved = result.data;
-  return { success: true as const, template: { id: saved.id, name: saved.name, segment: saved.segment, body: saved.body, updatedAt: saved.updated_at } };
+  return { success: true as const, template: { id: saved.id, name: saved.name, segment: saved.segment, channel: saved.channel ?? "whatsapp", subject: saved.subject ?? null, body: saved.body, updatedAt: saved.updated_at } };
 }
 
 export async function deleteMessageTemplateAction(input: unknown) {

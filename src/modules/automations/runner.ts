@@ -3,7 +3,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeClientAnalytics } from "@/modules/client-portal/analytics-calculations";
 import type { Database, ReportAutomationRow, ReportAutomationRunRow } from "@/types/database";
-import { renderMessage } from "./message";
+import { renderMessage, usedVariables } from "./message";
+import { summarizeBalance } from "@/modules/meta/balance";
+import { getClientAccountBilling } from "@/modules/meta/server";
 import { localDate, nextRunAt, resolvePeriod } from "./schedule";
 import { deliverToDestinations, runStatus, type MessageDestination, type MessageSender } from "./sender";
 
@@ -71,7 +73,10 @@ export async function executeAutomation(service: Service, automation: ReportAuto
     });
     if (analyticsError || !payload) return await finish("failed", { error_message: "Não foi possível ler os números do período." });
     const data = normalizeClientAnalytics(payload);
-    const context = { clientName: client.name, workspaceName: agency?.name ?? null, data, dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null };
+    // The balance is read live from Meta only when the message shows it.
+    const balance = usedVariables(automation.message_template).includes("saldo")
+      ? await getClientAccountBilling({ agencyId: automation.agency_id, clientId: automation.client_id }).then(summarizeBalance, () => null) : null;
+    const context = { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null };
 
     let sent = 0; let failed = 0; const errors: string[] = [];
     // Each person gets their own first name; a group gets the version without a name.

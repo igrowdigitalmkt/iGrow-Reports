@@ -4,8 +4,7 @@ import { useState, useTransition } from "react";
 import { BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { SEGMENT_LABELS, SYSTEM_TEMPLATES } from "@/modules/automations/message";
-import type { MessageTemplateSegment } from "@/types/database";
+import { SYSTEM_TEMPLATES } from "@/modules/automations/message";
 import { saveMessageTemplateAction } from "./actions";
 import type { SavedTemplate } from "./types";
 
@@ -17,8 +16,8 @@ export function TemplatePicker({ saved, onPick, className }: { saved: SavedTempl
     if (template) onPick(template.body, template.name);
   }}>
     <option value="">Escolher template…</option>
-    {saved.length > 0 && <optgroup label="Seus templates">{saved.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>}
-    <optgroup label="Prontos da plataforma">{SYSTEM_TEMPLATES.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
+    {saved.some(item => item.channel === "whatsapp") && <optgroup label="Seus templates">{saved.filter(item => item.channel === "whatsapp").map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>}
+    <optgroup label="Prontos da plataforma">{SYSTEM_TEMPLATES.filter(item => item.channel === "whatsapp").map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
   </select>;
 }
 
@@ -26,7 +25,6 @@ export function TemplatePicker({ saved, onPick, className }: { saved: SavedTempl
 export function SaveTemplateButton({ body, demo = false, onSaved }: { body: string; demo?: boolean; onSaved?: (template: SavedTemplate) => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [segment, setSegment] = useState<MessageTemplateSegment>("geral");
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
   const [pending, start] = useTransition();
@@ -35,7 +33,7 @@ export function SaveTemplateButton({ body, demo = false, onSaved }: { body: stri
     setError("");
     if (demo) { setError("Na demonstração nada é salvo."); return; }
     start(async () => {
-      const result = await saveMessageTemplateAction({ name, segment, body });
+      const result = await saveMessageTemplateAction({ name, channel: "whatsapp", body });
       if ("error" in result) { setError(result.error ?? "Não foi possível salvar."); return; }
       setDone(`Template "${result.template.name}" salvo.`);
       onSaved?.(result.template);
@@ -49,11 +47,6 @@ export function SaveTemplateButton({ body, demo = false, onSaved }: { body: stri
     <Dialog open={open} onOpenChange={setOpen} title="Salvar como template" description="A mensagem fica disponível em Escolher template para qualquer cliente.">
       <form className="template-save-form" onSubmit={event => { event.preventDefault(); save(); }}>
         <label><span>Nome do template</span><input className="input" autoFocus value={name} maxLength={80} placeholder="Ex.: Vendas semanais da loja" onChange={event => setName(event.target.value)} /></label>
-        <label><span>Tipo de resultado</span>
-          <select className="input" value={segment} onChange={event => setSegment(event.target.value as MessageTemplateSegment)}>
-            {Object.entries(SEGMENT_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-          </select>
-        </label>
         {error && <p role="alert" className="meta-feedback error">{error}</p>}
         <div className="template-save-actions">
           <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button>
