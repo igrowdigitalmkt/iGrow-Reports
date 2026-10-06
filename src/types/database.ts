@@ -175,6 +175,19 @@ export type ClientMetricSummaryRow = {
   latest_data_date: string | null;
 };
 
+export type WhatsAppConnectionRow = {
+  agency_id: string; integration_id: string; waba_id: string; phone_number_id: string;
+  display_phone: string | null; verified_name: string | null; quality_rating: string | null;
+  template_name: string | null; template_language: string | null; template_status: string | null;
+  last_checked_at: string | null; created_at: string; updated_at: string;
+};
+export type ReportDeliveryStatus = "pending" | "sending" | "accepted" | "sent" | "delivered" | "read" | "failed" | "uncertain" | "cancelled";
+export type ReportDeliveryRow = {
+  id: string; agency_id: string; client_id: string; recipient_id: string; report_version_id: string; channel: "whatsapp";
+  template_name: string; template_language: string; status: ReportDeliveryStatus; wamid: string | null;
+  error_code: string | null; error_message: string | null; status_at: string; created_by: string | null; created_at: string; updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -213,6 +226,8 @@ export type Database = {
       report_data_snapshots: Table<ReportDataSnapshotRow, never, never>;
       report_metrics: Table<ReportMetricRow, never, never>;
       audit_logs: Table<AuditRow, Pick<AuditRow, "agency_id" | "action"> & Partial<AuditRow>, Partial<AuditRow>>;
+      whatsapp_connections: Table<WhatsAppConnectionRow, Pick<WhatsAppConnectionRow, "agency_id" | "integration_id" | "waba_id" | "phone_number_id"> & Partial<WhatsAppConnectionRow>, Partial<WhatsAppConnectionRow>>;
+      report_deliveries: Table<ReportDeliveryRow, Pick<ReportDeliveryRow, "agency_id" | "client_id" | "recipient_id" | "report_version_id" | "template_name" | "template_language"> & Partial<ReportDeliveryRow>, Partial<ReportDeliveryRow>>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -280,6 +295,11 @@ export type Database = {
         };
         Returns: undefined;
       };
+      apply_whatsapp_status: {
+        Args: { p_wamid: string; p_status: string; p_at: string | null; p_error_code: string | null; p_error_message: string | null };
+        Returns: boolean;
+      };
+      record_whatsapp_webhook: { Args: { p_dedup_key: string; p_payload: Json }; Returns: boolean };
       get_integration_secret: {
         Args: { p_agency_id: string; p_integration_id: string; p_secret_kind: string };
         Returns: { key_id: string; nonce_b64: string; ciphertext_b64: string; auth_tag_b64: string }[];

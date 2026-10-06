@@ -178,6 +178,20 @@ export async function downloadDashboardPdf(input: DashboardPdfInput) {
   buildDashboardPdf(input).save(`${safeName}-${input.data.dateFrom}-${input.data.dateTo}${input.orientation === "horizontal" ? "-apresentacao" : ""}.pdf`);
 }
 
+// Same PDF the download produces, as a file to send (WhatsApp) instead of saving.
+export async function buildSavedReportPdfFile(clientId: string, versionId: string) {
+  const result = await getSavedReportDocument({ clientId, versionId });
+  if ("error" in result) throw new Error(result.error);
+  const input = result.document;
+  const safeName = input.clientName.replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "-").slice(0, 80) || "relatorio";
+  const brDate = (value: string) => value.split("-").reverse().join("/");
+  return {
+    blob: buildDashboardPdf(input).output("blob"),
+    filename: `${safeName}-${input.data.dateFrom}-${input.data.dateTo}.pdf`,
+    period: `${brDate(input.data.dateFrom)} a ${brDate(input.data.dateTo)}`,
+  };
+}
+
 export async function downloadSavedReportPdf(clientId: string, versionId: string) {
   const result = await getSavedReportDocument({ clientId, versionId });
   if ("error" in result) throw new Error(result.error);

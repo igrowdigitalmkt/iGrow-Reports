@@ -3,17 +3,20 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Eye, Search, Send, Trash2, Download, CheckCircle2 } from "lucide-react";
+import { FileText, Eye, Search, Send, Trash2, Download, CheckCircle2, MessageCircle } from "lucide-react";
 import { downloadSavedReportPdf } from "./pdf-download";
 import { Button } from "@/components/ui/button";
 import type { ClientItem } from "@/modules/clients/schema";
 import { deleteDashboardReport } from "@/modules/client-portal/report-actions";
 import { publishReportVersion } from "./actions";
 import type { AdminReportVersion, ReportsAdminSnapshot } from "./types";
+import { SendReportDialog, type SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 
-export function ReportManager({ agencyId, clients, snapshot, canEdit }: {
+export function ReportManager({ agencyId, clients, snapshot, canEdit, canSend = false, recipients = [], whatsAppReady = false }: {
   agencyId: string; clients: ClientItem[]; snapshot: ReportsAdminSnapshot; canEdit: boolean;
+  canSend?: boolean; recipients?: SendableRecipient[]; whatsAppReady?: boolean;
 }) {
+  const [sending, setSending] = useState<AdminReportVersion | null>(null);
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [clientFilter, setClientFilter] = useState("all");
@@ -68,11 +71,15 @@ export function ReportManager({ agencyId, clients, snapshot, canEdit }: {
         <div className="report-library-actions">
           <Link className="button button-secondary button-sm" href={`/cliente/${version.clientId}/relatorios/${version.id}`}><Eye size={14} />Visualizar</Link>
           <Button className="button-sm" variant="secondary" disabled={pending} onClick={() => startTransition(async () => { setError(""); try { await downloadSavedReportPdf(version.clientId, version.id); } catch { setError("Não foi possível baixar o relatório. Tente novamente."); } })}><Download size={14} />Baixar PDF</Button>
+          {canSend && version.state !== "superseded" && <Button className="button-sm" variant="secondary" onClick={() => setSending(version)} disabled={pending}><MessageCircle size={14} />Enviar por WhatsApp</Button>}
           {canEdit && version.state === "ready" && <Button className="button-sm" onClick={() => publish(version.id)} disabled={pending}><Send size={14} />Publicar</Button>}
           {version.state === "published" && <span className="reports-published-note"><CheckCircle2 size={14} />Cliente pode visualizar</span>}
           {canEdit && <Button className="button-sm" variant="secondary" onClick={() => remove(version)} disabled={pending}><Trash2 size={14} />Excluir</Button>}
         </div>
       </article>)}
+      {sending && <SendReportDialog key={sending.id} open onOpenChange={open => { if (!open) setSending(null); }} clientId={sending.clientId} clientName={sending.clientName}
+        reportVersionId={sending.id} title={sending.title} recipients={recipients.filter(recipient => recipient.clientId === sending.clientId)} whatsAppReady={whatsAppReady}
+        onSent={() => router.refresh()} />}
       {!rows.length && <section className="panel empty-state"><FileText size={28} /><h3>Nenhum relatório encontrado</h3><p>{snapshot.versions.length ? "Ajuste a busca ou os filtros." : "Os relatórios gerados na Visão geral aparecerão aqui."}</p></section>}
     </div>
   </div>;
