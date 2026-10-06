@@ -60,6 +60,7 @@ const PERIODS = [
 const FIXED_METRICS = ["spend", "primary_results", "cost_per_result"];
 const DEFAULT_OPTIONAL_METRICS = ["reach", "impressions", "cpm", "link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
 const OVERVIEW_PREFERENCE_VERSION = 2;
+const ACTIONS_PREVIEW = 6;
 const isPinned = (key: string) => FIXED_METRICS.includes(key);
 
 function displayDate(value: string, includeYear = true) {
@@ -214,6 +215,7 @@ export function ClientAnalyticsDashboard({
   const [analysisNote, setAnalysisNote] = useState("");
   const [presenting, setPresenting] = useState(false);
   const [customizing, setCustomizing] = useState(false);
+  const [showAllActions, setShowAllActions] = useState(false);
   const [platforms, setPlatforms] = useState<PlatformPreference[]>(DEFAULT_PLATFORMS);
   const platformKey = `igrow:platforms:${preferenceKey}`;
   useEffect(() => {
@@ -404,6 +406,9 @@ export function ClientAnalyticsDashboard({
   ].filter((metric): metric is AnalyticsMetric => !!metric);
   const spendMetric = scopedData.metrics.find((metric) => metric.key === "spend");
   const actions = scopedData.metrics.filter((metric) => metric.key.startsWith("action:"));
+  // Largest outcomes first; the rest stay one click away instead of in a cramped scroll box.
+  const rankedActions = actions.filter(metric => (scopedData.summary[metric.key] ?? 0) > 0)
+    .sort((a, b) => (scopedData.summary[b.key] ?? 0) - (scopedData.summary[a.key] ?? 0));
   const latestTimestamp = [scopedData.coverage.latestCollectedAt, scopedData.metaAggregate?.collectedAt].filter((value): value is string => !!value)
     .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
   const latest = latestTimestamp
@@ -946,10 +951,16 @@ export function ClientAnalyticsDashboard({
           </article>
           <article className="analytics-card analytics-results-card">
             <div className="analytics-card-heading"><div><h3>Resultados em detalhe</h3></div><Target size={17} /></div>
-            <div className="analytics-action-list">{actions.length ? actions.map((metric) => <div key={metric.key}>
-              <span>{metric.label}</span>
-              <strong>{formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}</strong>
-            </div>) : <p className="analytics-empty-copy">Sem ações disponíveis neste período.</p>}</div>
+            <div className="analytics-action-list">{rankedActions.length ? (showAllActions ? rankedActions : rankedActions.slice(0, ACTIONS_PREVIEW)).map((metric) => {
+              const custom = metric.label.match(/^(.*) \(evento personalizado: (.*)\)$/);
+              return <div key={metric.key}>
+                <span>{custom ? custom[1] : metric.label}{custom && <small>Evento personalizado · {custom[2]}</small>}</span>
+                <strong>{formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}</strong>
+              </div>;
+            }) : <p className="analytics-empty-copy">Sem ações disponíveis neste período.</p>}</div>
+            {rankedActions.length > ACTIONS_PREVIEW && <button type="button" className="analytics-show-more" onClick={() => setShowAllActions(value => !value)}>
+              <ChevronDown size={14} style={{ transform: showAllActions ? "rotate(180deg)" : undefined }} />{showAllActions ? "Mostrar menos" : `Mostrar todas as ${rankedActions.length} ações`}
+            </button>}
             <p className="analytics-footnote">Tipos de ação podem se sobrepor e não são somados como uma conversão única.</p>
           </article>
         </div>
