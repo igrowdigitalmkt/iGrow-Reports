@@ -9,9 +9,11 @@ import type { AutomationItem, AutomationsSnapshot, AutomationTarget } from "./ty
 export async function loadAutomations(supabase: SupabaseClient<Database>, agencyId: string): Promise<AutomationsSnapshot> {
   const { data, error } = await supabase.from("report_automations").select("*").eq("agency_id", agencyId).order("created_at");
   if (error || !data) return { ready: false, automations: [], runs: [] };
-  const [{ data: targets }, { data: runs }] = await Promise.all([
+  const [{ data: targets }, { data: runs }, { data: messages }] = await Promise.all([
     supabase.from("report_automation_targets").select("automation_id,recipient_id,group_id,group_name").eq("agency_id", agencyId),
     supabase.from("report_automation_runs").select("*").eq("agency_id", agencyId).order("scheduled_for", { ascending: false }).limit(100),
+    // Per-message receipts (migration 202610070006); absent before it, the pages show totals only.
+    supabase.from("automation_messages").select("run_id,destination_label,status,error_message,sent_at,delivered_at,read_at").eq("agency_id", agencyId).order("sent_at", { ascending: false }).limit(1000),
   ]);
   const automations: AutomationItem[] = data.map(row => ({
     id: row.id, clientId: row.client_id, name: row.name, messageTemplate: row.message_template, periodKey: row.period_key,
@@ -25,6 +27,10 @@ export async function loadAutomations(supabase: SupabaseClient<Database>, agency
     runs: (runs ?? []).map(run => ({
       id: run.id, automationId: run.automation_id, scheduledFor: run.scheduled_for, status: run.status, dateFrom: run.date_from, dateTo: run.date_to,
       sentCount: run.sent_count, failedCount: run.failed_count, errorMessage: run.error_message, messageText: run.message_text, trigger: run.trigger ?? "schedule",
+    })),
+    messages: (messages ?? []).map(message => ({
+      runId: message.run_id, label: message.destination_label, status: message.status, error: message.error_message,
+      sentAt: message.sent_at, deliveredAt: message.delivered_at, readAt: message.read_at,
     })),
   };
 }

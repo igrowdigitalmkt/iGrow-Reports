@@ -31,3 +31,16 @@ export function parseIncomingMessage(body: unknown): IncomingMessage | null {
 }
 
 export const OPT_OUT_REPLY = "Pronto, você não vai mais receber os relatórios automáticos por aqui. Se quiser voltar a receber, é só avisar a equipe.";
+
+export type MessageReceipt = { instance: string; messageId: string; status: "delivered" | "read" };
+
+/** Delivery or read confirmation of a message sent by the connected number, or null. */
+export function parseMessageReceipt(body: unknown): MessageReceipt | null {
+  const payload = body as { event?: string; instance?: string; data?: { keyId?: string; key?: { id?: string }; fromMe?: boolean; status?: string } } | null;
+  if (!payload || (payload.event !== "messages.update" && payload.event !== "MESSAGES_UPDATE") || !payload.instance) return null;
+  const data = payload.data;
+  const messageId = data?.keyId ?? data?.key?.id;
+  if (!data || data.fromMe === false || !messageId) return null;
+  const status = data.status === "DELIVERY_ACK" ? "delivered" : data.status === "READ" || data.status === "PLAYED" ? "read" : null;
+  return status ? { instance: payload.instance, messageId, status } : null;
+}

@@ -63,7 +63,7 @@ export class EvolutionClient {
 
   // Incoming messages are forwarded to the iGrow (used for "PARAR" replies), signed by a header.
   setWebhook(name: string, url: string, token: string) {
-    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT"] } } });
+    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE"] } } });
   }
 
   logout(name: string) {
@@ -80,7 +80,8 @@ export class EvolutionClient {
   }
 
   // "delay" shows "typing…" before the message, like a person would.
-  sendText(name: string, number: string, text: string) {
-    return this.request(`/message/sendText/${encodeURIComponent(name)}`, { method: "POST", body: { number, text, delay: 1200 }, timeoutMs: 40_000 });
+  async sendText(name: string, number: string, text: string) {
+    const result = await this.request<{ key?: { id?: string } }>(`/message/sendText/${encodeURIComponent(name)}`, { method: "POST", body: { number, text, delay: 1200 }, timeoutMs: 40_000 });
+    return { messageId: result?.key?.id ?? null };
   }
 }

@@ -93,12 +93,16 @@ export async function createQrSender(agencyId: string): Promise<MessageSender | 
   if (!evolution) return null;
   const name = instanceNameFor(agencyId);
   if (await evolution.state(name) !== "open") return null;
+  // Sessions connected before delivery receipts existed get the status webhook here.
+  const origin = appOrigin();
+  const token = webhookToken(name);
+  if (origin && token) await evolution.setWebhook(name, `${origin}/api/webhooks/evolution`, token).catch(() => undefined);
   return {
     async sendText(destination, text) {
       const number = destination.kind === "group" ? destination.groupId : destination.phone.replace(/\D/g, "");
       try {
-        await evolution.sendText(name, number, text);
-        return { ok: true };
+        const sent = await evolution.sendText(name, number, text);
+        return { ok: true, messageId: sent.messageId };
       } catch (error) {
         const status = error instanceof EvolutionError ? error.status : 0;
         return { ok: false, error: status === 400 ? "número sem WhatsApp ou grupo indisponível" : "o WhatsApp não aceitou a mensagem" };

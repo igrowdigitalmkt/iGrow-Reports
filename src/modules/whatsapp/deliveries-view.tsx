@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, FileText, Send, Zap } from "lucide-react";
+import { Check, CheckCheck, CalendarClock, FileText, Send, X, Zap } from "lucide-react";
 import { ClientRail, rememberClient } from "@/modules/automations/client-rail";
 import type { AutomationsSnapshot } from "@/modules/automations/types";
 import type { ClientItem } from "@/modules/clients/schema";
@@ -47,9 +47,12 @@ const ERRORS: Record<string, string> = {
 };
 export const deliveryErrorText = (code: string | null, message: string | null) => (code && ERRORS[code]) || message;
 
+export type ReceiptLine = { label: string; status: "sent" | "delivered" | "read" | "failed"; at: string | null; error: string | null };
 export type DeliveryEntry = {
   id: string; clientId: string; at: string; kind: "schedule" | "manual" | "pdf"; title: string; detail: string;
   status: { label: string; tone: string; ok: boolean | null }; error: string | null; text: string | null;
+  /** Delivery and read confirmations reported by WhatsApp (null when not tracked). */
+  receipts: { total: number; delivered: number; read: number; lines: ReceiptLine[] } | null;
 };
 
 export const DELIVERY_KIND = {
@@ -59,6 +62,11 @@ export const DELIVERY_KIND = {
 };
 
 const brDate = (value: string) => value.split("-").reverse().join("/");
+
+function receiptsOf(lines: ReceiptLine[]): DeliveryEntry["receipts"] {
+  if (!lines.length) return null;
+  return { total: lines.length, delivered: lines.filter(line => line.status === "delivered" || line.status === "read").length, read: lines.filter(line => line.status === "read").length, lines };
+}
 
 /** Scheduled runs, "Enviar agora" and PDF deliveries as one history, newest first. */
 export function buildDeliveryEntries(deliveries: DeliveryItem[], automations: AutomationsSnapshot | null): DeliveryEntry[] {
@@ -71,12 +79,16 @@ export function buildDeliveryEntries(deliveries: DeliveryItem[], automations: Au
         id: `run-${run.id}`, clientId: item.clientId, at: run.scheduledFor, kind: run.trigger === "manual" ? "manual" as const : "schedule" as const, title: item.name,
         detail: [run.dateFrom && run.dateTo ? `Números de ${brDate(run.dateFrom)} a ${brDate(run.dateTo)}` : "", count ? `${run.sentCount} de ${count} ${count === 1 ? "mensagem" : "mensagens"}` : ""].filter(Boolean).join(" · "),
         status: RUN_STATUS[run.status], error: run.errorMessage, text: run.messageText,
+        receipts: receiptsOf((automations?.messages ?? []).filter(message => message.runId === run.id).map(message => ({
+          label: message.label, status: message.status, at: message.readAt ?? message.deliveredAt ?? message.sentAt, error: message.error,
+        }))),
       }];
     }),
     ...deliveries.map(item => ({
       id: `pdf-${item.id}`, clientId: item.clientId, at: item.createdAt, kind: "pdf" as const, title: item.reportTitle,
       detail: [`Para ${item.recipientName}`, item.period].filter(Boolean).join(" · "),
       status: PDF_STATUS[item.status], error: item.errorMessage ? deliveryErrorText(item.errorCode, item.errorMessage) : null, text: null,
+      receipts: receiptsOf([{ label: item.recipientName, status: item.status === "read" ? "read" as const : item.status === "delivered" ? "delivered" as const : item.status === "failed" || item.status === "uncertain" ? "failed" as const : "sent" as const, at: item.statusAt, error: null }]),
     })),
   ].sort((a, b) => b.at.localeCompare(a.at));
 }
@@ -123,7 +135,10 @@ export function DeliveriesView({ deliveries, automations, clients, connected, ti
           <div className="delivery-main">
             <div className="delivery-line"><strong>{entry.title}</strong><span className={`badge ${entry.status.tone}`}><span className="status-dot" />{entry.status.label}</span></div>
             <small>{dateTime.format(new Date(entry.at))} · {DELIVERY_KIND[entry.kind].label}{entry.detail ? ` · ${entry.detail}` : ""}</small>
+            {entry.receipts && <span className="delivery-receipts"><span title="Entregues"><CheckCheck size={14} />{entry.receipts.delivered} de {entry.receipts.total} {entry.receipts.total === 1 ? "entregue" : "entregues"}</span><span className="is-read" title="Lidas"><CheckCheck size={14} />{entry.receipts.read} {entry.receipts.read === 1 ? "lida" : "lidas"}</span></span>}
             {entry.error && <small className="delivery-error">{entry.error}</small>}
+            {entry.receipts && entry.receipts.total > 1 && <button type="button" className="delivery-toggle" onClick={() => setOpen(open === `r-${entry.id}` ? null : `r-${entry.id}`)} aria-expanded={open === `r-${entry.id}`}>{open === `r-${entry.id}` ? "Ocultar destinatários" : "Ver quem recebeu e leu"}</button>}
+            {entry.receipts && open === `r-${entry.id}` && <ul className="receipt-lines">{entry.receipts.lines.map((line, index) => <li key={index}><ReceiptIcon status={line.status} /><span>{line.label}</span><small>{RECEIPT_LABEL[line.status]}{line.at ? ` · ${dateTime.format(new Date(line.at))}` : ""}</small></li>)}</ul>}
             {entry.text && <button type="button" className="delivery-toggle" onClick={() => setOpen(open === entry.id ? null : entry.id)} aria-expanded={open === entry.id}>{open === entry.id ? "Ocultar mensagem" : "Ver mensagem enviada"}</button>}
             {entry.text && open === entry.id && <pre className="delivery-text">{entry.text}</pre>}
           </div>
@@ -131,4 +146,13 @@ export function DeliveriesView({ deliveries, automations, clients, connected, ti
       })}</ul> : <section className="panel empty-state"><Send size={22} /><h3>Nenhum envio para {client.name}</h3><p>Crie um agendamento em Agendamentos ou use “Enviar agora”.</p></section>}
     </div>}
   </div>;
+}
+
+export const RECEIPT_LABEL: Record<ReceiptLine["status"], string> = { sent: "Enviada", delivered: "Entregue", read: "Lida", failed: "Falhou" };
+
+/** WhatsApp-like ticks: one for sent, two for delivered, two blue for read. */
+export function ReceiptIcon({ status }: { status: ReceiptLine["status"] }) {
+  if (status === "failed") return <X size={14} className="receipt-icon is-failed" aria-label="Falhou" />;
+  if (status === "sent") return <Check size={14} className="receipt-icon" aria-label="Enviada" />;
+  return <CheckCheck size={14} className={`receipt-icon${status === "read" ? " is-read" : ""}`} aria-label={status === "read" ? "Lida" : "Entregue"} />;
 }

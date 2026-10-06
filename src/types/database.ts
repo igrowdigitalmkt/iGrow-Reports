@@ -204,6 +204,11 @@ export type ReportAutomationRunRow = {
   message_text: string | null; sent_count: number; failed_count: number; error_message: string | null; created_at: string; finished_at: string | null;
   trigger: "schedule" | "manual";
 };
+export type AutomationMessageStatus = "sent" | "delivered" | "read" | "failed";
+export type AutomationMessageRow = {
+  id: string; agency_id: string; run_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null;
+  destination_label: string; message_id: string | null; status: AutomationMessageStatus; error_message: string | null; sent_at: string; delivered_at: string | null; read_at: string | null;
+};
 export type MessageTemplateSegment = "geral" | "mensagens" | "vendas" | "leads" | "seguidores" | "trafego" | "reconhecimento";
 export type MessageTemplateRow = {
   id: string; agency_id: string; name: string; segment: MessageTemplateSegment; channel: "whatsapp" | "whatsapp_pdf" | "email"; subject: string | null; body: string; created_by: string | null; created_at: string; updated_at: string;
@@ -251,6 +256,7 @@ export type Database = {
       report_deliveries: Table<ReportDeliveryRow, Pick<ReportDeliveryRow, "agency_id" | "client_id" | "recipient_id" | "report_version_id" | "template_name" | "template_language"> & Partial<ReportDeliveryRow>, Partial<ReportDeliveryRow>>;
       report_automations: Table<ReportAutomationRow, Pick<ReportAutomationRow, "agency_id" | "client_id" | "name" | "message_template"> & Partial<ReportAutomationRow>, Partial<ReportAutomationRow>>;
       report_automation_targets: Table<ReportAutomationTargetRow, Pick<ReportAutomationTargetRow, "agency_id" | "automation_id" | "client_id"> & Partial<ReportAutomationTargetRow>, Partial<ReportAutomationTargetRow>>;
+      automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
       report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
     };

@@ -645,3 +645,11 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Variável `{{saldo}}` (Saldo disponível): no envio automático é lida da Meta só quando a mensagem a usa (`getClientAccountBilling` + `summarizeBalance` em `meta/balance.ts`, com `balanceText`). Novos prontos: "Parcial diária com saldo" (WhatsApp) e "Relatório por e-mail"; "Resumo completo" ganhou a linha de saldo.
 - Aviso "Deseja sair sem salvar suas alterações? Descartar | Salvar" (`components/ui/unsaved-guard.tsx`): intercepta links da página, fechar/recarregar a aba e troca de template; aplicado também ao editor de agendamentos.
 - Migração `202610070005_template_channels.sql` (NÃO aplicada): colunas `channel` e `subject` em `message_templates` (e-mail exige assunto). Sem ela, templates de WhatsApp continuam salvando; e-mail mostra aviso. Teste de banco ampliado (11 verificações).
+
+### Bloco 4: recebimento e leitura dos relatórios (6/10/2026)
+
+- Migração `202610070006_automation_messages.sql` (NÃO aplicada): uma linha por mensagem enviada pelos agendamentos (QR), com `message_id` do WhatsApp, situação enviada/entregue/lida/falhou e horários. Só o servidor grava; membros leem. Teste com 6 verificações.
+- Envio: `sendText` da Evolution devolve o id da mensagem; `deliverToDestinations` devolve o detalhe por destino e o executor grava cada mensagem (tolerante à ausência da tabela).
+- Avisos: o webhook da Evolution passou a assinar `MESSAGES_UPDATE` (configurado ao conectar e também antes de cada envio, para sessões já conectadas). `DELIVERY_ACK` → entregue; `READ`/`PLAYED` → lida; a situação só avança. Formato confirmado no código da Evolution v2.3.7 instalada. Regras em `whatsapp-qr/opt-out.ts` (`parseMessageReceipt`), testadas.
+- Telas: Entregas mostra "X de Y entregues · Z lidas" e a lista de quem recebeu/leu com tiques do WhatsApp; Dados gerais tem cartões por tipo de relatório (Mensagem de WhatsApp, WhatsApp + PDF pela API oficial, E-mail + PDF "em breve") com enviados → recebidos → lidos e tabela por cliente.
+- Limites: confirmação de leitura depende de o destinatário não ter desativado a confirmação de leitura no WhatsApp; em grupos o WhatsApp informa leitura por participante e o iGrow considera a primeira. E-mail ainda não existe (precisa de provedor de envio).

@@ -79,6 +79,7 @@ export async function executeAutomation(service: Service, automation: ReportAuto
     const context = { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null };
 
     let sent = 0; let failed = 0; const errors: string[] = [];
+    const recipientIdOf = new Map(people.map(person => [person.phone, person.id]));
     // Each person gets their own first name; a group gets the version without a name.
     const deliveries: Array<{ destination: MessageDestination; text: string }> = [
       ...people.map(person => ({ destination: { kind: "phone" as const, phone: person.phone, label: person.name }, text: renderMessage(automation.message_template, { ...context, recipientName: person.name }) })),
@@ -87,6 +88,14 @@ export async function executeAutomation(service: Service, automation: ReportAuto
     for (const [index, item] of deliveries.entries()) {
       const report = await deliverToDestinations(sender, [item.destination], item.text, options.pause);
       sent += report.sent; failed += report.failed; errors.push(...report.errors);
+      // Best effort: without migration 202610070006 the send still counts, only receipts are missing.
+      await service.from("automation_messages").insert(report.details.map(detail => ({
+        agency_id: automation.agency_id, run_id: row.id, automation_id: automation.id, client_id: automation.client_id,
+        recipient_id: detail.destination.kind === "phone" ? recipientIdOf.get(detail.destination.phone) ?? null : null,
+        group_id: detail.destination.kind === "group" ? detail.destination.groupId : null,
+        destination_label: detail.destination.label.slice(0, 200), message_id: detail.messageId,
+        status: detail.ok ? "sent" : "failed", error_message: detail.error?.slice(0, 500) ?? null,
+      }))).then(() => undefined, () => undefined);
       if (index < deliveries.length - 1) await new Promise(resolve => setTimeout(resolve, options.pause?.() ?? 4000 + Math.random() * 5000));
     }
     return await finish(runStatus({ sent, failed, errors }), { message_text: deliveries[0].text.slice(0, 6000), sent_count: sent, failed_count: failed, error_message: errors.join(" · ") || null });

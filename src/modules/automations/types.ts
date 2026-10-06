@@ -33,4 +33,9 @@ export type AutomationRunItem = {
   trigger: "schedule" | "manual";
 };
 
-export type AutomationsSnapshot = { ready: boolean; automations: AutomationItem[]; runs: AutomationRunItem[] };
+export type AutomationMessageItem = {
+  runId: string; label: string; status: "sent" | "delivered" | "read" | "failed"; error: string | null;
+  sentAt: string; deliveredAt: string | null; readAt: string | null;
+};
+
+export type AutomationsSnapshot = { ready: boolean; automations: AutomationItem[]; runs: AutomationRunItem[]; messages?: AutomationMessageItem[] };

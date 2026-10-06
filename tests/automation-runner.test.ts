@@ -21,12 +21,13 @@ describe("planRun", () => {
 
 describe("deliverToDestinations", () => {
   it("conta envios e falhas e explica cada falha", async () => {
-    const sender: MessageSender = { sendText: vi.fn(async destination => destination.kind === "group" ? { ok: false as const, error: "grupo não encontrado" } : { ok: true as const }) };
+    const sender: MessageSender = { sendText: vi.fn(async destination => destination.kind === "group" ? { ok: false as const, error: "grupo não encontrado" } : { ok: true as const, messageId: "3EB0MARIA" }) };
     const report = await deliverToDestinations(sender, [
       { kind: "phone", phone: "+5511988887777", label: "Maria" },
       { kind: "group", groupId: "1@g.us", label: "Diretoria" },
     ], "Olá", () => 0);
-    expect(report).toEqual({ sent: 1, failed: 1, errors: ["Diretoria: grupo não encontrado"] });
+    expect(report).toMatchObject({ sent: 1, failed: 1, errors: ["Diretoria: grupo não encontrado"] });
+    expect(report.details.map(detail => [detail.destination.label, detail.ok, detail.error])).toEqual([["Maria", true, null], ["Diretoria", false, "grupo não encontrado"]]);
     expect(runStatus(report)).toBe("partial");
     expect(runStatus({ sent: 2, failed: 0, errors: [] })).toBe("sent");
     expect(runStatus({ sent: 0, failed: 1, errors: ["x"] })).toBe("failed");
