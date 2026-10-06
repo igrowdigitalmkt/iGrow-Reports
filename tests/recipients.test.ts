@@ -18,7 +18,9 @@ it("normaliza nome sem inferir autorização", () => {
 });
 it("exige data válida e origem para autorização", () => {
   expect(consentInputSchema.safeParse({ granted: true, source: "Formulário", occurredAt: null }).success).toBe(false);
-  expect(consentInputSchema.safeParse({ granted: true, source: "Formulário", occurredAt: new Date(Date.now() + 60000).toISOString() }).success).toBe(false);
+  expect(consentInputSchema.safeParse({ granted: true, source: "Formulário", occurredAt: new Date(Date.now() + 10 * 60000).toISOString() }).success).toBe(false);
+  // A device clock slightly ahead of the server still counts as "now".
+  expect(consentInputSchema.safeParse({ granted: true, source: "Formulário", occurredAt: new Date(Date.now() + 60000).toISOString() }).success).toBe(true);
   expect(consentInputSchema.safeParse({ granted: true, source: "", occurredAt: new Date().toISOString() }).success).toBe(false);
   expect(consentInputSchema.safeParse({ granted: false, source: "Solicitação", occurredAt: null }).success).toBe(true);
 });
