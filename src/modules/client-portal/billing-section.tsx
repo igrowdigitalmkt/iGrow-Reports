@@ -1,48 +1,79 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CreditCard, Info, RefreshCw } from "lucide-react";
-import { getClientBilling } from "./analytics-scope-actions";
+import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, CreditCard, RefreshCw } from "lucide-react";
 import type { ClientAccountBilling } from "@/modules/meta/server";
-
-const money = (value: number | null, currency: string) => value == null ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(value);
 
 type BillingState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; accounts: ClientAccountBilling[] };
 
-// Current balance and payment state of each linked ad account, read live from Meta.
-export function BillingSection({ clientId }: { clientId: string }) {
-  const [state, setState] = useState<BillingState>({ status: "loading" });
-  const [attempt, setAttempt] = useState(0);
+const money = (value: number | null | undefined, currency: string) => value == null ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(value);
+// Below this many days of funds at the current pace, the strip asks for attention.
+const LOW_FUNDS_DAYS = 7;
 
-  useEffect(() => {
-    let cancelled = false;
-    getClientBilling({ clientId }).then(result => {
-      if (cancelled) return;
-      setState("error" in result ? { status: "error", message: result.error ?? "Não foi possível consultar a Meta agora." } : { status: "ready", accounts: result.accounts });
-    }).catch(() => { if (!cancelled) setState({ status: "error", message: "Não foi possível consultar a Meta agora." }); });
-    return () => { cancelled = true; };
-  }, [clientId, attempt]);
+/**
+ * Balance and payment state of each ad account, read live from Meta: the first thing a
+ * client looks for. `dailySpend` (average per account in the selected period) turns the
+ * balance or the spending limit into "how many days are left".
+ */
+export function BillingSummary({ clientId, dailySpend, demoAccounts }: { clientId: string; dailySpend: Record<string, number>; demoAccounts?: ClientAccountBilling[] }) {
+  const [state, setState] = useState<BillingState>(demoAccounts ? { status: "ready", accounts: demoAccounts } : { status: "loading" });
 
-  return <section className="analytics-card billing-card" aria-busy={state.status === "loading"}>
-    <div className="analytics-card-heading"><div><h3>Saldo e pagamentos</h3><p className="billing-subtitle">Situação atual das contas de anúncio na Meta</p></div><CreditCard size={17} /></div>
-    {state.status === "loading" && <div className="billing-grid">{[0, 1].map(index => <div className="billing-account" key={index}><span className="sk" style={{ display: "block", width: "60%", height: 16 }} /><span className="sk" style={{ display: "block", width: "45%", height: 26, marginTop: 14 }} /><span className="sk" style={{ display: "block", width: "100%", height: 6, marginTop: 18, borderRadius: 99 }} /></div>)}</div>}
-    {state.status === "error" && <div className="analytics-empty-copy billing-error"><span>{state.message}</span><button type="button" className="analytics-text-button" onClick={() => { setState({ status: "loading" }); setAttempt(value => value + 1); }}><RefreshCw size={13} />Tentar novamente</button></div>}
-    {state.status === "ready" && !state.accounts.length && <p className="analytics-empty-copy">Nenhuma conta de anúncio disponível para consulta.</p>}
-    {state.status === "ready" && state.accounts.length > 0 && <div className="billing-grid">{state.accounts.map(account => {
-      const used = account.spendCap && account.amountSpent != null ? Math.min(1, account.amountSpent / account.spendCap) : null;
-      return <article className="billing-account" key={account.accountId}>
-        <div className="billing-account-head"><strong>{account.name}</strong><span className={`badge ${account.delivering ? "green" : "amber"}`}><span className="status-dot" />{account.statusLabel}</span></div>
-        <dl className="billing-figures">
-          <div><dt>{account.prepaid ? "Pré-pago" : "Forma de pagamento"}</dt><dd className="billing-funding">{account.fundingLabel ?? (account.prepaid ? "Saldo pré-pago" : "Não informada pela Meta")}</dd></div>
-          {!account.prepaid && <div><dt>Valor a pagar</dt><dd>{money(account.balanceDue, account.currency)}</dd></div>}
-          <div><dt>Gasto total da conta</dt><dd>{money(account.amountSpent, account.currency)}</dd></div>
-        </dl>
-        {used != null && account.spendCap != null && <div className="billing-cap">
-          <div className="billing-cap-label"><span>Limite de gastos</span><span>{money(Math.max(0, account.spendCap - (account.amountSpent ?? 0)), account.currency)} disponíveis de {money(account.spendCap, account.currency)}</span></div>
-          <div className="billing-cap-track"><i style={{ width: `${used * 100}%` }} className={used > .9 ? "is-high" : ""} /></div>
-        </div>}
-      </article>;
-    })}</div>}
-    <p className="analytics-footnote billing-note"><Info size={12} />Dados lidos agora na Meta. O histórico de depósitos e pagamentos não é disponibilizado pela API e pode ser consultado no Gerenciador de Anúncios.</p>
+  const load = useCallback(async () => {
+    if (demoAccounts) return;
+    setState({ status: "loading" });
+    try {
+      const response = await fetch(`/api/clientes/${clientId}/billing`, { cache: "no-store" });
+      const body = await response.json() as { accounts?: ClientAccountBilling[]; error?: string };
+      setState(body.accounts ? { status: "ready", accounts: body.accounts } : { status: "error", message: body.error ?? "Não foi possível consultar a Meta agora." });
+    } catch {
+      setState({ status: "error", message: "Não foi possível consultar a Meta agora." });
+    }
+  }, [clientId, demoAccounts]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- loads external data once per client
+  useEffect(() => { void load(); }, [load]);
+
+  const accounts = state.status === "ready" ? state.accounts : [];
+  return <section className={`billing-strip${accounts.length === 1 ? " is-single" : ""}`} aria-label="Saldo e pagamentos" aria-busy={state.status === "loading"}>
+    <div className="billing-strip-head">
+      <span className="billing-strip-title"><CreditCard size={15} />Saldo e pagamentos</span>
+      {!demoAccounts && state.status !== "loading" && <button type="button" className="icon-button" onClick={() => void load()} aria-label="Consultar saldo novamente" title="Consultar novamente"><RefreshCw size={14} /></button>}
+    </div>
+    {state.status === "loading" && <div className="billing-accounts"><div className="billing-account">{[0, 1, 2, 3].map(index => <div className="billing-stat" key={index}><span className="sk" style={{ display: "block", width: "50%", height: 12 }} /><span className="sk" style={{ display: "block", width: "70%", height: 22, marginTop: 8 }} /></div>)}</div></div>}
+    {state.status === "error" && <div className="billing-message"><span>{state.message}</span><button type="button" className="text-link" onClick={() => void load()}><RefreshCw size={13} />Tentar novamente</button></div>}
+    {state.status === "ready" && !accounts.length && <div className="billing-message"><span>Nenhuma conta de anúncio disponível para consulta.</span></div>}
+    {accounts.length > 0 && <div className="billing-accounts">{accounts.map(account => <AccountBilling key={account.accountId} account={account} daily={dailySpend[account.accountId] ?? 0} showName={accounts.length > 1} />)}</div>}
   </section>;
+}
+
+function AccountBilling({ account, daily, showName }: { account: ClientAccountBilling; daily: number; showName: boolean }) {
+  const remainingCap = account.spendCap != null ? Math.max(0, account.spendCap - (account.amountSpent ?? 0)) : null;
+  const funds = account.availableBalance ?? remainingCap;
+  const days = funds != null && daily > 0 ? Math.floor(funds / daily) : null;
+  const low = days != null && days < LOW_FUNDS_DAYS;
+  const used = account.spendCap && account.amountSpent != null ? Math.min(1, account.amountSpent / account.spendCap) : null;
+  return <article className={`billing-account${low ? " is-low" : ""}`}>
+    {showName && <div className="billing-account-name"><strong>{account.name}</strong></div>}
+    <div className="billing-stat">
+      <span className="billing-label">Situação da conta</span>
+      <span className={`badge ${account.delivering ? "green" : "amber"}`}><span className="status-dot" />{account.statusLabel}</span>
+      <small title={account.fundingLabel ?? undefined}>{account.prepaid ? "Pré-pago" : "Pós-pago"}{account.fundingLabel && !account.availableBalance ? ` · ${account.fundingLabel}` : ""}</small>
+    </div>
+    <div className="billing-stat">
+      {account.prepaid
+        ? <><span className="billing-label">Saldo disponível</span><strong>{account.availableBalance != null ? money(account.availableBalance, account.currency) : "Ver na Meta"}</strong><small>{account.availableBalance != null ? "créditos para veicular" : "a Meta não informou o valor"}</small></>
+        : <><span className="billing-label">Valor a pagar</span><strong>{money(account.balanceDue, account.currency)}</strong><small>cobrado na forma de pagamento</small></>}
+    </div>
+    <div className="billing-stat">
+      <span className="billing-label">{days != null ? "Duração estimada" : "Média diária"}</span>
+      <strong className={low ? "is-warn" : undefined}>{days != null ? `${days} ${days === 1 ? "dia" : "dias"}` : money(daily || null, account.currency)}</strong>
+      <small>{days != null ? `no ritmo de ${money(daily, account.currency)} por dia` : "investimento médio no período"}</small>
+    </div>
+    <div className="billing-stat">
+      <span className="billing-label">{account.spendCap != null ? "Limite de gastos" : "Gasto total da conta"}</span>
+      <strong>{account.spendCap != null ? money(remainingCap, account.currency) : money(account.amountSpent, account.currency)}</strong>
+      {used != null && account.spendCap != null ? <><div className="billing-track" aria-hidden="true"><i style={{ width: `${used * 100}%` }} className={used > .9 ? "is-high" : ""} /></div><small>disponíveis de {money(account.spendCap, account.currency)}</small></> : <small>desde a criação da conta</small>}
+    </div>
+    {low && <p className="billing-alert"><AlertTriangle size={14} />{account.availableBalance != null ? "Saldo" : "Limite"} suficiente para cerca de {days} {days === 1 ? "dia" : "dias"}. Programe uma recarga para não pausar os anúncios.</p>}
+  </article>;
 }

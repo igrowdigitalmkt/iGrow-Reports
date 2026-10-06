@@ -24,6 +24,7 @@ import {
 } from "./client";
 import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, validateCollectionRange } from "./collection";
 
+import { parseFundingAmount } from "./billing";
 import { liveDeliveryStatuses } from "./delivery";
 import { META_ANALYTICS_MAX_AGE_MS, META_ANALYTICS_VERSION, META_ATTRIBUTION_REFRESH_DAYS, META_DETAIL_RETENTION_DAYS } from "./analytics-contract";
 import { applyProviderResults, hasOverlappingMetaSelection, insightActionTypes, periodInsightValues, selectedPeriodInsightRows, sumPeriodInsightValues } from "./insight-values";
@@ -247,7 +248,10 @@ export type ClientAccountBilling = {
   amountSpent: number | null;
   spendCap: number | null;
   balanceDue: number | null;
+  /** Prepaid funds parsed from Meta's payment method text, when present. */
+  availableBalance: number | null;
 };
+
 
 const ACCOUNT_STATUS_LABELS: Record<number, string> = {
   1: "Ativa", 2: "Desativada", 3: "Pagamento pendente", 7: "Em análise de risco", 8: "Liquidação pendente",
@@ -280,6 +284,7 @@ export async function getClientAccountBilling(input: { agencyId: string; clientI
         delivering: [1, 9, 201].includes(status), statusLabel: ACCOUNT_STATUS_LABELS[status] ?? "Situação desconhecida",
         prepaid: live.is_prepay_account === true, fundingLabel: live.funding_source_details?.display_string ?? null,
         amountSpent: minorUnits(live.amount_spent), spendCap: cap && cap > 0 ? cap : null, balanceDue: minorUnits(live.balance),
+        availableBalance: live.is_prepay_account ? parseFundingAmount(live.funding_source_details?.display_string) : null,
       };
     } catch { return null; }
   }));

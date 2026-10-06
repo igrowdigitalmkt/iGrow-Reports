@@ -13,12 +13,14 @@ import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKe
 import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
-import { BillingSection } from "./billing-section";
+import { BillingSummary } from "./billing-section";
+import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "./platform-picker";
+import type { ClientAccountBilling } from "@/modules/meta/server";
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type FormEvent } from "react";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
-  CircleDollarSign, Clock3, Download, FileText, Filter, Info, Layers3, Lock,
-  MousePointerClick, RefreshCw, Search, Sparkles, Target, Trash2, TrendingUp,
+  Clock3, Download, FileText, Filter, Info, Layers3, Lock,
+  RefreshCw, Search, Sparkles, Target, Trash2, TrendingUp,
   WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Table2, GripVertical, ArrowLeftRight,
 } from "lucide-react";
 import { collectDashboardData } from "./analytics-actions";
@@ -31,7 +33,7 @@ import { estimatedMetric } from "@/modules/reports/report-presentation";
 import type { AnalyticsDashboardData, AnalyticsReportItem, AnalyticsValues } from "./analytics-types";
 import {
   ANALYTICS_COLORS, AnalyticsAccountChart, AnalyticsSparkline, AnalyticsTrendChart,
-  formatAnalyticsValue, formatEntityAnalyticsValue, type AnalyticsMetric,
+  EntityMetricValue, formatAnalyticsValue, type AnalyticsMetric,
 } from "./analytics-charts";
 import "./analytics-dashboard.css";
 type DashboardProps = {
@@ -45,6 +47,9 @@ type DashboardProps = {
   preferenceKey: string;
   /** Link to the per-account, per-level confirmed analysis (agency only). */
   detailedAnalysisHref?: string;
+  /** Demo workspace: fictitious data, no server calls. */
+  demo?: boolean;
+  demoBilling?: ClientAccountBilling[];
 };
 
 const PERIODS = [
@@ -56,10 +61,6 @@ const FIXED_METRICS = ["spend", "primary_results", "cost_per_result"];
 const DEFAULT_OPTIONAL_METRICS = ["reach", "impressions", "cpm", "link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
 const OVERVIEW_PREFERENCE_VERSION = 2;
 const isPinned = (key: string) => FIXED_METRICS.includes(key);
-const METRIC_ICONS = {
-  spend: CircleDollarSign, impressions: TrendingUp, link_clicks: MousePointerClick,
-  primary_results: Target, reach: Activity, cpm: BarChart3, cost_per_result: CircleDollarSign,
-};
 
 function displayDate(value: string, includeYear = true) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -164,7 +165,7 @@ function makeObservations(data: AnalyticsDashboardData) {
 const retryClock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 export function ClientAnalyticsDashboard({
-  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, detailedAnalysisHref,
+  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, detailedAnalysisHref, demo = false, demoBilling,
 }: DashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -213,6 +214,24 @@ export function ClientAnalyticsDashboard({
   const [analysisNote, setAnalysisNote] = useState("");
   const [presenting, setPresenting] = useState(false);
   const [customizing, setCustomizing] = useState(false);
+  const [platforms, setPlatforms] = useState<PlatformPreference[]>(DEFAULT_PLATFORMS);
+  const platformKey = `igrow:platforms:${preferenceKey}`;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(platformKey) ?? "null") as PlatformPreference[] | null;
+      if (Array.isArray(saved) && saved.every(item => item && item.key in PLATFORMS)) {
+        const known = saved.filter(item => item.key in PLATFORMS);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- restores a per-browser preference after hydration
+        setPlatforms([...known, ...DEFAULT_PLATFORMS.filter(item => !known.some(entry => entry.key === item.key))]);
+      }
+    } catch { /* Preferences are optional. */ }
+  }, [platformKey]);
+  function changePlatforms(next: PlatformPreference[]) {
+    setPlatforms(next);
+    try { window.localStorage.setItem(platformKey, JSON.stringify(next)); } catch { /* Preferences are optional. */ }
+  }
+  const metaVisible = platforms.some(item => item.key === "meta" && item.enabled);
+  const dailySpend = Object.fromEntries(data.accountTotals.map(account => [account.id, (account.values.spend ?? 0) / Math.max(1, data.daily.length)]));
   const [draggingCard, setDraggingCard] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
@@ -298,6 +317,7 @@ export function ClientAnalyticsDashboard({
   const [retryRun, setRetryRun] = useState(0);
   const [autoRetry, setAutoRetry] = useState<{ phase: "idle" | "running" | "waiting" | "paused"; lastAt: number | null; nextAt: number | null }>({ phase: "idle", lastAt: null, nextAt: null });
   useEffect(() => {
+    if (demo) return;
     const periodKey = `${clientId}|${data.dateFrom}|${data.dateTo}`;
     if (retryFailures.current.key !== periodKey) retryFailures.current = { key: periodKey, count: 0 };
     let cancelled = false;
@@ -344,7 +364,7 @@ export function ClientAnalyticsDashboard({
     };
     document.addEventListener("visibilitychange", resumed);
     return () => { cancelled = true; window.clearTimeout(start); window.clearTimeout(timer); document.removeEventListener("visibilitychange", resumed); };
-  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt, baseAnalyticsReady, router, retryRun]);
+  }, [clientId, data.dateFrom, data.dateTo, data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt, baseAnalyticsReady, router, retryRun, demo]);
   function retryAutomaticNow() {
     retryFailures.current.count = 0;
     setRetryRun(value => value + 1);
@@ -570,7 +590,7 @@ export function ClientAnalyticsDashboard({
   }
 
   useEffect(() => {
-    if (data.coverage.status !== "complete" || !data.selectedAccountIds.length) return;
+    if (demo || data.coverage.status !== "complete" || !data.selectedAccountIds.length) return;
     let cancelled = false;
     let loading = false;
     const refresh = async () => {
@@ -628,7 +648,7 @@ export function ClientAnalyticsDashboard({
     const resumed = () => { void refresh(); };
     document.addEventListener("visibilitychange", resumed);
     return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", resumed); };
-  }, [clientId, data.dateFrom, data.dateTo, data.selectedAccountIds, data.coverage.latestCollectedAt, data.coverage.status, dataSnapshotKey]);
+  }, [clientId, data.dateFrom, data.dateTo, data.selectedAccountIds, data.coverage.latestCollectedAt, data.coverage.status, dataSnapshotKey, demo]);
 
   function publishReport(reportVersionId: string) {
     setError(""); setNotice("");
@@ -664,6 +684,7 @@ export function ClientAnalyticsDashboard({
         <div><h1>{clientName}</h1><p>Meta Ads · {data.accounts.length} {data.accounts.length === 1 ? "conta de anúncio" : "contas de anúncio"}</p></div>
       </div>
       <div className="analytics-command-actions">
+        <PlatformPicker value={platforms} onChange={changePlatforms} />
         {detailedAnalysisHref && <Link className="analytics-button" href={detailedAnalysisHref}><Table2 size={15} />Análise por conta</Link>}
         {tab === "overview" && analyticsReady && <button type="button" className="analytics-button" onClick={async () => {
           try {
@@ -765,6 +786,9 @@ export function ClientAnalyticsDashboard({
         {pending ? "Atualizando…" : "Tentar atualizar novamente"} <ArrowUpRight size={14} />
       </button>}
     </div>}
+    {metaVisible ? <section className="platform-section" aria-label="Meta Ads">
+    <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.accounts.length} {data.accounts.length === 1 ? "conta" : "contas"}</span></div>
+    <BillingSummary clientId={clientId} dailySpend={dailySpend} demoAccounts={demo ? demoBilling ?? [] : undefined} />
     <div className="analytics-section-toolbar">
       <div className="analytics-tabs" role="tablist" aria-label="Seções do painel">
         {[
@@ -849,9 +873,10 @@ export function ClientAnalyticsDashboard({
               <AnalyticsSparkline values={scopedData.daily.map((day) => day.values[metric.key])} color={color} />
             </article>;
           })}
+        </div>
+        <div className="analytics-kpi-flow">
           {optionalMetrics.map((metric) => {
             const change = changeDescription(scopedData, metric);
-            const Icon = METRIC_ICONS[metric.key as keyof typeof METRIC_ICONS] ?? BarChart3;
             const color = ANALYTICS_COLORS[0];
             const replacements = scopedData.metrics.filter(item => !FIXED_METRICS.includes(item.key) && !optionalMetricKeys.includes(item.key));
             return <article className={`analytics-kpi is-removable${draggingCard === metric.key ? " is-dragging" : ""}${dropTarget === metric.key && draggingCard !== metric.key ? " is-drop-target" : ""}`} key={metric.key}
@@ -871,7 +896,6 @@ export function ClientAnalyticsDashboard({
                   {!isPinned(metric.key) && <button className="analytics-kpi-remove" type="button" onClick={() => toggleMetric(metric.key)}
                     aria-label={`Remover ${metric.label} da visão geral`}><X size={14} /></button>}
                 </div>
-                <span className="analytics-kpi-icon"><Icon size={16} /></span>
               </div>
               <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>
                 {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
@@ -912,7 +936,6 @@ export function ClientAnalyticsDashboard({
               <p className="analytics-empty-copy">A distribuição por conta usa o escopo completo. Remova o filtro de campanhas para visualizá-la.</p>}
           </article>
         </div>
-        <BillingSection clientId={clientId} />
         <div className="analytics-insights-grid">
           <article className="analytics-card analytics-observations">
             <div className="analytics-card-heading"><div><h3>O que merece atenção</h3></div><Sparkles size={17} /></div>
@@ -934,14 +957,14 @@ export function ClientAnalyticsDashboard({
           <div className="analytics-card-heading"><div><h3>Seleção incluída na análise <span className="analytics-count">{selectedEntities.length}</span></h3></div>
             <button type="button" className="analytics-text-button" onClick={() => selectTab("campaigns")}>Editar seleção <ArrowUpRight size={14} /></button>
           </div>
-          <div className="analytics-table-scroll"><table className="analytics-table analytics-campaign-table">
-            <thead><tr><th>Campanha / conta</th>{fixedMetrics.slice(0, 4).map((metric) => <th key={metric.key}>{metric.label}</th>)}</tr></thead>
+          <div className="analytics-table-scroll is-capped"><table className="analytics-table analytics-campaign-table">
+            <thead><tr><th>Campanha</th>{fixedMetrics.slice(0, 4).map((metric) => <th key={metric.key}>{metric.label}</th>)}</tr></thead>
             <tbody>{selectedEntities.map((campaign, index) => <tr key={campaign.id}><th scope="row">
               <div className="analytics-campaign-name"><span className="analytics-campaign-mark"
                 style={{ color: ANALYTICS_COLORS[index % ANALYTICS_COLORS.length] }}><BarChart3 size={15} /></span>
                 <div><strong>{campaign.name}</strong><small>{campaign.accountName}</small></div></div>
             </th>{fixedMetrics.slice(0, 4).map((metric) => <td key={metric.key}>
-              {formatEntityAnalyticsValue(campaign.values, metric, campaign.currency || data.currency)}
+              <EntityMetricValue values={campaign.values} metric={metric} currency={campaign.currency || data.currency} />
             </td>)}</tr>)}</tbody>
           </table></div>
         </article>
@@ -976,11 +999,8 @@ export function ClientAnalyticsDashboard({
                 onChange={(event) => setCampaignQuery(event.target.value)} placeholder="Buscar campanha…" /></label>
             </div>
           </div>
-          <div className="analytics-table-scroll"><table className="analytics-table analytics-campaign-table">
+          <div className="analytics-table-scroll is-capped"><table className="analytics-table analytics-campaign-table">
             <thead><tr><th scope="col" className="analytics-campaign-main-header"><div className="analytics-campaign-header-controls">
-              <button type="button" onClick={() => sortBy("name")}>Selecionar · campanha / conta
-                {sortKey === "name" && <ChevronDown size={12} style={{ transform: sortDirection === "asc" ? "rotate(180deg)" : undefined }} />}
-              </button>
               <button type="button" className="analytics-status-sort-button" onClick={() => sortBy("status")}>Veiculação
                 {sortKey === "status" && <ChevronDown size={12} style={{ transform: sortDirection === "asc" ? "rotate(180deg)" : undefined }} />}
               </button>
@@ -1061,6 +1081,7 @@ export function ClientAnalyticsDashboard({
         </section>
       </div>}
     </div>
+    </section> : <section className="analytics-card platform-empty"><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
 
     {tab !== "reports" && <footer className="analytics-data-footer"><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
       <span>Sem estimativas para datas não coletadas</span></footer>}

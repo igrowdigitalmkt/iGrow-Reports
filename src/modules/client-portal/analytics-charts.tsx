@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import type { AnalyticsDashboardData, AnalyticsValues } from "./analytics-types";
+import { resultBreakdown } from "./analytics-results";
 
 export type AnalyticsMetric = AnalyticsDashboardData["metrics"][number];
 export const ANALYTICS_COLORS = ["#5b7cfa", "#3fc2d6", "#a594ff", "#3ccf8e", "#f0b44c", "#e57fa8"];
@@ -33,6 +34,15 @@ export function formatEntityAnalyticsValue(values: AnalyticsValues, metric: Anal
   if ((metric.key === "primary_results" || metric.key === "cost_per_result")
     && (values.spend ?? 0) === 0 && value == null) return "—";
   return formatAnalyticsValue(value, metric, currency);
+}
+
+// Result and cost cells name the outcome below the number (cadastros, mensagens, alcance...).
+export function EntityMetricValue({ values, metric, currency }: { values: AnalyticsValues; metric: AnalyticsMetric; currency: string | null }) {
+  const text = formatEntityAnalyticsValue(values, metric, currency);
+  if (metric.key !== "primary_results" && metric.key !== "cost_per_result") return <>{text}</>;
+  const types = resultBreakdown(values);
+  const label = types.length === 1 ? types[0].label.toLocaleLowerCase("pt-BR") : types.length > 1 ? `${types.length} tipos de resultado` : null;
+  return <><span className="analytics-cell-value">{text}</span>{label && <small className="analytics-cell-label">{label}</small>}</>;
 }
 
 function shortDate(date: string) {

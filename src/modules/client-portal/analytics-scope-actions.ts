@@ -6,7 +6,7 @@ import { normalizeClientAnalytics } from "./analytics-calculations";
 import { getFreshClientAnalytics } from "./analytics-live";
 import { confirmedEmptyPeriodValues } from "@/modules/meta/insight-values";
 import { normalizeHierarchy, relevantCampaignHierarchy } from "./analytics-hierarchy";
-import { getClientAccountBilling, getMetaEntityStatuses, refreshMetaDashboardScope, type LiveCampaignIdentity } from "@/modules/meta/server";
+import { getMetaEntityStatuses, refreshMetaDashboardScope, type LiveCampaignIdentity } from "@/modules/meta/server";
 
 const inputSchema = z.object({
   clientId: z.uuid(), dateFrom: z.iso.date(), dateTo: z.iso.date(),
@@ -115,13 +115,3 @@ export async function getClientAnalyticsHierarchy(input: unknown) {
   }
 }
 
-export async function getClientBilling(input: unknown) {
-  const parsed = z.object({ clientId: z.uuid() }).safeParse(input);
-  if (!parsed.success) return { error: "Cliente inválido." };
-  const { access } = await requireClientDashboardAccess(parsed.data.clientId);
-  try {
-    return { success: true as const, accounts: await getClientAccountBilling({ agencyId: access.agencyId, clientId: parsed.data.clientId }) };
-  } catch {
-    return { error: "Não foi possível consultar a Meta agora. Tente novamente em alguns minutos." };
-  }
-}
