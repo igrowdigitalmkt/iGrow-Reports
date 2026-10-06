@@ -80,6 +80,8 @@ export async function connectWhatsApp(input: { agencyId: string; wabaId: string;
   let templates: WhatsAppTemplate[];
   try {
     [phone, templates] = await Promise.all([graph.phoneNumber(input.phoneNumberId), graph.templates(input.wabaId)]);
+    // Idempotent: makes sure this account's delivery webhooks reach the iGrow app.
+    await graph.subscribeApp(input.wabaId).catch(() => undefined);
   } catch (error) {
     throw new WhatsAppSetupError(error instanceof WhatsAppApiError && error.status === 400
       ? "Identificadores inválidos. Confira o ID da conta do WhatsApp Business e o ID do número."
