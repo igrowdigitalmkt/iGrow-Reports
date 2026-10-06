@@ -18,7 +18,7 @@ import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
   CircleDollarSign, Clock3, Download, FileText, Filter, Info, Layers3, Lock,
   MousePointerClick, RefreshCw, Search, Sparkles, Target, Trash2, TrendingUp,
-  WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Table2,
+  WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Table2, GripVertical, ArrowLeftRight,
 } from "lucide-react";
 import { collectDashboardData } from "./analytics-actions";
 import { getCampaignScopedAnalytics, getClientAnalyticsHierarchy } from "./analytics-scope-actions";
@@ -212,6 +212,8 @@ export function ClientAnalyticsDashboard({
   const [analysisNote, setAnalysisNote] = useState("");
   const [presenting, setPresenting] = useState(false);
   const [customizing, setCustomizing] = useState(false);
+  const [draggingCard, setDraggingCard] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   useEffect(() => {
     const changed = () => setPresenting(document.fullscreenElement === dashboardRef.current);
@@ -462,6 +464,21 @@ export function ClientAnalyticsDashboard({
     });
   }
 
+  // Drag a card onto another to take its position; the order is saved like the other preferences.
+  function dropCard(target: string) {
+    const source = draggingCard;
+    setDraggingCard(null); setDropTarget(null);
+    if (!source || source === target) return;
+    setOptionalMetricKeys(keys => {
+      const next = keys.filter(key => key !== source);
+      next.splice(next.indexOf(target) + (keys.indexOf(source) < keys.indexOf(target) ? 1 : 0), 0, source);
+      return next;
+    });
+  }
+  function replaceMetric(current: string, replacement: string) {
+    if (!replacement) return;
+    setOptionalMetricKeys(keys => keys.includes(replacement) ? keys : keys.map(key => key === current ? replacement : key));
+  }
   function toggleMetric(key: string) {
     if (isPinned(key)) return;
     setOptionalMetricKeys((current) =>
@@ -835,11 +852,24 @@ export function ClientAnalyticsDashboard({
             const change = changeDescription(scopedData, metric);
             const Icon = METRIC_ICONS[metric.key as keyof typeof METRIC_ICONS] ?? BarChart3;
             const color = ANALYTICS_COLORS[0];
-            return <article className="analytics-kpi is-removable" key={metric.key}
-              style={{ "--metric-color": color } as CSSProperties}>
-              <div className="analytics-kpi-top"><span>{metric.label}</span>
-                {!isPinned(metric.key) && <button className="analytics-kpi-remove" type="button" onClick={() => toggleMetric(metric.key)}
-                  aria-label={`Remover ${metric.label} da visão geral`}><X size={14} /></button>}
+            const replacements = scopedData.metrics.filter(item => !FIXED_METRICS.includes(item.key) && !optionalMetricKeys.includes(item.key));
+            return <article className={`analytics-kpi is-removable${draggingCard === metric.key ? " is-dragging" : ""}${dropTarget === metric.key && draggingCard !== metric.key ? " is-drop-target" : ""}`} key={metric.key}
+              style={{ "--metric-color": color } as CSSProperties} draggable
+              onDragStart={event => { setDraggingCard(metric.key); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", metric.key); }}
+              onDragEnter={() => draggingCard && setDropTarget(metric.key)}
+              onDragOver={event => { if (draggingCard) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; } }}
+              onDrop={event => { event.preventDefault(); dropCard(metric.key); }}
+              onDragEnd={() => { setDraggingCard(null); setDropTarget(null); }}>
+              <div className="analytics-kpi-top"><span><GripVertical size={14} className="analytics-kpi-grip" aria-hidden="true" />{metric.label}</span>
+                <div className="analytics-kpi-tools">
+                  {replacements.length > 0 && <label className="analytics-kpi-swap" title="Trocar métrica"><ArrowLeftRight size={13} />
+                    <select aria-label={`Trocar ${metric.label} por outra métrica`} value="" onChange={event => replaceMetric(metric.key, event.target.value)}>
+                      <option value="">Trocar por…</option>
+                      {replacements.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+                    </select></label>}
+                  {!isPinned(metric.key) && <button className="analytics-kpi-remove" type="button" onClick={() => toggleMetric(metric.key)}
+                    aria-label={`Remover ${metric.label} da visão geral`}><X size={14} /></button>}
+                </div>
                 <span className="analytics-kpi-icon"><Icon size={16} /></span>
               </div>
               <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>

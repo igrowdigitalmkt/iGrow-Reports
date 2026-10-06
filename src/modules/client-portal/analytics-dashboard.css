@@ -117,9 +117,18 @@
 .analytics-change-dash { color: var(--subtle); }
 .analytics-sparkline { position: absolute; left: 18px; bottom: 10px; width: calc(100% - 36px); height: 28px; }
 .analytics-spark-empty { display: none; }
-.analytics-kpi-remove { position: absolute; top: 12px; right: 12px; z-index: 2; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: var(--surface-raised); color: var(--muted); opacity: 0; transition: opacity .15s, color .15s; }
-.analytics-kpi.is-removable:hover .analytics-kpi-remove, .analytics-kpi-remove:focus-visible { opacity: 1; }
+.analytics-kpi.is-removable { cursor: grab; transition: border-color .15s, opacity .15s, transform .15s; }
+.analytics-kpi.is-removable:active { cursor: grabbing; }
+.analytics-kpi.is-dragging { opacity: .4; }
+.analytics-kpi.is-drop-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.analytics-kpi-top > span { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.analytics-kpi-grip { margin-left: -4px; color: var(--subtle); opacity: 0; transition: opacity .15s; }
+.analytics-kpi-tools { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+.analytics-kpi.is-removable:hover .analytics-kpi-tools, .analytics-kpi.is-removable:focus-within .analytics-kpi-tools, .analytics-kpi.is-removable:hover .analytics-kpi-grip { opacity: 1; }
+.analytics-kpi-remove, .analytics-kpi-swap { position: relative; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: var(--surface-raised); color: var(--muted); }
 .analytics-kpi-remove:hover { color: var(--bad); }
+.analytics-kpi-swap:hover, .analytics-kpi-swap:focus-within { color: var(--accent); }
+.analytics-kpi-swap select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
 
 /* Cards */
 .analytics-primary-grid { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr); gap: 12px; }
@@ -312,7 +321,7 @@
   .analytics-report-row { grid-template-columns: minmax(0, 1fr); }
   .analytics-report-state { justify-self: start; }
   .analytics-report-header-fields { grid-template-columns: 1fr; }
-  .analytics-kpi-remove { opacity: 1; }
+  .analytics-kpi-tools { opacity: 1; }
   .analytics-section-toolbar { flex-wrap: wrap; }
   .analytics-toolbar-actions { width: 100%; justify-content: space-between; padding-bottom: 8px; }
 }
