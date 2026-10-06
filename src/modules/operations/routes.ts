@@ -22,7 +22,7 @@ export const SECTION_PATHS: Record<string, string> = Object.fromEntries(Object.e
 
 /** Sections shown as tabs inside the Relatórios page, in order. */
 export const REPORT_TABS = [
-  { section: "relatorios-visao", label: "Visão geral" },
+  { section: "relatorios-visao", label: "Dados gerais" },
   { section: "entregas", label: "Entregas" },
   { section: "templates", label: "Templates" },
   { section: "relatorios", label: "PDFs salvos" },

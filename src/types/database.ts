@@ -265,6 +265,7 @@ export type Database = {
       request_meta_collection_refresh: { Args: { p_client_id: string; p_connection_id: string; p_date_from: string; p_date_to: string; p_api_version: string; p_contract_version: number; p_scopes: Json }; Returns: Json };
       claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number; api_version: string; contract_version: number; retry_attempt_count?: number }[] };
       claim_meta_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number; api_version: string; contract_version: number; retry_attempt_count?: number }[] };
+      create_own_agency: { Args: { p_name: string; p_timezone?: string }; Returns: string };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };
         Returns: Json;

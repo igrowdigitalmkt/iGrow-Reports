@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 export type RowMenuItem = { label: string; icon?: ReactNode; onSelect: () => void; danger?: boolean; separatorBefore?: boolean };
 
 // Compact action menu for table rows: opens below the trigger, closes on outside click or Escape.
-export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
+export function RowMenu({ label, items, icon }: { label: string; items: RowMenuItem[]; icon?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
@@ -52,7 +52,7 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
   }
 
   return <>
-    <button ref={trigger} type="button" className="icon-button" aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={toggle}><MoreHorizontal size={17} /></button>
+    <button ref={trigger} type="button" className="icon-button" aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={toggle}>{icon ?? <MoreHorizontal size={17} />}</button>
     {open && <div ref={menu} id={id} role="menu" className="menu-popover" style={{ position: "fixed", top: position.top, left: position.left, width: 220 }}>
       {items.map(item => <div key={item.label} role="none">
         {item.separatorBefore && <hr />}

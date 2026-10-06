@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarClock, FileText, LayoutTemplate, Send } from "lucide-react";
-import { SYSTEM_TEMPLATES } from "@/modules/automations/message";
+import { ArrowRight, CalendarClock } from "lucide-react";
 import { upcomingRuns } from "@/modules/automations/schedule";
 import type { AutomationsSnapshot } from "@/modules/automations/types";
 import type { ClientItem } from "@/modules/clients/schema";
@@ -13,9 +12,9 @@ import "@/modules/automations/automations.css";
 const DAY = 86_400_000;
 
 // Relatórios › Visão geral: what was sent, what is coming and where each part lives.
-export function ReportsOverview({ base, automations, deliveries, clients, savedTemplates, savedPdfs, timezone }: {
+export function ReportsOverview({ base, automations, deliveries, clients, timezone }: {
   base: string; automations: AutomationsSnapshot | null; deliveries: DeliveryItem[]; clients: ClientItem[];
-  savedTemplates: number; savedPdfs: number | null; timezone: string;
+  timezone: string;
 }) {
   const [now] = useState(() => new Date());
   const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: timezone });
@@ -34,7 +33,6 @@ export function ReportsOverview({ base, automations, deliveries, clients, savedT
       <div><span>Envios em 30 dias</span><strong>{recent.length}</strong></div>
       <div><span>Com problema</span><strong className={problems ? "is-warn" : undefined}>{problems}</strong></div>
       <div><span>Agendamentos ativos</span><strong>{active.length}</strong></div>
-      <div><span>PDFs salvos</span><strong>{savedPdfs ?? "—"}</strong></div>
     </div>
 
     <div className="by-client-columns">
@@ -59,10 +57,5 @@ export function ReportsOverview({ base, automations, deliveries, clients, savedT
       </section>
     </div>
 
-    <div className="reports-overview-links">
-      <Link className="panel" href={`${base}/relatorios/entregas`}><Send size={17} /><span><strong>Entregas</strong><small>Histórico de envios de cada cliente</small></span><ArrowRight size={15} /></Link>
-      <Link className="panel" href={`${base}/relatorios/templates`}><LayoutTemplate size={17} /><span><strong>Templates</strong><small>{savedTemplates} {savedTemplates === 1 ? "salvo" : "salvos"} · {SYSTEM_TEMPLATES.length} prontos da plataforma</small></span><ArrowRight size={15} /></Link>
-      <Link className="panel" href={`${base}/relatorios/pdfs`}><FileText size={17} /><span><strong>PDFs salvos</strong><small>Relatórios em PDF de cada cliente</small></span><ArrowRight size={15} /></Link>
-    </div>
   </div>;
 }

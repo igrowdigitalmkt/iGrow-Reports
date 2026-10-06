@@ -9,7 +9,7 @@ describe("endereços de Relatórios", () => {
     expect(SECTION_ROUTES.relatorios).toBe("relatorios-visao");
     expect(SECTION_ROUTES["relatorios/pdfs"]).toBe("relatorios");
     expect(SECTION_PATHS.entregas).toBe("relatorios/entregas");
-    expect(REPORT_TABS.map(tab => tab.label)).toEqual(["Visão geral", "Entregas", "Templates", "PDFs salvos"]);
+    expect(REPORT_TABS.map(tab => tab.label)).toEqual(["Dados gerais", "Entregas", "Templates", "PDFs salvos"]);
     expect(isReportTab("templates")).toBe(true);
     expect(isReportTab("agendamentos")).toBe(false);
   });

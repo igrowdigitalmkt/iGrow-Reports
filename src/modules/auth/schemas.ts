@@ -15,3 +15,14 @@ export const passwordSchema = z.object({
 
 export const invitationTokenSchema = z.string().regex(/^[a-f0-9]{64}$/, "Convite inválido.");
 
+
+export const emailSchema = z.email("Informe um e-mail válido.").trim().max(254);
+
+export const signUpSchema = z.object({
+  name: z.string().trim().min(2, "Informe seu nome.").max(120),
+  agency: z.string().trim().min(2, "Informe o nome da agência.").max(120),
+  email: z.email("Informe um e-mail válido.").trim().max(254),
+  password: z.string().min(8, "Use uma senha com pelo menos 8 caracteres.").max(128),
+});
+
+export const workspaceSchema = z.string().trim().min(2, "Informe o nome da agência com pelo menos 2 letras.").max(120, "Use até 120 caracteres.");

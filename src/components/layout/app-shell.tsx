@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bell, CalendarClock, ChevronRight, ChevronsUpDown, CircleHelp, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarClock, ChevronRight, ChevronsUpDown, MessageCircleQuestion, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
 import { Brand } from "./brand";
 import { NavigationProgress } from "./navigation-progress";
 import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
@@ -28,7 +28,8 @@ export const navigation = navigationGroups.flatMap(group => group.items);
 // Entregas, Templates and PDFs are tabs inside Relatórios: their names appear in the breadcrumb.
 const REPORT_TAB_LABELS: Record<string, string> = { entregas: "Entregas", templates: "Templates", pdfs: "PDFs salvos" };
 
-export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; }
+export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; avatarUrl?: string | null; }
+const SUPPORT_URL = "https://wa.me/5586994037823?text=" + encodeURIComponent("Olá! Preciso de ajuda com o iGrow Reports.");
 
 const SearchContext = createContext<{ search: string; setSearch: (value: string) => void }>({ search: "", setSearch: () => {} });
 export const useWorkspaceSearch = () => useContext(SearchContext);
@@ -38,7 +39,7 @@ const subscribeMobile = (listener: () => void) => { const query = window.matchMe
 const useIsMobile = () => useSyncExternalStore(subscribeMobile, () => window.matchMedia(MOBILE_QUERY).matches, () => false);
 const initialsOf = (value: string) => value.split(/[ @._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
-export function AppShell({ demo, identity, initialCollapsed = false, clientCount, children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; children: ReactNode }) {
+export function AppShell({ demo, identity, initialCollapsed = false, clientCount, workspaceCount = 1, children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; workspaceCount?: number; children: ReactNode }) {
   const base = demo ? "/demo" : "/dashboard";
   const pathname = usePathname();
   const segments = pathname.replace(base, "").split("/").filter(Boolean);
@@ -96,11 +97,15 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         <div className="sidebar-head">
           <Link href={base} aria-label="iGrow Reports, visão geral" className="brand-link"><Brand /></Link>
         </div>
-        <Link className="agency-switch" href={demo ? "/demo/configuracoes" : "/selecionar-agencia"} data-tip={identity.agencyName} aria-label={`Espaço de trabalho: ${identity.agencyName}. Trocar espaço`}>
+        {/* Switching only makes sense for people in more than one workspace (e.g. a freelancer for several agencies). */}
+        {workspaceCount > 1 ? <Link className="agency-switch" href={demo ? "/demo/configuracoes" : "/selecionar-agencia"} data-tip={`${identity.agencyName} · trocar espaço`} aria-label={`Espaço de trabalho: ${identity.agencyName}. Trocar espaço`}>
           <span className="agency-avatar">{initialsOf(identity.agencyName).slice(0, 2) || "iG"}</span>
           <strong className="collapse-hide">{identity.agencyName}</strong>
           <ChevronsUpDown size={14} className="collapse-hide" />
-        </Link>
+        </Link> : <div className="agency-switch is-static" data-tip={identity.agencyName} aria-label={`Espaço de trabalho: ${identity.agencyName}`}>
+          <span className="agency-avatar">{initialsOf(identity.agencyName).slice(0, 2) || "iG"}</span>
+          <strong className="collapse-hide">{identity.agencyName}</strong>
+        </div>}
         <nav className="sidebar-nav" aria-label="Navegação principal">
           {navigationGroups.map(group => <div className="nav-group" key={group.title}>
             <span className="nav-title" aria-hidden={collapsed}>{group.title}</span>
@@ -113,10 +118,15 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
           </div>)}
         </nav>
         <div className="sidebar-footer">
-          <button type="button" className="nav-item" data-tip="Central de ajuda" aria-label={collapsed ? "Central de ajuda" : undefined} onClick={() => setHelpOpen(true)}><CircleHelp size={17} strokeWidth={1.75} /><span className="collapse-hide">Central de ajuda</span></button>
+          <button type="button" className="help-card" data-tip="Central de ajuda" aria-label="Central de ajuda" onClick={() => setHelpOpen(true)}>
+            <MessageCircleQuestion size={22} strokeWidth={1.75} />
+            <span className="collapse-hide"><strong>Precisa de ajuda?</strong><small>Falar com o suporte</small></span>
+          </button>
           <Link className="user-profile" href={href("configuracoes")} data-tip={`${identity.userName} · ${identity.roleLabel}`} aria-label={`Perfil de ${identity.userName}`}>
-            <span className="user-avatar">{initials}</span>
+            {/* eslint-disable-next-line @next/next/no-img-element -- small profile photo from storage */}
+            {identity.avatarUrl ? <img className="user-avatar" src={identity.avatarUrl} alt="" /> : <span className="user-avatar">{initials}</span>}
             <span className="user-meta collapse-hide"><strong>{identity.userName}</strong><small>{identity.roleLabel}</small></span>
+            <ChevronRight size={15} className="user-chevron collapse-hide" />
           </Link>
         </div>
       </aside>
@@ -146,7 +156,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
       </div>
 
       <Dialog open={noticeOpen} onOpenChange={setNoticeOpen} title="Notificações" description={demo ? "Exemplos fictícios de pendências." : "Avisos do seu espaço de trabalho."}>{demo ? <div className="space-y-3"><div className="notice-item"><span className="status-dot amber" /><div><strong>Um relatório aguarda aprovação</strong><p className="muted text-sm mt-1">Verde & Grão · revisão demonstrativa</p></div></div><div className="notice-item"><span className="status-dot cyan" /><div><strong>Primeiros passos da plataforma</strong><p className="muted text-sm mt-1">Conecte a Meta e cadastre seus clientes.</p></div></div><Link href={`${base}/relatorios/pdfs`} onClick={() => setNoticeOpen(false)} className="button button-secondary w-full">Ver relatórios</Link></div> : <p className="muted text-sm">Nenhum aviso no momento.</p>}</Dialog>
-      <Dialog open={helpOpen} onOpenChange={setHelpOpen} title="Central de ajuda" description="O caminho para o primeiro relatório."><ol className="onboarding-list"><li><span>1</span><div><strong>Conecte a Meta</strong><p>Em Integrações, entre com o Facebook e autorize as contas de anúncio.</p></div></li><li><span>2</span><div><strong>Cadastre os clientes</strong><p>Em Clientes, crie cada cliente e associe as contas de anúncio dele.</p></div></li><li><span>3</span><div><strong>Abra o painel</strong><p>O painel do cliente mostra os números do período e gera o relatório em PDF.</p></div></li></ol></Dialog>
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen} title="Central de ajuda" description="Fale com o suporte ou siga o caminho para o primeiro relatório."><a className="button button-primary w-full" href={SUPPORT_URL} target="_blank" rel="noreferrer"><MessageCircleQuestion size={16} />Falar com o suporte no WhatsApp</a><ol className="onboarding-list mt-5"><li><span>1</span><div><strong>Conecte a Meta</strong><p>Em Integrações, entre com o Facebook e autorize as contas de anúncio.</p></div></li><li><span>2</span><div><strong>Cadastre os clientes</strong><p>Em Clientes, crie cada cliente e associe as contas de anúncio dele.</p></div></li><li><span>3</span><div><strong>Abra o painel</strong><p>O painel do cliente mostra os números do período e gera o relatório em PDF.</p></div></li></ol></Dialog>
     </div>
   </SearchContext.Provider>;
 }
