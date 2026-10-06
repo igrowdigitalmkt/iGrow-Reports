@@ -22,6 +22,8 @@ export function WhatsAppManager({ connection, readiness, canManage, embedded }: 
   const [notice, setNotice] = useState("");
   const [templates, setTemplates] = useState<Array<{ name: string; language: string }> | null>(null);
   const [pending, startTransition] = useTransition();
+  const current = connection?.templateName ? `${connection.templateName}|${connection.templateLanguage}` : "";
+  const [chosen, setChosen] = useState(current);
 
   function connect(form: FormData) {
     setError(""); setNotice("");
@@ -39,6 +41,8 @@ export function WhatsAppManager({ connection, readiness, canManage, embedded }: 
       const result = await listWhatsAppTemplatesAction();
       if ("error" in result) { setError(result.error ?? "Não foi possível consultar."); return; }
       setTemplates(result.usable);
+      // Preselect the current template, or the first approved one when none is saved yet.
+      setChosen(current || (result.usable[0] ? `${result.usable[0].name}|${result.usable[0].language}` : ""));
       if (!result.usable.length) setNotice(`Nenhuma das ${result.total} mensagens modelo da conta está aprovada com PDF no cabeçalho.`);
     });
   }
@@ -66,10 +70,13 @@ export function WhatsAppManager({ connection, readiness, canManage, embedded }: 
     </dl>}
 
     {connection && canManage && <div className="whatsapp-actions">
-      {templates ? <select className="input compact-select" aria-label="Mensagem modelo dos relatórios" defaultValue={`${connection.templateName}|${connection.templateLanguage}`} onChange={event => choose(event.target.value)} disabled={pending || !templates.length}>
-        {!templates.length && <option>Nenhuma aprovada com PDF</option>}
-        {templates.map(item => <option key={`${item.name}|${item.language}`} value={`${item.name}|${item.language}`}>{item.name} · {item.language}</option>)}
-      </select> : <Button variant="secondary" className="button-sm" onClick={loadTemplates} disabled={pending}><RefreshCw size={14} />Atualizar mensagens modelo</Button>}
+      {templates ? <>
+        <select className="input compact-select" aria-label="Mensagem modelo dos relatórios" value={chosen} onChange={event => setChosen(event.target.value)} disabled={pending || !templates.length}>
+          {!templates.length && <option value="">Nenhuma aprovada com PDF</option>}
+          {templates.map(item => <option key={`${item.name}|${item.language}`} value={`${item.name}|${item.language}`}>{item.name} · {item.language}</option>)}
+        </select>
+        {templates.length > 0 && chosen !== current && <Button className="button-sm" onClick={() => choose(chosen)} disabled={pending}>Usar esta mensagem</Button>}
+      </> : <Button variant="secondary" className="button-sm" onClick={loadTemplates} disabled={pending}><RefreshCw size={14} />Atualizar mensagens modelo</Button>}
       <Button variant="ghost" className="button-sm" onClick={() => setEditing(value => !value)}>{editing ? "Cancelar" : "Trocar número ou token"}</Button>
     </div>}
 
