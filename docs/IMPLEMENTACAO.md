@@ -612,4 +612,4 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 ### Agendador de 5 minutos na VPS (6/10/2026)
 
 - Instalado com autorização do responsável: `/opt/igrow/run-automations.sh` (versionado em `infra/evolution/run-automations.sh`) via `/etc/cron.d/igrow-automations` a cada 5 min, com `flock` contra sobreposição; log em `/var/log/igrow-automations.log` com rotação semanal (`/etc/logrotate.d/igrow`).
-- A senha fica em `/opt/igrow/cron.env` (600), colocada pelo responsável no Web console. O primeiro valor colado foi recusado pelo iGrow (HTTP 401): não é o `CRON_SECRET` da Vercel. Pendente: gravar o valor correto (ou gerar um novo na VPS e cadastrá-lo como `CRON_SECRET` na Vercel, com nova publicação). Conferir no log a resposta HTTP 200.
+- Senha: `CRON_SECRET` novo gerado na VPS em 6/10 (48 caracteres, `/opt/igrow/cron.env`, 600; nunca exibido ao assistente). O responsável leu com o comando `igrow-senha` no Web console, gravou o mesmo valor na Vercel e publicou de novo. O agendador diário da Meta na Vercel passa a usar o valor novo. Conferido: HTTP 200 desde 17:40 de 6/10 (`{"due":0,...}`).
