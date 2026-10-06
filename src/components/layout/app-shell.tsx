@@ -29,7 +29,7 @@ export const navigation = navigationGroups.flatMap(group => group.items);
 // Entregas, Templates and PDFs are tabs inside Relatórios: their names appear in the breadcrumb.
 const REPORT_TAB_LABELS: Record<string, string> = { entregas: "Entregas", templates: "Templates", pdfs: "PDFs salvos" };
 
-export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; avatarUrl?: string | null; }
+export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; avatarUrl?: string | null; email?: string; }
 const SUPPORT_URL = "https://wa.me/5586994037823?text=" + encodeURIComponent("Olá! Preciso de ajuda com o iGrow Reports.");
 
 const SearchContext = createContext<{ search: string; setSearch: (value: string) => void }>({ search: "", setSearch: () => {} });

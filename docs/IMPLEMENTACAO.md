@@ -662,3 +662,8 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Migração `202610070007_team_permissions.sql` (NÃO aplicada): `agency_member_permissions`, `list_agency_members`, `list_agency_invitations`, `set_agency_member_modules`, `accept_pending_agency_invitations`. Teste com 15 verificações; o banco de teste ganhou `raw_user_meta_data` e `last_sign_in_at` em `auth.users`.
 - Correção do bloco 1: `/criar-espaco` entrou na lista de redirecionamentos seguros (antes a confirmação do cadastro caía em "sem acesso").
 - Menu e perfil passam a usar o nome (`full_name`) e a foto (`avatar_url`) da conta quando existem.
+
+### Bloco 6: foto de perfil (6/10/2026)
+
+- Configurações ganhou "Seu perfil": nome e foto. A foto é recortada em quadrado de 256 px (WEBP) no navegador, enviada para o bucket `avatars/<id do usuário>/` e o link vai para `avatar_url` da conta; fotos antigas são apagadas. Remover foto também disponível. Menu lateral e lista da Equipe mostram nome e foto.
+- Migração `202610070008_profile_avatars.sql` (NÃO aplicada): bucket `avatars` (público por link, 2 MB, PNG/JPG/WEBP) e regras: cada pessoa só envia, troca, lista e apaga a própria pasta. Teste com 5 verificações.
