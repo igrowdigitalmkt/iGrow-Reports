@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ setSession: vi.fn(), accept: vi.fn(), cookieDelete: vi.fn(), server: vi.fn() }));
+const mocks = vi.hoisted(() => ({ setSession: vi.fn(), accept: vi.fn(), acceptTeam: vi.fn(), cookieDelete: vi.fn(), server: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ delete: mocks.cookieDelete }) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: mocks.server }));
 vi.mock("@/modules/agencies/context", () => ({ AGENCY_COOKIE: "agency", requireUserSession: vi.fn() }));
 vi.mock("@/modules/client-portal/invitations", () => ({ acceptPendingClientInvitations: mocks.accept }));
+vi.mock("@/modules/agencies/invitations", () => ({ acceptPendingAgencyInvitations: mocks.acceptTeam }));
 vi.mock("@/lib/supabase/service", () => ({ createSupabaseServiceClient: () => null }));
 import { establishLinkSessionAction } from "@/modules/auth/actions";
 
@@ -22,6 +23,7 @@ it("validates the link session with Supabase, accepts invitations and sends invi
   expect(await establishLinkSessionAction({ ...tokens, type: "invite" })).toEqual({ redirectTo: "/auth/definir-senha" });
   expect(mocks.setSession).toHaveBeenCalledWith({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
   expect(mocks.accept).toHaveBeenCalled();
+  expect(mocks.acceptTeam).toHaveBeenCalled();
 });
 
 it("sends sign-in links straight to the application", async () => {
