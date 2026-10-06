@@ -631,3 +631,9 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Menu lateral: setas de troca de espaço só para quem participa de mais de um (`workspaceCount`); cartão "Precisa de ajuda? Falar com o suporte" (janela com botão para o WhatsApp do suporte, número +55 86 9403-7823 em `app-shell.tsx`, ajustar se preciso); seta no perfil; suporte a foto do perfil (`avatarUrl`).
 - Clientes: "Abrir painel" em botão azul; engrenagem no lugar dos três pontos abrindo o mesmo menu; ao escolher, janela larga de configurações com menu lateral (Dados do cliente, Destinatários, Contas Meta, Acesso do cliente, Arquivar/Reativar) e troca entre opções sem fechar; "Sem observações" removido.
 - Relatórios: aba "Visão geral" renomeada para "Dados gerais"; removidos os atalhos do fim e o número de PDFs salvos.
+
+### Bloco 2: nova Visão geral (6/10/2026)
+
+- Botão "Ver relatórios" trocado pelo seletor de período 7/30/90 dias (`?periodo=`, padrão 30). `loadPortfolioRows` recebe o período e guarda alcance, impressões, datas e a série do período anterior.
+- Cartões: Investimento na carteira (com variação), Alcance (soma das contas; pessoas podem se repetir entre clientes), Impressões e cartão alto de Resultados com todos os tipos somados; abaixo, gráfico "Investimento por dia" (o mesmo componente do painel do cliente, barras com período anterior). Depois, os quadros existentes.
+- Tabela: "Entregando" → "Veiculando"; coluna "Saldo disponível" lida da Meta por cliente (`portfolio-balance.tsx`, mesma rota de saldo do painel; soma pré-pago limitado ao limite de gastos, "Cartão (pós-pago)" e "Pagamento pendente"; teste `tests/portfolio-balance.test.ts`). Removidos os cartões "Clientes veiculando", "Precisam de atenção" e "Relatórios gerados" (o quadro de atenção continua).

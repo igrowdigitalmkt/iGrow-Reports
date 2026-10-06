@@ -8,7 +8,6 @@ import { useTheme } from "next-themes";
 import { motion } from "motion/react";
 import { ArrowDownToLine, ArrowRight, ArrowUpRight, CheckCheck, Clock3, FileChartColumn, Filter, Info, Monitor, Moon, Settings2, ShieldCheck, Sun, Users } from "lucide-react";
 import { type WorkspaceIdentity, navigation, useWorkspaceSearch } from "@/components/layout/app-shell";
-import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { getDemoSnapshot } from "./demo-data";
@@ -33,10 +32,10 @@ import { ReportsOverview } from "./reports-overview";
 import { demoAutomationClients, demoAutomationRecipients, demoAutomations } from "@/modules/automations/demo";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 
-interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; templates?: TemplatesSnapshot; initialClientId?: string; qrConnected?: boolean; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
+interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; templates?: TemplatesSnapshot; initialClientId?: string; overviewPeriod?: "7d" | "30d" | "90d"; qrConnected?: boolean; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], automations, templates, initialClientId, qrConnected = false, canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
+export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], automations, templates, initialClientId, overviewPeriod = "30d", qrConnected = false, canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
   const { search } = useWorkspaceSearch();
   const [status, setStatus] = useState("Todos os estados");
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
@@ -50,7 +49,7 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
 
   return <>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .18 }}>
-      <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · últimos 30 dias`}</p></div><div className="heading-actions">{!section && <Button asChild variant="secondary"><Link href={`${base}/relatorios/pdfs`}><FileChartColumn size={16} />Ver relatórios</Link></Button>}</div></div>
+      <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · todo o trabalho com os clientes no período`}</p></div><div className="heading-actions">{!section && <nav className="segmented" aria-label="Período da visão geral">{([["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"]] as const).map(([key, label]) => <Link key={key} href={key === "30d" ? base : `${base}?periodo=${key}`} aria-current={(demo ? "30d" : overviewPeriod) === key ? "page" : undefined} className="segmented-link" scroll={false}>{label}</Link>)}</nav>}</div></div>
 
       {!section && (demo ? <PortfolioView summary={demoPortfolio} base={base} demo /> : portfolio)}
 

@@ -12,21 +12,27 @@ import type { PortfolioRow, PortfolioStatus } from "./portfolio-view";
 // A cost per result this much above the previous period is flagged for attention.
 const COST_ALERT_RATIO = 1.2;
 
-// Uses the same 30-day ranges the daily job pre-computes (account time zones), so each
+export type PortfolioPeriod = "7d" | "30d" | "90d";
+export const PORTFOLIO_PERIODS: Array<{ key: PortfolioPeriod; label: string }> = [
+  { key: "7d", label: "Últimos 7 dias" }, { key: "30d", label: "Últimos 30 dias" }, { key: "90d", label: "Últimos 90 dias" },
+];
+export const portfolioPeriod = (value: string | undefined): PortfolioPeriod => value === "7d" || value === "90d" ? value : "30d";
+
+// Uses the same standard ranges the daily job pre-computes (account time zones), so each
 // client normally reads a cached result instead of recalculating.
-export async function loadPortfolioRows(supabase: SupabaseClient<Database>, clients: ClientItem[], meta: MetaAdminSnapshot | undefined, now = new Date()): Promise<PortfolioRow[]> {
+export async function loadPortfolioRows(supabase: SupabaseClient<Database>, clients: ClientItem[], meta: MetaAdminSnapshot | undefined, period: PortfolioPeriod = "30d", now = new Date()): Promise<PortfolioRow[]> {
   const active = clients.filter(client => !client.archived_at);
   return Promise.all(active.map(async (client): Promise<PortfolioRow> => {
     const linked = (meta?.links ?? []).filter(link => link.clientId === client.id && link.active);
     const accounts = (meta?.accounts ?? []).filter(account => linked.some(link => link.adAccountId === account.id));
     const base: PortfolioRow = {
       id: client.id, name: client.name, linkedAccounts: linked.length, status: "no-accounts",
-      currency: null, spend: null, previousSpend: null, results: [], trend: [],
+      currency: null, spend: null, previousSpend: null, reach: null, impressions: null, results: [], trend: [], previousTrend: [], days: [],
     };
     if (!linked.length) return base;
     try {
       const timezones = accounts.map(account => account.timezoneName);
-      const range = resolveAnalyticsRange({ periodo: "30d" }, timezones.length ? timezones : "America/Sao_Paulo", now);
+      const range = resolveAnalyticsRange({ periodo: period }, timezones.length ? timezones : "America/Sao_Paulo", now);
       const data = await getClientAnalytics(supabase, client.id, range.dateFrom, range.dateTo);
       if (data.coverage.status !== "complete") return { ...base, status: "updating" };
       const spend = data.summary.spend ?? null;
@@ -42,13 +48,15 @@ export async function loadPortfolioRows(supabase: SupabaseClient<Database>, clie
       // With several result types the spend is shared between them, so no per-type cost is shown.
       if (results.length > 1) for (const result of results) { result.cost = null; result.previousCost = null; }
       const trend = data.daily.map(day => day.values.spend ?? 0);
+      const days = data.daily.map(day => day.date);
+      const previousTrend = previousComplete ? data.previousDaily.map(day => day.values.spend ?? 0) : [];
       const lastWeek = trend.slice(-7).reduce((total, value) => total + value, 0);
       // Cost comparison only holds for a single result type: with several, spend is shared.
       const costUp = results.length === 1 && results[0].cost != null && results[0].previousCost != null && results[0].cost > results[0].previousCost * COST_ALERT_RATIO;
       let status: PortfolioStatus = "ok";
       if (lastWeek === 0) status = "no-delivery";
       else if (costUp) status = "cost-up";
-      return { ...base, status, currency: data.currency, spend, previousSpend, results, trend };
+      return { ...base, status, currency: data.currency, spend, previousSpend, reach: data.summary.reach ?? null, impressions: data.summary.impressions ?? null, results, trend, previousTrend, days };
     } catch {
       return { ...base, status: "unavailable" };
     }

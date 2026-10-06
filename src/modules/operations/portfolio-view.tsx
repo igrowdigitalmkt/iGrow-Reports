@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, PlugZap, RefreshCw, TrendingUp, WalletCards } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, PlugZap, RefreshCw, Target, TrendingUp, WalletCards } from "lucide-react";
+import { PortfolioSpendChart } from "./portfolio-chart";
+import { ClientBalance } from "./portfolio-balance";
 
 export type PortfolioStatus = "ok" | "no-accounts" | "no-delivery" | "cost-up" | "updating" | "unavailable";
 
@@ -11,9 +13,16 @@ export type PortfolioRow = {
   currency: string | null;
   spend: number | null;
   previousSpend: number | null;
+  reach: number | null;
+  impressions: number | null;
   /** Every result type of the period, largest first. Costs only apply when there is one type. */
   results: PortfolioResult[];
   trend: number[];
+  previousTrend: number[];
+  /** Dates of `trend`, one per day. */
+  days: string[];
+  /** Demo only: balance shown without asking Meta. */
+  demoBalance?: { funds: number | null; postpaid?: boolean };
 };
 
 export type PortfolioResult = { key: string; label: string; value: number; cost: number | null; previousCost: number | null };
@@ -21,7 +30,7 @@ export type PortfolioResult = { key: string; label: string; value: number; cost:
 export type PortfolioSummary = { rows: PortfolioRow[]; reportsGenerated: number | null; periodLabel: string };
 
 const STATUS: Record<PortfolioStatus, { label: string; tone: string }> = {
-  ok: { label: "Entregando", tone: "green" },
+  ok: { label: "Veiculando", tone: "green" },
   "no-accounts": { label: "Configurar Meta", tone: "amber" },
   "no-delivery": { label: "Sem veiculação", tone: "amber" },
   "cost-up": { label: "Custo em alta", tone: "amber" },
@@ -60,7 +69,7 @@ export function Sparkline({ values, width = 88, height = 28 }: { values: number[
   </svg>;
 }
 
-function sum(rows: PortfolioRow[], key: "spend" | "previousSpend") {
+function sum(rows: PortfolioRow[], key: "spend" | "previousSpend" | "reach" | "impressions") {
   const values = rows.map(row => row[key]).filter((value): value is number => value != null);
   return values.length ? values.reduce((total, value) => total + value, 0) : null;
 }
@@ -72,30 +81,50 @@ export function PortfolioView({ summary, base, demo = false }: { summary: Portfo
   const currency = currencies.size === 1 ? [...currencies][0] : null;
   const spend = currency ? sum(measured, "spend") : null;
   const previousSpend = currency ? sum(measured, "previousSpend") : null;
-  const delivering = rows.filter(row => row.status === "ok" || row.status === "cost-up").length;
-  const withAccounts = rows.filter(row => row.linkedAccounts > 0).length;
   const attention = rows.filter(row => row.status !== "ok");
-  const trend = measured.length ? measured[0].trend.map((_, index) => measured.reduce((total, row) => total + (row.trend[index] ?? 0), 0)) : [];
+  const reach = sum(measured, "reach");
+  const impressions = sum(measured, "impressions");
+  // Daily series aligned by date across clients (account time zones can shift the range by a day).
+  const days = [...new Set(measured.flatMap(row => row.days))].sort();
+  const trend = days.map(day => measured.reduce((total, row) => total + (row.trend[row.days.indexOf(day)] ?? 0), 0));
+  const longest = measured.reduce((size, row) => Math.max(size, row.previousTrend.length), 0);
+  const previousTrend = measured.every(row => row.previousTrend.length === row.trend.length) && longest === days.length
+    ? days.map((_, index) => measured.reduce((total, row) => total + (row.previousTrend[index] ?? 0), 0)) : [];
+  const totals = new Map<string, { key: string; label: string; value: number }>();
+  for (const row of measured) for (const result of row.results) {
+    const current = totals.get(result.key) ?? { key: result.key, label: result.label, value: 0 };
+    current.value += result.value;
+    totals.set(result.key, current);
+  }
+  const allResults = [...totals.values()].sort((a, b) => b.value - a.value);
   const sorted = [...rows].sort((a, b) => (b.spend ?? -1) - (a.spend ?? -1));
   const clientHref = (id: string) => demo ? `${base}/clientes` : `/dashboard/clientes/${id}`;
 
   return <>
-    <div className="stats-grid">
-      <section className="panel metric-card"><div className="metric-label"><span>Investimento na carteira</span></div><strong className="metric-value">{money(spend, currency)}</strong><div className="metric-foot"><Delta value={change(spend, previousSpend)} /><span>vs. anterior</span><Sparkline values={trend} /></div></section>
-      <section className="panel metric-card"><div className="metric-label"><span>Clientes veiculando</span></div><strong className="metric-value">{delivering}<span className="metric-of"> de {withAccounts}</span></strong><div className="metric-foot"><span>com investimento nos últimos 7 dias</span></div></section>
-      <section className="panel metric-card"><div className="metric-label"><span>Precisam de atenção</span></div><strong className="metric-value">{attention.length}</strong><div className="metric-foot"><span>{attention.length ? "veja a lista abaixo" : "nenhum alerta"}</span></div></section>
-      <section className="panel metric-card"><div className="metric-label"><span>Relatórios gerados</span></div><strong className="metric-value">{integer(summary.reportsGenerated)}</strong><div className="metric-foot"><span>{summary.periodLabel}</span></div></section>
+    <div className="overview-kpis">
+      <section className="panel metric-card overview-spend"><div className="metric-label"><span>Investimento na carteira</span></div><strong className="metric-value">{money(spend, currency)}</strong><div className="metric-foot"><Delta value={change(spend, previousSpend)} /><span>vs. período anterior</span></div></section>
+      <section className="panel metric-card"><div className="metric-label"><span>Alcance</span></div><strong className="metric-value">{integer(reach)}</strong><div className="metric-foot"><span>soma das contas · pessoas podem se repetir entre clientes</span></div></section>
+      <section className="panel metric-card"><div className="metric-label"><span>Impressões</span></div><strong className="metric-value">{integer(impressions)}</strong><div className="metric-foot"><span>todas as contas de anúncio</span></div></section>
+      <section className="panel overview-results">
+        <div className="metric-label"><span>Resultados</span><Target size={15} className="muted" /></div>
+        {allResults.length ? <ul>{allResults.map(result => <li key={result.key}><span>{result.label}</span><strong>{integer(result.value)}</strong></li>)}</ul> : <p className="muted text-sm">Nenhum resultado no período.</p>}
+      </section>
+      <section className="panel overview-chart">
+        <div className="panel-heading"><div><h2>Investimento por dia</h2><p>{summary.periodLabel} · todos os clientes{currency ? "" : " · moedas diferentes, gráfico indisponível"}</p></div></div>
+        <div className="overview-chart-body">{currency ? <PortfolioSpendChart days={days} spend={trend} previous={previousTrend} currency={currency} /> : <div className="overview-chart-empty">Os clientes usam moedas diferentes.</div>}</div>
+      </section>
     </div>
     <div className="portfolio-grid">
       <section className="panel" style={{ overflow: "hidden" }}>
         <div className="panel-heading" style={{ paddingBottom: 12 }}><div><h2>Clientes</h2><p>{summary.periodLabel} · ordenados por investimento</p></div><Link className="button button-ghost button-sm" href={`${base}/clientes`}>Ver todos<ArrowUpRight size={14} /></Link></div>
         {rows.length ? <div className="table-scroll"><table className="data-table">
           <caption className="sr-only">Desempenho de cada cliente no período</caption>
-          <thead><tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col" className="numeric">Investimento</th><th scope="col">Resultados no período</th><th scope="col">Tendência</th></tr></thead>
+          <thead><tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col" className="numeric">Investimento</th><th scope="col" className="numeric">Saldo disponível</th><th scope="col">Resultados no período</th><th scope="col">Tendência</th></tr></thead>
           <tbody>{sorted.map(row => <tr key={row.id}>
             <th scope="row" style={{ fontWeight: 400 }}><Link href={clientHref(row.id)} className="client-cell"><span className="client-avatar blue">{row.name.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span><span style={{ minWidth: 0 }}><strong>{row.name}</strong><small>{row.linkedAccounts ? `${row.linkedAccounts} ${row.linkedAccounts === 1 ? "conta" : "contas"} Meta` : "Sem contas Meta"}</small></span></Link></th>
             <td><span className={`badge ${STATUS[row.status].tone}`}><span className="status-dot" />{STATUS[row.status].label}</span></td>
             <td className="numeric">{money(row.spend, row.currency)}</td>
+            <td className="numeric"><ClientBalance clientId={row.id} enabled={row.linkedAccounts > 0} demo={demo ? row.demoBalance ?? { funds: null, postpaid: true } : undefined} /></td>
             <td><Results row={row} /></td>
             <td><Sparkline values={row.trend} /></td>
           </tr>)}</tbody>

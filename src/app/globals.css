@@ -804,3 +804,32 @@ img.user-avatar { object-fit: cover; }
 .auth-link:hover { color: #93c5fd; }
 .auth-muted-link { color: #94a3b8; }
 .auth-muted-link:hover { color: #fff; }
+
+/* Overview: period links styled as the segmented control */
+.segmented .segmented-link { display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border-radius: 6px; color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.segmented .segmented-link:hover { color: var(--text); }
+.segmented .segmented-link[aria-current="page"] { background: var(--surface-raised); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .2); }
+
+/* Overview: spend, reach, impressions, tall results card, spend chart below */
+.overview-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(240px, .9fr); grid-template-rows: auto auto; gap: 12px; margin-bottom: 16px; }
+.overview-results { grid-column: 4; grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 12px; padding: 18px; min-height: 0; }
+.overview-results .metric-label { display: flex; align-items: center; justify-content: space-between; }
+.overview-results ul { display: grid; gap: 2px; margin: 0; padding: 0; overflow-y: auto; list-style: none; max-height: 330px; }
+.overview-results li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.overview-results li:last-child { border-bottom: 0; }
+.overview-results li span { color: var(--secondary); }
+.overview-results li span::first-letter { text-transform: uppercase; }
+.overview-results li strong { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.overview-chart { grid-column: 1 / span 3; min-width: 0; }
+.overview-chart-body { padding: 4px 12px 12px; }
+.overview-chart-body .analytics-chart-data { display: none; }
+.overview-chart-empty { display: grid; place-items: center; min-height: 180px; color: var(--muted); font-size: 13px; }
+.balance-due { color: var(--warn); }
+@media (max-width: 1100px) {
+  .overview-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .overview-results { grid-column: 1 / -1; grid-row: auto; }
+  .overview-chart { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .overview-kpis { grid-template-columns: minmax(0, 1fr); }
+}

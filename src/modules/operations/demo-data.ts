@@ -1,4 +1,4 @@
-import type { PortfolioSummary } from "./portfolio-view";
+import type { PortfolioRow, PortfolioSummary } from "./portfolio-view";
 import type { DashboardPeriod, DashboardSnapshot, ReportRow } from "./dashboard-data";
 
 // Cenário fictício fixo, isolado: nunca gravar estes dados no banco operacional.
@@ -36,23 +36,28 @@ export function getDemoSnapshot(period: DashboardPeriod): DashboardSnapshot {
 
 // Carteira fictícia da Visão geral (valores fixos, apenas para demonstração).
 const demoTrend = (seed: number, base: number) => Array.from({ length: 30 }, (_, day) => Math.max(0, Math.round(base * (0.75 + 0.35 * Math.sin(day / 3 + seed) + 0.15 * Math.cos(day * seed)))));
+const demoDays = Array.from({ length: 30 }, (_, day) => new Date(Date.UTC(2026, 8, 6 + day)).toISOString().slice(0, 10));
+// Period-over-period series, daily dates, reach, impressions and a fictitious balance for each demo client.
+const demoExtra = (trend: number[], reach: number | null, impressions: number | null, demoBalance: PortfolioRow["demoBalance"]) => ({
+  reach, impressions, demoBalance, days: trend.length ? demoDays : [], previousTrend: trend.map((value, day) => Math.round(value * (0.82 + 0.1 * Math.sin(day)))),
+});
 export const demoPortfolio: PortfolioSummary = {
   reportsGenerated: 66,
   periodLabel: "Últimos 30 dias",
   rows: [
-    { id: "demo-4", name: "Escola Horizonte", linkedAccounts: 1, status: "ok", currency: "BRL", spend: 3885.18, previousSpend: 3456.2, trend: demoTrend(1, 130), results: [
+    { id: "demo-4", name: "Escola Horizonte", linkedAccounts: 1, status: "ok", currency: "BRL", spend: 3885.18, previousSpend: 3456.2, trend: demoTrend(1, 130), ...demoExtra(demoTrend(1, 130), 45418, 152693, { funds: 1240.5 }), results: [
       { key: "link_clicks", label: "cliques no link", value: 1366, cost: null, previousCost: null },
       { key: "profile_visits", label: "visitas ao perfil do instagram", value: 967, cost: null, previousCost: null },
       { key: "registrations", label: "cadastros concluídos", value: 10, cost: null, previousCost: null },
       { key: "reach", label: "alcance", value: 45418, cost: null, previousCost: null },
     ] },
-    { id: "demo-0", name: "Aurora Studio", linkedAccounts: 2, status: "ok", currency: "BRL", spend: 2140.5, previousSpend: 2231.4, trend: demoTrend(2, 71), results: [{ key: "leads", label: "leads", value: 214, cost: 10, previousCost: 10.14 }] },
-    { id: "demo-1", name: "Verde & Grão", linkedAccounts: 1, status: "no-delivery", currency: "BRL", spend: 1710, previousSpend: 1405, trend: [...demoTrend(3, 70).slice(0, 23), 0, 0, 0, 0, 0, 0, 0], results: [{ key: "purchases", label: "compras", value: 96, cost: 17.81, previousCost: 17.35 }] },
-    { id: "demo-2", name: "Órbita Fit", linkedAccounts: 1, status: "cost-up", currency: "BRL", spend: 1265.9, previousSpend: 1190, trend: demoTrend(4, 42), results: [{ key: "messages", label: "conversas por mensagem iniciadas", value: 388, cost: 3.26, previousCost: 2.53 }] },
-    { id: "demo-5", name: "Lumina Estética", linkedAccounts: 1, status: "ok", currency: "BRL", spend: 980.4, previousSpend: 921.1, trend: demoTrend(5, 33), results: [
+    { id: "demo-0", name: "Aurora Studio", linkedAccounts: 2, status: "ok", currency: "BRL", spend: 2140.5, previousSpend: 2231.4, trend: demoTrend(2, 71), ...demoExtra(demoTrend(2, 71), 38210, 121480, { funds: 860 }), results: [{ key: "leads", label: "leads", value: 214, cost: 10, previousCost: 10.14 }] },
+    { id: "demo-1", name: "Verde & Grão", linkedAccounts: 1, status: "no-delivery", currency: "BRL", spend: 1710, previousSpend: 1405, trend: [...demoTrend(3, 70).slice(0, 23), 0, 0, 0, 0, 0, 0, 0], ...demoExtra([...demoTrend(3, 70).slice(0, 23), 0, 0, 0, 0, 0, 0, 0], 26904, 88320, { funds: 0 }), results: [{ key: "purchases", label: "compras", value: 96, cost: 17.81, previousCost: 17.35 }] },
+    { id: "demo-2", name: "Órbita Fit", linkedAccounts: 1, status: "cost-up", currency: "BRL", spend: 1265.9, previousSpend: 1190, trend: demoTrend(4, 42), ...demoExtra(demoTrend(4, 42), 19877, 61250, { funds: null, postpaid: true }), results: [{ key: "messages", label: "conversas por mensagem iniciadas", value: 388, cost: 3.26, previousCost: 2.53 }] },
+    { id: "demo-5", name: "Lumina Estética", linkedAccounts: 1, status: "ok", currency: "BRL", spend: 980.4, previousSpend: 921.1, trend: demoTrend(5, 33), ...demoExtra(demoTrend(5, 33), 14102, 47390, { funds: 312.75 }), results: [
       { key: "messages", label: "conversas por mensagem iniciadas", value: 142, cost: null, previousCost: null },
       { key: "profile_visits", label: "visitas ao perfil do instagram", value: 310, cost: null, previousCost: null },
     ] },
-    { id: "demo-3", name: "Casa Nativa", linkedAccounts: 0, status: "no-accounts", currency: null, spend: null, previousSpend: null, results: [], trend: [] },
+    { id: "demo-3", name: "Casa Nativa", linkedAccounts: 0, status: "no-accounts", currency: null, spend: null, previousSpend: null, results: [], trend: [], ...demoExtra([], null, null, undefined) },
   ],
 };
