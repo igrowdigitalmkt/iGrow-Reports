@@ -105,7 +105,10 @@ export async function connectWhatsApp(input: { agencyId: string; wabaId: string;
     template_name: template?.name ?? null, template_language: template?.language ?? null, template_status: template?.status ?? null,
     last_checked_at: now, updated_at: now,
   }, { onConflict: "agency_id" });
-  if (error) throw new WhatsAppSetupError(error.code === "23505" ? "Este número já está conectado a outro espaço de trabalho." : "Não foi possível salvar a conexão do WhatsApp.");
+  if (error) {
+    console.error("whatsapp-connection-save", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+    throw new WhatsAppSetupError(error.code === "23505" ? "Este número já está conectado a outro espaço de trabalho." : `Não foi possível salvar a conexão do WhatsApp (código ${error.code ?? "desconhecido"}: ${error.message?.slice(0, 160) ?? "sem detalhe"}).`);
+  }
   return { displayPhone: phone.display_phone_number ?? null, template: template?.name ?? null, usableTemplates: reportTemplates(templates).length };
 }
 
