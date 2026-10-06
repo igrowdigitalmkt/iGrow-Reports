@@ -257,31 +257,41 @@
 .platform-empty { padding: 32px; color: var(--muted); text-align: center; }
 
 /* Billing */
-.billing-strip { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
-.billing-strip-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 12px 0 18px; border-bottom: 1px solid var(--border); }
-.billing-strip-title { display: inline-flex; align-items: center; gap: 8px; color: var(--secondary); font-size: 13px; font-weight: 600; }
+.billing-strip { overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.billing-strip-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 46px; padding: 6px 12px 6px 18px; border-bottom: 1px solid var(--border); }
+.billing-strip-title { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; font-weight: 600; }
 .billing-strip-title svg { color: var(--accent); }
-.billing-accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); }
-.billing-account { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content: start; border-top: 1px solid var(--border); }
-.billing-accounts > .billing-account:first-child { border-top: 0; }
-.billing-accounts > .billing-account + .billing-account { border-left: 1px solid var(--border); }
-.billing-account.is-low { background: color-mix(in srgb, var(--warn) 5%, transparent); }
-.billing-account-name { grid-column: 1 / -1; padding: 12px 18px 0; }
-.billing-account-name strong { font-size: 14px; font-weight: 600; }
-.billing-stat { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; padding: 14px 18px 16px; }
-.billing-stat + .billing-stat { border-left: 1px solid var(--border); }
-.billing-strip:not(.is-single) .billing-stat + .billing-stat { border-left: 0; }
-.billing-label { color: var(--muted); font-size: 12px; }
-.billing-stat strong { color: var(--text); font-size: 20px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
-.billing-stat strong.is-warn { color: var(--warn); }
-.billing-stat small { max-width: 100%; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.billing-track { width: 100%; height: 5px; margin-top: 2px; overflow: hidden; border-radius: 99px; background: var(--surface-raised); }
+.billing-head-spacer { flex: 1; }
+.billing-summary { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+.billing-summary.is-warn { background: var(--warn-bg); color: var(--warn); }
+.billing-summary.is-ok { background: var(--good-bg); color: var(--good); }
+.billing-rows { display: grid; }
+.billing-row { display: grid; grid-template-columns: minmax(220px, 1.6fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(170px, 1.2fr); align-items: center; gap: 16px; padding: 12px 18px; }
+.billing-row + .billing-row { border-top: 1px solid var(--border); }
+.billing-row-head { padding-top: 8px; padding-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.billing-row.has-issue { box-shadow: inset 3px 0 0 var(--warn); background: color-mix(in srgb, var(--warn) 4%, transparent); }
+.billing-row.is-idle { opacity: .6; }
+.billing-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.billing-cell strong { color: var(--text); font-size: 16px; font-weight: 600; letter-spacing: -.015em; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.billing-cell strong.is-warn { color: var(--warn); }
+.billing-cell strong.is-muted { color: var(--secondary); font-weight: 500; }
+.billing-cell small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.billing-account-cell strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.billing-meta { display: inline-flex; align-items: center; gap: 6px; overflow: hidden; color: var(--muted); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+.billing-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; }
+.billing-dot.is-ok { background: var(--good); }
+.billing-dot.is-warn { background: var(--warn); }
+.billing-track { width: 100%; max-width: 200px; height: 4px; margin: 3px 0 1px; overflow: hidden; border-radius: 99px; background: var(--surface-raised); }
 .billing-track i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
 .billing-track i.is-high { background: var(--warn); }
-.billing-alert { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 0 18px 14px; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 13px; }
+.billing-idle-toggle { display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px 18px; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 13px; text-align: left; }
+.billing-idle-toggle:hover { color: var(--text); background: var(--surface-hover); }
 .billing-message { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 18px; color: var(--muted); font-size: 13px; }
-.billing-strip:not(.is-single) .billing-account { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.billing-strip:not(.is-single) .billing-stat { padding-top: 10px; padding-bottom: 12px; }
+@media (max-width: 760px) {
+  .billing-row-head { display: none; }
+  .billing-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+  .billing-account-cell { grid-column: 1 / -1; }
+}
 
 /* Metrics catalog */
 .analytics-metric-catalog { display: grid; gap: 16px; }
@@ -369,9 +379,6 @@
   .analytics-identity h1 { font-size: 22px; }
   .analytics-command-actions { width: 100%; }
   .analytics-filter-bar { position: static; }
-  .billing-account, .billing-strip:not(.is-single) .billing-account { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .billing-stat:nth-child(odd) { border-left: 0 !important; }
-  .billing-accounts > .billing-account + .billing-account { border-left: 0; border-top: 1px solid var(--border); }
   .analytics-period-options { width: 100%; }
   .analytics-period-options button { flex: 1; padding: 0 6px; }
   .analytics-date-field input { width: 108px; }

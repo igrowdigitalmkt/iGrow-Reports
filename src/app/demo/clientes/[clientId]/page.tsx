@@ -14,7 +14,8 @@ export default function DemoClientPage() {
   }));
   return <ClientAnalyticsDashboard demo data={data} entities={entities} workspaceName="iGrow Digital" clientName="Escola Horizonte"
     clientId="00000000-0000-4000-8000-000000000001" workspaceId="demo" canCollect={false} canManageReports={false} reports={[]} preferenceKey="demo:escola-horizonte" demoBilling={[
-      { accountId: "a1", name: "Escola Horizonte · Principal", currency: "BRL", delivering: true, statusLabel: "Ativa", prepaid: true, fundingLabel: "Saldo disponível (R$ 412,80 BRL)", availableBalance: 412.8, amountSpent: 48210.55, spendCap: null, balanceDue: null },
-      { accountId: "a2", name: "Escola Horizonte · Unidade 2", currency: "BRL", delivering: true, statusLabel: "Ativa", prepaid: false, fundingLabel: "Mastercard *4821", availableBalance: null, amountSpent: 9120.4, spendCap: 12000, balanceDue: 186.3 },
+      { accountId: "a1", name: "Escola Horizonte · Principal", currency: "BRL", delivering: true, statusLabel: "Ativa", prepaid: true, fundingLabel: "Saldo disponível (R$1.274,82 BRL)", availableBalance: 1274.82, amountSpent: 637.07, spendCap: 1757, balanceDue: null },
+      { accountId: "a2", name: "Escola Horizonte · Unidade 2", currency: "BRL", delivering: false, statusLabel: "Pagamento pendente", prepaid: false, fundingLabel: "VISA *7549", availableBalance: null, amountSpent: 16203.75, spendCap: null, balanceDue: 1234.03 },
+      { accountId: "a3", name: "Escola Horizonte (Reserva)", currency: "BRL", delivering: true, statusLabel: "Ativa", prepaid: true, fundingLabel: "Saldo disponível (R$0,00 BRL)", availableBalance: 0, amountSpent: 0, spendCap: null, balanceDue: null },
     ]} />;
 }
