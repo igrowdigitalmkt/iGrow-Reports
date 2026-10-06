@@ -591,3 +591,9 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - A página era uma pilha de painéis largos (Meta com todos os detalhes técnicos, WhatsApp por QR com passos quebrando palavra por palavra, API oficial e lista de próximas). Agora é um catálogo em cartões compactos, 3 colunas (2 no tablet, 1 no celular), em dois grupos: "Dados de anúncios" (Meta Ads, Google Ads, TikTok Ads) e "Envio de relatórios" (WhatsApp da agência por QR, WhatsApp API oficial, E-mail).
 - Cada cartão mostra estado, um dado-chave (clientes e contas conectados e última sincronização; nome e número do WhatsApp) e um botão; a configuração completa abre num painel lateral (`components/ui/sheet.tsx`), reutilizando os gerenciadores existentes. Voltar do login do Facebook (`?client=`) reabre o painel da Meta. Código em `operations/integrations-hub.tsx`.
 - Conferido no navegador em `/demo/integracoes` (desktop e celular). O painel lateral com dados reais não foi conferido no navegador local (exige sessão); conferir em produção.
+
+### Painel da Meta redesenhado (6/10/2026)
+
+- `meta/integration-manager.tsx`: lista de clientes com situação (conectado com N contas, sem contas, não conectado) e busca acima de 6 clientes; detalhe do cliente escolhido com contas, última sincronização e permissões, contas de anúncio com ID e moeda, ações principais ("Sincronizar contas"; "Conectar com a Meta" ou "Adicionar ou trocar contas"). Detalhes técnicos só aparecem como alerta quando algo não está pronto; quando tudo está pronto viram uma linha no rodapé. Sincronizar agora atualiza a página.
+- `FacebookLogin` ganhou `label`, `variant` e `compact`. Demonstração abre o painel com dados fictícios (`operations/demo-integrations.ts`), sem permitir alterações.
+- Conferido no navegador em `/demo/integracoes` (computador e celular).

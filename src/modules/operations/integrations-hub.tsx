@@ -10,6 +10,7 @@ import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import { QrConnection } from "@/modules/whatsapp-qr/qr-connection";
 import type { QrStatus } from "@/modules/whatsapp-qr/server";
 import { WhatsAppManager, type WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
+import { demoMetaClients, demoMetaSnapshot } from "./demo-integrations";
 
 type Tone = "green" | "amber" | "blue" | "neutral";
 type Panel = "meta" | "qr" | "official" | null;
@@ -66,7 +67,7 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
         <IntegrationCard logo="∞" logoClass="meta-logo" name="Meta Ads" description="Facebook e Instagram: campanhas, resultados, saldo e pagamentos de cada cliente."
           status={demo ? "Simulada" : metaError ? "Com erro" : metaConnected ? "Conectada" : "Não conectada"} tone={demo ? "blue" : metaError ? "amber" : metaConnected ? "green" : "neutral"}
           fact={demo ? <><strong>6 clientes</strong><span>dados fictícios</span></> : metaConnected ? <><strong>{metaClients.size} de {activeClients.length} {activeClients.length === 1 ? "cliente" : "clientes"}</strong><span>{metaAccounts.length} {metaAccounts.length === 1 ? "conta de anúncio" : "contas de anúncio"}{lastSync ? ` · sincronizado ${dateTime(lastSync)}` : ""}</span></> : <span>Conecte a conta de anúncios de cada cliente pelo login do Facebook.</span>}
-          action={metaConnected ? "Gerenciar" : "Conectar"} onAction={live && metaSnapshot ? () => setPanel("meta") : undefined} featured={!metaConnected && !demo} />
+          action={demo || metaConnected ? "Gerenciar" : "Conectar"} onAction={demo || (live && metaSnapshot) ? () => setPanel("meta") : undefined} featured={!metaConnected && !demo} />
         <IntegrationCard logo={<span className="font-semibold">G</span>} logoClass="neutral" name="Google Ads" description="Pesquisa, display e YouTube no mesmo painel do cliente." status="Em breve" tone="neutral" planned />
         <IntegrationCard logo={<Music2 size={17} />} logoClass="neutral" name="TikTok Ads" description="Campanhas e resultados do TikTok junto com as demais plataformas." status="Em breve" tone="neutral" planned />
       </div>
@@ -87,6 +88,9 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
       </div>
     </section>
 
+    {demo && <Sheet open={panel === "meta"} onOpenChange={open => setPanel(open ? "meta" : null)} title="Meta Ads" description="Cada cliente tem a própria conexão. Escolha o cliente e as contas de anúncio.">
+      <MetaIntegrationManager demo agencyId="demo" clients={demoMetaClients} snapshot={demoMetaSnapshot} canManage={false} />
+    </Sheet>}
     {live && <>
       <Sheet open={panel === "meta"} onOpenChange={open => setPanel(open ? "meta" : null)} title="Meta Ads" description="Cada cliente tem a própria conexão. Escolha o cliente e as contas de anúncio.">
         {metaSnapshot && <MetaIntegrationManager agencyId={agencyId!} clients={activeClients} initialClientId={initialMetaClientId} snapshot={metaSnapshot} canManage={canManage} />}

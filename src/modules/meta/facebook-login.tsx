@@ -7,7 +7,7 @@ import { connectMetaIntegration, previewMetaLoginAccounts } from "./actions";
 import { META_LOGIN_CONFIG_ID } from "./login-config";
 import { loadFacebookSdk, type FacebookSdk } from "./facebook-sdk";
 
-export function FacebookLogin({ agencyId, clientId, apiVersion }: { agencyId: string; clientId: string; apiVersion: string }) {
+export function FacebookLogin({ agencyId, clientId, apiVersion, label = "Conectar com a Meta", variant = "default", compact = false }: { agencyId: string; clientId: string; apiVersion: string; label?: string; variant?: "default" | "secondary"; compact?: boolean }) {
   const router = useRouter();
   const sdk = useRef<FacebookSdk | null>(null);
   const token = useRef<string | null>(null);
@@ -78,9 +78,9 @@ export function FacebookLogin({ agencyId, clientId, apiVersion }: { agencyId: st
       setError("Não foi possível abrir o login da Meta. Atualize a página e tente novamente.");
     }
   }
-  return <div className="meta-credential-section">
-    <p>Entre pelo Facebook, autorize o iGrow e escolha as contas deste cliente. A autorização solicitará as permissões configuradas para o aplicativo iGrow Digital.</p>
-    <Button type="button" onClick={login} disabled={!ready || waiting || pending}>{waiting ? "Aguardando autorização…" : "Conectar com a Meta"}</Button>
+  return <div className={compact ? "meta-credential-compact" : "meta-credential-section"}>
+    {!compact && <p>Entre pelo Facebook, autorize o iGrow e escolha as contas deste cliente. A autorização solicitará as permissões configuradas para o aplicativo iGrow Digital.</p>}
+    <Button type="button" variant={variant} onClick={login} disabled={!ready || waiting || pending}>{waiting ? "Aguardando autorização…" : label}</Button>
     {waiting && <Button type="button" variant="secondary" onClick={() => { attempt.current++; clearTimeout(authorizationTimeout.current); setWaiting(false); }}>Cancelar</Button>}
     {!!accounts.length && <div className="meta-account-selection">
       <div className="meta-account-picker" ref={accountPicker} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setAccountsOpen(false); }}>
