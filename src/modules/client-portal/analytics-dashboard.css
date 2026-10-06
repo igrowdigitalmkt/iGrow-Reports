@@ -151,6 +151,9 @@
 .analytics-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }
 .analytics-card-heading h3 { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; }
 .analytics-card-heading > svg { color: var(--muted); }
+.analytics-chart-metric { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.analytics-chart-metric select { width: auto; max-width: 260px; min-height: 32px; padding: 4px 10px; font-size: 13px; background: var(--surface); }
+.analytics-evolution-card .analytics-card-heading { flex-wrap: wrap; }
 .analytics-chart-view-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .analytics-chart-switcher { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 .analytics-chart-switcher > button { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; }
@@ -160,6 +163,10 @@
 .analytics-compare-toggle:has(input:disabled) { color: var(--muted); }
 .analytics-collect-comparison { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 12px; }
 .analytics-chart { width: 100%; min-width: 0; }
+.analytics-chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 18px 0; color: var(--secondary); font-size: 13px; }
+.analytics-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.analytics-chart-legend i { width: 12px; height: 3px; border-radius: 2px; }
+.analytics-chart-legend i.is-dashed { background: repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 5px); }
 .analytics-chart-fallback { display: grid; place-items: center; min-height: 180px; padding: 30px; color: var(--muted); line-height: 1.6; }
 .analytics-chart-data { margin: 0 18px 14px; color: var(--muted); font-size: 12px; }
 .analytics-chart-data > summary { width: fit-content; padding: 4px 0; cursor: pointer; }
