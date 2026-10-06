@@ -13,6 +13,7 @@ import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKe
 import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
+import { BillingSection } from "./billing-section";
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type FormEvent } from "react";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
@@ -911,6 +912,7 @@ export function ClientAnalyticsDashboard({
               <p className="analytics-empty-copy">A distribuição por conta usa o escopo completo. Remova o filtro de campanhas para visualizá-la.</p>}
           </article>
         </div>
+        <BillingSection clientId={clientId} />
         <div className="analytics-insights-grid">
           <article className="analytics-card analytics-observations">
             <div className="analytics-card-heading"><div><h3>O que merece atenção</h3></div><Sparkles size={17} /></div>

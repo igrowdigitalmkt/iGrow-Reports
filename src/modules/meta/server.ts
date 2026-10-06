@@ -236,6 +236,56 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
   return statuses;
 }
 
+export type ClientAccountBilling = {
+  accountId: string;
+  name: string;
+  currency: string;
+  delivering: boolean;
+  statusLabel: string;
+  prepaid: boolean;
+  fundingLabel: string | null;
+  amountSpent: number | null;
+  spendCap: number | null;
+  balanceDue: number | null;
+};
+
+const ACCOUNT_STATUS_LABELS: Record<number, string> = {
+  1: "Ativa", 2: "Desativada", 3: "Pagamento pendente", 7: "Em análise de risco", 8: "Liquidação pendente",
+  9: "Em período de carência", 100: "Encerramento pendente", 101: "Encerrada", 201: "Ativa", 202: "Encerrada",
+};
+const minorUnits = (value: string | undefined) => value === undefined || value === "" || !Number.isFinite(Number(value)) ? null : Number(value) / 100;
+
+// Live billing details of the client's linked accounts. Meta does not expose payment
+// history through the Marketing API, so only the current state is returned.
+export async function getClientAccountBilling(input: { agencyId: string; clientId: string }): Promise<ClientAccountBilling[]> {
+  const { service, apiVersion } = operationalDependencies();
+  const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+  const { data: links, error: linkError } = await service.from("client_ad_accounts").select("ad_account_id")
+    .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("active", true);
+  if (linkError) throw new Error("Não foi possível consultar as contas do cliente.");
+  const ids = (links ?? []).map(link => link.ad_account_id);
+  if (!ids.length) return [];
+  const { data: accounts, error } = await service.from("meta_ad_accounts").select("id,external_id,name,currency")
+    .eq("agency_id", input.agencyId).eq("meta_connection_id", connection.id).in("id", ids).is("archived_at", null);
+  if (error || !accounts) throw new Error("Não foi possível consultar as contas do cliente.");
+  const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
+  const client = new MetaClient({ accessToken: token, apiVersion });
+  const rows = await Promise.all(accounts.map(async (account): Promise<ClientAccountBilling | null> => {
+    try {
+      const live = await client.getAdAccountBilling(account.external_id);
+      const status = live.account_status ?? 0;
+      const cap = minorUnits(live.spend_cap);
+      return {
+        accountId: account.id, name: live.name ?? account.name, currency: live.currency ?? account.currency,
+        delivering: [1, 9, 201].includes(status), statusLabel: ACCOUNT_STATUS_LABELS[status] ?? "Situação desconhecida",
+        prepaid: live.is_prepay_account === true, fundingLabel: live.funding_source_details?.display_string ?? null,
+        amountSpent: minorUnits(live.amount_spent), spendCap: cap && cap > 0 ? cap : null, balanceDue: minorUnits(live.balance),
+      };
+    } catch { return null; }
+  }));
+  return rows.filter((row): row is ClientAccountBilling => row !== null);
+}
+
 function connectionTokenKind(connectionId: string) {
   return `${TOKEN_KIND}:${connectionId}`;
 }

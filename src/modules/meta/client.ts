@@ -46,6 +46,20 @@ export type MetaAdAccount = {
   business?: { id?: string; name?: string };
 };
 
+export type MetaAdAccountBilling = {
+  id: string;
+  name?: string;
+  currency?: string;
+  account_status?: number;
+  disable_reason?: number;
+  /** Minor units (cents) as strings, per the Graph API. */
+  balance?: string;
+  amount_spent?: string;
+  spend_cap?: string;
+  is_prepay_account?: boolean;
+  funding_source_details?: { display_string?: string; type?: number };
+};
+
 export function hasBusinessPortfolio(account: MetaAdAccount) {
   return /^\d+$/.test(account.business?.id ?? "");
 }
@@ -346,6 +360,23 @@ export class MetaClient {
     const account = await this.getPage<never>(adAccountId, {
       fields: "id,account_id,name,currency,timezone_name,account_status,business{id}",
     }) as unknown as MetaAdAccount;
+    if (account.id !== adAccountId) throw new MetaApiError({ httpStatus: 502 });
+    return account;
+  }
+
+  async getAdAccountBilling(adAccountId: string): Promise<MetaAdAccountBilling> {
+    validateAccountId(adAccountId);
+    let account: MetaAdAccountBilling;
+    try {
+      account = await this.getPage<never>(adAccountId, {
+        fields: "id,name,currency,account_status,disable_reason,balance,amount_spent,spend_cap,is_prepay_account,funding_source_details",
+      }) as unknown as MetaAdAccountBilling;
+    } catch {
+      // The payment method needs extra permissions on some accounts; keep the rest.
+      account = await this.getPage<never>(adAccountId, {
+        fields: "id,name,currency,account_status,disable_reason,balance,amount_spent,spend_cap,is_prepay_account",
+      }) as unknown as MetaAdAccountBilling;
+    }
     if (account.id !== adAccountId) throw new MetaApiError({ httpStatus: 502 });
     return account;
   }

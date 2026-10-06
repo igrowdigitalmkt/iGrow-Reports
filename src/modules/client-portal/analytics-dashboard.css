@@ -221,6 +221,26 @@
 .analytics-campaign-heading-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .analytics-selection-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
+/* Billing */
+.billing-subtitle { margin-top: 2px; color: var(--muted); font-size: 13px; }
+.billing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; padding: 14px 18px 0; }
+.billing-account { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.billing-account-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.billing-account-head strong { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.billing-figures { display: grid; gap: 8px; margin: 0; }
+.billing-figures > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.billing-figures dt { color: var(--muted); }
+.billing-figures dd { margin: 0; color: var(--text); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.billing-funding { max-width: 60%; overflow-wrap: anywhere; }
+.billing-cap { display: grid; gap: 6px; }
+.billing-cap-label { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+.billing-cap-track { height: 6px; overflow: hidden; border-radius: 99px; background: var(--surface-raised); }
+.billing-cap-track i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.billing-cap-track i.is-high { background: var(--warn); }
+.billing-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.billing-note { display: flex; gap: 6px; align-items: flex-start; }
+.billing-note svg { margin-top: 3px; flex-shrink: 0; }
+
 /* Metrics catalog */
 .analytics-metric-catalog { display: grid; gap: 16px; }
 .analytics-metric-group { padding: 16px 18px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
