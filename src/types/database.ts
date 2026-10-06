@@ -188,6 +188,22 @@ export type ReportDeliveryRow = {
   error_code: string | null; error_message: string | null; status_at: string; created_by: string | null; created_at: string; updated_at: string;
 };
 
+export type ReportPeriodKey = "yesterday" | "last_7d" | "last_14d" | "last_30d" | "this_month" | "last_month";
+export type ReportFrequency = "daily" | "weekly" | "monthly";
+export type ReportAutomationRow = {
+  id: string; agency_id: string; client_id: string; name: string; message_template: string; period_key: ReportPeriodKey;
+  frequency: ReportFrequency; weekdays: number[]; month_day: number; send_time: string; timezone: string; channel: "whatsapp";
+  active: boolean; next_run_at: string | null; last_run_at: string | null; created_by: string | null; created_at: string; updated_at: string;
+};
+export type ReportAutomationTargetRow = {
+  id: string; agency_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null; group_name: string | null; created_at: string;
+};
+export type ReportAutomationRunStatus = "running" | "sent" | "partial" | "failed" | "skipped";
+export type ReportAutomationRunRow = {
+  id: string; agency_id: string; automation_id: string; scheduled_for: string; status: ReportAutomationRunStatus; date_from: string | null; date_to: string | null;
+  message_text: string | null; sent_count: number; failed_count: number; error_message: string | null; created_at: string; finished_at: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -228,6 +244,9 @@ export type Database = {
       audit_logs: Table<AuditRow, Pick<AuditRow, "agency_id" | "action"> & Partial<AuditRow>, Partial<AuditRow>>;
       whatsapp_connections: Table<WhatsAppConnectionRow, Pick<WhatsAppConnectionRow, "agency_id" | "integration_id" | "waba_id" | "phone_number_id"> & Partial<WhatsAppConnectionRow>, Partial<WhatsAppConnectionRow>>;
       report_deliveries: Table<ReportDeliveryRow, Pick<ReportDeliveryRow, "agency_id" | "client_id" | "recipient_id" | "report_version_id" | "template_name" | "template_language"> & Partial<ReportDeliveryRow>, Partial<ReportDeliveryRow>>;
+      report_automations: Table<ReportAutomationRow, Pick<ReportAutomationRow, "agency_id" | "client_id" | "name" | "message_template"> & Partial<ReportAutomationRow>, Partial<ReportAutomationRow>>;
+      report_automation_targets: Table<ReportAutomationTargetRow, Pick<ReportAutomationTargetRow, "agency_id" | "automation_id" | "client_id"> & Partial<ReportAutomationTargetRow>, Partial<ReportAutomationTargetRow>>;
+      report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -299,6 +318,7 @@ export type Database = {
         Args: { p_wamid: string; p_status: string; p_at: string | null; p_error_code: string | null; p_error_message: string | null };
         Returns: boolean;
       };
+      service_client_analytics: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };
       record_whatsapp_webhook: { Args: { p_dedup_key: string; p_payload: Json }; Returns: boolean };
       get_integration_secret: {
         Args: { p_agency_id: string; p_integration_id: string; p_secret_kind: string };

@@ -548,3 +548,16 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
   - Tech Provider e cadastro integrado (QR) ficam para depois.
   - Descadastro automático por resposta "PARAR".
   - Agendamento automático de envios.
+
+## Atualização de 6 de outubro de 2026 — Agendamentos (mensagens automáticas)
+
+- Decisão do responsável: conexão por QR Code com o número do próprio usuário (identidade própria, grupos permitidos), sem número compartilhado da plataforma; servidor próprio (VPS) com Evolution API, a ser criado pelo responsável e instalado pelo assistente; API oficial mantida como opção avançada; prioridade no fluxo de relatórios + agenda.
+- Migração `202610070001_report_automations.sql` (NÃO aplicada em produção): `report_automations` (mensagem, período, frequência diária/semanal/mensal, dias, horário, fuso, ativo, próximo envio), `report_automation_targets` (destinatário autorizado OU grupo do WhatsApp), `report_automation_runs` (uma execução por horário, chave única que impede envio duplicado), RLS (leitura para membros, escrita para proprietário/administrador/editor, execuções só pelo servidor) e `service_client_analytics` (só service_role; lê os números pelo mesmo caminho do painel). Teste `supabase/tests/report-automations.test.sql` (12 verificações, incluindo regressão do nome da mensagem modelo).
+- Código em `src/modules/automations/`:
+  - `message.ts`: variáveis `{{nome}}`, `{{cliente}}`, `{{periodo}}`, `{{investimento}}`, `{{alcance}}`, `{{impressoes}}`, `{{frequencia}}`, `{{cliques}}`, `{{ctr}}`, `{{cpc}}`, `{{cpm}}`, `{{resultados}}` (uma linha por tipo, com custo por resultado quando conciliado), `{{conversas}}`, `{{leads}}`, `{{cadastros}}`, `{{visitas_perfil}}`, `{{compras}}`, `{{equipe}}`, `{{link_painel}}`; três modelos prontos.
+  - `schedule.ts`: período do envio (nunca inclui o dia corrente; "este mês" no dia 1 envia o mês anterior), próximos horários no fuso do espaço, descrição em português.
+  - Tela (`automations-view.tsx`, `automation-editor.tsx`, `whatsapp-preview.tsx`, `automations.css`): lista com ativar/pausar, calendário de 14 dias, próximos envios, histórico; editor em uma tela (cliente, mensagem com botões de variáveis, destinatários, quando) com pré-visualização em balão do WhatsApp usando números reais do período. Demonstração em `/demo/agendamentos` (`demo.ts`, nada é salvo).
+  - `actions.ts`: salvar (revalida autorização dos destinatários e variáveis), pausar, excluir, números para a prévia.
+  - `runner.ts` + `sender.ts` + rota `GET /api/cron/report-automations` (Bearer `CRON_SECRET`): pega os agendamentos vencidos, registra a execução (trava contra duplicidade), não reenvia horários perdidos, revalida autorização no momento do envio, personaliza o nome por pessoa, espaça as mensagens de 4 a 9 s. Sem conexão por QR a execução fica como "Não enviado" com explicação. `resolveSender` ainda devolve nulo.
+- Menu: Agendamentos deixa de ser "Em breve". Testes: `tests/automations.test.ts`, `tests/automation-runner.test.ts`; lint, 679 testes unitários, testes de banco e build passaram.
+- Próximo: aplicar a migração (responsável); VPS + Evolution API; tela de conexão por QR com estado ao vivo e reconexão; grupos; chamada da rota a cada 5 min; descadastro por "PARAR"; PDF por e-mail; limite diário por número.

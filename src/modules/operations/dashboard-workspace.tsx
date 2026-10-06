@@ -6,7 +6,7 @@ import { demoPortfolio } from "./demo-data";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { motion } from "motion/react";
-import { ArrowDownToLine, ArrowRight, ArrowUpRight, CalendarDays, CheckCheck, Clock3, FileChartColumn, Filter, Info, Monitor, Moon, Send, Settings2, ShieldCheck, Sun, Users } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, ArrowUpRight, CheckCheck, Clock3, FileChartColumn, Filter, Info, Monitor, Moon, Send, Settings2, ShieldCheck, Sun, Users } from "lucide-react";
 import { type WorkspaceIdentity, navigation, useWorkspaceSearch } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -23,12 +23,15 @@ import type { ReportsAdminSnapshot } from "@/modules/reports/types";
 import { logoutAction } from "@/modules/auth/actions";
 import { WhatsAppManager, type WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
 import { DeliveriesView, type DeliveryItem } from "@/modules/whatsapp/deliveries-view";
+import { AutomationsView } from "@/modules/automations/automations-view";
+import type { AutomationsSnapshot } from "@/modules/automations/types";
+import { demoAutomationClients, demoAutomationRecipients, demoAutomations } from "@/modules/automations/demo";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 
-interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
+interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
+export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], automations, canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
   const { search } = useWorkspaceSearch();
   const [status, setStatus] = useState("Todos os estados");
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
@@ -76,7 +79,10 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
 
       {section === "entregas" && !demo && <DeliveriesView deliveries={deliveries} connected={!!whatsapp} />}
 
-      {(["templates", "agendamentos"].includes(section) || (section === "entregas" && demo)) && <section className="panel feature-preview"><span className="feature-icon">{section === "templates" ? <FileChartColumn size={20} /> : section === "agendamentos" ? <CalendarDays size={20} /> : <Send size={20} />}</span><span className="badge neutral">Em breve</span><h2>{section === "templates" ? "Modelos com blocos configuráveis" : section === "agendamentos" ? "Envio automático de relatórios" : "Acompanhe cada envio"}</h2><p>{section === "templates" ? "Monte a estrutura do relatório uma vez e aplique a vários clientes. Cada versão fica guardada." : section === "agendamentos" ? "Defina a frequência e o horário de cada cliente. O relatório é gerado e enviado sem intervenção." : "Veja quando o relatório foi entregue, lido e aberto por cada destinatário."}</p><p className="planned-note mt-2">Esta funcionalidade ainda não está disponível.</p></section>}
+      {section === "agendamentos" && demo && <AutomationsView demo snapshot={demoAutomations} clients={demoAutomationClients} recipients={demoAutomationRecipients} canEdit timezone="America/Sao_Paulo" workspaceName={identity.agencyName} appUrl={null} channelReady={false} />}
+      {section === "agendamentos" && !demo && automations && <AutomationsView snapshot={automations} clients={clients ?? []} recipients={recipients} canEdit={canSendReports} timezone={identity.timezone || "America/Sao_Paulo"} workspaceName={identity.agencyName} appUrl={process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null} channelReady={false} />}
+
+      {(section === "templates" || (section === "entregas" && demo)) && <section className="panel feature-preview"><span className="feature-icon">{section === "templates" ? <FileChartColumn size={20} /> : <Send size={20} />}</span><span className="badge neutral">Em breve</span><h2>{section === "templates" ? "Modelos com blocos configuráveis" : "Acompanhe cada envio"}</h2><p>{section === "templates" ? "Monte a estrutura do relatório uma vez e aplique a vários clientes. Cada versão fica guardada." : "Veja quando o relatório foi entregue, lido e aberto por cada destinatário."}</p><p className="planned-note mt-2">Esta funcionalidade ainda não está disponível.</p></section>}
     </motion.div>
 
     <Dialog open={!!selectedReport} onOpenChange={open => { if (!open) setSelectedReport(null); }} title={selectedReport?.client ?? "Relatório"} description="Prévia demonstrativa · todos os números abaixo são fictícios.">{selectedReport && <div><div className="report-preview-header"><span>{selectedReport.id} · v1</span><StatusBadge status={selectedReport.status} /></div><h3 className="text-lg font-semibold mt-6">{selectedReport.type}</h3><p className="muted text-sm mt-1">{selectedReport.date}</p><div className="preview-metrics"><div><small>Investimento fictício</small><strong>R$ 1.250,00</strong></div><div><small>{selectedReport.type === "Vendas" ? "Compras fictícias" : selectedReport.type === "Conversas" ? "Conversas fictícias" : "Leads fictícios"}</small><strong>50</strong></div><div><small>Custo por resultado</small><strong>R$ 25,00</strong></div></div><div className="info-banner mt-5"><Info size={18} /><p>Esta é uma amostra visual. Snapshots, aprovação, links de acesso e geração de PDF serão implementados nas próximas etapas.</p></div><div className="planned-note mt-5"><ArrowDownToLine size={15} />Download de PDF indisponível nesta etapa</div></div>}</Dialog>
@@ -92,6 +98,6 @@ function ReportsTable({ rows, total, demo, base, onSelect, expanded }: { rows: R
 function EmptyState({ title, description, icon: Icon }: { title: string; description: string; icon: typeof Users }) { return <div className="empty-state"><span><Icon size={26} strokeWidth={1.4} /></span><h3>{title}</h3><p>{description}</p></div>; }
 
 function sectionDescription(section: string) {
-  const descriptions: Record<string, string> = { clientes: "Clientes do espaço de trabalho e suas contas de anúncio.", relatorios: "Versões salvas dos relatórios de cada cliente.", templates: "Modelos de relatório reutilizáveis.", agendamentos: "Relatórios gerados e enviados automaticamente.", entregas: "Histórico de envios por WhatsApp.", integracoes: "Contas conectadas ao seu espaço de trabalho.", configuracoes: "Sua conta, o espaço de trabalho e a aparência." };
+  const descriptions: Record<string, string> = { clientes: "Clientes do espaço de trabalho e suas contas de anúncio.", relatorios: "Versões salvas dos relatórios de cada cliente.", templates: "Modelos de relatório reutilizáveis.", agendamentos: "Mensagens com os números de cada cliente, enviadas no dia e horário que você escolher.", entregas: "Histórico de envios por WhatsApp.", integracoes: "Contas conectadas ao seu espaço de trabalho.", configuracoes: "Sua conta, o espaço de trabalho e a aparência." };
   return descriptions[section];
 }

@@ -20,7 +20,7 @@ export const navigationGroups: { title: string; items: NavItem[] }[] = [
   ] },
   { title: "Automação", items: [
     { key: "templates", label: "Templates", icon: LayoutTemplate, planned: true },
-    { key: "agendamentos", label: "Agendamentos", icon: CalendarClock, planned: true },
+    { key: "agendamentos", label: "Agendamentos", icon: CalendarClock },
     { key: "entregas", label: "Entregas", icon: Send },
   ] },
   { title: "Conta", items: [

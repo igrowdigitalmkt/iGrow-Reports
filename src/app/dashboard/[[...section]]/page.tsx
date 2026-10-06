@@ -17,6 +17,7 @@ import { getReportsAdminSnapshot } from "@/modules/reports/admin";
 import type { ReportsAdminSnapshot } from "@/modules/reports/types";
 import { loadDeliveries, loadSendableRecipients, loadWhatsAppSummary } from "@/modules/whatsapp/admin";
 import { whatsAppEmbeddedSignup, whatsAppReadiness } from "@/modules/whatsapp/server";
+import { loadAutomations } from "@/modules/automations/admin";
 
 const sections = ["", "clientes", "relatorios", "templates", "agendamentos", "entregas", "integracoes", "configuracoes"];
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export default async function DashboardPage({
   let metaSnapshot: MetaAdminSnapshot | undefined;
   let reportsSnapshot: ReportsAdminSnapshot | undefined;
   const canManageClientAccess = canManageAgency(context.role);
-  if (key === "" || key === "clientes" || key === "relatorios" || key === "integracoes" || key === "entregas") {
+  if (key === "" || key === "clientes" || key === "relatorios" || key === "integracoes" || key === "entregas" || key === "agendamentos") {
     for (let offset = 0; ; offset += 500) {
       const result = await context.supabase.from("clients").select("id,name,notes,archived_at,updated_at")
         .eq("agency_id", context.agency.id).order("name").order("id").range(offset, offset + 499);
@@ -65,8 +66,9 @@ export default async function DashboardPage({
     reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
   }
   const whatsapp = key === "integracoes" || key === "relatorios" || key === "entregas" ? await loadWhatsAppSummary(context.supabase, context.agency.id) : null;
-  const recipients = key === "relatorios" ? await loadSendableRecipients(context.supabase, context.agency.id) : [];
+  const recipients = key === "relatorios" || key === "agendamentos" ? await loadSendableRecipients(context.supabase, context.agency.id) : [];
   const deliveries = key === "entregas" ? await loadDeliveries(context.supabase, context.agency.id, clients, reportsSnapshot?.versions ?? []) : [];
+  const automations = key === "agendamentos" ? await loadAutomations(context.supabase, context.agency.id) : undefined;
   // The portfolio streams in after the page shell: each client reads its pre-computed period.
   const reportsGenerated = reportsSnapshot?.ready
     // eslint-disable-next-line react-hooks/purity -- request-time reference, computed once on the server
@@ -74,7 +76,7 @@ export default async function DashboardPage({
   const portfolio = key === "" ? <Suspense fallback={<PortfolioSkeleton />}>
     <Portfolio supabase={context.supabase} clients={clients} meta={metaSnapshot} reportsGenerated={reportsGenerated} />
   </Suspense> : undefined;
-  return <DashboardWorkspace portfolio={portfolio} whatsapp={whatsapp} whatsappReadiness={key === "integracoes" ? whatsAppReadiness() : undefined} whatsappEmbedded={key === "integracoes" ? whatsAppEmbeddedSignup() : null} recipients={recipients} deliveries={deliveries} canSendReports={context.role !== "viewer"} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} portalInvitations={portalInvitations} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
+  return <DashboardWorkspace portfolio={portfolio} whatsapp={whatsapp} whatsappReadiness={key === "integracoes" ? whatsAppReadiness() : undefined} whatsappEmbedded={key === "integracoes" ? whatsAppEmbeddedSignup() : null} recipients={recipients} deliveries={deliveries} automations={automations} canSendReports={context.role !== "viewer"} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} portalInvitations={portalInvitations} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
 }
 
 async function Portfolio({ supabase, clients, meta, reportsGenerated }: { supabase: SupabaseClient<Database>; clients: ClientItem[]; meta: MetaAdminSnapshot | undefined; reportsGenerated: number | null }) {
