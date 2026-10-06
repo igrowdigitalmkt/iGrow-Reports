@@ -28,5 +28,5 @@ export const SUGGESTED_TEMPLATE = {
   language: "pt_BR",
   category: "UTILITY",
   header: "Documento (PDF)",
-  body: "Olá, {{1}}! O relatório de desempenho de {{2}}, referente ao período {{3}}, está no arquivo acima. Qualquer dúvida, fale com a equipe {{4}}.",
+  body: "Olá, {{1}}! O relatório de desempenho de {{2}}, referente ao período de {{3}}, está no arquivo acima. Qualquer dúvida, fale com a equipe {{4}} por aqui.",
 };
