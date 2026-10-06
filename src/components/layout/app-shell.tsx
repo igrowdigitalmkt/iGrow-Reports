@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bell, CalendarClock, ChevronRight, ChevronsUpDown, MessageCircleQuestion, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarClock, ChevronRight, ChevronsUpDown, MessageCircleQuestion, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
 import { Brand } from "./brand";
 import { NavigationProgress } from "./navigation-progress";
 import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
@@ -21,6 +21,7 @@ export const navigationGroups: { title: string; items: NavItem[] }[] = [
   ] },
   { title: "Conta", items: [
     { key: "integracoes", label: "Integrações", icon: Plug },
+    { key: "equipe", label: "Equipe", icon: UsersRound },
     { key: "configuracoes", label: "Configurações", icon: Settings2 },
   ] },
 ];
@@ -39,7 +40,7 @@ const subscribeMobile = (listener: () => void) => { const query = window.matchMe
 const useIsMobile = () => useSyncExternalStore(subscribeMobile, () => window.matchMedia(MOBILE_QUERY).matches, () => false);
 const initialsOf = (value: string) => value.split(/[ @._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
-export function AppShell({ demo, identity, initialCollapsed = false, clientCount, workspaceCount = 1, children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; workspaceCount?: number; children: ReactNode }) {
+export function AppShell({ demo, identity, initialCollapsed = false, clientCount, workspaceCount = 1, hiddenKeys = [], children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; workspaceCount?: number; hiddenKeys?: string[]; children: ReactNode }) {
   const base = demo ? "/demo" : "/dashboard";
   const pathname = usePathname();
   const segments = pathname.replace(base, "").split("/").filter(Boolean);
@@ -109,7 +110,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         <nav className="sidebar-nav" aria-label="Navegação principal">
           {navigationGroups.map(group => <div className="nav-group" key={group.title}>
             <span className="nav-title" aria-hidden={collapsed}>{group.title}</span>
-            {group.items.map(({ key, label, icon: Icon, planned }) => <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
+            {group.items.filter(item => !hiddenKeys.includes(item.key)).map(({ key, label, icon: Icon, planned }) => <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
               <Icon size={17} strokeWidth={1.75} />
               <span className="collapse-hide">{label}</span>
               {planned && <span className="nav-soon collapse-hide">Em breve</span>}

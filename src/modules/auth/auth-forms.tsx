@@ -102,9 +102,10 @@ export function CreateWorkspaceForm({ suggestion }: { suggestion: string }) {
   </form>;
 }
 
-export function SetPasswordForm() {
+export function SetPasswordForm({ next = "/dashboard" }: { next?: string }) {
   const [state, action, pending] = useActionState(setPasswordAction, { error: null });
   return <form action={action} className="mt-7">
+    <input type="hidden" name="next" value={next} />
     <label htmlFor="password" className="text-sm font-medium text-slate-300">Nova senha</label>
     <input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={128} className={fieldClass} disabled={pending} aria-describedby="password-hint" />
     <p id="password-hint" className="mt-2 text-xs text-slate-500">Use pelo menos 8 caracteres.</p>

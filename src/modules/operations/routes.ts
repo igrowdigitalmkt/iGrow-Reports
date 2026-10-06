@@ -8,6 +8,7 @@ export const SECTION_ROUTES: Record<string, string> = {
   "relatorios/templates": "templates",
   "relatorios/pdfs": "relatorios",
   integracoes: "integracoes",
+  equipe: "equipe",
   configuracoes: "configuracoes",
 };
 

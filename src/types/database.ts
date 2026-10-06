@@ -256,6 +256,7 @@ export type Database = {
       report_deliveries: Table<ReportDeliveryRow, Pick<ReportDeliveryRow, "agency_id" | "client_id" | "recipient_id" | "report_version_id" | "template_name" | "template_language"> & Partial<ReportDeliveryRow>, Partial<ReportDeliveryRow>>;
       report_automations: Table<ReportAutomationRow, Pick<ReportAutomationRow, "agency_id" | "client_id" | "name" | "message_template"> & Partial<ReportAutomationRow>, Partial<ReportAutomationRow>>;
       report_automation_targets: Table<ReportAutomationTargetRow, Pick<ReportAutomationTargetRow, "agency_id" | "automation_id" | "client_id"> & Partial<ReportAutomationTargetRow>, Partial<ReportAutomationTargetRow>>;
+      agency_member_permissions: Table<{ agency_id: string; user_id: string; modules: string[]; updated_at: string }, never, never>;
       automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
       report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
@@ -271,6 +272,10 @@ export type Database = {
       request_meta_collection_refresh: { Args: { p_client_id: string; p_connection_id: string; p_date_from: string; p_date_to: string; p_api_version: string; p_contract_version: number; p_scopes: Json }; Returns: Json };
       claim_integration_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number; api_version: string; contract_version: number; retry_attempt_count?: number }[] };
       claim_meta_collection_job: { Args: { p_now?: string }; Returns: { job_id: string; client_id: string; connection_id: string; idempotency_key: string; provider: string; external_account_id: string; date_from: string; date_to: string; entity_level: string; attempt_count: number; api_version: string; contract_version: number; retry_attempt_count?: number }[] };
+      list_agency_members: { Args: { p_agency_id: string }; Returns: { user_id: string; email: string; full_name: string | null; avatar_url: string | null; role: AgencyRole; joined_at: string; last_sign_in_at: string | null; modules: string[] | null }[] };
+      list_agency_invitations: { Args: { p_agency_id: string }; Returns: { id: string; email: string; role: AgencyRole; created_at: string; expires_at: string }[] };
+      set_agency_member_modules: { Args: { p_agency_id: string; p_user_id: string; p_modules: string[] | null }; Returns: undefined };
+      accept_pending_agency_invitations: { Args: Record<string, never>; Returns: number };
       create_own_agency: { Args: { p_name: string; p_timezone?: string }; Returns: string };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };

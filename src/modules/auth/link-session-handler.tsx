@@ -27,7 +27,9 @@ export function LinkSessionHandler() {
       if (failed || !refreshToken) { setStatus("error"); setMessage(invalidLink); return; }
       setStatus("working");
       try {
-        const result = await establishLinkSessionAction({ accessToken, refreshToken, type: params.get("type") });
+        // Where the link should continue (e.g. the invitation page), kept across login and password setup.
+        const next = new URLSearchParams(window.location.search).get("next");
+        const result = await establishLinkSessionAction({ accessToken, refreshToken, type: params.get("type"), next });
         if ("error" in result) { setStatus("error"); setMessage(result.error); return; }
         // Full navigation so every server component reads the new session cookies.
         window.location.assign(result.redirectTo);

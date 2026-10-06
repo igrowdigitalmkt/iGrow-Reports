@@ -653,3 +653,12 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Avisos: o webhook da Evolution passou a assinar `MESSAGES_UPDATE` (configurado ao conectar e também antes de cada envio, para sessões já conectadas). `DELIVERY_ACK` → entregue; `READ`/`PLAYED` → lida; a situação só avança. Formato confirmado no código da Evolution v2.3.7 instalada. Regras em `whatsapp-qr/opt-out.ts` (`parseMessageReceipt`), testadas.
 - Telas: Entregas mostra "X de Y entregues · Z lidas" e a lista de quem recebeu/leu com tiques do WhatsApp; Dados gerais tem cartões por tipo de relatório (Mensagem de WhatsApp, WhatsApp + PDF pela API oficial, E-mail + PDF "em breve") com enviados → recebidos → lidos e tabela por cliente.
 - Limites: confirmação de leitura depende de o destinatário não ter desativado a confirmação de leitura no WhatsApp; em grupos o WhatsApp informa leitura por participante e o iGrow considera a primeira. E-mail ainda não existe (precisa de provedor de envio).
+
+### Bloco 5: Equipe e permissões (6/10/2026)
+
+- Menu "Equipe" abaixo de Integrações (`/equipe`): lista com nome, e-mail, papel (editável por proprietário/administrador), acesso às áreas e último acesso; remover membro; convites pendentes com cancelar; legenda dos papéis.
+- Convidar: e-mail + papel; envia convite de conta (pessoa nova) ou link de acesso (conta existente) e mostra o link direto para copiar (válido 7 dias). O convite por e-mail é aceito automaticamente quando a pessoa entra com aquele e-mail confirmado (`accept_pending_agency_invitations`, chamada no login, link do e-mail, definição de senha, Google e "sem acesso"). O link `/convite?token=` continua válido e agora atravessa login e definição de senha (`next`).
+- Permissões por área (Visão geral, Clientes, Relatórios, Agendamentos, Integrações) para editores e leitores; proprietários e administradores sempre têm tudo. Áreas limitadas somem do menu e mostram aviso se abertas por link. Os dados continuam protegidos pela RLS por papel.
+- Migração `202610070007_team_permissions.sql` (NÃO aplicada): `agency_member_permissions`, `list_agency_members`, `list_agency_invitations`, `set_agency_member_modules`, `accept_pending_agency_invitations`. Teste com 15 verificações; o banco de teste ganhou `raw_user_meta_data` e `last_sign_in_at` em `auth.users`.
+- Correção do bloco 1: `/criar-espaco` entrou na lista de redirecionamentos seguros (antes a confirmação do cadastro caía em "sem acesso").
+- Menu e perfil passam a usar o nome (`full_name`) e a foto (`avatar_url`) da conta quando existem.

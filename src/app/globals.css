@@ -835,3 +835,35 @@ img.user-avatar { object-fit: cover; }
 }
 
 .unsaved-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Team */
+.team { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+img.team-avatar { object-fit: cover; padding: 0; }
+.team-you { margin-left: 8px; vertical-align: middle; font-size: 11px; }
+.team-access { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.team-access span { color: var(--secondary); }
+.team-access .text-link { padding: 0; border: 0; background: none; font-size: 13px; cursor: pointer; }
+.team-roles dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 12px 0 0; border-top: 1px solid var(--border); }
+.team-roles dl > div { padding: 14px 18px; }
+.team-roles dl > div + div { border-left: 1px solid var(--border); }
+.team-roles dt { font-size: 13px; font-weight: 600; }
+.team-roles dd { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.team-role-options { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.team-role-options legend { margin-bottom: 6px; color: var(--secondary); font-size: 13px; }
+.team-role-options label, .team-modules label { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.team-role-options label.is-selected, .team-modules label:has(input:checked) { border-color: var(--accent); background: var(--accent-bg); }
+.team-role-options input, .team-modules input { margin-top: 3px; }
+.team-role-options span, .team-modules span { display: grid; gap: 2px; }
+.team-role-options strong, .team-modules strong { font-size: 13px; font-weight: 500; }
+.team-role-options small, .team-modules small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.team-modules { display: grid; gap: 8px; margin-bottom: 16px; }
+.team-invite-result { display: grid; gap: 14px; }
+.team-invite-result p { margin: 0; color: var(--secondary); font-size: 14px; line-height: 1.55; }
+.team-invite-result label { display: grid; gap: 6px; color: var(--secondary); font-size: 13px; }
+.team-link { display: flex; gap: 8px; }
+.team-link .input { flex: 1; min-width: 0; font-size: 12.5px; }
+@media (max-width: 900px) {
+  .team-roles dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .team-roles dl > div:nth-child(3) { border-left: 0; }
+  .team-roles dl > div:nth-child(n+3) { border-top: 1px solid var(--border); }
+}

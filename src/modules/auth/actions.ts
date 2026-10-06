@@ -11,6 +11,7 @@ import { safeRedirect } from "./redirect";
 import type { AuthActionState, AuthNoticeState } from "./types";
 import { acceptPendingClientInvitations } from "@/modules/client-portal/invitations";
 import { markPasswordSet, needsPasswordSetup } from "./password-state";
+import { acceptPendingAgencyInvitations } from "@/modules/agencies/invitations";
 import { z } from "zod";
 
 export async function loginAction(_state: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -22,6 +23,7 @@ export async function loginAction(_state: AuthActionState, formData: FormData): 
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: "Não foi possível entrar. Confira seu e-mail e senha ou tente novamente em instantes." };
   await acceptPendingClientInvitations(supabase);
+  await acceptPendingAgencyInvitations(supabase);
   (await cookies()).delete(AGENCY_COOKIE);
   revalidatePath("/", "layout");
   redirect(safeRedirect(formData.get("next")));
@@ -50,14 +52,16 @@ export async function setPasswordAction(_state: AuthActionState, formData: FormD
   if (error) return { error: "Não foi possível salvar a senha. Tente novamente ou solicite um novo convite." };
   await markPasswordSet(user);
   await acceptPendingClientInvitations(supabase);
+  await acceptPendingAgencyInvitations(supabase);
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(safeRedirect(formData.get("next")));
 }
 
 const linkSessionSchema = z.object({
   accessToken: z.string().min(20).max(4096),
   refreshToken: z.string().min(8).max(1024),
   type: z.enum(["invite","recovery","magiclink","signup","email"]).nullable(),
+  next: z.string().max(600).nullable().optional(),
 });
 
 // Email links from Supabase's default templates return the session in the URL
@@ -71,9 +75,11 @@ export async function establishLinkSessionAction(input: unknown): Promise<{ erro
   const { data, error } = await supabase.auth.setSession({ access_token: parsed.data.accessToken, refresh_token: parsed.data.refreshToken });
   if (error) return { error: "Este link não é válido ou expirou. Solicite um novo convite ao responsável." };
   await acceptPendingClientInvitations(supabase);
+  await acceptPendingAgencyInvitations(supabase);
   (await cookies()).delete(AGENCY_COOKIE);
   const setup = parsed.data.type === "invite" || parsed.data.type === "recovery" || needsPasswordSetup(data?.user);
-  return { redirectTo: setup ? "/auth/definir-senha" : "/dashboard" };
+  const next = parsed.data.next ? safeRedirect(parsed.data.next) : "/dashboard";
+  return { redirectTo: setup ? `/auth/definir-senha${next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : ""}` : next };
 }
 
 export async function acceptInvitationAction(_state: AuthActionState, formData: FormData): Promise<AuthActionState> {
