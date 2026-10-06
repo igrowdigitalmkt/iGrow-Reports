@@ -98,11 +98,13 @@ export async function connectWhatsApp(input: { agencyId: string; wabaId: string;
     p_key_id: encrypted.keyId, p_nonce_b64: encrypted.nonceB64, p_ciphertext_b64: encrypted.ciphertextB64, p_auth_tag_b64: encrypted.authTagB64,
   });
   if (secretError) throw new WhatsAppSetupError("Não foi possível guardar a credencial do WhatsApp com segurança.");
-  const template = pickTemplate(templates);
+  // Only templates whose name and language fit the stored format can be selected.
+  const template = pickTemplate(templates.filter(item => /^[a-z0-9_]{1,512}$/.test(item.name) && /^[a-z]{2,3}(_[A-Z]{2})?$/.test(item.language)));
+  const text = (value: string | undefined, max: number) => value ? value.slice(0, max) : null;
   const { error } = await service.from("whatsapp_connections").upsert({
     agency_id: input.agencyId, integration_id: integration.id, waba_id: input.wabaId, phone_number_id: input.phoneNumberId,
-    display_phone: phone.display_phone_number ?? null, verified_name: phone.verified_name ?? null, quality_rating: phone.quality_rating ?? null,
-    template_name: template?.name ?? null, template_language: template?.language ?? null, template_status: template?.status ?? null,
+    display_phone: text(phone.display_phone_number, 40), verified_name: text(phone.verified_name, 200), quality_rating: text(phone.quality_rating, 40),
+    template_name: template?.name ?? null, template_language: template?.language ?? null, template_status: text(template?.status, 40),
     last_checked_at: now, updated_at: now,
   }, { onConflict: "agency_id" });
   if (error) {
