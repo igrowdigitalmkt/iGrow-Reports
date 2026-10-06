@@ -18,13 +18,22 @@ export class WhatsAppSetupError extends Error {
 
 export type WhatsAppReadiness = { ready: boolean; missing: string[] };
 
+// WhatsApp may live in its own Meta app (the Ads app cannot take the WhatsApp use case).
+export function whatsAppAppSecret() {
+  return process.env.WHATSAPP_APP_SECRET?.trim() || process.env.META_APP_SECRET?.trim() || undefined;
+}
+export function whatsAppAppId(fallback: string) {
+  const value = process.env.WHATSAPP_APP_ID?.trim();
+  return value && /^\d{5,30}$/.test(value) ? value : fallback;
+}
+
 // Server configuration needed before a workspace can connect a number.
 export function whatsAppReadiness(): WhatsAppReadiness {
   const missing: string[] = [];
   if (!createSupabaseServiceClient()) missing.push("acesso privilegiado ao Supabase");
   if (!getEncryptionConfig()) missing.push("chave de criptografia");
   if (!getMetaApiConfig()) missing.push("versão da Graph API");
-  if (!process.env.META_APP_SECRET?.trim()) missing.push("META_APP_SECRET (assinatura dos avisos)");
+  if (!whatsAppAppSecret()) missing.push("WHATSAPP_APP_SECRET (assinatura dos avisos)");
   if (!process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim()) missing.push("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
   return { ready: missing.length === 0, missing };
 }
@@ -104,7 +113,7 @@ export async function connectWhatsApp(input: { agencyId: string; wabaId: string;
  */
 export async function connectWhatsAppEmbedded(input: { agencyId: string; code: string; wabaId: string; phoneNumberId: string; coexistence: boolean; appId: string }) {
   const { apiVersion } = dependencies();
-  const secret = process.env.META_APP_SECRET?.trim();
+  const secret = whatsAppAppSecret();
   if (!secret) throw new WhatsAppSetupError("A conexão pelo Facebook ainda não está configurada no servidor.");
   const exchange = await fetch(`https://graph.facebook.com/${apiVersion}/oauth/access_token?${new URLSearchParams({ client_id: input.appId, client_secret: secret, code: input.code })}`, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
   const token = await exchange.json().catch(() => ({})) as { access_token?: string };

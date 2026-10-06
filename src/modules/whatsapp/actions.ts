@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { canManageAgency } from "@/modules/agencies/roles";
-import { connectWhatsApp, connectWhatsAppEmbedded, listWhatsAppTemplates, selectWhatsAppTemplate, WhatsAppSetupError } from "./server";
+import { connectWhatsApp, connectWhatsAppEmbedded, listWhatsAppTemplates, selectWhatsAppTemplate, whatsAppAppId, WhatsAppSetupError } from "./server";
 import { META_LOGIN_APP_ID } from "@/modules/meta/login-config";
 
 const failure = (error: unknown, fallback: string) => ({ error: error instanceof WhatsAppSetupError ? error.message : fallback });
@@ -55,7 +55,7 @@ export async function connectWhatsAppEmbeddedAction(input: unknown) {
   const context = await requireAgencyContext();
   if (!canManageAgency(context.role)) return { error: "Apenas proprietários e administradores podem conectar o WhatsApp." };
   try {
-    const result = await connectWhatsAppEmbedded({ agencyId: context.agency.id, appId: META_LOGIN_APP_ID, ...parsed.data });
+    const result = await connectWhatsAppEmbedded({ agencyId: context.agency.id, appId: whatsAppAppId(META_LOGIN_APP_ID), ...parsed.data });
     revalidatePath("/dashboard/integracoes");
     return { success: true as const, ...result };
   } catch (error) { return failure(error, "Não foi possível conectar o WhatsApp agora."); }

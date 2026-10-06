@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { parseStatusEvents, validWebhookSignature } from "@/modules/whatsapp/webhook";
+import { whatsAppAppSecret } from "@/modules/whatsapp/server";
 import type { Json } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
 // Delivery updates: signature checked, each status stored once, then applied without moving backwards.
 export async function POST(request: Request) {
   const raw = await request.text();
-  if (!validWebhookSignature(raw, request.headers.get("x-hub-signature-256"), process.env.META_APP_SECRET?.trim())) {
+  if (!validWebhookSignature(raw, request.headers.get("x-hub-signature-256"), whatsAppAppSecret())) {
     return new Response("Invalid signature", { status: 401 });
   }
   const service = createSupabaseServiceClient();
