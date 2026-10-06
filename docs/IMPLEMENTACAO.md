@@ -510,3 +510,9 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Clientes em tabela com ação principal "Abrir painel" e menu "⋯" (`components/ui/row-menu.tsx`). Integrações: Meta em destaque, WhatsApp e Google Ads como "Em breve"; QStash removido da interface. Templates, Agendamentos e Entregas no grupo Automação com "Em breve".
 - Testes: `pnpm check` (81 arquivos, 656 testes, banco, rollout e build) e e2e (`PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e`, 9 testes, novo teste do menu recolhível) passando.
 - Pendente: telas de login/convite/seleção de espaço ainda com o visual antigo; conferir o painel do cliente e a carteira visualmente com o responsável; Área do Cliente (perfil cliente) homologar com silviorm12.
+
+### Complemento (5/10/2026) — cards arrastáveis e saldo
+
+- `403fed9`: cards opcionais da Visão geral do painel do cliente podem ser arrastados para outra posição e trocados por outra métrica (ícone de troca no card); a ordem é salva nas preferências do navegador como antes. Os três cards fixos (valor usado, resultados, custo por resultado) continuam no topo.
+- `c11ebe6`: seção "Saldo e pagamentos" no painel do cliente (`billing-section.tsx`, ação `getClientBilling`, `getClientAccountBilling` em `meta/server.ts`, `MetaClient.getAdAccountBilling`). Lê na Meta, ao abrir, situação da conta, forma de pagamento (`funding_source_details.display_string`, que no pré-pago traz o saldo), valor a pagar (pós-pago), limite de gastos e gasto total. Histórico de depósitos/pagamentos não é exposto pela Marketing API; a tela informa isso.
+- Publicado. Não homologado visualmente: o painel do navegador do app estava oculto e a página não hidratou. Próximo: o responsável abrir o painel do Colégio Crescer, conferir a seção de saldo (valores em centavos convertidos para reais) e o arraste dos cards.
