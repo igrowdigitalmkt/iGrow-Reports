@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { ArrowLeft, CircleAlert, Loader2, Search, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ClientItem } from "@/modules/clients/schema";
@@ -9,7 +9,11 @@ import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 import type { ReportFrequency, ReportPeriodKey } from "@/types/database";
 import { getDemoClientAnalytics } from "@/modules/client-portal/demo-analytics";
 import { previewAutomationDataAction, saveAutomationAction } from "./actions";
-import { MESSAGE_PRESETS, MESSAGE_VARIABLES, renderMessage, unknownVariables } from "./message";
+import { renderMessage, SYSTEM_TEMPLATES } from "./message";
+import { MessageComposer } from "@/modules/templates/message-composer";
+import { SaveTemplateButton, TemplatePicker } from "@/modules/templates/template-tools";
+import type { SavedTemplate } from "@/modules/templates/types";
+import { SendNowButton } from "./send-now";
 import { describeSchedule, PERIOD_LABELS, upcomingRuns, WEEKDAY_SHORT } from "./schedule";
 import type { AutomationItem } from "./types";
 import { WhatsAppPreview } from "./whatsapp-preview";
@@ -18,7 +22,7 @@ export type EditorDraft = Omit<AutomationItem, "id" | "nextRunAt" | "lastRunAt" 
 
 export function emptyDraft(clientId: string): EditorDraft {
   return {
-    clientId, name: "Resumo semanal", messageTemplate: MESSAGE_PRESETS[0].text, periodKey: "last_7d", frequency: "weekly",
+    clientId, name: "Resumo semanal", messageTemplate: SYSTEM_TEMPLATES[0].body, periodKey: "last_7d", frequency: "weekly",
     weekdays: [1], monthDay: 1, sendTime: "08:00", active: true, targets: [],
   };
 }
@@ -26,19 +30,18 @@ export function emptyDraft(clientId: string): EditorDraft {
 const FREQUENCIES: Array<{ key: ReportFrequency; label: string }> = [
   { key: "daily", label: "Diário" }, { key: "weekly", label: "Semanal" }, { key: "monthly", label: "Mensal" },
 ];
-const GROUPS = ["Geral", "Investimento", "Alcance", "Resultados"] as const;
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 // One screen: who, what, when on the left; the message exactly as it will arrive on the right.
-export function AutomationEditor({ draft: initial, clients, recipients, timezone, workspaceName, appUrl, demo = false, groupsEnabled = false, onCancel, onSaved }: {
-  draft: EditorDraft; demo?: boolean; groupsEnabled?: boolean; clients: ClientItem[]; recipients: SendableRecipient[]; timezone: string; workspaceName: string; appUrl: string | null;
+export function AutomationEditor({ draft: initial, clients, recipients, timezone, workspaceName, appUrl, demo = false, groupsEnabled = false, templates = [], onCancel, onSaved, onSent }: {
+  draft: EditorDraft; demo?: boolean; groupsEnabled?: boolean; templates?: SavedTemplate[]; onSent?: () => void; clients: ClientItem[]; recipients: SendableRecipient[]; timezone: string; workspaceName: string; appUrl: string | null;
   onCancel: () => void; onSaved: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState("");
   const [saving, startSaving] = useTransition();
   const [preview, setPreview] = useState<{ key: string; data: AnalyticsDashboardData | null; error?: string } | null>(null);
-  const textarea = useRef<HTMLTextAreaElement>(null);
+  const [savedTemplates, setSavedTemplates] = useState(templates);
   const [groups, setGroups] = useState<Array<{ id: string; subject: string; size: number | null }> | null>(null);
   const [groupError, setGroupError] = useState("");
   const [groupQuery, setGroupQuery] = useState("");
@@ -48,7 +51,6 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
   const clientRecipients = recipients.filter(recipient => recipient.clientId === draft.clientId);
   const selectedIds = draft.targets.flatMap(target => target.recipientId ? [target.recipientId] : []);
   const firstRecipient = clientRecipients.find(recipient => selectedIds.includes(recipient.id));
-  const unknown = unknownVariables(draft.messageTemplate);
   const previewKey = `${draft.clientId}:${draft.periodKey}`;
 
   useEffect(() => {
@@ -83,15 +85,6 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
   const nextRuns = upcomingRuns(rule, now, 3);
   const when = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: timezone });
 
-  function insertVariable(key: string) {
-    const element = textarea.current;
-    const token = `{{${key}}}`;
-    const start = element?.selectionStart ?? draft.messageTemplate.length;
-    const end = element?.selectionEnd ?? start;
-    update({ messageTemplate: draft.messageTemplate.slice(0, start) + token + draft.messageTemplate.slice(end) });
-    requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(start + token.length, start + token.length); });
-  }
-
   const selectedGroups = draft.targets.flatMap(target => target.groupId ? [{ id: target.groupId, subject: target.groupName, size: null }] : []);
   const groupOptions = [...selectedGroups.filter(group => !groups?.some(item => item.id === group.id)), ...(groups ?? [])]
     .filter(group => !groupQuery || group.subject.toLowerCase().includes(groupQuery.toLowerCase()));
@@ -105,19 +98,26 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
     update({ targets });
   }
 
-  function save() {
+  // Saves the current version and returns its id (also used right before "Enviar agora").
+  async function persist(): Promise<string | null> {
     setError("");
-    if (demo) { setError("Na demonstração nada é salvo. Entre no seu espaço para criar agendamentos de verdade."); return; }
-    startSaving(async () => {
-      const result = await saveAutomationAction({
+    if (demo) { setError("Na demonstração nada é salvo. Entre no seu espaço para criar agendamentos de verdade."); return null; }
+    const result = await saveAutomationAction({
         id: draft.id, clientId: draft.clientId, name: draft.name, messageTemplate: draft.messageTemplate, periodKey: draft.periodKey,
         frequency: draft.frequency, weekdays: draft.weekdays, monthDay: draft.monthDay, sendTime: draft.sendTime, active: draft.active,
         recipientIds: selectedIds, groups: draft.targets.flatMap(target => target.groupId ? [{ id: target.groupId, name: target.groupName }] : []),
-      });
-      if ("error" in result && result.error) { setError(result.error); return; }
-      onSaved();
     });
+    if ("error" in result && result.error) { setError(result.error); return null; }
+    if (!("id" in result) || !result.id) return null;
+    update({ id: result.id });
+    return result.id;
   }
+
+  function save() {
+    startSaving(async () => { if (await persist()) onSaved(); });
+  }
+
+  const destinations = draft.targets.length;
 
   return <div className="automation-editor">
     <div className="automation-editor-head">
@@ -142,22 +142,12 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
         </section>
 
         <section className="panel automation-step">
-          <header><span className="step-number">2</span><div><h3>Mensagem</h3><p>Clique numa variável para inseri-la onde está o cursor. Use *asteriscos* para negrito.</p></div>
-            <select className="input compact-select" aria-label="Começar de um modelo" value="" onChange={event => { const preset = MESSAGE_PRESETS.find(item => item.name === event.target.value); if (preset) update({ messageTemplate: preset.text }); }}>
-              <option value="">Usar um modelo…</option>
-              {MESSAGE_PRESETS.map(preset => <option key={preset.name} value={preset.name}>{preset.name}</option>)}
-            </select>
-          </header>
-          <div className="variable-groups">{GROUPS.map(group => <div key={group} className="variable-group">
-            <span>{group}</span>
-            <div>{MESSAGE_VARIABLES.filter(variable => variable.group === group).map(variable =>
-              <button key={variable.key} type="button" className="variable-chip" title={`Insere {{${variable.key}}}`} onClick={() => insertVariable(variable.key)}>{variable.label}</button>)}</div>
-          </div>)}</div>
-          <textarea ref={textarea} className="input automation-message" rows={12} value={draft.messageTemplate} maxLength={4000} onChange={event => update({ messageTemplate: event.target.value })} aria-label="Texto da mensagem" />
-          <div className="automation-message-foot">
-            {unknown.length ? <span className="is-warn"><CircleAlert size={14} />Variável desconhecida: {unknown.map(key => `{{${key}}}`).join(", ")}</span> : <span>As variáveis são preenchidas com os números do período na hora do envio.</span>}
-            <span>{draft.messageTemplate.length}/4000</span>
+          <header><span className="step-number">2</span><div><h3>Mensagem</h3><p>Comece por um template ou escreva a sua. Clique numa variável para inseri-la onde está o cursor.</p></div></header>
+          <div className="automation-template-bar">
+            <TemplatePicker saved={savedTemplates} onPick={body => update({ messageTemplate: body })} className="input" />
+            <SaveTemplateButton body={draft.messageTemplate} demo={demo} onSaved={template => setSavedTemplates(current => [...current.filter(item => item.id !== template.id), template])} />
           </div>
+          <MessageComposer value={draft.messageTemplate} onChange={messageTemplate => update({ messageTemplate })} />
         </section>
 
         <section className="panel automation-step">
@@ -223,6 +213,10 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
           <div className="automation-save">
             <Button variant="secondary" onClick={onCancel} disabled={saving}>Cancelar</Button>
             <Button onClick={save} disabled={saving || !draft.clientId}>{saving ? "Salvando…" : draft.id ? "Salvar alterações" : "Criar agendamento"}</Button>
+          </div>
+          <div className="automation-send-now">
+            <SendNowButton prepare={persist} recipients={destinations} periodLabel={PERIOD_LABELS[draft.periodKey]} demo={demo} onDone={onSent} />
+            <small>Salva e envia já. Os próximos envios seguem a agenda.</small>
           </div>
         </div>
       </aside>

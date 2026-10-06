@@ -202,6 +202,11 @@ export type ReportAutomationRunStatus = "running" | "sent" | "partial" | "failed
 export type ReportAutomationRunRow = {
   id: string; agency_id: string; automation_id: string; scheduled_for: string; status: ReportAutomationRunStatus; date_from: string | null; date_to: string | null;
   message_text: string | null; sent_count: number; failed_count: number; error_message: string | null; created_at: string; finished_at: string | null;
+  trigger: "schedule" | "manual";
+};
+export type MessageTemplateSegment = "geral" | "mensagens" | "vendas" | "leads" | "seguidores" | "trafego" | "reconhecimento";
+export type MessageTemplateRow = {
+  id: string; agency_id: string; name: string; segment: MessageTemplateSegment; body: string; created_by: string | null; created_at: string; updated_at: string;
 };
 
 export type Database = {
@@ -246,6 +251,7 @@ export type Database = {
       report_deliveries: Table<ReportDeliveryRow, Pick<ReportDeliveryRow, "agency_id" | "client_id" | "recipient_id" | "report_version_id" | "template_name" | "template_language"> & Partial<ReportDeliveryRow>, Partial<ReportDeliveryRow>>;
       report_automations: Table<ReportAutomationRow, Pick<ReportAutomationRow, "agency_id" | "client_id" | "name" | "message_template"> & Partial<ReportAutomationRow>, Partial<ReportAutomationRow>>;
       report_automation_targets: Table<ReportAutomationTargetRow, Pick<ReportAutomationTargetRow, "agency_id" | "automation_id" | "client_id"> & Partial<ReportAutomationTargetRow>, Partial<ReportAutomationTargetRow>>;
+      message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
       report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
     };
     Views: { [_ in never]: never };

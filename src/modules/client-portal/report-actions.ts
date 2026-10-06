@@ -48,7 +48,7 @@ export async function generateDashboardReport(input: unknown) {
     : "Não foi possível gerar o relatório. Confira a seleção e tente novamente." };
   revalidatePath(`/cliente/${parsed.data.clientId}`);
   revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
-  revalidatePath("/dashboard/relatorios");
+  revalidatePath("/dashboard/relatorios/pdfs");
   return { success: true as const, reportVersionId: data };
 }
 
@@ -63,7 +63,7 @@ export async function deleteDashboardReport(input: unknown) {
   if (error) return { error: "Não foi possível excluir o relatório." };
   revalidatePath(`/cliente/${parsed.data.clientId}`);
   revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
-  revalidatePath("/dashboard/relatorios");
+  revalidatePath("/dashboard/relatorios/pdfs");
   return { success: true as const };
 }
 

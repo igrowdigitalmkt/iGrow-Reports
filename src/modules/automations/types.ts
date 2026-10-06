@@ -30,6 +30,7 @@ export type AutomationRunItem = {
   failedCount: number;
   errorMessage: string | null;
   messageText: string | null;
+  trigger: "schedule" | "manual";
 };
 
 export type AutomationsSnapshot = { ready: boolean; automations: AutomationItem[]; runs: AutomationRunItem[] };

@@ -16,7 +16,8 @@ const Table = ({ rows }: { rows: number }) => <div className="panel" style={{ ov
 // Route-level loading state with the shape of the destination section.
 export function RouteSkeleton({ base }: { base: string }) {
   useRouteSkeleton();
-  const section = usePathname().replace(base, "").replace(/^\//, "").split("/")[0];
+  const parts = usePathname().replace(base, "").replace(/^\//, "").split("/");
+  const section = parts[0] === "relatorios" ? ({ agendamentos: "agendamentos", entregas: "entregas", templates: "templates" }[parts[1] ?? ""] ?? "relatorios") : parts[0];
   return <div aria-busy="true" aria-label="Carregando" role="status">
     {section === "" && <><Heading /><Kpis /><div className="overview-grid"><div className="panel" style={{ padding: 18 }}>{block(180, 18)}{block("100%", 220, { marginTop: 18, borderRadius: 8 })}</div><div className="panel"><Rows count={4} /></div></div></>}
     {(section === "clientes" || section === "relatorios") && <><Heading /><div className="section-toolbar">{block(280, 34, { borderRadius: 8 })}</div><Table rows={6} /></>}

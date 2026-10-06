@@ -3,32 +3,36 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bell, CalendarClock, ChevronRight, ChevronsUpDown, CircleHelp, FileChartColumn, FlaskConical, LayoutDashboard, LayoutTemplate, Menu, PanelLeft, Plug, Search, Send, Settings2, Users, X } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarClock, ChevronDown, ChevronRight, ChevronsUpDown, CircleHelp, FileChartColumn, FileText, FlaskConical, LayoutDashboard, LayoutTemplate, Menu, PanelLeft, Plug, Search, Send, Settings2, Users, X } from "lucide-react";
 import { Brand } from "./brand";
 import { NavigationProgress } from "./navigation-progress";
 import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type NavItem = { key: string; label: string; icon: typeof Users; planned?: boolean };
+type NavItem = { key: string; label: string; icon: typeof Users; planned?: boolean; children?: NavItem[] };
+
+// Relatórios groups everything about sending reports; it opens in place instead of navigating.
+export const reportPages: NavItem[] = [
+  { key: "relatorios/agendamentos", label: "Agendamentos", icon: CalendarClock },
+  { key: "relatorios/entregas", label: "Entregas", icon: Send },
+  { key: "relatorios/templates", label: "Templates", icon: LayoutTemplate },
+  { key: "relatorios/pdfs", label: "PDFs salvos", icon: FileText },
+];
 
 export const navigationGroups: { title: string; items: NavItem[] }[] = [
   { title: "Operação", items: [
     { key: "", label: "Visão geral", icon: LayoutDashboard },
     { key: "clientes", label: "Clientes", icon: Users },
-    { key: "relatorios", label: "Relatórios", icon: FileChartColumn },
-  ] },
-  { title: "Automação", items: [
-    { key: "templates", label: "Templates", icon: LayoutTemplate, planned: true },
-    { key: "agendamentos", label: "Agendamentos", icon: CalendarClock },
-    { key: "entregas", label: "Entregas", icon: Send },
+    { key: "relatorios", label: "Relatórios", icon: FileChartColumn, children: reportPages },
   ] },
   { title: "Conta", items: [
     { key: "integracoes", label: "Integrações", icon: Plug },
     { key: "configuracoes", label: "Configurações", icon: Settings2 },
   ] },
 ];
-export const navigation = navigationGroups.flatMap(group => group.items);
+export const navigation = navigationGroups.flatMap(group => group.items.flatMap(item => [item, ...(item.children ?? [])]));
+const REPORTS_OPEN_KEY = "igrow:nav:relatorios";
 
 export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; }
 
@@ -45,7 +49,19 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   const pathname = usePathname();
   const segments = pathname.replace(base, "").split("/").filter(Boolean);
   const activeKey = segments[0] ?? "";
-  const current = navigation.find(item => item.key === activeKey)?.label ?? "Visão geral";
+  const activePath = segments.slice(0, 2).join("/");
+  const inReports = activeKey === "relatorios";
+  const current = navigation.find(item => item.key === (inReports ? activePath : activeKey))?.label ?? "Visão geral";
+  const [reportsOpen, setReportsOpen] = useState(true);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the reader's choice after hydration
+    try { if (window.localStorage.getItem(REPORTS_OPEN_KEY) === "closed") setReportsOpen(false); } catch { /* storage unavailable */ }
+  }, []);
+  const toggleReports = () => setReportsOpen(open => {
+    try { window.localStorage.setItem(REPORTS_OPEN_KEY, open ? "closed" : "open"); } catch { /* storage unavailable */ }
+    return !open;
+  });
+  const showReports = reportsOpen || inReports;
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -105,12 +121,21 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         <nav className="sidebar-nav" aria-label="Navegação principal">
           {navigationGroups.map(group => <div className="nav-group" key={group.title}>
             <span className="nav-title" aria-hidden={collapsed}>{group.title}</span>
-            {group.items.map(({ key, label, icon: Icon, planned }) => <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
+            {group.items.map(({ key, label, icon: Icon, planned, children }) => children ? <div key={key} className={cn("nav-branch", showReports && "is-open", inReports && "is-active")}>
+              <button type="button" className="nav-item nav-parent" onClick={toggleReports} aria-expanded={showReports} data-tip={label} aria-label={collapsed ? label : undefined}>
+                <Icon size={17} strokeWidth={1.75} />
+                <span className="collapse-hide">{label}</span>
+                <ChevronDown size={14} className="nav-caret collapse-hide" />
+              </button>
+              {(showReports || collapsed) && <div className="nav-children">{children.map(child => <Link key={child.key} href={href(child.key)} aria-current={child.key === activePath ? "page" : undefined} data-tip={child.label} aria-label={collapsed ? child.label : undefined} className="nav-item nav-child">
+                <child.icon size={16} strokeWidth={1.75} />
+                <span className="collapse-hide">{child.label}</span>
+              </Link>)}</div>}
+            </div> : <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
               <Icon size={17} strokeWidth={1.75} />
               <span className="collapse-hide">{label}</span>
               {planned && <span className="nav-soon collapse-hide">Em breve</span>}
               {key === "clientes" && !!clientCount && <span className="nav-count collapse-hide">{clientCount}</span>}
-              {demo && key === "relatorios" && <span className="nav-count collapse-hide">2</span>}
             </Link>)}
           </div>)}
         </nav>
@@ -130,7 +155,9 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
           <button type="button" className="icon-button sidebar-toggle" onClick={toggleSidebar} aria-label={toggleLabel} aria-expanded={mobile ? drawerOpen : !collapsed} title={`${toggleLabel} (Ctrl+B)`}>
             <PanelLeft size={18} className="hide-mobile" /><Menu size={18} className="show-mobile" />
           </button>
-          <div className="crumbs">{segments.length > 1
+          <div className="crumbs">{inReports
+            ? <><span className="hide-mobile">Relatórios</span><ChevronRight size={14} className="hide-mobile" /><strong>{current}</strong></>
+            : segments.length > 1
             ? <><Link href={href(activeKey)}>{current}</Link><ChevronRight size={14} /><strong>{activeKey === "clientes" ? "Painel do cliente" : "Detalhes"}</strong></>
             : <><span className="hide-mobile">{identity.agencyName}</span><ChevronRight size={14} className="hide-mobile" /><strong>{current}</strong></>}</div>
           <span className="topbar-spacer" />
@@ -145,7 +172,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         <main id="main-content" className="main-content" tabIndex={-1}>{children}</main>
       </div>
 
-      <Dialog open={noticeOpen} onOpenChange={setNoticeOpen} title="Notificações" description={demo ? "Exemplos fictícios de pendências." : "Avisos do seu espaço de trabalho."}>{demo ? <div className="space-y-3"><div className="notice-item"><span className="status-dot amber" /><div><strong>Um relatório aguarda aprovação</strong><p className="muted text-sm mt-1">Verde & Grão · revisão demonstrativa</p></div></div><div className="notice-item"><span className="status-dot cyan" /><div><strong>Primeiros passos da plataforma</strong><p className="muted text-sm mt-1">Conecte a Meta e cadastre seus clientes.</p></div></div><Link href={`${base}/relatorios`} onClick={() => setNoticeOpen(false)} className="button button-secondary w-full">Ver relatórios</Link></div> : <p className="muted text-sm">Nenhum aviso no momento.</p>}</Dialog>
+      <Dialog open={noticeOpen} onOpenChange={setNoticeOpen} title="Notificações" description={demo ? "Exemplos fictícios de pendências." : "Avisos do seu espaço de trabalho."}>{demo ? <div className="space-y-3"><div className="notice-item"><span className="status-dot amber" /><div><strong>Um relatório aguarda aprovação</strong><p className="muted text-sm mt-1">Verde & Grão · revisão demonstrativa</p></div></div><div className="notice-item"><span className="status-dot cyan" /><div><strong>Primeiros passos da plataforma</strong><p className="muted text-sm mt-1">Conecte a Meta e cadastre seus clientes.</p></div></div><Link href={`${base}/relatorios/pdfs`} onClick={() => setNoticeOpen(false)} className="button button-secondary w-full">Ver relatórios</Link></div> : <p className="muted text-sm">Nenhum aviso no momento.</p>}</Dialog>
       <Dialog open={helpOpen} onOpenChange={setHelpOpen} title="Central de ajuda" description="O caminho para o primeiro relatório."><ol className="onboarding-list"><li><span>1</span><div><strong>Conecte a Meta</strong><p>Em Integrações, entre com o Facebook e autorize as contas de anúncio.</p></div></li><li><span>2</span><div><strong>Cadastre os clientes</strong><p>Em Clientes, crie cada cliente e associe as contas de anúncio dele.</p></div></li><li><span>3</span><div><strong>Abra o painel</strong><p>O painel do cliente mostra os números do período e gera o relatório em PDF.</p></div></li></ol></Dialog>
     </div>
   </SearchContext.Provider>;

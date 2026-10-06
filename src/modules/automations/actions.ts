@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { getClientAnalytics } from "@/modules/client-portal/analytics";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createQrSender } from "@/modules/whatsapp-qr/server";
+import { executeAutomation } from "./runner";
 import { unknownVariables } from "./message";
 import { localDate, nextRunAt, resolvePeriod } from "./schedule";
 
@@ -71,7 +74,7 @@ export async function saveAutomationAction(input: unknown) {
   const inserted = await context.supabase.from("report_automation_targets").insert(targets);
   if (inserted.error) return { error: "O agendamento foi salvo, mas não foi possível gravar os destinatários." };
 
-  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/dashboard/relatorios/agendamentos");
   return { success: true as const, id: automationId, nextRunAt: row.next_run_at };
 }
 
@@ -87,7 +90,7 @@ export async function setAutomationActiveAction(input: unknown) {
   const { error } = await context.supabase.from("report_automations").update({ active: parsed.data.active, next_run_at: next?.toISOString() ?? null, updated_at: new Date().toISOString() })
     .eq("agency_id", context.agency.id).eq("id", parsed.data.id);
   if (error) return { error: "Não foi possível alterar o agendamento." };
-  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/dashboard/relatorios/agendamentos");
   return { success: true as const, nextRunAt: next?.toISOString() ?? null };
 }
 
@@ -98,7 +101,7 @@ export async function deleteAutomationAction(input: unknown) {
   if (context.role === "viewer") return denied;
   const { error } = await context.supabase.from("report_automations").delete().eq("agency_id", context.agency.id).eq("id", parsed.data.id);
   if (error) return { error: "Não foi possível excluir o agendamento." };
-  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/dashboard/relatorios/agendamentos");
   return { success: true as const };
 }
 
@@ -114,4 +117,27 @@ export async function previewAutomationDataAction(input: unknown) {
   } catch {
     return { error: "Não foi possível carregar os números deste cliente para a prévia." };
   }
+}
+
+// "Enviar agora": same path as the scheduled send (consent re-checked, run recorded), outside
+// the schedule. The next scheduled send stays as it was.
+export async function sendAutomationNowAction(input: unknown) {
+  const parsed = z.object({ id: uuid }).safeParse(input);
+  if (!parsed.success) return { error: "Agendamento inválido." };
+  const context = await requireAgencyContext();
+  if (context.role === "viewer") return { error: "Leitores não podem enviar mensagens." };
+  const { data: automation } = await context.supabase.from("report_automations").select("*").eq("agency_id", context.agency.id).eq("id", parsed.data.id).maybeSingle();
+  if (!automation) return { error: "Agendamento não encontrado." };
+  const service = createSupabaseServiceClient();
+  if (!service) return { error: "O envio não está disponível neste ambiente." };
+  const now = new Date();
+  const period = resolvePeriod(automation.period_key, localDate(now, automation.timezone));
+  const outcome = await executeAutomation(service, automation, { scheduledFor: now, period, trigger: "manual" }, {
+    resolveSender: agencyId => createQrSender(agencyId).catch(() => null),
+    appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null,
+  });
+  revalidatePath("/dashboard/relatorios/agendamentos");
+  revalidatePath("/dashboard/relatorios/entregas");
+  if (!outcome) return { error: "Já existe um envio em andamento para este agendamento. Tente de novo em instantes." };
+  return { success: true as const, ...outcome };
 }

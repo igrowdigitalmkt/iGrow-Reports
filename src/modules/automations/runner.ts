@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeClientAnalytics } from "@/modules/client-portal/analytics-calculations";
-import type { Database, ReportAutomationRow } from "@/types/database";
+import type { Database, ReportAutomationRow, ReportAutomationRunRow } from "@/types/database";
 import { renderMessage } from "./message";
 import { localDate, nextRunAt, resolvePeriod } from "./schedule";
 import { deliverToDestinations, runStatus, type MessageDestination, type MessageSender } from "./sender";
@@ -22,7 +22,75 @@ export function planRun(automation: Pick<ReportAutomationRow, "frequency" | "wee
   return { scheduledFor, period: resolvePeriod(automation.period_key, runDate), next: nextRunAt(rule, after) };
 }
 
-export async function runDueAutomations(service: Service, options: { now?: Date; resolveSender: SenderResolver; budgetMs?: number; pause?: () => number; appUrl?: string | null }) {
+export type RunOutcome = { status: "sent" | "partial" | "failed" | "skipped"; sent: number; failed: number; message: string | null; runId: string | null };
+type ExecuteOptions = { resolveSender: SenderResolver; pause?: () => number; appUrl?: string | null };
+
+/**
+ * Sends one automation for a period and records the run. The unique (automation, slot) row is the
+ * lock: when it already exists (another invocation got there first) nothing is sent.
+ */
+export async function executeAutomation(service: Service, automation: ReportAutomationRow, run: { scheduledFor: Date; period: { dateFrom: string; dateTo: string }; trigger: "schedule" | "manual" }, options: ExecuteOptions): Promise<RunOutcome | null> {
+  const base = {
+    agency_id: automation.agency_id, automation_id: automation.id, scheduled_for: run.scheduledFor.toISOString(),
+    date_from: run.period.dateFrom, date_to: run.period.dateTo,
+  };
+  // "schedule" is the column default; the origin column only exists after migration 202610070003.
+  const payload: typeof base & Partial<ReportAutomationRunRow> = run.trigger === "manual" ? { ...base, trigger: "manual" } : base;
+  let claim = await service.from("report_automation_runs").insert(payload).select("id").single();
+  if (claim.error?.code === "PGRST204" && run.trigger === "manual") claim = await service.from("report_automation_runs").insert(base).select("id").single();
+  const { data: row, error: claimError } = claim;
+  if (claimError || !row) return null;
+
+  const finish = async (status: RunOutcome["status"], patch: { message_text?: string; sent_count?: number; failed_count?: number; error_message?: string | null }): Promise<RunOutcome> => {
+    const message = patch.error_message?.slice(0, 1000) ?? null;
+    await service.from("report_automation_runs").update({ status, finished_at: new Date().toISOString(), ...patch, error_message: message }).eq("id", row.id);
+    return { status, sent: patch.sent_count ?? 0, failed: patch.failed_count ?? 0, message, runId: row.id };
+  };
+
+  try {
+    const sender = await options.resolveSender(automation.agency_id);
+    if (!sender) return await finish("skipped", { error_message: NOT_CONNECTED });
+
+    const [{ data: targets }, { data: client }, { data: agency }] = await Promise.all([
+      service.from("report_automation_targets").select("recipient_id,group_id,group_name").eq("automation_id", automation.id).eq("agency_id", automation.agency_id),
+      service.from("clients").select("name,archived_at").eq("id", automation.client_id).eq("agency_id", automation.agency_id).maybeSingle(),
+      service.from("agencies").select("name").eq("id", automation.agency_id).maybeSingle(),
+    ]);
+    if (!client || client.archived_at) return await finish("skipped", { error_message: "Cliente arquivado ou removido." });
+    const recipientIds = (targets ?? []).flatMap(target => target.recipient_id ? [target.recipient_id] : []);
+    const { data: recipients } = recipientIds.length
+      ? await service.from("client_recipients").select("id,name,phone,active,consent_status,unsubscribed_at").eq("agency_id", automation.agency_id).in("id", recipientIds)
+      : { data: [] };
+    // Consent is checked again at send time: a recipient may have opted out since the schedule was saved.
+    const people = (recipients ?? []).filter(item => item.active && !item.unsubscribed_at && item.consent_status === "granted");
+    const groups = (targets ?? []).flatMap(target => target.group_id ? [{ id: target.group_id, name: target.group_name ?? "Grupo" }] : []);
+    if (!people.length && !groups.length) return await finish("skipped", { error_message: "Nenhum destinatário autorizado." });
+
+    const { data: payload, error: analyticsError } = await service.rpc("service_client_analytics", {
+      p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo,
+    });
+    if (analyticsError || !payload) return await finish("failed", { error_message: "Não foi possível ler os números do período." });
+    const data = normalizeClientAnalytics(payload);
+    const context = { clientName: client.name, workspaceName: agency?.name ?? null, data, dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null };
+
+    let sent = 0; let failed = 0; const errors: string[] = [];
+    // Each person gets their own first name; a group gets the version without a name.
+    const deliveries: Array<{ destination: MessageDestination; text: string }> = [
+      ...people.map(person => ({ destination: { kind: "phone" as const, phone: person.phone, label: person.name }, text: renderMessage(automation.message_template, { ...context, recipientName: person.name }) })),
+      ...groups.map(group => ({ destination: { kind: "group" as const, groupId: group.id, label: group.name }, text: renderMessage(automation.message_template, { ...context, recipientName: "pessoal" }) })),
+    ];
+    for (const [index, item] of deliveries.entries()) {
+      const report = await deliverToDestinations(sender, [item.destination], item.text, options.pause);
+      sent += report.sent; failed += report.failed; errors.push(...report.errors);
+      if (index < deliveries.length - 1) await new Promise(resolve => setTimeout(resolve, options.pause?.() ?? 4000 + Math.random() * 5000));
+    }
+    return await finish(runStatus({ sent, failed, errors }), { message_text: deliveries[0].text.slice(0, 6000), sent_count: sent, failed_count: failed, error_message: errors.join(" · ") || null });
+  } catch {
+    return await finish("failed", { error_message: "Erro inesperado ao executar o agendamento." });
+  }
+}
+
+export async function runDueAutomations(service: Service, options: ExecuteOptions & { now?: Date; budgetMs?: number }) {
   const now = options.now ?? new Date();
   const started = Date.now();
   const budget = options.budgetMs ?? 240_000;
@@ -34,62 +102,10 @@ export async function runDueAutomations(service: Service, options: { now?: Date;
   for (const automation of due ?? []) {
     if (Date.now() - started > budget) { summary.deferred += 1; continue; }
     const plan = planRun(automation, now);
-    // The unique (automation, slot) row is the lock: a concurrent invocation stops here.
-    const { data: run, error: claimError } = await service.from("report_automation_runs").insert({
-      agency_id: automation.agency_id, automation_id: automation.id, scheduled_for: plan.scheduledFor.toISOString(),
-      date_from: plan.period.dateFrom, date_to: plan.period.dateTo,
-    }).select("id").single();
     await service.from("report_automations").update({ next_run_at: plan.next?.toISOString() ?? null, last_run_at: now.toISOString() })
       .eq("id", automation.id).eq("agency_id", automation.agency_id);
-    if (claimError || !run) continue;
-
-    const finish = async (status: "sent" | "partial" | "failed" | "skipped", patch: { message_text?: string; sent_count?: number; failed_count?: number; error_message?: string | null }) => {
-      summary[status] += 1;
-      await service.from("report_automation_runs").update({ status, finished_at: new Date().toISOString(), ...patch, error_message: patch.error_message?.slice(0, 1000) ?? null })
-        .eq("id", run.id);
-    };
-
-    try {
-      const sender = await options.resolveSender(automation.agency_id);
-      if (!sender) { await finish("skipped", { error_message: NOT_CONNECTED }); continue; }
-
-      const [{ data: targets }, { data: client }, { data: agency }] = await Promise.all([
-        service.from("report_automation_targets").select("recipient_id,group_id,group_name").eq("automation_id", automation.id).eq("agency_id", automation.agency_id),
-        service.from("clients").select("name,archived_at").eq("id", automation.client_id).eq("agency_id", automation.agency_id).maybeSingle(),
-        service.from("agencies").select("name").eq("id", automation.agency_id).maybeSingle(),
-      ]);
-      if (!client || client.archived_at) { await finish("skipped", { error_message: "Cliente arquivado ou removido." }); continue; }
-      const recipientIds = (targets ?? []).flatMap(target => target.recipient_id ? [target.recipient_id] : []);
-      const { data: recipients } = recipientIds.length
-        ? await service.from("client_recipients").select("id,name,phone,active,consent_status,unsubscribed_at").eq("agency_id", automation.agency_id).in("id", recipientIds)
-        : { data: [] };
-      // Consent is checked again at send time: a recipient may have opted out since the schedule was saved.
-      const people = (recipients ?? []).filter(row => row.active && !row.unsubscribed_at && row.consent_status === "granted");
-      const groups = (targets ?? []).flatMap(target => target.group_id ? [{ id: target.group_id, name: target.group_name ?? "Grupo" }] : []);
-      if (!people.length && !groups.length) { await finish("skipped", { error_message: "Nenhum destinatário autorizado." }); continue; }
-
-      const { data: payload, error: analyticsError } = await service.rpc("service_client_analytics", {
-        p_client_id: automation.client_id, p_date_from: plan.period.dateFrom, p_date_to: plan.period.dateTo,
-      });
-      if (analyticsError || !payload) { await finish("failed", { error_message: "Não foi possível ler os números do período." }); continue; }
-      const data = normalizeClientAnalytics(payload);
-      const context = { clientName: client.name, workspaceName: agency?.name ?? null, data, dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null };
-
-      let sent = 0; let failed = 0; const errors: string[] = [];
-      // Each person gets their own first name; a group gets the version without a name.
-      const deliveries: Array<{ destination: MessageDestination; text: string }> = [
-        ...people.map(person => ({ destination: { kind: "phone" as const, phone: person.phone, label: person.name }, text: renderMessage(automation.message_template, { ...context, recipientName: person.name }) })),
-        ...groups.map(group => ({ destination: { kind: "group" as const, groupId: group.id, label: group.name }, text: renderMessage(automation.message_template, { ...context, recipientName: "pessoal" }) })),
-      ];
-      for (const [index, item] of deliveries.entries()) {
-        const report = await deliverToDestinations(sender, [item.destination], item.text, options.pause);
-        sent += report.sent; failed += report.failed; errors.push(...report.errors);
-        if (index < deliveries.length - 1) await new Promise(resolve => setTimeout(resolve, options.pause?.() ?? 4000 + Math.random() * 5000));
-      }
-      await finish(runStatus({ sent, failed, errors }), { message_text: deliveries[0].text.slice(0, 6000), sent_count: sent, failed_count: failed, error_message: errors.join(" · ") || null });
-    } catch {
-      await finish("failed", { error_message: "Erro inesperado ao executar o agendamento." });
-    }
+    const outcome = await executeAutomation(service, automation, { scheduledFor: plan.scheduledFor, period: plan.period, trigger: "schedule" }, options);
+    if (outcome) summary[outcome.status] += 1;
   }
   return summary;
 }

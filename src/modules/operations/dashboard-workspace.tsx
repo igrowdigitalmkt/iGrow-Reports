@@ -6,7 +6,7 @@ import { demoPortfolio } from "./demo-data";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { motion } from "motion/react";
-import { ArrowDownToLine, ArrowRight, ArrowUpRight, CheckCheck, Clock3, FileChartColumn, Filter, Info, Monitor, Moon, Send, Settings2, ShieldCheck, Sun, Users } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, ArrowUpRight, CheckCheck, Clock3, FileChartColumn, Filter, Info, Monitor, Moon, Settings2, ShieldCheck, Sun, Users } from "lucide-react";
 import { type WorkspaceIdentity, navigation, useWorkspaceSearch } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -25,13 +25,16 @@ import { DeliveriesView, type DeliveryItem } from "@/modules/whatsapp/deliveries
 import { AutomationsView } from "@/modules/automations/automations-view";
 import { IntegrationsHub } from "./integrations-hub";
 import type { AutomationsSnapshot } from "@/modules/automations/types";
+import type { TemplatesSnapshot } from "@/modules/templates/types";
+import { TemplatesView } from "@/modules/templates/templates-view";
+import { SECTION_PATHS } from "./routes";
 import { demoAutomationClients, demoAutomationRecipients, demoAutomations } from "@/modules/automations/demo";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 
-interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; qrConnected?: boolean; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
+interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; templates?: TemplatesSnapshot; initialClientId?: string; qrConnected?: boolean; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const subscribeToHydration = () => () => {};
 
-export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], automations, qrConnected = false, canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
+export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], automations, templates, initialClientId, qrConnected = false, canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
   const { search } = useWorkspaceSearch();
   const [status, setStatus] = useState("Todos os estados");
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
@@ -40,11 +43,11 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
   const base = demo ? "/demo" : "/dashboard";
   const data = demo ? getDemoSnapshot("30d") : emptySnapshot(activeClients);
   const matchingReports = data.reports.filter(report => `${report.client} ${report.type} ${report.id}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")) && (status === "Todos os estados" || report.status === status));
-  const currentLabel = navigation.find(item => item.key === section)?.label ?? "Visão geral";
+  const currentLabel = navigation.find(item => item.key === (SECTION_PATHS[section] ?? section))?.label ?? "Visão geral";
 
   return <>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .18 }}>
-      <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · últimos 30 dias`}</p></div><div className="heading-actions">{!section && <Button asChild variant="secondary"><Link href={`${base}/relatorios`}><FileChartColumn size={16} />Ver relatórios</Link></Button>}</div></div>
+      <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · últimos 30 dias`}</p></div><div className="heading-actions">{!section && <Button asChild variant="secondary"><Link href={`${base}/relatorios/pdfs`}><FileChartColumn size={16} />Ver relatórios</Link></Button>}</div></div>
 
       {!section && (demo ? <PortfolioView summary={demoPortfolio} base={base} demo /> : portfolio)}
 
@@ -59,12 +62,13 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
 
       {section === "configuracoes" && <div className="settings-grid"><section className="panel settings-panel"><div className="panel-heading"><div><h2>Espaço de trabalho e acesso</h2><p>{demo ? "Contexto demonstrativo" : "Contexto autenticado da sua sessão"}</p></div><ShieldCheck size={18} className="muted" /></div><dl className="settings-fields"><div><dt>Espaço de trabalho</dt><dd>{identity.agencyName}</dd></div><div><dt>Usuário</dt><dd>{identity.userName}</dd></div><div><dt>Perfil</dt><dd>{identity.roleLabel}</dd></div><div><dt>Fuso horário</dt><dd className="font-mono text-sm">{identity.timezone}</dd></div></dl>{demo ? <Link className="button button-secondary" href="/entrar">Entrar no meu espaço<ArrowUpRight size={15} /></Link> : <div className="flex gap-3 flex-wrap"><Link className="button button-secondary" href="/selecionar-agencia">Trocar espaço de trabalho</Link><form action={logoutAction}><button className="button button-secondary" type="submit">Sair da conta</button></form></div>}</section><section className="panel settings-panel"><div className="panel-heading"><div><h2>Aparência</h2><p>Escolha como a plataforma aparece para você</p></div><Settings2 size={18} className="muted" /></div><div className="theme-options">{[{ key: "dark", label: "Escuro", Icon: Moon }, { key: "light", label: "Claro", Icon: Sun }, { key: "system", label: "Sistema", Icon: Monitor }].map(({ key, label, Icon }) => <button key={key} className={cn("theme-option", hydrated && theme === key && "selected")} onClick={() => setTheme(key)} aria-pressed={hydrated && theme === key}><Icon size={24} /><span>{label}</span></button>)}</div><p className="muted text-xs mt-5">Sua preferência fica salva neste navegador.</p></section></div>}
 
-      {section === "entregas" && !demo && <DeliveriesView deliveries={deliveries} connected={!!whatsapp} />}
+      {section === "entregas" && <DeliveriesView deliveries={demo ? [] : deliveries} automations={demo ? demoAutomations : automations ?? null} clients={demo ? demoAutomationClients : clients ?? []} connected={!!whatsapp || demo} timezone={identity.timezone || "America/Sao_Paulo"} initialClientId={initialClientId} />}
 
-      {section === "agendamentos" && demo && <AutomationsView demo snapshot={demoAutomations} clients={demoAutomationClients} recipients={demoAutomationRecipients} canEdit timezone="America/Sao_Paulo" workspaceName={identity.agencyName} appUrl={null} channelReady={false} />}
-      {section === "agendamentos" && !demo && automations && <AutomationsView snapshot={automations} clients={clients ?? []} recipients={recipients} canEdit={canSendReports} timezone={identity.timezone || "America/Sao_Paulo"} workspaceName={identity.agencyName} appUrl={process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null} channelReady={qrConnected} />}
+      {section === "templates" && <TemplatesView demo={demo} snapshot={demo ? { ready: true, items: [] } : templates ?? { ready: false, items: [] }} clients={demo ? [] : clients ?? []} canEdit={demo || canSendReports} workspaceName={identity.agencyName} />}
 
-      {(section === "templates" || (section === "entregas" && demo)) && <section className="panel feature-preview"><span className="feature-icon">{section === "templates" ? <FileChartColumn size={20} /> : <Send size={20} />}</span><span className="badge neutral">Em breve</span><h2>{section === "templates" ? "Modelos com blocos configuráveis" : "Acompanhe cada envio"}</h2><p>{section === "templates" ? "Monte a estrutura do relatório uma vez e aplique a vários clientes. Cada versão fica guardada." : "Veja quando o relatório foi entregue, lido e aberto por cada destinatário."}</p><p className="planned-note mt-2">Esta funcionalidade ainda não está disponível.</p></section>}
+      {section === "agendamentos" && demo && <AutomationsView demo snapshot={demoAutomations} clients={demoAutomationClients} recipients={demoAutomationRecipients} canEdit templates={[]} timezone="America/Sao_Paulo" workspaceName={identity.agencyName} appUrl={null} channelReady={false} />}
+      {section === "agendamentos" && !demo && automations && <AutomationsView snapshot={automations} templates={templates?.items ?? []} initialClientId={initialClientId} clients={clients ?? []} recipients={recipients} canEdit={canSendReports} timezone={identity.timezone || "America/Sao_Paulo"} workspaceName={identity.agencyName} appUrl={process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null} channelReady={qrConnected} />}
+
     </motion.div>
 
     <Dialog open={!!selectedReport} onOpenChange={open => { if (!open) setSelectedReport(null); }} title={selectedReport?.client ?? "Relatório"} description="Prévia demonstrativa · todos os números abaixo são fictícios.">{selectedReport && <div><div className="report-preview-header"><span>{selectedReport.id} · v1</span><StatusBadge status={selectedReport.status} /></div><h3 className="text-lg font-semibold mt-6">{selectedReport.type}</h3><p className="muted text-sm mt-1">{selectedReport.date}</p><div className="preview-metrics"><div><small>Investimento fictício</small><strong>R$ 1.250,00</strong></div><div><small>{selectedReport.type === "Vendas" ? "Compras fictícias" : selectedReport.type === "Conversas" ? "Conversas fictícias" : "Leads fictícios"}</small><strong>50</strong></div><div><small>Custo por resultado</small><strong>R$ 25,00</strong></div></div><div className="info-banner mt-5"><Info size={18} /><p>Esta é uma amostra visual. Snapshots, aprovação, links de acesso e geração de PDF serão implementados nas próximas etapas.</p></div><div className="planned-note mt-5"><ArrowDownToLine size={15} />Download de PDF indisponível nesta etapa</div></div>}</Dialog>
@@ -80,6 +84,6 @@ function ReportsTable({ rows, total, demo, base, onSelect, expanded }: { rows: R
 function EmptyState({ title, description, icon: Icon }: { title: string; description: string; icon: typeof Users }) { return <div className="empty-state"><span><Icon size={26} strokeWidth={1.4} /></span><h3>{title}</h3><p>{description}</p></div>; }
 
 function sectionDescription(section: string) {
-  const descriptions: Record<string, string> = { clientes: "Clientes do espaço de trabalho e suas contas de anúncio.", relatorios: "Versões salvas dos relatórios de cada cliente.", templates: "Modelos de relatório reutilizáveis.", agendamentos: "Mensagens com os números de cada cliente, enviadas no dia e horário que você escolher.", entregas: "Histórico de envios por WhatsApp.", integracoes: "Contas conectadas ao seu espaço de trabalho.", configuracoes: "Sua conta, o espaço de trabalho e a aparência." };
+  const descriptions: Record<string, string> = { clientes: "Clientes do espaço de trabalho e suas contas de anúncio.", relatorios: "Relatórios em PDF salvos de cada cliente.", templates: "Mensagens prontas para cada tipo de resultado: escolha uma da plataforma ou crie as suas.", agendamentos: "Mensagens com os números de cada cliente, enviadas no dia e horário que você escolher.", entregas: "Tudo o que foi enviado a cada cliente: agendamentos, envios imediatos e PDFs.", integracoes: "Contas conectadas ao seu espaço de trabalho.", configuracoes: "Sua conta, o espaço de trabalho e a aparência." };
   return descriptions[section];
 }

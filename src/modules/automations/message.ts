@@ -1,5 +1,6 @@
 import { resultCostBreakdown } from "@/modules/client-portal/analytics-results";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
+import type { MessageTemplateSegment } from "@/types/database";
 
 export type MessageContext = {
   clientName: string;
@@ -9,7 +10,7 @@ export type MessageContext = {
   data: AnalyticsDashboardData | null;
 };
 
-export type MessageVariable = { key: string; label: string; group: "Geral" | "Investimento" | "Alcance" | "Resultados" };
+export type MessageVariable = { key: string; label: string; group: "Geral" | "Investimento" | "Alcance" | "Resultados" | "Custos" };
 
 // Friendly names typed as {{chave}}. Kept in Portuguese without accents so they are easy to type.
 export const MESSAGE_VARIABLES: MessageVariable[] = [
@@ -19,6 +20,8 @@ export const MESSAGE_VARIABLES: MessageVariable[] = [
   { key: "equipe", label: "Nome da agência", group: "Geral" },
   { key: "link_painel", label: "Link do painel", group: "Geral" },
   { key: "investimento", label: "Valor investido", group: "Investimento" },
+  { key: "receita", label: "Receita das compras", group: "Investimento" },
+  { key: "roas", label: "ROAS", group: "Investimento" },
   { key: "cpm", label: "CPM", group: "Investimento" },
   { key: "cpc", label: "CPC", group: "Investimento" },
   { key: "impressoes", label: "Impressões", group: "Alcance" },
@@ -30,25 +33,57 @@ export const MESSAGE_VARIABLES: MessageVariable[] = [
   { key: "conversas", label: "Conversas iniciadas", group: "Resultados" },
   { key: "leads", label: "Leads", group: "Resultados" },
   { key: "cadastros", label: "Cadastros", group: "Resultados" },
-  { key: "visitas_perfil", label: "Visitas ao perfil", group: "Resultados" },
   { key: "compras", label: "Compras", group: "Resultados" },
+  { key: "seguidores", label: "Novos seguidores", group: "Resultados" },
+  { key: "visitas_perfil", label: "Visitas ao perfil", group: "Resultados" },
+  { key: "custo_conversa", label: "Custo por conversa", group: "Custos" },
+  { key: "custo_lead", label: "Custo por lead", group: "Custos" },
+  { key: "custo_cadastro", label: "Custo por cadastro", group: "Custos" },
+  { key: "custo_compra", label: "Custo por compra", group: "Custos" },
+  { key: "custo_seguidor", label: "Custo por seguidor", group: "Custos" },
 ];
 
 const KNOWN = new Set(MESSAGE_VARIABLES.map(variable => variable.key));
 const PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/gi;
+const OPT_OUT = "\n\n_Para não receber mais estas mensagens, responda PARAR._";
 
-export const MESSAGE_PRESETS = [
+export type SystemTemplate = { id: string; name: string; segment: MessageTemplateSegment; description: string; body: string };
+
+export const SEGMENT_LABELS: Record<MessageTemplateSegment, string> = {
+  geral: "Geral",
+  mensagens: "Conversas no WhatsApp/Direct",
+  vendas: "Vendas e e-commerce",
+  leads: "Leads e cadastros",
+  seguidores: "Seguidores e perfil",
+  trafego: "Tráfego para o site",
+  reconhecimento: "Alcance e reconhecimento",
+};
+
+// Ready-made templates, one for each of the most common campaign goals.
+export const SYSTEM_TEMPLATES: SystemTemplate[] = [
   {
-    name: "Resumo completo",
-    text: "Olá, {{nome}}! 👋\n\nSegue o resumo de *{{cliente}}* ({{periodo}}):\n\n💰 Investimento: *{{investimento}}*\n👀 Alcance: {{alcance}} pessoas\n📢 Impressões: {{impressoes}}\n🖱️ Cliques: {{cliques}} (CTR {{ctr}})\n\n🎯 *Resultados*\n{{resultados}}\n\nQualquer dúvida, é só chamar por aqui.\n\n_Para não receber mais estas mensagens, responda PARAR._",
+    id: "sistema-geral", name: "Resumo completo", segment: "geral", description: "Investimento, alcance, cliques e todos os resultados do período.",
+    body: "Olá, {{nome}}! 👋\n\nSegue o resumo de *{{cliente}}* ({{periodo}}):\n\n💰 Investimento: *{{investimento}}*\n👀 Alcance: {{alcance}} pessoas\n📢 Impressões: {{impressoes}}\n🖱️ Cliques: {{cliques}} (CTR {{ctr}})\n\n🎯 *Resultados*\n{{resultados}}\n\nQualquer dúvida, é só chamar por aqui." + OPT_OUT,
   },
   {
-    name: "Curto",
-    text: "Bom dia, {{nome}}! Em {{periodo}}, {{cliente}} investiu {{investimento}} e teve:\n{{resultados}}\n\n_Para não receber mais, responda PARAR._",
+    id: "sistema-mensagens", name: "Conversas iniciadas", segment: "mensagens", description: "Para campanhas que levam ao WhatsApp, Messenger ou Direct.",
+    body: "Olá, {{nome}}! 💬\n\nEm {{periodo}}, os anúncios de *{{cliente}}* geraram *{{conversas}} conversas* iniciadas.\n\n💰 Investimento: {{investimento}}\n📉 Custo por conversa: *{{custo_conversa}}*\n👀 Alcance: {{alcance}} pessoas\n\nVale conferir se todas as conversas foram respondidas. 😉" + OPT_OUT,
   },
   {
-    name: "Com link do painel",
-    text: "Olá, {{nome}}! Os números de {{cliente}} em {{periodo}} já estão atualizados.\n\n💰 {{investimento}} investidos\n\n🎯 *Resultados*\n{{resultados}}\n\nVeja os detalhes no painel: {{link_painel}}\n\n_Para não receber mais estas mensagens, responda PARAR._",
+    id: "sistema-vendas", name: "Vendas", segment: "vendas", description: "Compras, receita, ROAS e custo por compra.",
+    body: "Olá, {{nome}}! 🛒\n\nResultado de vendas de *{{cliente}}* em {{periodo}}:\n\n✅ Compras: *{{compras}}*\n💵 Receita: *{{receita}}*\n📈 ROAS: *{{roas}}*\n💰 Investimento: {{investimento}}\n🎯 Custo por compra: {{custo_compra}}\n\nQualquer dúvida, estamos por aqui." + OPT_OUT,
+  },
+  {
+    id: "sistema-leads", name: "Leads e cadastros", segment: "leads", description: "Para formulários, cadastros e captação de contatos.",
+    body: "Olá, {{nome}}! 📋\n\nCaptação de *{{cliente}}* em {{periodo}}:\n\n✅ Leads: *{{leads}}* (custo de {{custo_lead}} cada)\n📝 Cadastros: *{{cadastros}}* (custo de {{custo_cadastro}} cada)\n💰 Investimento: {{investimento}}\n🖱️ Cliques: {{cliques}} (CTR {{ctr}})\n\nLembrete: quanto mais rápido o primeiro contato, maior a chance de conversão." + OPT_OUT,
+  },
+  {
+    id: "sistema-seguidores", name: "Seguidores e perfil", segment: "seguidores", description: "Crescimento do Instagram: seguidores e visitas ao perfil.",
+    body: "Olá, {{nome}}! 📸\n\nCrescimento do perfil de *{{cliente}}* em {{periodo}}:\n\n➕ Novos seguidores: *{{seguidores}}* ({{custo_seguidor}} cada)\n👤 Visitas ao perfil: {{visitas_perfil}}\n👀 Alcance: {{alcance}} pessoas\n💰 Investimento: {{investimento}}" + OPT_OUT,
+  },
+  {
+    id: "sistema-trafego", name: "Tráfego para o site", segment: "trafego", description: "Cliques, CTR e custo por clique.",
+    body: "Olá, {{nome}}! 🌐\n\nTráfego de *{{cliente}}* em {{periodo}}:\n\n🖱️ Cliques no link: *{{cliques}}*\n📊 CTR: {{ctr}}\n💸 CPC: *{{cpc}}*\n👀 Alcance: {{alcance}} pessoas\n💰 Investimento: {{investimento}}" + OPT_OUT,
   },
 ];
 
@@ -76,6 +111,7 @@ function formatters(currency: string | null) {
     decimal: (value: number | null | undefined) => ok(value) ? decimal.format(value) : "—",
     money: (value: number | null | undefined) => ok(value) ? money.format(value) : "—",
     percent: (value: number | null | undefined) => ok(value) ? `${decimal.format(value)}%` : "—",
+    ratio: (value: number | null | undefined) => ok(value) ? `${decimal.format(value)}x` : "—",
   };
 }
 
@@ -86,7 +122,11 @@ const RESULT_NOUNS: Record<string, string> = {
   leads: "leads",
   registrations: "cadastros concluídos",
   purchases: "compras",
+  instagram_profile_follow: "novos seguidores",
+  "action:link_click": "cliques no link",
 };
+
+const FOLLOW_KEYS = ["instagram_profile_follow", "action:instagram_profile_follow", "action:onsite_conversion.follow"];
 
 export function messageValues(context: MessageContext): Record<string, string> {
   const data = context.data;
@@ -98,7 +138,15 @@ export function messageValues(context: MessageContext): Record<string, string> {
   const list = results.length
     ? results.map(result => `• ${format.integer(result.value)} ${RESULT_NOUNS[result.key] ?? result.label.toLowerCase()}${result.cost != null ? ` (${format.money(result.cost)} cada)` : ""}`).join("\n")
     : "• Sem resultados no período";
-  const family = (key: string) => format.integer(results.find(result => result.key === key)?.value ?? (data ? 0 : null));
+  const result = (key: string) => results.find(item => item.key === key);
+  const family = (key: string) => format.integer(result(key)?.value ?? (data ? 0 : null));
+  const cost = (key: string) => format.money(result(key)?.cost ?? null);
+  // Followers may come as the campaign result or as a separate Instagram metric.
+  const followerResult = result("instagram_profile_follow");
+  const followers = followerResult?.value ?? FOLLOW_KEYS.map(key => summary[key]).find(value => value != null) ?? (data ? 0 : null);
+  const followerCost = followerResult?.cost ?? (followers && summary.spend != null && results.length <= 1 ? summary.spend / followers : null);
+  const revenue = summary.attributed_revenue ?? null;
+  const roas = summary.roas ?? (revenue != null && summary.spend ? revenue / summary.spend : null);
   return {
     nome: context.recipientName?.trim().split(/\s+/)[0] || "tudo bem",
     cliente: context.clientName,
@@ -106,6 +154,8 @@ export function messageValues(context: MessageContext): Record<string, string> {
     equipe: context.workspaceName || "",
     link_painel: context.dashboardUrl || "",
     investimento: format.money(summary.spend),
+    receita: format.money(revenue),
+    roas: format.ratio(roas),
     cpm: format.money(summary.cpm),
     cpc: format.money(summary.cpc_link),
     impressoes: format.integer(summary.impressions),
@@ -117,8 +167,14 @@ export function messageValues(context: MessageContext): Record<string, string> {
     conversas: family("messages"),
     leads: family("leads"),
     cadastros: family("registrations"),
-    visitas_perfil: family("profile_visits"),
     compras: family("purchases"),
+    seguidores: format.integer(followers),
+    visitas_perfil: family("profile_visits"),
+    custo_conversa: cost("messages"),
+    custo_lead: cost("leads"),
+    custo_cadastro: cost("registrations"),
+    custo_compra: cost("purchases"),
+    custo_seguidor: format.money(followerCost),
   };
 }
 
