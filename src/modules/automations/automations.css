@@ -279,3 +279,24 @@
 
 .automation-template-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .automation-template-bar > select { flex: 1 1 220px; max-width: 340px; }
+
+/* Relatórios › Visão geral */
+.reports-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.reports-overview-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.reports-overview .calendar-upcoming li { gap: 10px; }
+.reports-overview .calendar-upcoming span:last-child { display: grid; min-width: 0; }
+.reports-overview-icon { display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: var(--surface-raised); color: var(--secondary); }
+.reports-overview .run-list li { align-items: center; }
+.reports-overview .run-list-main { flex: 1; }
+.reports-overview-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.reports-overview-links a { display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: var(--secondary); transition: border-color .15s; }
+.reports-overview-links a:hover { border-color: var(--border-strong); color: var(--text); }
+.reports-overview-links a > span { display: grid; flex: 1; min-width: 0; }
+.reports-overview-links strong { color: var(--text); font-size: 14px; font-weight: 500; }
+.reports-overview-links small { color: var(--muted); font-size: 12px; }
+@media (max-width: 900px) {
+  .reports-overview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reports-overview-stats > div:nth-child(3) { border-left: 0; }
+  .reports-overview-stats > div:nth-child(n+3) { border-top: 1px solid var(--border); }
+  .reports-overview-links { grid-template-columns: minmax(0, 1fr); }
+}

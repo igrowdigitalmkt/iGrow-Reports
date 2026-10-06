@@ -47,12 +47,12 @@ const ERRORS: Record<string, string> = {
 };
 export const deliveryErrorText = (code: string | null, message: string | null) => (code && ERRORS[code]) || message;
 
-type Entry = {
+export type DeliveryEntry = {
   id: string; clientId: string; at: string; kind: "schedule" | "manual" | "pdf"; title: string; detail: string;
   status: { label: string; tone: string; ok: boolean | null }; error: string | null; text: string | null;
 };
 
-const KIND = {
+export const DELIVERY_KIND = {
   schedule: { label: "Agendado", icon: CalendarClock },
   manual: { label: "Enviado agora", icon: Zap },
   pdf: { label: "PDF", icon: FileText },
@@ -60,12 +60,9 @@ const KIND = {
 
 const brDate = (value: string) => value.split("-").reverse().join("/");
 
-// Every send of each client in one history: scheduled messages, "Enviar agora" and report PDFs.
-export function DeliveriesView({ deliveries, automations, clients, connected, timezone = "America/Sao_Paulo", initialClientId }: {
-  deliveries: DeliveryItem[]; automations: AutomationsSnapshot | null; clients: ClientItem[]; connected: boolean; timezone?: string; initialClientId?: string;
-}) {
-  const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: timezone });
-  const entries: Entry[] = [
+/** Scheduled runs, "Enviar agora" and PDF deliveries as one history, newest first. */
+export function buildDeliveryEntries(deliveries: DeliveryItem[], automations: AutomationsSnapshot | null): DeliveryEntry[] {
+  return [
     ...(automations?.runs ?? []).flatMap(run => {
       const item = automations?.automations.find(automation => automation.id === run.automationId);
       if (!item) return [];
@@ -82,6 +79,14 @@ export function DeliveriesView({ deliveries, automations, clients, connected, ti
       status: PDF_STATUS[item.status], error: item.errorMessage ? deliveryErrorText(item.errorCode, item.errorMessage) : null, text: null,
     })),
   ].sort((a, b) => b.at.localeCompare(a.at));
+}
+
+// Every send of each client in one history: scheduled messages, "Enviar agora" and report PDFs.
+export function DeliveriesView({ deliveries, automations, clients, connected, timezone = "America/Sao_Paulo", initialClientId }: {
+  deliveries: DeliveryItem[]; automations: AutomationsSnapshot | null; clients: ClientItem[]; connected: boolean; timezone?: string; initialClientId?: string;
+}) {
+  const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: timezone });
+  const entries = buildDeliveryEntries(deliveries, automations);
 
   const activeClients = clients.filter(client => !client.archived_at || entries.some(entry => entry.clientId === client.id));
   const of = (id: string) => entries.filter(entry => entry.clientId === id);
@@ -112,18 +117,18 @@ export function DeliveriesView({ deliveries, automations, clients, connected, ti
         <div><span>Com problema</span><strong className={problems ? "is-warn" : undefined}>{problems}</strong></div>
       </div>}
       {list.length ? <ul className="panel delivery-timeline">{list.map(entry => {
-        const Icon = KIND[entry.kind].icon;
+        const Icon = DELIVERY_KIND[entry.kind].icon;
         return <li key={entry.id}>
-          <span className={`delivery-kind is-${entry.kind}`} title={KIND[entry.kind].label}><Icon size={15} /></span>
+          <span className={`delivery-kind is-${entry.kind}`} title={DELIVERY_KIND[entry.kind].label}><Icon size={15} /></span>
           <div className="delivery-main">
             <div className="delivery-line"><strong>{entry.title}</strong><span className={`badge ${entry.status.tone}`}><span className="status-dot" />{entry.status.label}</span></div>
-            <small>{dateTime.format(new Date(entry.at))} · {KIND[entry.kind].label}{entry.detail ? ` · ${entry.detail}` : ""}</small>
+            <small>{dateTime.format(new Date(entry.at))} · {DELIVERY_KIND[entry.kind].label}{entry.detail ? ` · ${entry.detail}` : ""}</small>
             {entry.error && <small className="delivery-error">{entry.error}</small>}
             {entry.text && <button type="button" className="delivery-toggle" onClick={() => setOpen(open === entry.id ? null : entry.id)} aria-expanded={open === entry.id}>{open === entry.id ? "Ocultar mensagem" : "Ver mensagem enviada"}</button>}
             {entry.text && open === entry.id && <pre className="delivery-text">{entry.text}</pre>}
           </div>
         </li>;
-      })}</ul> : <section className="panel empty-state"><Send size={22} /><h3>Nenhum envio para {client.name}</h3><p>Crie um agendamento em Relatórios › Agendamentos ou use “Enviar agora”.</p></section>}
+      })}</ul> : <section className="panel empty-state"><Send size={22} /><h3>Nenhum envio para {client.name}</h3><p>Crie um agendamento em Agendamentos ou use “Enviar agora”.</p></section>}
     </div>}
   </div>;
 }

@@ -762,14 +762,8 @@ a.attention-item:hover { background: var(--surface-hover); }
   .meta-account-sync { display: none; }
 }
 
-/* Relatórios group in the sidebar: opens in place, children indented */
-.nav-branch { display: flex; flex-direction: column; gap: 2px; }
-.nav-parent { cursor: pointer; }
-.nav-branch.is-active > .nav-parent { color: var(--text); }
-.nav-branch.is-active > .nav-parent svg:first-child { color: var(--accent); }
-.nav-caret { margin-left: auto; color: var(--muted); transition: transform .15s; }
-.nav-branch:not(.is-open) .nav-caret { transform: rotate(-90deg); }
-.nav-children { position: relative; display: flex; flex-direction: column; gap: 2px; margin-left: 18px; padding-left: 9px; border-left: 1px solid var(--border); }
-.nav-child { height: 32px; font-size: 13.5px; }
-.app-shell.is-collapsed .nav-children { margin-left: 0; padding-left: 0; border-left: 0; padding-top: 2px; border-top: 1px solid var(--border); }
-.app-shell.is-collapsed .nav-parent { display: none; }
+/* Page tabs (Relatórios), same pattern as the client dashboard tabs */
+.page-tabs { display: flex; gap: 20px; margin: -4px 0 20px; overflow-x: auto; border-bottom: 1px solid var(--border); scrollbar-width: none; }
+.page-tabs a { display: flex; align-items: center; min-height: 42px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--muted); font-size: 14px; font-weight: 500; white-space: nowrap; }
+.page-tabs a:hover { color: var(--text); }
+.page-tabs a[aria-current="page"] { border-color: var(--accent); color: var(--text); }

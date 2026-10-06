@@ -613,3 +613,10 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 
 - Instalado com autorização do responsável: `/opt/igrow/run-automations.sh` (versionado em `infra/evolution/run-automations.sh`) via `/etc/cron.d/igrow-automations` a cada 5 min, com `flock` contra sobreposição; log em `/var/log/igrow-automations.log` com rotação semanal (`/etc/logrotate.d/igrow`).
 - Senha: `CRON_SECRET` novo gerado na VPS em 6/10 (48 caracteres, `/opt/igrow/cron.env`, 600; nunca exibido ao assistente). O responsável leu com o comando `igrow-senha` no Web console, gravou o mesmo valor na Vercel e publicou de novo. O agendador diário da Meta na Vercel passa a usar o valor novo. Conferido: HTTP 200 desde 17:40 de 6/10 (`{"due":0,...}`).
+
+### Menu lateral reorganizado (6/10/2026)
+
+- Pedido do responsável: mesma identidade visual, só arquitetura de informação. Menu: Operação (Visão geral, Clientes, Relatórios, Agendamentos) e Conta (Integrações, Configurações); rodapé com Central de ajuda e usuário. Sem árvore de submenu (estilos `nav-branch` removidos).
+- Agendamentos voltou a ter endereço próprio `/agendamentos`. Relatórios (`/relatorios`) tem abas internas no mesmo padrão das abas do painel do cliente: Visão geral (nova: envios em 30 dias, com problema, agendamentos ativos, PDFs salvos, próximos envios de todos os clientes, últimas entregas e atalhos), Entregas (`/relatorios/entregas`), Templates (`/relatorios/templates`) e PDFs salvos (`/relatorios/pdfs`). Caminho no topo: Relatórios › aba.
+- Redirecionamentos: `/relatorios/agendamentos` → `/agendamentos` (mantém `?cliente=`), `/entregas` e `/templates` → abas. Nenhuma funcionalidade removida. Arquivos: `operations/routes.ts`, `operations/report-tabs.tsx`, `operations/reports-overview.tsx`; histórico compartilhado `buildDeliveryEntries` em `whatsapp/deliveries-view.tsx`.
+- Conferido no navegador em `/demo/*` (abas, título, item ativo, caminho e redirecionamentos). 692 testes, lint e build passaram.

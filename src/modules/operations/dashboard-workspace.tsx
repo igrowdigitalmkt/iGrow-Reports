@@ -27,7 +27,9 @@ import { IntegrationsHub } from "./integrations-hub";
 import type { AutomationsSnapshot } from "@/modules/automations/types";
 import type { TemplatesSnapshot } from "@/modules/templates/types";
 import { TemplatesView } from "@/modules/templates/templates-view";
-import { SECTION_PATHS } from "./routes";
+import { isReportTab, SECTION_PATHS } from "./routes";
+import { ReportTabs } from "./report-tabs";
+import { ReportsOverview } from "./reports-overview";
 import { demoAutomationClients, demoAutomationRecipients, demoAutomations } from "@/modules/automations/demo";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 
@@ -43,13 +45,18 @@ export function DashboardWorkspace({ portfolio, whatsapp = null, whatsappReadine
   const base = demo ? "/demo" : "/dashboard";
   const data = demo ? getDemoSnapshot("30d") : emptySnapshot(activeClients);
   const matchingReports = data.reports.filter(report => `${report.client} ${report.type} ${report.id}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")) && (status === "Todos os estados" || report.status === status));
-  const currentLabel = navigation.find(item => item.key === (SECTION_PATHS[section] ?? section))?.label ?? "Visão geral";
+  const reportTab = isReportTab(section);
+  const currentLabel = reportTab ? "Relatórios" : navigation.find(item => item.key === (SECTION_PATHS[section] ?? section))?.label ?? "Visão geral";
 
   return <>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .18 }}>
       <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · últimos 30 dias`}</p></div><div className="heading-actions">{!section && <Button asChild variant="secondary"><Link href={`${base}/relatorios/pdfs`}><FileChartColumn size={16} />Ver relatórios</Link></Button>}</div></div>
 
       {!section && (demo ? <PortfolioView summary={demoPortfolio} base={base} demo /> : portfolio)}
+
+      {reportTab && <ReportTabs base={base} section={section} />}
+
+      {section === "relatorios-visao" && <ReportsOverview base={base} automations={demo ? demoAutomations : automations ?? null} deliveries={demo ? [] : deliveries} clients={demo ? demoAutomationClients : clients ?? []} savedTemplates={demo ? 0 : templates?.items.length ?? 0} savedPdfs={demo ? data.reports.length : reportsSnapshot?.ready ? reportsSnapshot.versions.length : null} timezone={identity.timezone || "America/Sao_Paulo"} />}
 
       {section === "relatorios" && (demo ? <><div className="section-toolbar"><div className="flex items-center gap-2 muted text-sm"><Filter size={16} /><label className="sr-only" htmlFor="report-status">Filtrar relatórios por estado</label><select id="report-status" className="input compact-select" value={status} onChange={e => setStatus(e.target.value)}><option>Todos os estados</option><option>Entregue</option><option>Aguardando aprovação</option><option>Processando</option></select></div><span className="text-xs muted">Prévia com dados fictícios</span></div><ReportsTable rows={matchingReports} total={data.reports.length} demo={demo} base={base} onSelect={setSelectedReport} expanded /></> : agencyId && reportsSnapshot ? <ReportManager agencyId={agencyId} clients={clients ?? []} snapshot={reportsSnapshot} canEdit={canManageClientAccess} canSend={canSendReports} recipients={recipients} whatsAppReady={!!whatsapp?.templateName} /> : null)}
 
@@ -84,6 +91,6 @@ function ReportsTable({ rows, total, demo, base, onSelect, expanded }: { rows: R
 function EmptyState({ title, description, icon: Icon }: { title: string; description: string; icon: typeof Users }) { return <div className="empty-state"><span><Icon size={26} strokeWidth={1.4} /></span><h3>{title}</h3><p>{description}</p></div>; }
 
 function sectionDescription(section: string) {
-  const descriptions: Record<string, string> = { clientes: "Clientes do espaço de trabalho e suas contas de anúncio.", relatorios: "Relatórios em PDF salvos de cada cliente.", templates: "Mensagens prontas para cada tipo de resultado: escolha uma da plataforma ou crie as suas.", agendamentos: "Mensagens com os números de cada cliente, enviadas no dia e horário que você escolher.", entregas: "Tudo o que foi enviado a cada cliente: agendamentos, envios imediatos e PDFs.", integracoes: "Contas conectadas ao seu espaço de trabalho.", configuracoes: "Sua conta, o espaço de trabalho e a aparência." };
+  const descriptions: Record<string, string> = { clientes: "Clientes do espaço de trabalho e suas contas de anúncio.", "relatorios-visao": "Envios, entregas, templates e PDFs dos seus clientes.", relatorios: "Envios, entregas, templates e PDFs dos seus clientes.", templates: "Envios, entregas, templates e PDFs dos seus clientes.", agendamentos: "Mensagens com os números de cada cliente, enviadas no dia e horário que você escolher.", entregas: "Envios, entregas, templates e PDFs dos seus clientes.", integracoes: "Contas conectadas ao seu espaço de trabalho.", configuracoes: "Sua conta, o espaço de trabalho e a aparência." };
   return descriptions[section];
 }

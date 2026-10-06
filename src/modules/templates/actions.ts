@@ -19,7 +19,7 @@ const templateSchema = z.object({
 
 function refresh() {
   revalidatePath("/dashboard/relatorios/templates");
-  revalidatePath("/dashboard/relatorios/agendamentos");
+  revalidatePath("/dashboard/agendamentos");
 }
 
 export async function saveMessageTemplateAction(input: unknown) {

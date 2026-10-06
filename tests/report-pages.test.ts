@@ -1,22 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { getDemoClientAnalytics } from "@/modules/client-portal/demo-analytics";
 import { messageValues, SYSTEM_TEMPLATES, unknownVariables } from "@/modules/automations/message";
-import { legacyRedirect, SECTION_PATHS, SECTION_ROUTES } from "@/modules/operations/routes";
+import { isReportTab, legacyRedirect, REPORT_TABS, SECTION_PATHS, SECTION_ROUTES } from "@/modules/operations/routes";
 
 describe("endereços de Relatórios", () => {
-  it("as páginas de relatórios ficam dentro de /relatorios", () => {
-    expect(SECTION_ROUTES["relatorios/agendamentos"]).toBe("agendamentos");
+  it("Agendamentos tem endereço próprio e Relatórios tem abas", () => {
+    expect(SECTION_ROUTES.agendamentos).toBe("agendamentos");
+    expect(SECTION_ROUTES.relatorios).toBe("relatorios-visao");
     expect(SECTION_ROUTES["relatorios/pdfs"]).toBe("relatorios");
     expect(SECTION_PATHS.entregas).toBe("relatorios/entregas");
-    expect(SECTION_ROUTES.agendamentos).toBeUndefined();
+    expect(REPORT_TABS.map(tab => tab.label)).toEqual(["Visão geral", "Entregas", "Templates", "PDFs salvos"]);
+    expect(isReportTab("templates")).toBe(true);
+    expect(isReportTab("agendamentos")).toBe(false);
   });
 
   it("endereços antigos redirecionam mantendo os parâmetros", () => {
-    expect(legacyRedirect("/dashboard", "agendamentos", { cliente: "abc" })).toBe("/dashboard/relatorios/agendamentos?cliente=abc");
-    expect(legacyRedirect("/dashboard", "relatorios", {})).toBe("/dashboard/relatorios/agendamentos");
+    expect(legacyRedirect("/dashboard", "relatorios/agendamentos", { cliente: "abc" })).toBe("/dashboard/agendamentos?cliente=abc");
+    expect(legacyRedirect("/dashboard", "entregas", {})).toBe("/dashboard/relatorios/entregas");
     expect(legacyRedirect("/demo", "templates", {})).toBe("/demo/relatorios/templates");
-    expect(legacyRedirect("/dashboard", "clientes", {})).toBeNull();
-    expect(legacyRedirect("/dashboard", "relatorios/agendamentos", {})).toBeNull();
+    expect(legacyRedirect("/dashboard", "agendamentos", {})).toBeNull();
+    expect(legacyRedirect("/dashboard", "relatorios", {})).toBeNull();
   });
 });
 

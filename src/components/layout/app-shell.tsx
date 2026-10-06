@@ -3,36 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bell, CalendarClock, ChevronDown, ChevronRight, ChevronsUpDown, CircleHelp, FileChartColumn, FileText, FlaskConical, LayoutDashboard, LayoutTemplate, Menu, PanelLeft, Plug, Search, Send, Settings2, Users, X } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarClock, ChevronRight, ChevronsUpDown, CircleHelp, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
 import { Brand } from "./brand";
 import { NavigationProgress } from "./navigation-progress";
 import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type NavItem = { key: string; label: string; icon: typeof Users; planned?: boolean; children?: NavItem[] };
-
-// Relatórios groups everything about sending reports; it opens in place instead of navigating.
-export const reportPages: NavItem[] = [
-  { key: "relatorios/agendamentos", label: "Agendamentos", icon: CalendarClock },
-  { key: "relatorios/entregas", label: "Entregas", icon: Send },
-  { key: "relatorios/templates", label: "Templates", icon: LayoutTemplate },
-  { key: "relatorios/pdfs", label: "PDFs salvos", icon: FileText },
-];
+type NavItem = { key: string; label: string; icon: typeof Users; planned?: boolean };
 
 export const navigationGroups: { title: string; items: NavItem[] }[] = [
   { title: "Operação", items: [
     { key: "", label: "Visão geral", icon: LayoutDashboard },
     { key: "clientes", label: "Clientes", icon: Users },
-    { key: "relatorios", label: "Relatórios", icon: FileChartColumn, children: reportPages },
+    { key: "relatorios", label: "Relatórios", icon: FileChartColumn },
+    { key: "agendamentos", label: "Agendamentos", icon: CalendarClock },
   ] },
   { title: "Conta", items: [
     { key: "integracoes", label: "Integrações", icon: Plug },
     { key: "configuracoes", label: "Configurações", icon: Settings2 },
   ] },
 ];
-export const navigation = navigationGroups.flatMap(group => group.items.flatMap(item => [item, ...(item.children ?? [])]));
-const REPORTS_OPEN_KEY = "igrow:nav:relatorios";
+export const navigation = navigationGroups.flatMap(group => group.items);
+// Entregas, Templates and PDFs are tabs inside Relatórios: their names appear in the breadcrumb.
+const REPORT_TAB_LABELS: Record<string, string> = { entregas: "Entregas", templates: "Templates", pdfs: "PDFs salvos" };
 
 export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; }
 
@@ -49,19 +43,8 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   const pathname = usePathname();
   const segments = pathname.replace(base, "").split("/").filter(Boolean);
   const activeKey = segments[0] ?? "";
-  const activePath = segments.slice(0, 2).join("/");
-  const inReports = activeKey === "relatorios";
-  const current = navigation.find(item => item.key === (inReports ? activePath : activeKey))?.label ?? "Visão geral";
-  const [reportsOpen, setReportsOpen] = useState(true);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the reader's choice after hydration
-    try { if (window.localStorage.getItem(REPORTS_OPEN_KEY) === "closed") setReportsOpen(false); } catch { /* storage unavailable */ }
-  }, []);
-  const toggleReports = () => setReportsOpen(open => {
-    try { window.localStorage.setItem(REPORTS_OPEN_KEY, open ? "closed" : "open"); } catch { /* storage unavailable */ }
-    return !open;
-  });
-  const showReports = reportsOpen || inReports;
+  const reportTab = activeKey === "relatorios" ? REPORT_TAB_LABELS[segments[1] ?? ""] : undefined;
+  const current = navigation.find(item => item.key === activeKey)?.label ?? "Visão geral";
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -121,17 +104,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         <nav className="sidebar-nav" aria-label="Navegação principal">
           {navigationGroups.map(group => <div className="nav-group" key={group.title}>
             <span className="nav-title" aria-hidden={collapsed}>{group.title}</span>
-            {group.items.map(({ key, label, icon: Icon, planned, children }) => children ? <div key={key} className={cn("nav-branch", showReports && "is-open", inReports && "is-active")}>
-              <button type="button" className="nav-item nav-parent" onClick={toggleReports} aria-expanded={showReports} data-tip={label} aria-label={collapsed ? label : undefined}>
-                <Icon size={17} strokeWidth={1.75} />
-                <span className="collapse-hide">{label}</span>
-                <ChevronDown size={14} className="nav-caret collapse-hide" />
-              </button>
-              {(showReports || collapsed) && <div className="nav-children">{children.map(child => <Link key={child.key} href={href(child.key)} aria-current={child.key === activePath ? "page" : undefined} data-tip={child.label} aria-label={collapsed ? child.label : undefined} className="nav-item nav-child">
-                <child.icon size={16} strokeWidth={1.75} />
-                <span className="collapse-hide">{child.label}</span>
-              </Link>)}</div>}
-            </div> : <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
+            {group.items.map(({ key, label, icon: Icon, planned }) => <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
               <Icon size={17} strokeWidth={1.75} />
               <span className="collapse-hide">{label}</span>
               {planned && <span className="nav-soon collapse-hide">Em breve</span>}
@@ -155,8 +128,8 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
           <button type="button" className="icon-button sidebar-toggle" onClick={toggleSidebar} aria-label={toggleLabel} aria-expanded={mobile ? drawerOpen : !collapsed} title={`${toggleLabel} (Ctrl+B)`}>
             <PanelLeft size={18} className="hide-mobile" /><Menu size={18} className="show-mobile" />
           </button>
-          <div className="crumbs">{inReports
-            ? <><span className="hide-mobile">Relatórios</span><ChevronRight size={14} className="hide-mobile" /><strong>{current}</strong></>
+          <div className="crumbs">{reportTab
+            ? <><Link href={href("relatorios")}>Relatórios</Link><ChevronRight size={14} /><strong>{reportTab}</strong></>
             : segments.length > 1
             ? <><Link href={href(activeKey)}>{current}</Link><ChevronRight size={14} /><strong>{activeKey === "clientes" ? "Painel do cliente" : "Detalhes"}</strong></>
             : <><span className="hide-mobile">{identity.agencyName}</span><ChevronRight size={14} className="hide-mobile" /><strong>{current}</strong></>}</div>

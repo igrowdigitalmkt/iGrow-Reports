@@ -74,7 +74,7 @@ export async function saveAutomationAction(input: unknown) {
   const inserted = await context.supabase.from("report_automation_targets").insert(targets);
   if (inserted.error) return { error: "O agendamento foi salvo, mas não foi possível gravar os destinatários." };
 
-  revalidatePath("/dashboard/relatorios/agendamentos");
+  revalidatePath("/dashboard/agendamentos");
   return { success: true as const, id: automationId, nextRunAt: row.next_run_at };
 }
 
@@ -90,7 +90,7 @@ export async function setAutomationActiveAction(input: unknown) {
   const { error } = await context.supabase.from("report_automations").update({ active: parsed.data.active, next_run_at: next?.toISOString() ?? null, updated_at: new Date().toISOString() })
     .eq("agency_id", context.agency.id).eq("id", parsed.data.id);
   if (error) return { error: "Não foi possível alterar o agendamento." };
-  revalidatePath("/dashboard/relatorios/agendamentos");
+  revalidatePath("/dashboard/agendamentos");
   return { success: true as const, nextRunAt: next?.toISOString() ?? null };
 }
 
@@ -101,7 +101,7 @@ export async function deleteAutomationAction(input: unknown) {
   if (context.role === "viewer") return denied;
   const { error } = await context.supabase.from("report_automations").delete().eq("agency_id", context.agency.id).eq("id", parsed.data.id);
   if (error) return { error: "Não foi possível excluir o agendamento." };
-  revalidatePath("/dashboard/relatorios/agendamentos");
+  revalidatePath("/dashboard/agendamentos");
   return { success: true as const };
 }
 
@@ -136,7 +136,7 @@ export async function sendAutomationNowAction(input: unknown) {
     resolveSender: agencyId => createQrSender(agencyId).catch(() => null),
     appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null,
   });
-  revalidatePath("/dashboard/relatorios/agendamentos");
+  revalidatePath("/dashboard/agendamentos");
   revalidatePath("/dashboard/relatorios/entregas");
   if (!outcome) return { error: "Já existe um envio em andamento para este agendamento. Tente de novo em instantes." };
   return { success: true as const, ...outcome };

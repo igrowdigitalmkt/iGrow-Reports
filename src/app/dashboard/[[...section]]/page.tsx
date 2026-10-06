@@ -49,7 +49,7 @@ export default async function DashboardPage({
   let metaSnapshot: MetaAdminSnapshot | undefined;
   let reportsSnapshot: ReportsAdminSnapshot | undefined;
   const canManageClientAccess = canManageAgency(context.role);
-  if (key === "" || key === "clientes" || key === "relatorios" || key === "integracoes" || key === "entregas" || key === "agendamentos" || key === "templates") {
+  if (key === "" || key === "clientes" || key === "relatorios" || key === "integracoes" || key === "entregas" || key === "agendamentos" || key === "templates" || key === "relatorios-visao") {
     for (let offset = 0; ; offset += 500) {
       const result = await context.supabase.from("clients").select("id,name,notes,archived_at,updated_at")
         .eq("agency_id", context.agency.id).order("name").order("id").range(offset, offset + 499);
@@ -67,15 +67,15 @@ export default async function DashboardPage({
   if (key === "" || key === "clientes" || key === "integracoes") {
     metaSnapshot = await getMetaAdminSnapshot(context.supabase, context.agency.id);
   }
-  if (key === "" || key === "relatorios" || key === "entregas") {
+  if (key === "" || key === "relatorios" || key === "entregas" || key === "relatorios-visao") {
     reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
   }
   const whatsapp = key === "integracoes" || key === "relatorios" || key === "entregas" ? await loadWhatsAppSummary(context.supabase, context.agency.id) : null;
   const recipients = key === "relatorios" || key === "agendamentos" ? await loadSendableRecipients(context.supabase, context.agency.id) : [];
-  const deliveries = key === "entregas" ? await loadDeliveries(context.supabase, context.agency.id, clients, reportsSnapshot?.versions ?? []) : [];
-  const automations = key === "agendamentos" || key === "entregas" ? await loadAutomations(context.supabase, context.agency.id) : undefined;
+  const deliveries = key === "entregas" || key === "relatorios-visao" ? await loadDeliveries(context.supabase, context.agency.id, clients, reportsSnapshot?.versions ?? []) : [];
+  const automations = key === "agendamentos" || key === "entregas" || key === "relatorios-visao" ? await loadAutomations(context.supabase, context.agency.id) : undefined;
   const qrConnected = key === "agendamentos" ? await getQrStatus(context.agency.id).then(status => "state" in status && status.state === "connected", () => false) : false;
-  const templates = key === "agendamentos" || key === "templates" ? await loadMessageTemplates(context.supabase, context.agency.id) : undefined;
+  const templates = key === "agendamentos" || key === "templates" || key === "relatorios-visao" ? await loadMessageTemplates(context.supabase, context.agency.id) : undefined;
   // The portfolio streams in after the page shell: each client reads its pre-computed period.
   const reportsGenerated = reportsSnapshot?.ready
     // eslint-disable-next-line react-hooks/purity -- request-time reference, computed once on the server
