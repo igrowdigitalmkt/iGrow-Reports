@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test("destinatários: autorização explícita, troca de telefone, descadastro e histórico", async ({ page }) => {
   await page.goto("/demo/clientes");
-  await page.locator(".client-card").first().getByRole("button", { name: "Destinatários", exact: true }).click();
+  await page.getByRole("button", { name: /^Mais ações para / }).first().click();
+  await page.getByRole("menuitem", { name: "Destinatários", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Novo destinatário", exact: true }).click();
   await dialog.getByLabel("Nome do destinatário").fill("Pessoa de teste");
@@ -28,7 +29,8 @@ test("destinatários: autorização explícita, troca de telefone, descadastro e
   await expect(dialog.getByText("Descadastro registrado", { exact: true })).toBeVisible();
   await page.screenshot({ path: "artifacts/recipient-history.png", fullPage: true });
   await dialog.getByRole("button", { name: "Fechar", exact: true }).click();
-  await page.locator(".client-card").first().getByRole("button", { name: "Destinatários", exact: true }).click();
+  await page.getByRole("button", { name: /^Mais ações para / }).first().click();
+  await page.getByRole("menuitem", { name: "Destinatários", exact: true }).click();
   await expect(dialog.getByText("Nenhum destinatário cadastrado.", { exact: true })).toBeVisible();
 });
 
@@ -39,33 +41,38 @@ test("clientes: cadastro, edição, arquivamento e reativação temporários", a
   await page.getByLabel("Observações").fill("Exemplo fictício");
   await page.getByRole("button", { name: "Salvar cliente" }).click();
   await expect(page.getByRole("status")).toContainText("Cliente cadastrado");
-  const card = page.locator(".client-card").filter({ has: page.getByRole("heading", { name: "Cliente de teste", exact: true }) });
-  await card.getByRole("button", { name: "Editar cliente" }).click();
+  await page.getByRole("button", { name: "Mais ações para Cliente de teste" }).click();
+  await page.getByRole("menuitem", { name: "Editar cliente" }).click();
   await page.getByLabel("Nome do cliente").fill("Cliente revisado");
   await page.getByRole("button", { name: "Salvar cliente" }).click();
-  const updated = page.locator(".client-card").filter({ has: page.getByRole("heading", { name: "Cliente revisado", exact: true }) });
-  await updated.getByRole("button", { name: "Arquivar", exact: true }).click();
+  const updated = page.locator("tbody tr").filter({ hasText: "Cliente revisado" });
+  await expect(updated).toHaveCount(1);
+  await page.getByRole("button", { name: "Mais ações para Cliente revisado" }).click();
+  await page.getByRole("menuitem", { name: "Arquivar", exact: true }).click();
   await page.getByRole("button", { name: "Confirmar arquivamento" }).click();
   await expect(updated).toHaveCount(0);
-  await page.getByLabel("Estado dos clientes").selectOption("archived");
-  await updated.getByRole("button", { name: "Reativar", exact: true }).click();
+  const states = page.getByRole("group", { name: "Estado dos clientes" });
+  await states.getByRole("button", { name: "Arquivados" }).click();
+  await page.getByRole("button", { name: "Mais ações para Cliente revisado" }).click();
+  await page.getByRole("menuitem", { name: "Reativar", exact: true }).click();
   await page.getByRole("button", { name: "Confirmar reativação" }).click();
-  await page.getByLabel("Estado dos clientes").selectOption("active");
+  await states.getByRole("button", { name: "Ativos" }).click();
   await expect(updated).toBeVisible();
   await page.reload();
   await expect(updated).toHaveCount(0);
 });
 
-test("demonstração explícita, gráfico, filtros e prévia acessível", async ({ page }) => {
+test("demonstração explícita, carteira, filtros e prévia acessível", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("/demo");
   await expect(page.getByText("Modo demonstração", { exact: true })).toBeVisible();
   await expect(page.getByText("Todos os dados são fictícios. Nenhuma mensagem é enviada.")).toBeVisible();
-  await expect(page.locator(".activity-chart canvas").first()).toBeVisible();
-  const before = await page.locator(".metric-value").nth(1).textContent();
-  await page.getByRole("combobox", { name: "Período do dashboard" }).selectOption("7d");
-  await expect(page.locator(".metric-value").nth(1)).not.toHaveText(before!);
+  await expect(page.getByText("Investimento na carteira")).toBeVisible();
+  await expect(page.locator(".data-table tbody tr")).toHaveCount(6);
+  await expect(page.locator(".attention-item")).toHaveCount(3);
+  await page.getByRole("navigation", { name: "Navegação principal" }).getByRole("link", { name: /Relatórios/ }).click();
+  await expect(page.getByRole("heading", { name: "Relatórios", exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "Buscar cliente ou relatório" }).fill("Aurora");
   await expect(page.locator(".reports-table tbody tr")).toHaveCount(1);
   await page.getByRole("button", { name: "Visualizar relatório de Aurora Studio" }).click();
@@ -75,11 +82,24 @@ test("demonstração explícita, gráfico, filtros e prévia acessível", async 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Limpar busca" }).click();
   await expect(page.locator(".reports-table tbody tr")).toHaveCount(5);
-  await page.getByRole("navigation").getByRole("link", { name: /Relatórios/ }).click();
   await page.getByRole("combobox", { name: "Filtrar relatórios por estado" }).selectOption("Aguardando aprovação");
   await expect(page.locator(".reports-table tbody tr")).toHaveCount(1);
   await expect(page.locator(".reports-table tbody tr")).toContainText("Verde & Grão");
   expect(errors).toEqual([]);
+});
+
+test("menu lateral recolhe, lembra a escolha e mantém a navegação", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/demo", { waitUntil: "networkidle" });
+  await expect(page.locator(".app-shell")).not.toHaveClass(/is-collapsed/);
+  await page.keyboard.press("Control+b");
+  await expect(page.locator(".app-shell")).toHaveClass(/is-collapsed/);
+  await page.reload();
+  await expect(page.locator(".app-shell")).toHaveClass(/is-collapsed/);
+  await page.getByRole("link", { name: "Integrações", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Integrações", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Expandir menu" }).click();
+  await expect(page.locator(".app-shell")).not.toHaveClass(/is-collapsed/);
 });
 
 test("painel privado exige configuração e nunca usa dados fictícios", async ({ page, request }) => {
@@ -103,9 +123,8 @@ test("navegação, temas e integrações futuras sem status falso", async ({ pag
   const errors: string[] = [];
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   await page.goto("/demo/integracoes");
-  await expect(page.getByText("Não configurada", { exact: true })).toHaveCount(2);
+  await expect(page.locator("main").getByText("Em breve", { exact: true })).toHaveCount(2);
   await expect(page.getByText("Simulada", { exact: true })).toHaveCount(1);
-  await expect(page.getByText("Implementação em etapa futura")).toHaveCount(2);
   await page.getByRole("navigation").getByRole("link", { name: "Configurações" }).click();
   await page.getByRole("button", { name: "Claro", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -124,14 +143,15 @@ for (const viewport of [{ width: 1440, height: 1100 }, { width: 768, height: 102
   test(`layout e navegação ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/demo");
-    await expect(page.locator(".activity-chart canvas").first()).toBeVisible();
+    await expect(page.locator(".data-table").first()).toBeVisible();
     await page.screenshot({ path: `artifacts/dashboard-${viewport.width}.png`, fullPage: true, animations: "disabled" });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    if (viewport.width < 1024) {
+    if (viewport.width <= 900) {
       await page.getByRole("button", { name: "Abrir menu" }).click();
-      await page.getByRole("dialog").getByRole("link", { name: "Clientes", exact: true }).click();
+      await expect(page.locator(".app-shell")).toHaveClass(/is-drawer-open/);
+      await page.getByRole("navigation", { name: "Navegação principal" }).getByRole("link", { name: /^Clientes/ }).click();
       await expect(page.getByRole("heading", { name: "Clientes", exact: true })).toBeVisible();
-      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(page.locator(".app-shell")).not.toHaveClass(/is-drawer-open/);
     }
   });
 }

@@ -65,6 +65,7 @@ export async function setClientAdAccount(
 
   revalidatePath("/dashboard/clientes");
   revalidatePath(`/cliente/${parsed.data.clientId}`);
+  revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
   return { success: true };
 }
 
@@ -97,6 +98,7 @@ export async function setClientMetricMapping(
 
   revalidatePath("/dashboard/clientes");
   revalidatePath(`/cliente/${parsed.data.clientId}`);
+  revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
   return { success: true };
 }
 

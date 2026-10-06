@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -30,7 +31,8 @@ export async function getUserMemberships(supabase: SupabaseClient<Database>, use
   return (data ?? []).map((membership) => ({ agency: membership.agencies, role: membership.role }));
 }
 
-export async function requireAgencyContext() {
+// Cached per request: the dashboard layout and page both need the context.
+export const requireAgencyContext = cache(async function requireAgencyContext() {
   const { supabase, user } = await requireUserSession();
   const memberships = await getUserMemberships(supabase, user.id);
   if (memberships.length === 0) redirect("/sem-acesso");
@@ -40,5 +42,5 @@ export async function requireAgencyContext() {
     (memberships.length === 1 ? memberships[0] : undefined);
   if (!selected) redirect("/selecionar-agencia");
   return { supabase, user, agency: selected.agency, role: selected.role, memberships };
-}
+});
 

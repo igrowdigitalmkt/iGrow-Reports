@@ -5,7 +5,10 @@ import type { EChartsCoreOption } from "echarts/core";
 import type { AnalyticsDashboardData, AnalyticsValues } from "./analytics-types";
 
 export type AnalyticsMetric = AnalyticsDashboardData["metrics"][number];
-export const ANALYTICS_COLORS = ["#48d5f0", "#a293ff", "#53e6af", "#f2bc69", "#f08ebe", "#649aff"];
+export const ANALYTICS_COLORS = ["#5b7cfa", "#3fc2d6", "#a594ff", "#3ccf8e", "#f0b44c", "#e57fa8"];
+// Neutral axis and grid tones that read on both the dark and the light theme.
+const AXIS_TEXT = "#8a93a3";
+const GRID_LINE = "rgba(138, 147, 163, .18)";
 
 export function formatAnalyticsValue(value: number | null | undefined, metric: AnalyticsMetric, currency: string | null) {
   if (value == null || !Number.isFinite(value)) return "Indisponível";
@@ -71,7 +74,7 @@ function ChartCanvas({ option, label, height = 280 }: { option: EChartsCoreOptio
     : <div className="analytics-chart" ref={element} role="img" aria-label={label} style={{ height }} />;
 }
 
-const tooltip = { trigger: "axis", backgroundColor: "#172232", borderColor: "#32465f", textStyle: { color: "#edf5ff", fontSize: 12 }, confine: true, renderMode: "richText" };
+const tooltip = { trigger: "axis", backgroundColor: "#171b23", borderColor: "#2c3340", textStyle: { color: "#e9ecf2", fontSize: 12 }, confine: true, renderMode: "richText" };
 
 export function AnalyticsTrendChart({ data, metrics, comparison = true, height = 280, chartType = "line" }: { data: AnalyticsDashboardData; metrics: AnalyticsMetric[]; comparison?: boolean; height?: number; chartType?: "line" | "bar" }) {
   const previousAvailable = comparison && data.coverage.previousStatus === "complete";
@@ -81,9 +84,9 @@ export function AnalyticsTrendChart({ data, metrics, comparison = true, height =
       name: metric.label, type: chartType, yAxisIndex: index,
       data: data.daily.map((day) => day.values[metric.key] ?? null),
       smooth: .2, connectNulls: false, showSymbol: false, symbolSize: 6,
-      lineStyle: { color, width: 2.8 }, itemStyle: { color, ...(chartType === "bar" ? { borderRadius: [3, 3, 0, 0] } : {}) },
+      lineStyle: { color, width: 2.2 }, itemStyle: { color, ...(chartType === "bar" ? { borderRadius: [3, 3, 0, 0] } : {}) },
       ...(chartType === "bar" ? { barMaxWidth: 18, barGap: "20%" } : {}),
-      ...(index === 0 && chartType === "line" ? { areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#48d5f026" }, { offset: 1, color: "#48d5f000" }] } } } : {}),
+      ...(index === 0 && chartType === "line" ? { areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#5b7cfa33" }, { offset: 1, color: "#5b7cfa00" }] } } } : {}),
     };
     return previousAvailable ? [current, {
       name: `${metric.label} · período anterior`, type: chartType, yAxisIndex: index,
@@ -96,8 +99,8 @@ export function AnalyticsTrendChart({ data, metrics, comparison = true, height =
   const option: EChartsCoreOption = {
     backgroundColor: "transparent", tooltip,
     grid: { left: 52, right: metrics.length > 1 ? 55 : 20, top: 32, bottom: 32 },
-    xAxis: { type: "category", boundaryGap: chartType === "bar", data: data.daily.map((day) => shortDate(day.date)), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "#9aadc4", fontSize: 10, hideOverlap: true } },
-    yAxis: metrics.map((metric, index) => ({ type: "value", name: metric.unit === "currency" ? data.currency ?? "" : metric.unit === "percent" ? "%" : "", nameTextStyle: { color: "#94a7be", fontSize: 10 }, position: index === 0 ? "left" : "right", axisLabel: { color: "#9aadc4", fontSize: 10, formatter: axisValue }, splitLine: { show: index === 0, lineStyle: { color: "#243347", type: "dashed" } } })),
+    xAxis: { type: "category", boundaryGap: chartType === "bar", data: data.daily.map((day) => shortDate(day.date)), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: AXIS_TEXT, fontSize: 11, hideOverlap: true } },
+    yAxis: metrics.map((metric, index) => ({ type: "value", name: metric.unit === "currency" ? data.currency ?? "" : metric.unit === "percent" ? "%" : "", nameTextStyle: { color: AXIS_TEXT, fontSize: 11 }, position: index === 0 ? "left" : "right", axisLabel: { color: AXIS_TEXT, fontSize: 11, formatter: axisValue }, splitLine: { show: index === 0, lineStyle: { color: GRID_LINE } } })),
     series,
   };
   const label = `Gráfico de ${chartType === "bar" ? "barras" : "linhas"}. Evolução diária de ${metrics.map((metric) => metric.label).join(" e ")}, de ${data.dateFrom} a ${data.dateTo}. Valores e datas estão disponíveis na tabela.`;
@@ -120,7 +123,7 @@ export function AnalyticsAccountChart({ data, metric }: { data: AnalyticsDashboa
   const option: EChartsCoreOption = {
     backgroundColor: "transparent",
     tooltip: { ...tooltip, trigger: "item", formatter: "{b}\n{c}" },
-    series: [{ type: "pie", radius: ["59%", "78%"], center: ["50%", "50%"], stillShowZeroSum: false, avoidLabelOverlap: true, label: { show: false }, emphasis: { label: { show: false }, scale: true }, itemStyle: { borderColor: "#121d2b", borderWidth: 4, borderRadius: 5 }, data: values }],
+    series: [{ type: "pie", radius: ["59%", "78%"], center: ["50%", "50%"], stillShowZeroSum: false, avoidLabelOverlap: true, label: { show: false }, emphasis: { label: { show: false }, scale: true }, itemStyle: { borderColor: "rgba(0, 0, 0, 0)", borderWidth: 3, borderRadius: 4 }, data: values }],
   };
   const total = rows.reduce((sum, account) => sum + (account.values[metric.key] ?? 0), 0);
   return <>
@@ -153,5 +156,12 @@ export function AnalyticsSparkline({ values, color }: { values: (number | null |
     path += `${gap ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)} `;
     gap = false;
   });
-  return <svg className="analytics-sparkline" viewBox="0 0 160 42" preserveAspectRatio="none" aria-hidden="true"><path d={path} fill="none" stroke={color} strokeWidth="1.8" vectorEffect="non-scaling-stroke" /></svg>;
+  const continuous = values.every(value => value != null);
+  const area = continuous ? `${path}L160,42 L0,42 Z` : "";
+  const id = `spark-${color.replace(/[^a-z0-9]/gi, "")}`;
+  return <svg className="analytics-sparkline" viewBox="0 0 160 42" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id={id} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".22" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+    {area && <path d={area} fill={`url(#${id})`} />}
+    <path d={path} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+  </svg>;
 }

@@ -12,12 +12,13 @@ import { CampaignTree } from "./campaign-tree";
 import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKeys, relevantCampaignHierarchy, type AnalyticsEntity } from "./analytics-hierarchy";
 import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Dialog } from "@/components/ui/dialog";
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type FormEvent } from "react";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
   CircleDollarSign, Clock3, Download, FileText, Filter, Info, Layers3, Lock,
   MousePointerClick, RefreshCw, Search, Sparkles, Target, Trash2, TrendingUp,
-  WalletCards, X, RectangleHorizontal, RectangleVertical,
+  WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Table2,
 } from "lucide-react";
 import { collectDashboardData } from "./analytics-actions";
 import { getCampaignScopedAnalytics, getClientAnalyticsHierarchy } from "./analytics-scope-actions";
@@ -41,6 +42,8 @@ type DashboardProps = {
   canManageReports: boolean;
   reports: AnalyticsReportItem[];
   preferenceKey: string;
+  /** Link to the per-account, per-level confirmed analysis (agency only). */
+  detailedAnalysisHref?: string;
 };
 
 const PERIODS = [
@@ -160,7 +163,7 @@ function makeObservations(data: AnalyticsDashboardData) {
 const retryClock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 export function ClientAnalyticsDashboard({
-  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey,
+  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, detailedAnalysisHref,
 }: DashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -208,6 +211,7 @@ export function ClientAnalyticsDashboard({
   const [headerDetails, setHeaderDetails] = useState("");
   const [analysisNote, setAnalysisNote] = useState("");
   const [presenting, setPresenting] = useState(false);
+  const [customizing, setCustomizing] = useState(false);
 
   useEffect(() => {
     const changed = () => setPresenting(document.fullscreenElement === dashboardRef.current);
@@ -353,7 +357,8 @@ export function ClientAnalyticsDashboard({
       id: entity.id, name: entity.name, accountId: entity.accountId, accountName: entity.accountName,
       currency: entity.currency, status: null, values: entity.values,
     })) : data.campaigns });
-  const analyticsReady = !navigating && hasConfirmedAnalytics(data) && hasConfirmedAnalytics(scopedData);
+  // While a new period loads, the confirmed numbers stay visible (dimmed) instead of disappearing.
+  const analyticsReady = hasConfirmedAnalytics(data) && hasConfirmedAnalytics(scopedData);
   const resultRows = resultBreakdown(scopedData.summary);
   const resultCostRows = resultCostBreakdown(scopedData.summary, scopeData
     ? hierarchySnapshotKey === dataSnapshotKey && scopeCurrent ? selectedEntities : []
@@ -635,24 +640,24 @@ export function ClientAnalyticsDashboard({
   }
 
   return <section ref={dashboardRef} className={`analytics-dashboard${navigating ? " is-navigating" : ""}`} aria-label="Painel de desempenho" aria-busy={pending || navigating}>
-    <div className="analytics-command-bar">
-      <div className="analytics-title-block">
-        <span className="analytics-eyebrow"><span className="analytics-live-dot" /> DESEMPENHO · META ADS</span>
-        <h2>{tab === "reports" ? <>Relatórios do cliente<span>.</span></> : <>Os números por trás<br className="analytics-mobile-break" /> dos seus resultados<span>.</span></>}</h2>
-        <p>{tab === "reports" ? "Visualize os arquivos salvos e acompanhe quais estão disponíveis para o cliente." : "Explore o período, personalize a análise e escolha exatamente o que deseja acompanhar."}</p>
+    <header className="analytics-header">
+      <div className="analytics-identity">
+        <span className="client-avatar large blue" aria-hidden="true">{clientName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
+        <div><h1>{clientName}</h1><p>Meta Ads · {data.accounts.length} {data.accounts.length === 1 ? "conta de anúncio" : "contas de anúncio"}</p></div>
       </div>
       <div className="analytics-command-actions">
+        {detailedAnalysisHref && <Link className="analytics-button" href={detailedAnalysisHref}><Table2 size={15} />Análise por conta</Link>}
         {tab === "overview" && analyticsReady && <button type="button" className="analytics-button" onClick={async () => {
           try {
             if (document.fullscreenElement === dashboardRef.current) await document.exitFullscreen();
             else await dashboardRef.current?.requestFullscreen();
           } catch { setNotice("Este navegador não permitiu a tela cheia. Você pode usar o relatório horizontal para apresentar."); }
-        }}>{presenting ? <X size={15} /> : <RectangleHorizontal size={15} />}{presenting ? "Encerrar apresentação" : "Apresentar análise"}</button>}
+        }}>{presenting ? <X size={15} /> : <RectangleHorizontal size={15} />}{presenting ? "Encerrar" : "Apresentar"}</button>}
         {tab === "overview" && analyticsReady && <details className="analytics-filter-menu analytics-pdf-menu">
-          <summary><Download size={15} />Gerar Relatório em PDF<ChevronDown size={13} /></summary>
+          <summary><Download size={15} />Exportar PDF<ChevronDown size={14} /></summary>
           <div className="analytics-filter-popover">
-            <button type="button" disabled={pending || scopeDirty || !analyticsReady} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("vertical"); }}><RectangleVertical size={19} /><span>Vertical<small>A4 · documento</small></span></button>
-            <button type="button" disabled={pending || scopeDirty || !analyticsReady} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("horizontal"); }}><RectangleHorizontal size={19} /><span>Horizontal<small>1920 × 1080 · apresentação</small></span></button>
+            <button type="button" disabled={pending || scopeDirty || !analyticsReady} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("vertical"); }}><RectangleVertical size={18} /><span>Vertical<small>A4 · documento</small></span></button>
+            <button type="button" disabled={pending || scopeDirty || !analyticsReady} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); void exportPdf("horizontal"); }}><RectangleHorizontal size={18} /><span>Horizontal<small>1920 × 1080 · apresentação</small></span></button>
           </div>
         </details>}
         {canCollect && tab !== "reports" && <button type="button" className="analytics-button analytics-button-primary"
@@ -661,7 +666,7 @@ export function ClientAnalyticsDashboard({
           {pending ? "Atualizando…" : "Atualizar dados"}
         </button>}
       </div>
-    </div>
+    </header>
 
     {tab !== "reports" && <>
     <form className="analytics-filter-bar" onSubmit={applyFilters}>
@@ -697,21 +702,18 @@ export function ClientAnalyticsDashboard({
         <button type="submit" className="analytics-button analytics-button-apply" disabled={navigating}>
           {navigating ? "Aplicando…" : "Aplicar"}
         </button>
+        {navigating && <span className="analytics-updating" role="status" aria-live="polite"><RefreshCw size={13} className="analytics-spin" />Carregando {applyingPeriodLabel || "o período"}</span>}
       </div>
     </form>
-    {navigating && <div className="analytics-loading-banner" role="status" aria-live="polite">
-      <RefreshCw size={16} className="analytics-spin" />
-      <p><strong>Carregando {applyingPeriodLabel || "o período selecionado"}.</strong><span>Os resultados ficam ocultos até o novo período estar totalmente confirmado.</span></p>
-    </div>}
     <div className="analytics-context-strip">
-      <span><CalendarRange size={13} /><strong>{displayDate(data.dateFrom)} – {displayDate(data.dateTo)}</strong></span>
+      <span><CalendarRange size={14} /><strong>{displayDate(data.dateFrom)} – {displayDate(data.dateTo)}</strong></span>
       <span title={[...selectedTimezones].join(" · ")}><Clock3 size={13} />{timezoneLabel}</span>
       <span>{data.currency ?? "Moeda não consolidada"}</span>
       {!!data.warnings.length && <details className="analytics-quality-menu">
         <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
         <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
       </details>}
-      <span className="analytics-last-update"><span className="analytics-status-dot" />Última atualização: {latest}</span>
+      <span className="analytics-last-update"><span className="analytics-status-dot" />Atualizado em {latest}</span>
     </div>
 
     </>}
@@ -721,8 +723,8 @@ export function ClientAnalyticsDashboard({
       <RefreshCw size={17} className="analytics-spin" /><p>{collectingComparison
         ? "Atualizando o período anterior para comparação."
         : analyticsReady
-          ? "Atualizando os dados deste período. A visualização atual permanece disponível porque já existe uma coleta completa confirmada."
-          : "Atualizando os dados deste período. Nenhum resultado parcial será exibido até a coleta terminar."}</p>
+          ? "Atualizando os dados do período. Os números atuais continuam visíveis até a coleta terminar."
+          : "Atualizando os dados do período. Os resultados aparecem quando a coleta terminar."}</p>
     </div>}
     {tab !== "reports" && !analyticsReady && <div className="analytics-coverage-banner analytics-coverage-blocker" role="status">
       <div><span className="analytics-coverage-icon"><Layers3 size={17} /></span><p>
@@ -757,7 +759,7 @@ export function ClientAnalyticsDashboard({
           aria-selected={tab === key} key={key} className={tab === key ? "is-active" : ""}
           onClick={() => selectTab(key as typeof tab)}><Icon size={14} />{label}</button>)}
       </div>
-      {tab === "overview" && analyticsReady && <details className="analytics-filter-menu analytics-metric-menu">
+      {tab === "overview" && analyticsReady && <div className="analytics-toolbar-actions"><button type="button" className="analytics-button analytics-button-ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal size={15} />Personalizar relatório</button><details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Métricas <span className="analytics-count">{overviewMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
           <div className="analytics-metric-picker-heading"><strong>Métricas da Visão geral</strong>
@@ -769,12 +771,12 @@ export function ClientAnalyticsDashboard({
               <span>{metric.label}{FIXED_METRICS.includes(metric.key) && <small>Fixa</small>}</span></label>
           </div>)}
         </div>
-      </details>}
+      </details></div>}
       {tab === "campaigns" && analyticsReady && <details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Colunas <span className="analytics-count">{campaignMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
           <div className="analytics-metric-picker-heading"><strong>Métricas da tabela</strong>
-            <span className="muted text-[9px]">Arraste os cabeçalhos para reordenar</span>
+            <span className="muted text-xs">Arraste os cabeçalhos para reordenar</span>
           </div>
           {scopedData.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
             <label><input type="checkbox" checked={campaignMetricKeys.includes(metric.key)}
@@ -785,46 +787,28 @@ export function ClientAnalyticsDashboard({
     </div>
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
       {tab === "overview" && analyticsReady && <>
-        <details className="analytics-card analytics-report-settings">
-          <summary><Layers3 size={15} />Modelos de análise e ordem dos indicadores<ChevronDown size={14} /></summary>
-          <div className="analytics-report-create-body">
-            <p>Escolha um ponto de partida. Os filtros, os indicadores fixos e seus comentários serão preservados.</p>
-            <div className="analytics-model-options">{ANALYSIS_MODELS.map(model => <button type="button" className="analytics-text-button" key={model.key} onClick={() => setOptionalMetricKeys(modelMetrics(model.metrics, scopedData.metrics.map(metric => metric.key)))}>{model.name}</button>)}</div>
-            <p className="analytics-footnote">Cada modelo inclui somente métricas retornadas pela plataforma. A seleção e a ordem são salvas neste navegador para este cliente e usadas no PDF.</p>
-            <ol className="analytics-metric-order">{optionalMetrics.map((metric, index) => <li key={metric.key}><span>{metric.label}</span><div><button type="button" className="analytics-text-button" disabled={index === 0} aria-label={`Mover ${metric.label} para antes`} onClick={() => setOptionalMetricKeys(keys => moveMetric(keys, metric.key, -1))}>↑</button><button type="button" className="analytics-text-button" disabled={index === optionalMetrics.length - 1} aria-label={`Mover ${metric.label} para depois`} onClick={() => setOptionalMetricKeys(keys => moveMetric(keys, metric.key, 1))}>↓</button></div></li>)}</ol>
-          </div>
-        </details>
-        <details className="analytics-card analytics-report-settings">
-          <summary><FileText size={15} />Personalizar cabeçalho do relatório<ChevronDown size={14} /></summary>
-          <div className="analytics-report-create-body">
-            <div className="analytics-report-header-fields">
-              <label>Título do relatório<input className="input" aria-label="Título do relatório" value={reportTitle} maxLength={200} onChange={event => setReportTitle(event.target.value)} /></label>
-              <label>Nome no cabeçalho<input className="input" value={headerName} maxLength={160} onChange={event => setHeaderName(event.target.value)} /></label>
-              <label>Informações do responsável<textarea className="input" rows={2} value={headerDetails} maxLength={500} placeholder="Empresa, gestor, site ou contato" onChange={event => setHeaderDetails(event.target.value)} /></label>
-            </div>
-            <small>{canManageReports ? "O PDF será baixado e salvo em Relatórios. Publique após revisar para liberar o acesso ao cliente." : "O PDF será baixado para o seu dispositivo."}</small>
-          </div>
-        </details>
-        {canManageReports && <article className="analytics-card" style={{ marginBottom: 16 }}><div className="analytics-card-heading"><div><span className="analytics-card-kicker">SUA ANÁLISE</span><h3>Comentários e próximos passos</h3></div></div><label htmlFor="analysis-note">Contextualize os resultados para o cliente</label><textarea id="analysis-note" className="input" rows={4} maxLength={5000} value={analysisNote} onChange={event => setAnalysisNote(event.target.value)} placeholder="O que aconteceu, o que merece atenção e quais serão as próximas ações." /><p className="analytics-footnote">Rascunho salvo neste navegador. Ao gerar, o comentário será preservado no relatório vertical ou horizontal.</p></article>}
         <div className="analytics-kpi-grid analytics-kpi-grid-fixed">
-          {fixedMetrics.map((metric, index) => {
+          {fixedMetrics.map((metric) => {
             const change = changeDescription(scopedData, metric);
-            const color = ANALYTICS_COLORS[index % ANALYTICS_COLORS.length];
+            const color = ANALYTICS_COLORS[0];
             const resultMetric = metric.key === "primary_results" || metric.key === "cost_per_result";
             const showResultRows = resultMetric && resultRows.length > 0;
+            // The three fixed cards share one 12-column row: result cards widen with their breakdown.
+            const resultSpan = resultRows.length ? Math.max(4, resultLayout.cardSpan) : 4;
             const cardStyle = {
               "--metric-color": color,
+              "--kpi-span": resultMetric ? resultSpan : Math.max(2, 12 - resultSpan * 2),
               ...(showResultRows ? {
                 "--result-rows": resultLayout.rows,
                 "--result-columns": resultLayout.columns,
-                "--result-card-span": resultLayout.cardSpan,
+                "--result-card-span": resultSpan,
                 "--result-value-size": `${resultLayout.valueSize}px`,
                 "--result-label-size": `${resultLayout.labelSize}px`,
               } : {}),
             } as CSSProperties;
             return <article className={`analytics-kpi is-fixed${showResultRows ? " has-result-rows is-result-adaptive" : ""}`} key={metric.key}
               style={cardStyle}>
-              <div className="analytics-kpi-top"><span>{metric.label}</span><span className="analytics-kpi-icon" title="Indicador fixo"><Lock size={14} /></span></div>
+              <div className="analytics-kpi-top"><span>{metric.label}</span></div>
               {showResultRows ? <div className="analytics-result-metric-list">
                 {resultRows.map(result => <div className="analytics-result-metric-row" key={result.key}>
                   <strong className="analytics-result-metric-value">{metric.key === "primary_results"
@@ -847,10 +831,10 @@ export function ClientAnalyticsDashboard({
               <AnalyticsSparkline values={scopedData.daily.map((day) => day.values[metric.key])} color={color} />
             </article>;
           })}
-          {optionalMetrics.map((metric, index) => {
+          {optionalMetrics.map((metric) => {
             const change = changeDescription(scopedData, metric);
             const Icon = METRIC_ICONS[metric.key as keyof typeof METRIC_ICONS] ?? BarChart3;
-            const color = ANALYTICS_COLORS[(index + fixedMetrics.length) % ANALYTICS_COLORS.length];
+            const color = ANALYTICS_COLORS[0];
             return <article className="analytics-kpi is-removable" key={metric.key}
               style={{ "--metric-color": color } as CSSProperties}>
               <div className="analytics-kpi-top"><span>{metric.label}</span>
@@ -873,8 +857,7 @@ export function ClientAnalyticsDashboard({
         </div>
         <div className="analytics-primary-grid">
           <article className="analytics-card analytics-evolution-card">
-            <div className="analytics-card-heading"><div><span className="analytics-card-kicker">EVOLUÇÃO NO TEMPO</span>
-              <h3>{scopeData ? "Desempenho das campanhas selecionadas" : "Desempenho do período"}</h3></div>
+            <div className="analytics-card-heading"><div><h3>{scopeData ? "Desempenho das campanhas selecionadas" : "Desempenho do período"}</h3></div>
               <div className="analytics-chart-view-controls"><div className="analytics-chart-switcher" role="group" aria-label="Tipo de gráfico">
                 <button type="button" aria-pressed={chartType === "line"} className={chartType === "line" ? "is-active" : ""}
                   onClick={() => setChartType("line")}><TrendingUp size={12} />Linhas</button>
@@ -893,21 +876,21 @@ export function ClientAnalyticsDashboard({
             <AnalyticsTrendChart data={scopedData} metrics={mainMetrics} comparison={comparison} chartType={chartType} height={300} />
           </article>
           <article className="analytics-card analytics-account-card">
-            <div className="analytics-card-heading"><div><span className="analytics-card-kicker">DISTRIBUIÇÃO</span><h3>Investimento por conta</h3></div><WalletCards size={17} /></div>
+            <div className="analytics-card-heading"><div><h3>Investimento por conta</h3></div><WalletCards size={17} /></div>
             {spendMetric && !scopeData ? <AnalyticsAccountChart data={data} metric={spendMetric} /> :
               <p className="analytics-empty-copy">A distribuição por conta usa o escopo completo. Remova o filtro de campanhas para visualizá-la.</p>}
           </article>
         </div>
         <div className="analytics-insights-grid">
           <article className="analytics-card analytics-observations">
-            <div className="analytics-card-heading"><div><span className="analytics-card-kicker">LEITURA DOS DADOS</span><h3>O que merece atenção</h3></div><Sparkles size={17} /></div>
+            <div className="analytics-card-heading"><div><h3>O que merece atenção</h3></div><Sparkles size={17} /></div>
             <div className="analytics-observation-list">{observations.map((item, index) => <div className="analytics-observation" key={item.title}>
               <span>{String(index + 1).padStart(2, "0")}</span><div><h4>{item.title}</h4><p>{item.text}</p></div>
             </div>)}</div>
             <p className="analytics-footnote">Observações descritivas calculadas sobre o escopo atual.</p>
           </article>
           <article className="analytics-card analytics-results-card">
-            <div className="analytics-card-heading"><div><span className="analytics-card-kicker">AÇÕES DA PLATAFORMA</span><h3>Resultados em detalhe</h3></div><Target size={17} /></div>
+            <div className="analytics-card-heading"><div><h3>Resultados em detalhe</h3></div><Target size={17} /></div>
             <div className="analytics-action-list">{actions.length ? actions.map((metric) => <div key={metric.key}>
               <span>{metric.label}</span>
               <strong>{formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}</strong>
@@ -916,8 +899,7 @@ export function ClientAnalyticsDashboard({
           </article>
         </div>
         <article className="analytics-card analytics-campaign-card">
-          <div className="analytics-card-heading"><div><span className="analytics-card-kicker">DE ONDE VÊM OS RESULTADOS</span>
-            <h3>Seleção incluída na análise <span className="analytics-count">{selectedEntities.length}</span></h3></div>
+          <div className="analytics-card-heading"><div><h3>Seleção incluída na análise <span className="analytics-count">{selectedEntities.length}</span></h3></div>
             <button type="button" className="analytics-text-button" onClick={() => selectTab("campaigns")}>Editar seleção <ArrowUpRight size={14} /></button>
           </div>
           <div className="analytics-table-scroll"><table className="analytics-table analytics-campaign-table">
@@ -950,8 +932,7 @@ export function ClientAnalyticsDashboard({
         <p className="sr-only" role="status">{hierarchyLoading ? "Carregando conjuntos e anúncios deste período." : ""}</p>
         {hierarchyError && <div className="analytics-notice analytics-notice-error" role="alert"><Info size={17} /><p>{hierarchyError}</p></div>}
         <article className="analytics-card analytics-campaign-card">
-          <div className="analytics-card-heading"><div><span className="analytics-card-kicker">META ADS · HIERARQUIA</span>
-            <h3>Campanhas</h3></div>
+          <div className="analytics-card-heading"><div><h3>Campanhas</h3></div>
             <div className="analytics-campaign-heading-actions">
               <div className="analytics-selection-actions" role="group" aria-label="Selecionar campanhas">
                 <button type="button" className="analytics-text-button" onClick={() => setSelectedLeaves(allLeaves)}
@@ -995,7 +976,7 @@ export function ClientAnalyticsDashboard({
               .includes(metricSearch.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim()));
           if (!groupMetrics.length) return null;
           return <section className="analytics-metric-group" key={group}>
-            <div className="analytics-metric-group-heading"><div><span className="analytics-card-kicker">META ADS</span><h3>{group}</h3></div>
+            <div className="analytics-metric-group-heading"><div><h3>{group}</h3></div>
               <span className="analytics-count">{groupMetrics.length}</span></div>
             <div className="analytics-kpi-grid">{groupMetrics.map((metric, index) => {
               const checked = optionalMetricKeys.includes(metric.key);
@@ -1020,8 +1001,7 @@ export function ClientAnalyticsDashboard({
       </div>}
       {tab === "reports" && <div className="analytics-reports-space">
         <section className="analytics-card analytics-report-list-card">
-          <div className="analytics-card-heading"><div><span className="analytics-card-kicker">HISTÓRICO</span>
-            <h3>Relatórios {canManageReports ? "deste cliente" : "publicados"}</h3><p className="analytics-report-help">{canManageReports ? "Revise os arquivos gerados na Visão geral. Ao publicar, o relatório fica disponível na conta do cliente." : "Consulte e baixe os relatórios publicados para você."}</p></div>
+          <div className="analytics-card-heading"><div><h3>Relatórios {canManageReports ? "deste cliente" : "publicados"}</h3><p className="analytics-report-help">{canManageReports ? "Revise os arquivos gerados na Visão geral. Ao publicar, o relatório fica disponível na conta do cliente." : "Consulte e baixe os relatórios publicados para você."}</p></div>
             <select className="input" aria-label="Estado dos relatórios" value={reportState} onChange={event => setReportState(event.target.value)}>
               <option value="all">Todos os status</option><option value="published">Publicados</option>
               {canManageReports && <option value="ready">Não publicados</option>}<option value="superseded">Histórico</option>
@@ -1052,5 +1032,28 @@ export function ClientAnalyticsDashboard({
 
     {tab !== "reports" && <footer className="analytics-data-footer"><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
       <span>Sem estimativas para datas não coletadas</span></footer>}
+    <Dialog open={customizing} onOpenChange={setCustomizing} title="Personalizar relatório" description="Indicadores, cabeçalho e comentários usados na Visão geral e no PDF.">
+      <div className="analytics-customize">
+        <section><h3>Modelo de análise</h3>
+          <div className="analytics-report-create-body">
+            <p>Escolha um ponto de partida. Os filtros, os indicadores fixos e seus comentários serão preservados.</p>
+            <div className="analytics-model-options">{ANALYSIS_MODELS.map(model => <button type="button" className="analytics-text-button" key={model.key} onClick={() => setOptionalMetricKeys(modelMetrics(model.metrics, scopedData.metrics.map(metric => metric.key)))}>{model.name}</button>)}</div>
+            <p className="analytics-footnote">Cada modelo inclui somente métricas retornadas pela plataforma. A seleção e a ordem são salvas neste navegador para este cliente e usadas no PDF.</p>
+            <ol className="analytics-metric-order">{optionalMetrics.map((metric, index) => <li key={metric.key}><span>{metric.label}</span><div><button type="button" className="analytics-text-button" disabled={index === 0} aria-label={`Mover ${metric.label} para antes`} onClick={() => setOptionalMetricKeys(keys => moveMetric(keys, metric.key, -1))}>↑</button><button type="button" className="analytics-text-button" disabled={index === optionalMetrics.length - 1} aria-label={`Mover ${metric.label} para depois`} onClick={() => setOptionalMetricKeys(keys => moveMetric(keys, metric.key, 1))}>↓</button></div></li>)}</ol>
+          </div>
+        </section>
+        <section><h3>Cabeçalho do relatório</h3>
+          <div className="analytics-report-create-body">
+            <div className="analytics-report-header-fields">
+              <label>Título do relatório<input className="input" aria-label="Título do relatório" value={reportTitle} maxLength={200} onChange={event => setReportTitle(event.target.value)} /></label>
+              <label>Nome no cabeçalho<input className="input" value={headerName} maxLength={160} onChange={event => setHeaderName(event.target.value)} /></label>
+              <label>Informações do responsável<textarea className="input" rows={2} value={headerDetails} maxLength={500} placeholder="Empresa, gestor, site ou contato" onChange={event => setHeaderDetails(event.target.value)} /></label>
+            </div>
+            <small>{canManageReports ? "O PDF será baixado e salvo em Relatórios. Publique após revisar para liberar o acesso ao cliente." : "O PDF será baixado para o seu dispositivo."}</small>
+          </div>
+        </section>
+        {canManageReports && <section><h3>Comentários e próximos passos</h3><label htmlFor="analysis-note">Contextualize os resultados para o cliente</label><textarea id="analysis-note" className="input" rows={4} maxLength={5000} value={analysisNote} onChange={event => setAnalysisNote(event.target.value)} placeholder="O que aconteceu, o que merece atenção e quais serão as próximas ações." /><p className="analytics-footnote">Rascunho salvo neste navegador. Ao gerar, o comentário será preservado no relatório vertical ou horizontal.</p></section>}
+      </div>
+    </Dialog>
   </section>;
 }

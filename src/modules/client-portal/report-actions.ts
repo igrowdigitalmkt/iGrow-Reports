@@ -47,6 +47,7 @@ export async function generateDashboardReport(input: unknown) {
     ? "Para gerar o relatório, confirme os dados do período e selecione contas da mesma moeda."
     : "Não foi possível gerar o relatório. Confira a seleção e tente novamente." };
   revalidatePath(`/cliente/${parsed.data.clientId}`);
+  revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
   revalidatePath("/dashboard/relatorios");
   return { success: true as const, reportVersionId: data };
 }
@@ -61,6 +62,7 @@ export async function deleteDashboardReport(input: unknown) {
   });
   if (error) return { error: "Não foi possível excluir o relatório." };
   revalidatePath(`/cliente/${parsed.data.clientId}`);
+  revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
   revalidatePath("/dashboard/relatorios");
   return { success: true as const };
 }

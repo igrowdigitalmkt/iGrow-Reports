@@ -1,4 +1,10 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+import { loadPortfolioRows } from "@/modules/operations/portfolio-data";
+import { PortfolioView } from "@/modules/operations/portfolio-view";
+import { PortfolioSkeleton } from "@/modules/operations/portfolio-skeleton";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { canManageAgency, roleLabels } from "@/modules/agencies/roles";
 import { DashboardWorkspace } from "@/modules/operations/dashboard-workspace";
@@ -56,7 +62,17 @@ export default async function DashboardPage({
   if (key === "" || key === "relatorios") {
     reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
   }
-  // A referência é capturada no servidor por requisição e enviada como valor estável ao cliente.
-  // eslint-disable-next-line react-hooks/purity
-  return <DashboardWorkspace referenceTime={Date.now()} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} portalInvitations={portalInvitations} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
+  // The portfolio streams in after the page shell: each client reads its pre-computed period.
+  const reportsGenerated = reportsSnapshot?.ready
+    // eslint-disable-next-line react-hooks/purity -- request-time reference, computed once on the server
+    ? reportsSnapshot.versions.filter(version => new Date(version.generatedAt).getTime() >= Date.now() - 30 * 86_400_000).length : null;
+  const portfolio = key === "" ? <Suspense fallback={<PortfolioSkeleton />}>
+    <Portfolio supabase={context.supabase} clients={clients} meta={metaSnapshot} reportsGenerated={reportsGenerated} />
+  </Suspense> : undefined;
+  return <DashboardWorkspace portfolio={portfolio} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} portalInvitations={portalInvitations} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: context.user.email?.split("@")[0] ?? "Gestor", roleLabel: roleLabels[context.role], timezone: context.agency.timezone }} />;
+}
+
+async function Portfolio({ supabase, clients, meta, reportsGenerated }: { supabase: SupabaseClient<Database>; clients: ClientItem[]; meta: MetaAdminSnapshot | undefined; reportsGenerated: number | null }) {
+  const rows = await loadPortfolioRows(supabase, clients, meta);
+  return <PortfolioView base="/dashboard" summary={{ rows, reportsGenerated, periodLabel: "Últimos 30 dias" }} />;
 }

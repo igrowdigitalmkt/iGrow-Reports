@@ -17,6 +17,6 @@ describe("primeiros passos com dados reais", () => {
     const steps = onboardingSteps(client, meta, { ready: true, versions: [] }, ["client"]);
     expect(steps[3].complete).toBe(true);
     expect(steps[4].complete).toBe(false);
-    expect(steps[4].href).toContain(`/cliente/${client.id}`);
+    expect(steps[4].href).toContain(`/dashboard/clientes/${client.id}`);
   });
 });

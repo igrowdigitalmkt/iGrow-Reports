@@ -46,6 +46,7 @@ export async function collectDashboardData(input: unknown) {
       }
     } finally {
       revalidatePath(`/cliente/${parsed.data.clientId}`);
+      revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
       revalidatePath("/dashboard/clientes");
     }
     let verified = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.from, parsed.data.to);

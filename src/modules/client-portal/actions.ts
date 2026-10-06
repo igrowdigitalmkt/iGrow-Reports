@@ -96,6 +96,7 @@ export async function setClientPortalAccessByEmail(
   revalidatePath("/dashboard/clientes");
   revalidatePath("/cliente");
   revalidatePath(`/cliente/${parsed.data.clientId}`);
+  revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
   return { success: true, userId: data };
 }
 

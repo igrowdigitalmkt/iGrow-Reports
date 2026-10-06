@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/layout/brand";
 import { logoutAction } from "@/modules/auth/actions";
@@ -12,6 +12,8 @@ type ClientPortalShellProps = {
   userEmail: string | undefined;
   showClientSwitcher?: boolean;
   agencyMode?: boolean;
+  /** The page renders its own heading (the analytics dashboard does). */
+  hideHeading?: boolean;
 };
 
 export function ClientPortalShell({
@@ -21,12 +23,13 @@ export function ClientPortalShell({
   userEmail,
   showClientSwitcher = false,
   agencyMode = false,
+  hideHeading = false,
 }: ClientPortalShellProps) {
   return (
-    <main className="client-portal client-portal-dark">
+    <main className="client-portal">
       <header className="client-topbar">
         <div className="client-topbar-inner">
-          <Link href={agencyMode ? "/dashboard/clientes" : "/cliente"} aria-label="iGrow Reports — Área do Cliente" className="client-brand-link">
+          <Link href={agencyMode ? "/dashboard/clientes" : "/cliente"} aria-label="iGrow Reports, Área do Cliente" className="client-brand-link">
             <Brand />
           </Link>
           <div className="client-topbar-actions">
@@ -52,20 +55,16 @@ export function ClientPortalShell({
       </header>
 
       <div className="client-container">
-        <div className="client-page-heading">
-          <span className="client-kicker">
-            <ShieldCheck size={13} />
-            {agencyMode ? "Visão do cliente · Espaço de trabalho" : "Área do Cliente"}
-          </span>
+        {!hideHeading && <div className="client-page-heading">
           <h1>{title}</h1>
           <p>{description}</p>
-        </div>
+        </div>}
 
         {children}
 
         <footer className="client-footer">
           <span>iGrow Reports</span>
-          <span>Ambiente seguro para acompanhamento de resultados</span>
+          <span>Acesso protegido aos resultados do seu negócio</span>
         </footer>
       </div>
     </main>
