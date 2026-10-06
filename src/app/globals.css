@@ -303,6 +303,9 @@ kbd { padding: 0 5px; border: 1px solid var(--border); border-radius: 4px; color
 .sparkline-area { fill: var(--accent); opacity: .14; }
 .sparkline-line { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .sparkline-dot { fill: var(--accent); }
+.metric-of { margin-left: 4px; color: var(--muted); font-size: 15px; font-weight: 500; letter-spacing: 0; }
+.result-list { display: flex; flex-direction: column; gap: 1px; font-size: 13px; color: var(--secondary); white-space: nowrap; }
+.result-list strong { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .portfolio-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
 .portfolio-grid > .attention-panel { order: -1; }
 @media (min-width: 1560px) { .portfolio-grid { grid-template-columns: minmax(0, 1fr) 320px; } .portfolio-grid > .attention-panel { order: 0; } }

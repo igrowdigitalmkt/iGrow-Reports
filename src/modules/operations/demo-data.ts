@@ -40,11 +40,19 @@ export const demoPortfolio: PortfolioSummary = {
   reportsGenerated: 66,
   periodLabel: "Últimos 30 dias",
   rows: [
-    { id: "demo-4", name: "Escola Horizonte", linkedAccounts: 1, status: "ok", currency: "BRL", resultLabel: "leads", spend: 3885.18, previousSpend: 3456.2, results: 1366, previousResults: 1169, trend: demoTrend(1, 130) },
-    { id: "demo-0", name: "Aurora Studio", linkedAccounts: 2, status: "ok", currency: "BRL", resultLabel: "leads", spend: 2140.5, previousSpend: 2231.4, results: 214, previousResults: 220, trend: demoTrend(2, 71) },
-    { id: "demo-1", name: "Verde & Grão", linkedAccounts: 1, status: "no-delivery", currency: "BRL", resultLabel: "compras", spend: 1710, previousSpend: 1405, results: 96, previousResults: 81, trend: [...demoTrend(3, 70).slice(0, 23), 0, 0, 0, 0, 0, 0, 0] },
-    { id: "demo-2", name: "Órbita Fit", linkedAccounts: 1, status: "cost-up", currency: "BRL", resultLabel: "conversas", spend: 1265.9, previousSpend: 1190, results: 388, previousResults: 471, trend: demoTrend(4, 42) },
-    { id: "demo-5", name: "Lumina Estética", linkedAccounts: 1, status: "ok", currency: "BRL", resultLabel: "conversas", spend: 980.4, previousSpend: 921.1, results: 142, previousResults: 133, trend: demoTrend(5, 33) },
-    { id: "demo-3", name: "Casa Nativa", linkedAccounts: 0, status: "no-accounts", currency: null, resultLabel: "compras", spend: null, previousSpend: null, results: null, previousResults: null, trend: [] },
+    { id: "demo-4", name: "Escola Horizonte", linkedAccounts: 1, status: "ok", currency: "BRL", spend: 3885.18, previousSpend: 3456.2, trend: demoTrend(1, 130), results: [
+      { key: "link_clicks", label: "cliques no link", value: 1366, cost: null, previousCost: null },
+      { key: "profile_visits", label: "visitas ao perfil do instagram", value: 967, cost: null, previousCost: null },
+      { key: "registrations", label: "cadastros concluídos", value: 10, cost: null, previousCost: null },
+      { key: "reach", label: "alcance", value: 45418, cost: null, previousCost: null },
+    ] },
+    { id: "demo-0", name: "Aurora Studio", linkedAccounts: 2, status: "ok", currency: "BRL", spend: 2140.5, previousSpend: 2231.4, trend: demoTrend(2, 71), results: [{ key: "leads", label: "leads", value: 214, cost: 10, previousCost: 10.14 }] },
+    { id: "demo-1", name: "Verde & Grão", linkedAccounts: 1, status: "no-delivery", currency: "BRL", spend: 1710, previousSpend: 1405, trend: [...demoTrend(3, 70).slice(0, 23), 0, 0, 0, 0, 0, 0, 0], results: [{ key: "purchases", label: "compras", value: 96, cost: 17.81, previousCost: 17.35 }] },
+    { id: "demo-2", name: "Órbita Fit", linkedAccounts: 1, status: "cost-up", currency: "BRL", spend: 1265.9, previousSpend: 1190, trend: demoTrend(4, 42), results: [{ key: "messages", label: "conversas por mensagem iniciadas", value: 388, cost: 3.26, previousCost: 2.53 }] },
+    { id: "demo-5", name: "Lumina Estética", linkedAccounts: 1, status: "ok", currency: "BRL", spend: 980.4, previousSpend: 921.1, trend: demoTrend(5, 33), results: [
+      { key: "messages", label: "conversas por mensagem iniciadas", value: 142, cost: null, previousCost: null },
+      { key: "profile_visits", label: "visitas ao perfil do instagram", value: 310, cost: null, previousCost: null },
+    ] },
+    { id: "demo-3", name: "Casa Nativa", linkedAccounts: 0, status: "no-accounts", currency: null, spend: null, previousSpend: null, results: [], trend: [] },
   ],
 };
