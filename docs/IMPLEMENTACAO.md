@@ -578,3 +578,10 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Agendamentos: o aviso de canal some quando o número está conectado; o editor lista os grupos do número com busca; a rota `/api/cron/report-automations` envia pelo número conectado (`createQrSender`).
 - Conferido no servidor: formato das respostas de criar, conectar (QR e código), estado, listar e apagar instância. Testes `tests/whatsapp-qr.test.ts` (encontrou e corrigiu número estrangeiro com +). 685 testes, lint e build passaram.
 - Pendente: homologar conexão real com o número do responsável; agendar a chamada da rota a cada 5 min na VPS (precisa copiar `CRON_SECRET` para a VPS, com autorização); backup diário da VPS (aguarda autorização); descadastro por "PARAR" (webhook da Evolution); PDF por e-mail.
+
+### Descadastro por resposta "PARAR" (6/10/2026)
+
+- Migração `202610070002_recipient_opt_out.sql` (NÃO aplicada em produção): `service_recipient_opt_out(agência, telefone, origem)`, só service_role; revoga o telefone em todos os clientes da agência, registra no histórico de autorização e na auditoria. Teste `supabase/tests/recipient-opt-out.test.sql` (7 verificações).
+- Ao conectar por QR, o iGrow configura na Evolution o aviso de mensagens recebidas para `POST /api/webhooks/evolution`, assinado pelo cabeçalho `x-igrow-token` (HMAC da chave da Evolution com o nome da sessão; sem segredo extra). A rota só reage a respostas como PARAR/SAIR/CANCELAR/STOP em conversa privada, descadastra e responde confirmando, pelo próprio número. Texto das mensagens não é guardado. Regras em `whatsapp-qr/opt-out.ts`, testes `tests/whatsapp-opt-out.test.ts`.
+- Os três modelos de mensagem terminam com "Para não receber mais estas mensagens, responda PARAR."
+- Pendente: aplicar a 0002; números conectados antes desta versão recebem o aviso ao reconectar.

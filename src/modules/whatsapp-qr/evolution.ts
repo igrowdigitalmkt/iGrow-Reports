@@ -61,6 +61,11 @@ export class EvolutionClient {
     return { qr: result?.base64 ?? null, pairingCode: result?.pairingCode ?? null };
   }
 
+  // Incoming messages are forwarded to the iGrow (used for "PARAR" replies), signed by a header.
+  setWebhook(name: string, url: string, token: string) {
+    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT"] } } });
+  }
+
   logout(name: string) {
     return this.request(`/instance/logout/${encodeURIComponent(name)}`, { method: "DELETE" });
   }

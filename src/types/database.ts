@@ -318,6 +318,7 @@ export type Database = {
         Args: { p_wamid: string; p_status: string; p_at: string | null; p_error_code: string | null; p_error_message: string | null };
         Returns: boolean;
       };
+      service_recipient_opt_out: { Args: { p_agency_id: string; p_phone: string; p_source: string }; Returns: number };
       service_client_analytics: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };
       record_whatsapp_webhook: { Args: { p_dedup_key: string; p_payload: Json }; Returns: boolean };
       get_integration_secret: {

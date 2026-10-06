@@ -40,15 +40,15 @@ const PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/gi;
 export const MESSAGE_PRESETS = [
   {
     name: "Resumo completo",
-    text: "Olá, {{nome}}! 👋\n\nSegue o resumo de *{{cliente}}* ({{periodo}}):\n\n💰 Investimento: *{{investimento}}*\n👀 Alcance: {{alcance}} pessoas\n📢 Impressões: {{impressoes}}\n🖱️ Cliques: {{cliques}} (CTR {{ctr}})\n\n🎯 *Resultados*\n{{resultados}}\n\nQualquer dúvida, é só chamar por aqui.",
+    text: "Olá, {{nome}}! 👋\n\nSegue o resumo de *{{cliente}}* ({{periodo}}):\n\n💰 Investimento: *{{investimento}}*\n👀 Alcance: {{alcance}} pessoas\n📢 Impressões: {{impressoes}}\n🖱️ Cliques: {{cliques}} (CTR {{ctr}})\n\n🎯 *Resultados*\n{{resultados}}\n\nQualquer dúvida, é só chamar por aqui.\n\n_Para não receber mais estas mensagens, responda PARAR._",
   },
   {
     name: "Curto",
-    text: "Bom dia, {{nome}}! Em {{periodo}}, {{cliente}} investiu {{investimento}} e teve:\n{{resultados}}",
+    text: "Bom dia, {{nome}}! Em {{periodo}}, {{cliente}} investiu {{investimento}} e teve:\n{{resultados}}\n\n_Para não receber mais, responda PARAR._",
   },
   {
     name: "Com link do painel",
-    text: "Olá, {{nome}}! Os números de {{cliente}} em {{periodo}} já estão atualizados.\n\n💰 {{investimento}} investidos\n\n🎯 *Resultados*\n{{resultados}}\n\nVeja os detalhes no painel: {{link_painel}}",
+    text: "Olá, {{nome}}! Os números de {{cliente}} em {{periodo}} já estão atualizados.\n\n💰 {{investimento}} investidos\n\n🎯 *Resultados*\n{{resultados}}\n\nVeja os detalhes no painel: {{link_painel}}\n\n_Para não receber mais estas mensagens, responda PARAR._",
   },
 ];
 

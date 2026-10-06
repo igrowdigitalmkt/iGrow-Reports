@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { MessageSender } from "@/modules/automations/sender";
 import { EvolutionClient, EvolutionError, evolutionConfig, type EvolutionGroup } from "./evolution";
 import { formatJidPhone, instanceNameFor, normalizePairingPhone } from "./format";
@@ -9,6 +10,22 @@ export type QrStatus =
   | { configured: true; state: "disconnected" }
   | { configured: true; state: "connecting" }
   | { configured: true; state: "connected"; phone: string | null; name: string | null; picture: string | null };
+
+/** Per-session signature of the webhook, derived from the server key: no extra secret to manage. */
+export function webhookToken(instance: string) {
+  const config = evolutionConfig();
+  return config ? createHmac("sha256", config.key).update(`webhook:${instance}`).digest("hex") : null;
+}
+
+export function validWebhookToken(instance: string, received: string | null) {
+  const expected = webhookToken(instance);
+  if (!expected || !received || received.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(received));
+}
+
+function appOrigin() {
+  return process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "") || null;
+}
 
 function client() {
   const config = evolutionConfig();
@@ -39,9 +56,19 @@ export async function startQrConnection(agencyId: string, phone?: string) {
   // A pairing code is only issued to a fresh session created with the number.
   if (state !== null && number) { await evolution.remove(name).catch(() => undefined); }
   if (state === null || number) await evolution.create(name, number);
+  const origin = appOrigin();
+  const token = webhookToken(name);
+  if (origin && token) await evolution.setWebhook(name, `${origin}/api/webhooks/evolution`, token).catch(() => undefined);
   const result = await evolution.connect(name, number);
   if (number && !result.pairingCode) throw new EvolutionError("O WhatsApp não gerou o código agora. Tente o QR Code ou tente de novo em instantes.");
   return { connected: false as const, qr: number ? null : result.qr, pairingCode: number ? result.pairingCode : null };
+}
+
+/** Sends the confirmation after an opt-out reply, from the agency's own number. */
+export async function replyFromInstance(instance: string, phone: string, text: string) {
+  const evolution = client();
+  if (!evolution) return;
+  await evolution.sendText(instance, phone.replace(/\D/g, ""), text).catch(() => undefined);
 }
 
 export async function disconnectQr(agencyId: string) {
