@@ -534,3 +534,17 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
   - Menu: Entregas deixa de ser "Em breve".
 - Pendências externas (responsável): aplicar a migração; criar `WHATSAPP_WEBHOOK_VERIFY_TOKEN` na Vercel; no Meta Business, número na Cloud API, token permanente de usuário do sistema (whatsapp_business_messaging, whatsapp_business_management), modelo `relatorio_desempenho` (pt_BR, Utilidade, cabeçalho Documento, texto em `templates.ts`) e webhook do campo `messages`. Descadastro por resposta "PARAR" ainda não processado.
 - Cadastro integrado (Embedded Signup) do WhatsApp com coexistência: botões "Usar o número do meu WhatsApp Business" (QR no app do celular, `featureType: whatsapp_business_app_onboarding`) e "Usar um número novo". O código de autorização é trocado por token no servidor, o app é inscrito nos avisos da conta (`subscribed_apps`) e o número novo é registrado na Cloud API. Fica ativo quando existir `WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID` na Vercel; sem ela, vale a conexão manual (IDs e token), que depois fica como opção avançada. Depende de o app iGrow ser aprovado pela Meta como Tech Provider (empresa verificada, análise do app e configuração do Embedded Signup).
+
+### Homologação do WhatsApp em produção (6/10/2026)
+
+- Migrações `202610060001` e `202610060002` aplicadas pelo responsável. A 0002 corrige a regra do nome da mensagem modelo: `{1,512}` excedia o limite de 255 repetições das expressões regulares do PostgreSQL e fazia toda gravação de modelo falhar.
+- App da Meta usado para o WhatsApp: "iGrow Reports" (ID 1403140724038533, antigo "Secretário Virtual Sílvio Melo"), porque o app da Meta Ads não aceita o caso de uso WhatsApp. Variáveis na Vercel: `WHATSAPP_APP_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. Webhook `/api/webhooks/meta/whatsapp` verificado, com o campo `messages` assinado. Páginas `/privacidade` e `/exclusao-de-dados` cadastradas no app.
+- Conta do WhatsApp "Agenda Sílvio Melo" (WABA 1100158515497239), número +55 86 9403-7823 (ID 991218314063731). Mensagem modelo `relatorio_desempenho` (pt_BR, Utilidade, cabeçalho Documento) aprovada.
+- Primeiro envio real recebido com sucesso. As duas tentativas anteriores falharam com o código 131042: conta restrita por US$ 1,43 em aberto, quitado pelo responsável. Os avisos de entrega chegam ao iGrow mesmo com o app não publicado.
+- Correções feitas durante a homologação: tolerância de 5 min no horário da autorização de destinatário; botão "Usar esta mensagem" na escolha do modelo; filtro dos dados da Meta antes de gravar a conexão; códigos de falha do WhatsApp explicados em Entregas.
+- Pendências:
+  - O nome de exibição "iGrow Digital" foi rejeitado pela Meta, e as mensagens chegam mostrando só o número. Pedir nova análise, de preferência com um site público da marca.
+  - Publicar o app exige o Checkup de Uso de Dados (declaração do responsável). Adiado.
+  - Tech Provider e cadastro integrado (QR) ficam para depois.
+  - Descadastro automático por resposta "PARAR".
+  - Agendamento automático de envios.
