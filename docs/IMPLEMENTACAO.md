@@ -608,3 +608,8 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Variáveis novas: `{{receita}}`, `{{roas}}`, `{{seguidores}}`, `{{custo_conversa}}`, `{{custo_lead}}`, `{{custo_cadastro}}`, `{{custo_compra}}`, `{{custo_seguidor}}`.
 - Migração `202610070003_message_templates.sql` (NÃO aplicada em produção): tabela `message_templates` com RLS (leitura membros; escrita proprietário/administrador/editor; nome único por espaço) e coluna `report_automation_runs.trigger` (schedule/manual). Teste `supabase/tests/message-templates.test.sql` (8). O código funciona antes dela: templates salvos ficam indisponíveis e o "enviado agora" é registrado sem a marca.
 - Testes `tests/report-pages.test.ts`; 692 testes, lint, testes de banco e build passaram. Conferido no navegador em `/demo/relatorios/*` (1280×800 e painel).
+
+### Agendador de 5 minutos na VPS (6/10/2026)
+
+- Instalado com autorização do responsável: `/opt/igrow/run-automations.sh` (versionado em `infra/evolution/run-automations.sh`) via `/etc/cron.d/igrow-automations` a cada 5 min, com `flock` contra sobreposição; log em `/var/log/igrow-automations.log` com rotação semanal (`/etc/logrotate.d/igrow`).
+- A senha fica em `/opt/igrow/cron.env` (600), colocada pelo responsável no Web console. O primeiro valor colado foi recusado pelo iGrow (HTTP 401): não é o `CRON_SECRET` da Vercel. Pendente: gravar o valor correto (ou gerar um novo na VPS e cadastrá-lo como `CRON_SECRET` na Vercel, com nova publicação). Conferir no log a resposta HTTP 200.
