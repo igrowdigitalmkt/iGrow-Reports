@@ -712,3 +712,4 @@ Plano completo em `docs/PLANO_WHATSAPP_MULTINUMERO.md` (inclui a caixa de entrad
 - Antes da 0010 tudo segue como antes (um número; agendamento oficial recusado com aviso).
 - Verificação: lint, 707 testes (novo `automation-official.test.ts`), pgTAP, build (local com `--webpack` por falta de memória na máquina; Turbopack falhou por memória, não por código). Visual conferido na demonstração (editor de agendamento).
 - Próximo: responsável aplicar 0009 e 0010; homologar agendamento oficial com o número da API; etapa 2 (caixa de entrada só leitura).
+- Homologado pelo responsável (7/10/2026): migrações 0009 e 0010 aplicadas; agendamento pelo número oficial enviado e recebido corretamente. Pendente por decisão dele: revisão geral do layout interno dos PDFs (há várias correções a listar) — tratar depois, num bloco próprio.
