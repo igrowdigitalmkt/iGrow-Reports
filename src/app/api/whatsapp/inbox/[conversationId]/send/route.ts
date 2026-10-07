@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   }
   const filename = file instanceof File && file.name ? file.name.slice(0, 200) : "arquivo";
   const mime = file instanceof Blob ? file.type || "application/octet-stream" : "";
-  const kind = file instanceof Blob ? replyMediaKind(mime, conversation.channel) : null;
+  const kind = file instanceof Blob ? replyMediaKind(mime, conversation.channel, form.get("asDocument") === "1") : null;
   if (file instanceof Blob && !kind) return Response.json({ error: "Esse tipo de arquivo não é aceito pelo WhatsApp." }, { status: 400, headers });
 
   try {

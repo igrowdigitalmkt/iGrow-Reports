@@ -186,7 +186,7 @@ textarea.input { padding-top: 9px; padding-bottom: 9px; line-height: 1.5; }
 .nav-item.is-planned { color: var(--muted); }
 .nav-soon { margin-left: auto; padding: 0 7px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 11px; line-height: 18px; font-weight: 400; }
 .nav-count { margin-left: auto; padding: 0 7px; border-radius: 999px; background: var(--surface-raised); color: var(--secondary); font-size: 12px; line-height: 18px; }
-.nav-count.is-unread { background: #21c063; color: #0b141a; font-weight: 700; }
+.nav-count.is-unread { background: var(--good); color: var(--bg); font-weight: 700; }
 .sidebar-footer { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-top: 1px solid var(--border); }
 .user-profile { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 8px; border-radius: 6px; white-space: nowrap; }
 .user-profile:hover { background: var(--surface-hover); }

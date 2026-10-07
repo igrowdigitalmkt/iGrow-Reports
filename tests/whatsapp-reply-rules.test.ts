@@ -22,5 +22,7 @@ describe("arquivos aceitos", () => {
     expect(replyMediaKind("audio/ogg; codecs=opus", "qr")).toBe("audio");
     expect(replyMediaKind("application/pdf", "official")).toBe("document");
     expect(replyMediaKind("application/x-msdownload", "qr")).toBeNull();
+    expect(replyMediaKind("image/jpeg", "qr", true)).toBe("document");
+    expect(replyMediaKind("application/x-msdownload", "qr", true)).toBeNull();
   });
 });

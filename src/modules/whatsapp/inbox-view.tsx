@@ -141,7 +141,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, demoCon
         {!list && <p className="wai-list-note">Carregando conversas…</p>}
         {list && !list.ready && <p className="wai-list-note">A caixa de entrada precisa da atualização do banco de dados. Assim que ela for aplicada, as conversas passam a aparecer aqui.</p>}
         {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
-        {visible.map(item => <ConversationRow key={item.id} item={item} active={item.id === openId} now={now} onOpen={() => choose(item.id)} />)}
+        {visible.map(item => <ConversationRow key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} onOpen={() => choose(item.id)} />)}
       </div>
     </section>
 
@@ -154,7 +154,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, demoCon
       </div> : <>
         <header className="wai-chat-head">
           <button type="button" className="wai-icon-button wai-back" onClick={() => setOpenId(null)} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button>
-          <Avatar item={open} size={40} />
+          <Avatar key={open.id} item={open} size={40} photo={!demo} />
           <div className="wai-chat-title"><strong>{conversationTitle(open)}</strong>
             <small>{[open.isGroup ? "Grupo" : open.title ? formatWhatsAppPhone(open.remoteId) : null, open.clientName ? `Cliente: ${open.clientName}` : null].filter(Boolean).join(" · ") || channel.name}</small></div>
           <div className="wai-head-actions">
@@ -184,12 +184,17 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, demoCon
   </div>;
 }
 
-function Avatar({ item, size }: { item: InboxConversation; size: number }) {
+// Profile photo from WhatsApp (QR Code session only) over the initials, which stay if there is none.
+function Avatar({ item, size, photo }: { item: InboxConversation; size: number; photo: boolean }) {
+  const [failed, setFailed] = useState(false);
   const title = conversationTitle(item);
   const style = { width: size, height: size };
-  if (item.isGroup) return <span className="wai-avatar is-icon" style={style}><UsersRound size={size * .5} /></span>;
-  if (!item.title) return <span className="wai-avatar is-icon" style={style}><Contact size={size * .5} /></span>;
-  return <span className="wai-avatar" style={{ ...style, background: colorFor(title) }}>{initialsOf(title)}</span>;
+  const fallback = item.isGroup ? <UsersRound size={size * .5} /> : !item.title ? <Contact size={size * .5} /> : initialsOf(title);
+  return <span className={`wai-avatar${item.isGroup || !item.title ? " is-icon" : ""}`} style={item.isGroup || !item.title ? style : { ...style, background: colorFor(title) }}>
+    {fallback}
+    {photo && item.channelKey === "qr" && !failed && /* eslint-disable-next-line @next/next/no-img-element -- private photo streamed from WhatsApp */
+      <img src={`/api/whatsapp/inbox/avatar/${item.id}`} alt="" loading="lazy" onError={() => setFailed(true)} />}
+  </span>;
 }
 
 function Ticks({ status }: { status: InboxStatus }) {
@@ -202,11 +207,11 @@ function Ticks({ status }: { status: InboxStatus }) {
 
 const KIND_ICONS: Record<string, typeof ImageIcon> = { image: ImageIcon, video: Video, audio: Mic, document: FileText, sticker: Sticker, location: MapPin, contact: Contact };
 
-function ConversationRow({ item, active, now, onOpen }: { item: InboxConversation; active: boolean; now: Date; onOpen: () => void }) {
+function ConversationRow({ item, active, now, photo, onOpen }: { item: InboxConversation; active: boolean; now: Date; photo: boolean; onOpen: () => void }) {
   const Icon = item.lastKind ? KIND_ICONS[item.lastKind] : undefined;
   const preview = item.preview || kindLabel(item.lastKind);
   return <button type="button" className={`wai-row${active ? " is-active" : ""}`} onClick={onOpen}>
-    <Avatar item={item} size={49} />
+    <Avatar item={item} size={49} photo={photo} />
     <span className="wai-row-main">
       <span className="wai-row-top"><strong>{conversationTitle(item)}</strong><time className={item.unread ? "is-unread" : undefined}>{listTime(item.lastAt, now)}</time></span>
       <span className="wai-row-bottom">
@@ -276,6 +281,9 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
 }) {
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  // "Documento" sends any file as a document; "Fotos e vídeos" and "Áudio" send it as media.
+  const [asDocument, setAsDocument] = useState(false);
+  const [pendingDocument, setPendingDocument] = useState(false);
   const [error, setError] = useState("");
   const [menu, setMenu] = useState<"attach" | "emoji" | null>(null);
   const [sending, setSending] = useState(false);
@@ -283,17 +291,18 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
   const picker = useRef<HTMLInputElement>(null);
   const reply = replyWindow(kind, conversation.lastInboundAt, now);
 
-  function chooseFile(accept: string) {
+  function chooseFile(accept: string, document: boolean) {
     setMenu(null);
+    setPendingDocument(document);
     if (!picker.current) return;
     picker.current.accept = accept;
     picker.current.click();
   }
   function onFile(selected: File | undefined) {
     if (!selected) return;
-    if (!replyMediaKind(selected.type, kind)) { setError("Esse tipo de arquivo não é aceito pelo WhatsApp."); return; }
+    if (!replyMediaKind(selected.type, kind, pendingDocument)) { setError("Esse tipo de arquivo não é aceito pelo WhatsApp."); return; }
     if (selected.size > MAX_REPLY_FILE_BYTES) { setError("O arquivo precisa ter até 4 MB."); return; }
-    setError(""); setFile(selected); field.current?.focus();
+    setError(""); setFile(selected); setAsDocument(pendingDocument); field.current?.focus();
   }
   function insertEmoji(emoji: string) {
     const element = field.current;
@@ -307,7 +316,7 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
     const body = text.trim();
     if ((!body && !file) || sending) return;
     if (body.length > MAX_REPLY_TEXT) { setError("A mensagem passou de 4.096 caracteres."); return; }
-    const mediaKind = file ? replyMediaKind(file.type, kind) : null;
+    const mediaKind = file ? replyMediaKind(file.type, kind, asDocument) : null;
     const item: InboxMessageItem = {
       id: `local-${Date.now()}`, direction: "out", kind: mediaKind ?? "text", body: body || null,
       mediaName: mediaKind === "document" ? file?.name ?? null : null, mediaMime: file?.type ?? null, author: null,
@@ -321,6 +330,7 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
       const form = new FormData();
       if (body) form.append("text", body);
       if (file) form.append("file", file, file.name);
+      if (file && asDocument) form.append("asDocument", "1");
       const response = await fetch(`/api/whatsapp/inbox/${conversation.id}/send`, { method: "POST", body: form });
       const result = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) { onSettled(item.id, "failed"); setError(result.error ?? "Não foi possível enviar agora."); return; }
@@ -340,7 +350,7 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
   return <footer className="wai-composer-area">
     {error && <p role="alert" className="wai-composer-error"><AlertCircle size={14} />{error}</p>}
     {file && <div className="wai-attachment">
-      <FileText size={18} /><span><strong>{file.name}</strong><small>{formatBytes(file.size)}{text ? " · o texto vai como legenda" : ""}</small></span>
+      <FileText size={18} /><span><strong>{file.name}</strong><small>{asDocument ? "Documento" : "Mídia"} · {formatBytes(file.size)}{text ? " · o texto vai como legenda" : ""}</small></span>
       <button type="button" className="wai-icon-button" onClick={() => setFile(null)} aria-label="Remover arquivo"><X size={16} /></button>
     </div>}
     {kind === "official" && closes && <p className="wai-window">Resposta livre até {dayLabel(closes, now).toLowerCase()} às {clockTime(closes)} · respostas pela API oficial podem ser cobradas pela Meta</p>}
@@ -348,9 +358,9 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
       <div className="wai-composer-menu">
         <button type="button" className={`wai-icon-button${menu === "attach" ? " is-on" : ""}`} onClick={() => setMenu(menu === "attach" ? null : "attach")} aria-expanded={menu === "attach"} title="Anexar"><Plus size={22} /></button>
         {menu === "attach" && <div className="wai-attach-menu" role="menu">
-          <button type="button" role="menuitem" onClick={() => chooseFile(".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv")}><FileText size={18} className="is-doc" />Documento</button>
-          <button type="button" role="menuitem" onClick={() => chooseFile("image/jpeg,image/png,image/webp,video/mp4,video/3gpp")}><ImageIcon size={18} className="is-photo" />Fotos e vídeos</button>
-          <button type="button" role="menuitem" onClick={() => chooseFile("audio/mpeg,audio/ogg,audio/mp4,audio/aac")}><Headphones size={18} className="is-audio" />Áudio</button>
+          <button type="button" role="menuitem" onClick={() => chooseFile(ACCEPTED_REPLY_FILES, true)}><FileText size={18} className="is-doc" />Documento</button>
+          <button type="button" role="menuitem" onClick={() => chooseFile("image/jpeg,image/png,image/webp,video/mp4,video/3gpp", false)}><ImageIcon size={18} className="is-photo" />Fotos e vídeos</button>
+          <button type="button" role="menuitem" onClick={() => chooseFile("audio/mpeg,audio/ogg,audio/mp4,audio/aac", false)}><Headphones size={18} className="is-audio" />Áudio</button>
         </div>}
       </div>
       <div className="wai-composer-menu">

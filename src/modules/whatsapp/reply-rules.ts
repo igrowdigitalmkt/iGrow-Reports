@@ -28,9 +28,13 @@ const DOCUMENT = [
 
 export type ReplyMediaKind = "image" | "video" | "audio" | "document";
 
-/** WhatsApp kind of an attached file, or null when WhatsApp does not accept that type. */
-export function replyMediaKind(mime: string, channel: "qr" | "official"): ReplyMediaKind | null {
+/**
+ * WhatsApp kind of an attached file, or null when WhatsApp does not accept that type. Chosen as
+ * "Documento", any accepted file goes as a document (a photo keeps its original quality).
+ */
+export function replyMediaKind(mime: string, channel: "qr" | "official", asDocument = false): ReplyMediaKind | null {
   const type = mime.toLowerCase().split(";")[0].trim();
+  if (asDocument) return [...IMAGE, ...VIDEO, ...AUDIO, ...DOCUMENT].includes(type) ? "document" : null;
   // WebP is a sticker format on the official API; send it as a document there.
   if (IMAGE.includes(type)) return channel === "official" && type === "image/webp" ? "document" : "image";
   if (VIDEO.includes(type)) return "video";

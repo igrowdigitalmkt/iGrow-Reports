@@ -94,6 +94,19 @@ export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> 
   return (await evolution.groups(name)).sort((a, b) => a.subject.localeCompare(b.subject, "pt-BR"));
 }
 
+/** Profile photo of a contact or group seen by the QR Code session, fetched on demand (not stored). */
+export async function qrProfilePicture(agencyId: string, remoteId: string) {
+  const evolution = client();
+  if (!evolution) return null;
+  const number = remoteId.includes("@") ? remoteId : remoteId.replace(/\D/g, "");
+  const url = await evolution.profilePictureUrl(instanceNameFor(agencyId), number).catch(() => null);
+  // Only WhatsApp's own image servers are fetched.
+  if (!url || !/^https:\/\/[a-z0-9.-]+\.(whatsapp\.net|fbcdn\.net)\//i.test(url)) return null;
+  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15_000) }).catch(() => null);
+  if (!response?.ok) return null;
+  return { bytes: await response.arrayBuffer(), mime: response.headers.get("content-type") ?? "image/jpeg" };
+}
+
 /** File of an inbox message on the QR Code session, fetched on demand (not stored). */
 export async function downloadQrMedia(agencyId: string, message: { externalId: string; remoteId: string; isGroup: boolean; fromMe: boolean; ref?: { type: string; data: Record<string, unknown> } | null }) {
   const evolution = client();

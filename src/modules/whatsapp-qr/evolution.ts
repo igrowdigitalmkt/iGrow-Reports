@@ -86,6 +86,12 @@ export class EvolutionClient {
     return (list ?? []).filter(group => group.id?.endsWith("@g.us")).map(group => ({ id: group.id, subject: group.subject?.trim() || "Grupo sem nome", size: group.size ?? null }));
   }
 
+  /** Public profile photo URL of a contact or group (null when hidden or absent). */
+  async profilePictureUrl(name: string, number: string) {
+    const result = await this.request<{ profilePictureUrl?: string | null }>(`/chat/fetchProfilePictureUrl/${encodeURIComponent(name)}`, { method: "POST", timeoutMs: 15_000, body: { number } });
+    return result?.profilePictureUrl || null;
+  }
+
   /** File of a message the session saw (received or sent), as base64. */
   async mediaOfMessage(name: string, key: { id: string; remoteJid: string; fromMe: boolean }, ref?: { type: string; data: Record<string, unknown> } | null) {
     // With the file reference the server downloads straight from WhatsApp (it does not keep messages).
