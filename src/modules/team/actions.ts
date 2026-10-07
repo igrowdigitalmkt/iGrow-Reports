@@ -56,7 +56,7 @@ export async function setMemberRoleAction(input: unknown) {
   const context = await requireAgencyContext();
   if (!canManageAgency(context.role)) return denied;
   const { error } = await context.supabase.rpc("set_agency_member_role", { p_agency_id: context.agency.id, p_user_id: parsed.data.userId, p_role: parsed.data.role });
-  if (error?.code === "23514") return { error: "A agência precisa manter pelo menos um proprietário." };
+  if (error?.code === "23514") return { error: "O espaço de trabalho precisa manter pelo menos um proprietário." };
   if (error) return { error: error.code === "42501" ? "Somente proprietários gerenciam proprietários." : "Não foi possível alterar o papel." };
   revalidatePath("/dashboard/equipe");
   return { success: true as const };
@@ -82,7 +82,7 @@ export async function removeMemberAction(input: unknown) {
   if (!canManageAgency(context.role)) return denied;
   if (parsed.data.userId === context.user.id) return { error: "Você não pode remover a si mesmo." };
   const { error } = await context.supabase.rpc("remove_agency_member", { p_agency_id: context.agency.id, p_user_id: parsed.data.userId });
-  if (error?.code === "23514") return { error: "A agência precisa manter pelo menos um proprietário." };
+  if (error?.code === "23514") return { error: "O espaço de trabalho precisa manter pelo menos um proprietário." };
   if (error) return { error: "Não foi possível remover este membro." };
   revalidatePath("/dashboard/equipe");
   return { success: true as const };

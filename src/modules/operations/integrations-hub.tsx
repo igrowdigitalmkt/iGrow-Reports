@@ -76,7 +76,7 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
     <section className="hub-group">
       <header><h2>Envio de relatórios</h2><p>Por onde os números chegam aos seus clientes.</p></header>
       <div className="hub-grid">
-        <IntegrationCard logo={<QrCode size={17} />} logoClass="whatsapp-logo" name="WhatsApp da agência" description="Mensagens automáticas pelo seu próprio número, conectado por QR Code. Envia para pessoas e grupos."
+        <IntegrationCard logo={<QrCode size={17} />} logoClass="whatsapp-logo" name="Seu WhatsApp" description="Mensagens automáticas pelo seu próprio número, conectado por QR Code. Envia para pessoas e grupos."
           status={qrStatus.label} tone={qrStatus.tone}
           fact={qrConnected ? <><strong>{qrConnected.name ?? "Número conectado"}</strong><span>{qrConnected.phone ?? ""}</span></> : <span>Usado pelos Agendamentos. Conecte em menos de um minuto.</span>}
           action={qrConnected ? "Gerenciar" : "Conectar"} onAction={live ? () => setPanel("qr") : undefined} disabled={!!qr && !qr.configured} featured={live && !!qr && qr.configured && !qrConnected} />
@@ -95,7 +95,7 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
       <Sheet open={panel === "meta"} onOpenChange={open => setPanel(open ? "meta" : null)} title="Meta Ads" description="Cada cliente tem a própria conexão. Escolha o cliente e as contas de anúncio.">
         {metaSnapshot && <MetaIntegrationManager agencyId={agencyId!} clients={activeClients} initialClientId={initialMetaClientId} snapshot={metaSnapshot} canManage={canManage} />}
       </Sheet>
-      <Sheet open={panel === "qr"} onOpenChange={open => { setPanel(open ? "qr" : null); if (!open) loadQr(); }} title="WhatsApp da agência" description="Conecte o número que vai enviar os agendamentos.">
+      <Sheet open={panel === "qr"} onOpenChange={open => { setPanel(open ? "qr" : null); if (!open) loadQr(); }} title="Seu WhatsApp" description="Conecte o número que vai enviar os agendamentos.">
         <QrConnection canManage={canManage} onStatus={setQr} />
       </Sheet>
       <Sheet open={panel === "official"} onOpenChange={open => setPanel(open ? "official" : null)} title="WhatsApp API oficial" description="Número da Cloud API e mensagem modelo para o PDF do relatório.">

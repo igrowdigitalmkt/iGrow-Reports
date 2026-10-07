@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Política de Privacidade", robots: {
 
 export default function PrivacyPage() {
   return <LegalPage title="Política de Privacidade">
-    <p>O iGrow Reports é a plataforma de relatórios de tráfego pago da iGrow Digital. Ela reúne os resultados das campanhas de anúncios dos clientes da agência, gera relatórios e os entrega aos responsáveis indicados. Esta política explica quais dados tratamos, por que, com quem compartilhamos e como você pode exercer seus direitos, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
+    <p>O iGrow Reports é a plataforma de relatórios de tráfego pago da iGrow Digital. Ela reúne os resultados das campanhas de anúncios dos clientes de quem usa a plataforma (agências, profissionais autônomos e equipes de marketing), gera relatórios e os entrega aos responsáveis indicados. Esta política explica quais dados tratamos, por que, com quem compartilhamos e como você pode exercer seus direitos, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
 
     <h2>1. Quem é o controlador</h2>
     <p>A iGrow Digital é a controladora dos dados tratados no iGrow Reports. Para qualquer assunto de privacidade, fale com <a href={`mailto:${LEGAL_CONTACT_EMAIL}`}>{LEGAL_CONTACT_EMAIL}</a>.</p>
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
       <li>Avisar sobre saldo baixo, pagamentos pendentes e outras situações que afetam a veiculação.</li>
       <li>Manter a segurança, investigar falhas e cumprir obrigações legais.</li>
     </ul>
-    <p>As bases legais são a execução do contrato com a agência e seus clientes, o legítimo interesse na prestação do serviço contratado, o consentimento dos destinatários para receber mensagens e o cumprimento de obrigações legais. Não vendemos dados e não os usamos para publicidade.</p>
+    <p>As bases legais são a execução do contrato com quem usa a plataforma e com os clientes atendidos, o legítimo interesse na prestação do serviço contratado, o consentimento dos destinatários para receber mensagens e o cumprimento de obrigações legais. Não vendemos dados e não os usamos para publicidade.</p>
 
     <h2>4. Com quem compartilhamos</h2>
     <ul>
@@ -41,13 +41,13 @@ export default function PrivacyPage() {
     <h2>5. Por quanto tempo guardamos</h2>
     <ul>
       <li>Dados detalhados de conjuntos e anúncios: 180 dias. Totais diários por campanha e conta: enquanto o cliente estiver ativo, para permitir comparações de períodos.</li>
-      <li>Relatórios gerados e histórico de envios: enquanto o cliente estiver ativo na agência.</li>
+      <li>Relatórios gerados e histórico de envios: enquanto o cliente estiver ativo no espaço de trabalho.</li>
       <li>Autorizações e descadastros de destinatários: pelo tempo necessário para comprovar o consentimento.</li>
       <li>Após o encerramento do contrato ou um pedido de exclusão, os dados são apagados ou anonimizados, salvo o que a lei exigir manter.</li>
     </ul>
 
     <h2>6. Seus direitos</h2>
-    <p>Você pode pedir confirmação do tratamento, acesso, correção, anonimização, portabilidade ou exclusão dos seus dados, e revogar consentimentos a qualquer momento. Destinatários podem deixar de receber relatórios pedindo o descadastro à agência ou pelo nosso contato. Veja como pedir a exclusão em <Link href="/exclusao-de-dados">Exclusão de dados</Link>.</p>
+    <p>Você pode pedir confirmação do tratamento, acesso, correção, anonimização, portabilidade ou exclusão dos seus dados, e revogar consentimentos a qualquer momento. Destinatários podem deixar de receber relatórios respondendo PARAR à mensagem, pedindo o descadastro a quem envia os relatórios ou pelo nosso contato. Veja como pedir a exclusão em <Link href="/exclusao-de-dados">Exclusão de dados</Link>.</p>
 
     <h2>7. Segurança</h2>
     <p>Usamos conexão criptografada, credenciais de integração criptografadas, controle de acesso por espaço de trabalho e por perfil, e registros de auditoria. Nenhum sistema é totalmente imune a incidentes; se ocorrer um que possa causar risco relevante, avisaremos os afetados e a ANPD.</p>

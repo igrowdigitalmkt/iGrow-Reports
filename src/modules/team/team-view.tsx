@@ -117,7 +117,7 @@ function InviteDialog({ open, onOpenChange, currentRole, demo, onDone }: { open:
       <label><span>Link do convite (válido por 7 dias)</span><div className="team-link"><input className="input" readOnly value={result.link} onFocus={event => event.currentTarget.select()} /><Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(result.link).then(() => setCopied(true)); }}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copiado" : "Copiar"}</Button></div></label>
       <Button className="w-full" onClick={() => reset(false)}>Concluir</Button>
     </div> : <form className="template-save-form" onSubmit={event => { event.preventDefault(); send(); }}>
-      <label><span>E-mail</span><input className="input" type="email" autoFocus required value={email} onChange={event => setEmail(event.target.value)} placeholder="nome@agencia.com.br" /></label>
+      <label><span>E-mail</span><input className="input" type="email" autoFocus required value={email} onChange={event => setEmail(event.target.value)} placeholder="nome@empresa.com.br" /></label>
       <fieldset className="team-role-options"><legend>Papel</legend>{(["admin", "editor", "viewer", ...(currentRole === "owner" ? ["owner"] as AgencyRole[] : [])] as AgencyRole[]).map(option => <label key={option} className={role === option ? "is-selected" : undefined}>
         <input type="radio" name="role" checked={role === option} onChange={() => setRole(option)} />
         <span><strong>{roleLabels[option]}</strong><small>{ROLE_HINTS[option]}</small></span>

@@ -20,7 +20,7 @@ export const MESSAGE_VARIABLES: MessageVariable[] = [
   { key: "nome", label: "Nome do destinatário", group: "Geral" },
   { key: "cliente", label: "Nome do cliente", group: "Geral" },
   { key: "periodo", label: "Período", group: "Geral" },
-  { key: "equipe", label: "Nome da agência", group: "Geral" },
+  { key: "equipe", label: "Nome da sua empresa", group: "Geral" },
   { key: "link_painel", label: "Link do painel", group: "Geral" },
   { key: "investimento", label: "Valor investido", group: "Investimento" },
   { key: "receita", label: "Receita das compras", group: "Investimento" },

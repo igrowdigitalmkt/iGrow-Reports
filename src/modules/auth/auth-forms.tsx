@@ -81,8 +81,8 @@ export function SignUpForm({ configured }: { configured: boolean }) {
   return <form action={action} className="mt-7">
     <label htmlFor="name" className="block text-sm font-medium text-slate-300"><UserRound size={14} className="mr-2 inline" />Seu nome</label>
     <input id="name" name="name" autoComplete="name" required maxLength={120} placeholder="Seu nome" className={fieldClass} disabled={!configured || pending} />
-    <label htmlFor="agency" className="mt-5 block text-sm font-medium text-slate-300"><Building2 size={14} className="mr-2 inline" />Nome da agência</label>
-    <input id="agency" name="agency" autoComplete="organization" required maxLength={120} placeholder="Ex.: iGrow Digital" className={fieldClass} disabled={!configured || pending} />
+    <label htmlFor="agency" className="mt-5 block text-sm font-medium text-slate-300"><Building2 size={14} className="mr-2 inline" />Empresa, marca ou seu nome profissional</label>
+    <input id="agency" name="agency" autoComplete="organization" required maxLength={120} placeholder="Ex.: Studio Ana Souza ou Equipe de Marketing" className={fieldClass} disabled={!configured || pending} />
     <label htmlFor="email" className="mt-5 block text-sm font-medium text-slate-300"><Mail size={14} className="mr-2 inline" />E-mail</label>
     <input id="email" name="email" type="email" autoComplete="email" required maxLength={254} placeholder="Seu e-mail" className={fieldClass} disabled={!configured || pending} />
     <label htmlFor="password" className="mt-5 block text-sm font-medium text-slate-300"><LockKeyhole size={14} className="mr-2 inline" />Senha</label>
@@ -95,8 +95,8 @@ export function SignUpForm({ configured }: { configured: boolean }) {
 export function CreateWorkspaceForm({ suggestion }: { suggestion: string }) {
   const [state, action, pending] = useActionState(createOwnWorkspaceAction, { error: null });
   return <form action={action} className="mt-7">
-    <label htmlFor="agency" className="block text-sm font-medium text-slate-300"><Building2 size={14} className="mr-2 inline" />Nome da agência</label>
-    <input id="agency" name="agency" autoComplete="organization" required maxLength={120} defaultValue={suggestion} placeholder="Ex.: iGrow Digital" className={fieldClass} disabled={pending} />
+    <label htmlFor="agency" className="block text-sm font-medium text-slate-300"><Building2 size={14} className="mr-2 inline" />Nome do espaço de trabalho</label>
+    <input id="agency" name="agency" autoComplete="organization" required maxLength={120} defaultValue={suggestion} placeholder="Empresa, marca ou seu nome profissional" className={fieldClass} disabled={pending} />
     <FormError error={state.error} />
     <button type="submit" disabled={pending} className={submitClass}>{pending ? <LoaderCircle className="animate-spin" size={17} /> : null}{pending ? "Criando…" : "Criar espaço de trabalho"}{!pending && <ArrowRight size={17} />}</button>
   </form>;

@@ -101,7 +101,7 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
     <div className="qr-head">
       <span className={`qr-logo${connected ? " is-on" : ""}`}><Smartphone size={18} /></span>
       <div>
-        <h2>WhatsApp da agência</h2>
+        <h2>Seu WhatsApp</h2>
         <p>As mensagens saem do seu próprio número, com o seu nome e a sua foto. Funciona como o WhatsApp Web.</p>
       </div>
       {status === null ? <span className="badge neutral"><Loader2 size={12} className="spin" />Verificando</span>

@@ -17,9 +17,9 @@ export default async function CreateWorkspacePage({ searchParams }: { searchPara
   return <AuthShell>
     <p className="text-xs font-medium uppercase tracking-[0.16em] text-blue-400">Último passo</p>
     <h2 className="mt-3 text-2xl font-semibold tracking-tight">Crie seu espaço de trabalho</h2>
-    <p className="mt-2 text-sm leading-6 text-slate-400">É onde ficam seus clientes, relatórios e envios. Você será o proprietário e poderá convidar sua equipe depois.</p>
+    <p className="mt-2 text-sm leading-6 text-slate-400">É onde ficam seus clientes, relatórios e envios. Serve para agências, profissionais autônomos e equipes de marketing. Você será o proprietário e poderá convidar outras pessoas depois.</p>
     <CreateWorkspaceForm suggestion={metadata?.pending_agency_name ?? ""} />
-    <p className="mt-5 text-center text-xs leading-5 text-slate-500">Recebeu um convite de uma agência? Abra o link do convite em vez de criar um espaço novo.</p>
+    <p className="mt-5 text-center text-xs leading-5 text-slate-500">Recebeu um convite para entrar em uma equipe? Abra o link do convite em vez de criar um espaço novo.</p>
     <form action={logoutAction}><button className="mt-5 w-full text-center text-sm text-slate-400 hover:text-white">Sair e usar outra conta</button></form>
   </AuthShell>;
 }
