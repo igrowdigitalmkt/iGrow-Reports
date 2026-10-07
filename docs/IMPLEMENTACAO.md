@@ -683,3 +683,4 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Ajuste a pedido (7/10/2026): Região/País virou a quarta rosca (com seletor Região | País no cabeçalho); grade 2×2 (1 coluna no celular). Listas com mais de 7 itens agrupam o restante em "Outros"; países aparecem pelo nome (Brasil) em vez do código; a Meta não devolve resultados por região/país, e a rosca avisa isso.
 - Verificado visualmente na demonstração (grade 2×2, troca de indicador e de Região/País) e com conta Meta real em produção (imagem do responsável).
 - Ajuste visual (7/10/2026): número central das roscas menor (15 px) e legenda com largura máxima de 240 px, centralizada junto da rosca, para não separar tanto nome e valor.
+- Ajuste visual (7/10/2026): "Investimento por conta" trocou a rosca do ECharts pelo mesmo anel SVG das roscas de público (componente compartilhado `donut-ring.tsx`); texto central um pouco menor.

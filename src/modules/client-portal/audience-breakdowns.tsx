@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Globe2, Loader2, MapPin, RefreshCw } from "lucide-react";
 import type { AudienceRow, ClientAudienceBreakdowns } from "@/modules/meta/server";
 import { ANALYTICS_COLORS } from "./analytics-charts";
+import { DonutRing } from "./donut-ring";
 
 type Metric = "impressions" | "reach" | "clicks" | "spend" | "results";
 const METRICS: Array<{ key: Metric; label: string }> = [
@@ -36,22 +37,14 @@ function Donut({ title, rows, metric, colors, currency, action, emptyText }: { t
     : sorted;
   const items = grouped.map((item, index) => ({ ...item, color: item.key === "__outros" ? "#8a93a3" : colors?.[item.key] ?? ANALYTICS_COLORS[index % ANALYTICS_COLORS.length] }));
   const total = items.reduce((sum, item) => sum + item.value, 0);
-  const radius = 52; const circumference = 2 * Math.PI * radius;
   const compact = formatter(metric, currency, true);
-  // Start of each slice along the ring, in the same order as the items.
-  const starts = items.map((_, index) => items.slice(0, index).reduce((sum, item) => sum + item.value / total * circumference, 0));
   return <article className="analytics-card audience-card">
     <div className="analytics-card-heading"><div><h3>{title}</h3></div>{action}</div>
     {total > 0 ? <div className="audience-donut">
-      <svg viewBox="0 0 132 132" role="img" aria-label={`${title}: ${items.map(item => `${item.label} ${compact(item.value)}`).join(", ")}`}>
-        <circle cx="66" cy="66" r={radius} className="audience-track" />
-        {items.map((item, index) => {
-          const length = item.value / total * circumference;
-          return <circle key={item.key} cx="66" cy="66" r={radius} stroke={item.color} strokeDasharray={`${Math.max(length - 1.5, 0.5)} ${circumference}`} strokeDashoffset={-starts[index]} className="audience-segment"><title>{`${item.label}: ${compact(item.value)}`}</title></circle>;
-        })}
+      <DonutRing label={`${title}: ${items.map(item => `${item.label} ${compact(item.value)}`).join(", ")}`} slices={items.map(item => ({ key: item.key, value: item.value, color: item.color, title: `${item.label}: ${compact(item.value)}` }))}>
         <text x="66" y="66" className="audience-total">{compact(total)}</text>
         <text x="66" y="80" className="audience-total-label">{label}</text>
-      </svg>
+      </DonutRing>
       <ul className="audience-legend">{items.map(item => <li key={item.key}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{compact(item.value)}</strong></li>)}</ul>
     </div> : <p className="analytics-empty-copy">{emptyText ?? `Sem dados de ${label.toLowerCase()} no período.`}</p>}
   </article>;

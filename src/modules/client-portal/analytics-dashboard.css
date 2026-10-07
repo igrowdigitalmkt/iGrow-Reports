@@ -173,10 +173,12 @@
 .analytics-chart-data[open] { margin-left: 0; margin-right: 0; }
 .analytics-chart-data[open] > summary { margin: 0 0 8px 18px; }
 .analytics-donut-wrapper { position: relative; }
+.analytics-account-ring { display: flex; justify-content: center; padding: 6px 18px 14px; }
+.analytics-account-ring svg { width: 186px; height: 186px; overflow: visible; }
 .analytics-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-.analytics-donut-center small { margin-bottom: 4px; color: var(--muted); font-size: 12px; }
-.analytics-donut-center strong { color: var(--text); font-size: 18px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.analytics-donut-center > span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.analytics-donut-center small { margin-bottom: 3px; color: var(--muted); font-size: 11px; }
+.analytics-donut-center strong { color: var(--text); font-size: 16px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.analytics-donut-center > span { margin-top: 3px; color: var(--muted); font-size: 11px; }
 .analytics-account-legend { margin: 0; padding: 0 18px 16px; list-style: none; }
 .analytics-account-legend li { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .analytics-account-legend li:last-child { border-bottom: 0; }

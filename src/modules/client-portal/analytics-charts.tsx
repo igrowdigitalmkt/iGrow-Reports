@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import type { AnalyticsDashboardData, AnalyticsValues } from "./analytics-types";
 import { resultBreakdown } from "./analytics-results";
+import { DonutRing } from "./donut-ring";
 
 export type AnalyticsMetric = AnalyticsDashboardData["metrics"][number];
 export const ANALYTICS_COLORS = ["#5b7cfa", "#3fc2d6", "#a594ff", "#3ccf8e", "#f0b44c", "#e57fa8"];
@@ -129,16 +130,12 @@ export function AnalyticsTrendChart({ data, metrics, comparison = true, height =
 
 export function AnalyticsAccountChart({ data, metric }: { data: AnalyticsDashboardData; metric: AnalyticsMetric }) {
   const rows = data.accountTotals.filter((account) => account.values[metric.key] != null);
-  const values = rows.map((account, index) => ({ name: account.name, value: account.values[metric.key], itemStyle: { color: ANALYTICS_COLORS[index % ANALYTICS_COLORS.length] } }));
-  const option: EChartsCoreOption = {
-    backgroundColor: "transparent",
-    tooltip: { ...tooltip, trigger: "item", formatter: "{b}\n{c}" },
-    series: [{ type: "pie", radius: ["59%", "78%"], center: ["50%", "50%"], stillShowZeroSum: false, avoidLabelOverlap: true, label: { show: false }, emphasis: { label: { show: false }, scale: true }, itemStyle: { borderColor: "rgba(0, 0, 0, 0)", borderWidth: 3, borderRadius: 4 }, data: values }],
-  };
+  const slices = rows.map((account, index) => ({ key: account.id, value: Math.max(account.values[metric.key] ?? 0, 0), color: ANALYTICS_COLORS[index % ANALYTICS_COLORS.length],
+    title: `${account.name}: ${formatAnalyticsValue(account.values[metric.key], metric, account.currency || data.currency)}` }));
   const total = rows.reduce((sum, account) => sum + (account.values[metric.key] ?? 0), 0);
   return <>
-    {data.currency && <div className="analytics-donut-wrapper">
-      <ChartCanvas option={option} label={`${metric.label} por conta de anúncios. Consulte os valores na lista abaixo.`} height={218} />
+    {data.currency && <div className="analytics-donut-wrapper analytics-account-ring">
+      <DonutRing slices={slices} label={`${metric.label} por conta de anúncios. Consulte os valores na lista abaixo.`} />
       <div className="analytics-donut-center"><small>{metric.label}</small><strong>{formatAnalyticsValue(data.summary[metric.key], metric, data.currency)}</strong><span>{rows.length} {rows.length === 1 ? "conta" : "contas"}</span></div>
     </div>}
     {!data.currency && rows.length > 0 && <p className="analytics-empty-copy">Contas com moedas diferentes. Os investimentos são apresentados separadamente.</p>}
