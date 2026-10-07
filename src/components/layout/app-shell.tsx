@@ -99,7 +99,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
           <Link href={base} aria-label="iGrow Reports, visão geral" className="brand-link"><Brand /></Link>
         </div>
         {/* Switching only makes sense for people in more than one workspace (e.g. a freelancer for several agencies). */}
-        {workspaceCount > 1 ? <Link className="agency-switch" href={demo ? "/demo/configuracoes" : "/selecionar-agencia"} data-tip={`${identity.agencyName} · trocar espaço`} aria-label={`Espaço de trabalho: ${identity.agencyName}. Trocar espaço`}>
+        {workspaceCount > 1 ? <Link className="agency-switch" href={demo ? "/demo/configuracoes" : "/selecionar-espaco"} data-tip={`${identity.agencyName} · trocar espaço`} aria-label={`Espaço de trabalho: ${identity.agencyName}. Trocar espaço`}>
           <span className="agency-avatar">{initialsOf(identity.agencyName).slice(0, 2) || "iG"}</span>
           <strong className="collapse-hide">{identity.agencyName}</strong>
           <ChevronsUpDown size={14} className="collapse-hide" />

@@ -14,6 +14,7 @@ describe("destinos após autenticação", () => {
   it("preserva convite interno após login", () => {
     const path = `/convite?token=${"a".repeat(64)}`;
     expect(safeRedirect(path)).toBe(path);
+    expect(safeRedirect("/selecionar-espaco")).toBe("/selecionar-espaco");
     expect(safeRedirect("/selecionar-agencia")).toBe("/selecionar-agencia");
     expect(safeRedirect("/cliente")).toBe("/cliente");
     expect(safeRedirect("/cliente/11111111-0000-4000-8000-000000000001")).toBe("/cliente/11111111-0000-4000-8000-000000000001");

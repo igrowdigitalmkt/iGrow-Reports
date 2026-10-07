@@ -63,7 +63,7 @@ describe("contexto da agência validado no servidor", () => {
   it("cookie desconhecido exige escolha entre múltiplas associações", async () => {
     authenticatedClient([ownMembership, { ...ownMembership, agency_id: "agency-b", agencies: { ...ownMembership.agencies, id: "agency-b" } }]);
     mocks.cookies.mockResolvedValue({ get: () => ({ value: "agency-victim" }) });
-    await expect(requireAgencyContext()).rejects.toThrow("REDIRECT:/selecionar-agencia");
+    await expect(requireAgencyContext()).rejects.toThrow("REDIRECT:/selecionar-espaco");
   });
 
   it("falha do banco interrompe o acesso em vez de mostrar dados de demonstração", async () => {

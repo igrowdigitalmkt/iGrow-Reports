@@ -40,7 +40,7 @@ export const requireAgencyContext = cache(async function requireAgencyContext() 
   // A cookie only chooses among memberships re-read under the authenticated user's RLS.
   const selected = memberships.find(({ agency }) => agency.id === selectedId) ??
     (memberships.length === 1 ? memberships[0] : undefined);
-  if (!selected) redirect("/selecionar-agencia");
+  if (!selected) redirect("/selecionar-espaco");
   return { supabase, user, agency: selected.agency, role: selected.role, memberships };
 });
 
