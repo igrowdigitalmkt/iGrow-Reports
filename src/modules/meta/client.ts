@@ -460,6 +460,27 @@ export class MetaClient {
     });
   }
 
+  /** Totals of the period split by one dimension (platform, gender, age, region or country). */
+  async getBreakdownInsights(input: {
+    adAccountId: string;
+    since: string;
+    until: string;
+    breakdown: "publisher_platform" | "gender" | "age" | "region" | "country";
+  }): Promise<MetaBreakdownRow[]> {
+    validateAccountId(input.adAccountId);
+    validateDate(input.since);
+    validateDate(input.until);
+    if (input.until < input.since) throw new Error("Período Meta inválido.");
+    return this.getAll<MetaBreakdownRow>(`${input.adAccountId}/insights`, {
+      level: "account",
+      time_increment: "all_days",
+      time_range: JSON.stringify({ since: input.since, until: input.until }),
+      fields: "impressions,clicks,spend,reach,actions",
+      breakdowns: input.breakdown,
+      limit: "500",
+    });
+  }
+
   async getPeriodInsights(input: {
     adAccountId: string;
     since: string;
@@ -484,3 +505,5 @@ export class MetaClient {
     });
   }
 }
+
+export type MetaBreakdownRow = Record<string, unknown> & { impressions?: string; clicks?: string; spend?: string; reach?: string; actions?: Array<{ action_type?: string; value?: string }> };

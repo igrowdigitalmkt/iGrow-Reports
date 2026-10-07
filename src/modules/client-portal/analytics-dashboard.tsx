@@ -13,6 +13,8 @@ import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKe
 import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
+import { AudienceBreakdowns } from "./audience-breakdowns";
+import { demoAudience } from "./demo-analytics";
 import { BillingSummary } from "./billing-section";
 import { sortActionsByImportance } from "./action-priority";
 import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "./platform-picker";
@@ -950,6 +952,7 @@ export function ClientAnalyticsDashboard({
               <p className="analytics-empty-copy">A distribuição por conta usa o escopo completo. Remova o filtro de campanhas para visualizá-la.</p>}
           </article>
         </div>
+        {!scopeData && <AudienceBreakdowns clientId={clientId} dateFrom={data.dateFrom} dateTo={data.dateTo} accountIds={accounts} demoData={demo ? demoAudience : undefined} />}
         <div className="analytics-insights-grid">
           <article className="analytics-card analytics-observations">
             <div className="analytics-card-heading"><div><h3>O que merece atenção</h3></div><Sparkles size={17} /></div>

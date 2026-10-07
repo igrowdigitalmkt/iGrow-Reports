@@ -1,5 +1,6 @@
 import { campaignResultTotals } from "./result-values";
 import "server-only";
+import { RESULT_GROUPS } from "@/modules/client-portal/analytics-results";
 import { selectedMetaAccounts } from "./login-config";
 import { createHash } from "node:crypto";
 import type { AnalyticsDashboardData, AnalyticsMetric, AnalyticsValues } from "@/modules/client-portal/analytics-types";
@@ -977,4 +978,59 @@ export async function collectMetaClientInsights(input: {
     await markIntegrationFailure(service, input.agencyId, integration.id, error);
     throw error;
   }
+}
+
+export type AudienceDimension = "platforms" | "gender" | "age" | "region" | "country";
+export type AudienceRow = { key: string; label: string; impressions: number; clicks: number; spend: number; reach: number; results: number };
+export type ClientAudienceBreakdowns = Record<AudienceDimension, AudienceRow[]> & { currency: string | null };
+
+const BREAKDOWN_FIELD: Record<AudienceDimension, "publisher_platform" | "gender" | "age" | "region" | "country"> = {
+  platforms: "publisher_platform", gender: "gender", age: "age", region: "region", country: "country",
+};
+const AUDIENCE_LABELS: Record<string, string> = {
+  instagram: "Instagram", facebook: "Facebook", audience_network: "Audience Network", messenger: "Messenger", whatsapp: "WhatsApp", threads: "Threads",
+  female: "Mulheres", male: "Homens", unknown: "Não informado", Unknown: "Não informado",
+};
+
+/**
+ * Period totals of the client's ad accounts split by platform, gender, age, region and country,
+ * read live from Meta. "Results" sums one action type per outcome family (messages, leads,
+ * sign-ups, purchases, profile visits) so aliases of the same outcome are not counted twice.
+ */
+export async function getClientAudienceBreakdowns(input: { agencyId: string; clientId: string; since: string; until: string; accountIds?: string[] }): Promise<ClientAudienceBreakdowns> {
+  const { service, apiVersion } = operationalDependencies();
+  const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+  const { data: links, error: linkError } = await service.from("client_ad_accounts").select("ad_account_id")
+    .eq("agency_id", input.agencyId).eq("client_id", input.clientId).eq("active", true);
+  if (linkError) throw new Error("Não foi possível consultar as contas do cliente.");
+  const ids = (links ?? []).map(link => link.ad_account_id).filter(id => !input.accountIds?.length || input.accountIds.includes(id));
+  const empty = { platforms: [], gender: [], age: [], region: [], country: [], currency: null };
+  if (!ids.length) return empty;
+  const { data: accounts, error } = await service.from("meta_ad_accounts").select("id,external_id,currency")
+    .eq("agency_id", input.agencyId).eq("meta_connection_id", connection.id).in("id", ids).is("archived_at", null);
+  if (error || !accounts?.length) return empty;
+  const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
+  const client = new MetaClient({ accessToken: token, apiVersion });
+  const resultFamilies = RESULT_GROUPS.map(group => group.fields.map(field => field.replace(/^action:/, "")));
+  const number = (value: unknown) => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; };
+
+  const out = { ...empty, currency: new Set(accounts.map(account => account.currency)).size === 1 ? accounts[0].currency : null } as ClientAudienceBreakdowns;
+  for (const dimension of Object.keys(BREAKDOWN_FIELD) as AudienceDimension[]) {
+    const field = BREAKDOWN_FIELD[dimension];
+    const totals = new Map<string, AudienceRow>();
+    const pages = await Promise.all(accounts.map(account => client.getBreakdownInsights({ adAccountId: account.external_id, since: input.since, until: input.until, breakdown: field }).catch(() => [])));
+    for (const row of pages.flat()) {
+      const key = String(row[field] ?? "unknown");
+      const current = totals.get(key) ?? { key, label: AUDIENCE_LABELS[key] ?? key, impressions: 0, clicks: 0, spend: 0, reach: 0, results: 0 };
+      const actions = new Map((row.actions ?? []).map(action => [action.action_type ?? "", number(action.value)]));
+      current.impressions += number(row.impressions);
+      current.clicks += number(row.clicks);
+      current.spend += number(row.spend);
+      current.reach += number(row.reach);
+      current.results += resultFamilies.reduce((sum, family) => sum + (family.map(type => actions.get(type)).find(value => value != null) ?? 0), 0);
+      totals.set(key, current);
+    }
+    out[dimension] = [...totals.values()].sort((a, b) => b.impressions - a.impressions);
+  }
+  return out;
 }

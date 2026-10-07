@@ -674,3 +674,10 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Primeira tentativa falhou com "Signups not allowed for this instance": o cadastro de novos usuários estava desligado no Supabase (decisão original de plataforma fechada). O responsável ativou "Allow new users to sign up". O callback agora mostra o motivo informado pelo Supabase em vez de mensagem genérica.
 - Conta nova pelo Google entrou autenticada; `/sem-acesso` passou a levar direto a `/criar-espaco` quando não há espaço, convite nem área de cliente.
 - A tela do Google mostra o domínio do Supabase; trocar por "iGrow" exige domínio próprio (domínio personalizado no Supabase ou verificação do app). E-mails de cadastro/recuperação/convite para pessoas de fora dependem de SMTP próprio (Resend + domínio da iGrow, pendente).
+
+### Painel do cliente: público do período (6/10/2026)
+
+- Nova seção "Público do período" abaixo de "Desempenho do período" / "Investimento por conta": rosca de Plataformas, Gênero e Idade e tabela por Região/País (indicador escolhido, Cliques, Impressões, CPC médio, CTR).
+- Lista "Indicador" (Impressões, Alcance, Cliques, Investimento, Resultados) atualiza todos os gráficos e a ordenação da tabela.
+- Dados lidos ao vivo da Meta (`breakdowns` publisher_platform, gender, age, region, country) para o período e as contas selecionadas, somando contas; rota `GET /api/clientes/[clientId]/audiencia` (route handler, roda em paralelo). Seção oculta quando há filtro de campanha. Demonstração com dados fictícios.
+- Verificado visualmente na demonstração (3 colunas em desktop, troca de indicador). Pendente: conferir com conta Meta real em produção.

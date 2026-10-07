@@ -1,5 +1,6 @@
 import { normalizeClientAnalytics } from "./analytics-calculations";
 import type { AnalyticsDashboardData } from "./analytics-types";
+import type { ClientAudienceBreakdowns } from "@/modules/meta/server";
 
 // Fictitious client dashboard for the demo workspace. Never written to the database.
 const METRICS = [
@@ -81,3 +82,14 @@ export function getDemoClientAnalytics(): AnalyticsDashboardData {
     warnings: [], metaAggregate: { confirmed: true, collectedAt, version: 1 },
   });
 }
+
+// Fictitious audience of the demo client (platform, gender, age, region, country).
+const audience = (key: string, label: string, impressions: number, clicks: number, spend: number, results: number) => ({ key, label, impressions, clicks, spend, reach: Math.round(impressions * 0.36), results });
+export const demoAudience: ClientAudienceBreakdowns = {
+  currency: "BRL",
+  platforms: [audience("instagram", "Instagram", 348200, 9541, 2420, 214), audience("facebook", "Facebook", 131400, 3689, 1310, 96), audience("whatsapp", "WhatsApp", 2400, 46, 40, 12), audience("audience_network", "Audience Network", 6900, 5, 115, 0)],
+  gender: [audience("female", "Mulheres", 360400, 9810, 2730, 231), audience("male", "Homens", 126200, 3420, 1120, 88), audience("unknown", "Não informado", 2310, 51, 35, 3)],
+  age: [audience("25-34", "25-34", 158100, 4320, 1260, 112), audience("35-44", "35-44", 113400, 3110, 905, 81), audience("45-54", "45-54", 56459, 1510, 440, 39), audience("65+", "65+", 54733, 1290, 410, 22), audience("55-64", "55-64", 54488, 1480, 420, 31), audience("18-24", "18-24", 51824, 1560, 440, 36), audience("Unknown", "Não informada", 648, 11, 10, 1)],
+  region: [audience("Piauí", "Piauí", 461870, 12531, 3260, 294), audience("Maranhão", "Maranhão", 27073, 750, 188, 28), audience("Unknown", "Não informada", 3, 0, 0, 0)],
+  country: [audience("BR", "BR", 488946, 13281, 3448, 322)],
+};
