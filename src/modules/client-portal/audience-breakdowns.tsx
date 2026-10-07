@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, MapPin, RefreshCw, Users } from "lucide-react";
-import type { AudienceDimension, AudienceRow, ClientAudienceBreakdowns } from "@/modules/meta/server";
+import { useEffect, useState, type ReactNode } from "react";
+import { Globe2, Loader2, MapPin, RefreshCw } from "lucide-react";
+import type { AudienceRow, ClientAudienceBreakdowns } from "@/modules/meta/server";
 import { ANALYTICS_COLORS } from "./analytics-charts";
 
 type Metric = "impressions" | "reach" | "clicks" | "spend" | "results";
@@ -22,17 +22,26 @@ function formatter(metric: Metric, currency: string | null, compact: boolean) {
   return (value: number) => format.format(value);
 }
 
-function Donut({ title, rows, metric, colors, currency }: { title: string; rows: AudienceRow[]; metric: Metric; colors?: Record<string, string>; currency: string | null }) {
+const MAX_SLICES = 7;
+const countryNames = new Intl.DisplayNames(["pt-BR"], { type: "region" });
+// Meta returns ISO codes (BR, PT); show the country name when the code is known.
+function countryName(code: string) { try { return /^[A-Z]{2}$/.test(code) ? countryNames.of(code) : undefined; } catch { return undefined; } }
+
+function Donut({ title, rows, metric, colors, currency, action, emptyText }: { title: string; rows: AudienceRow[]; metric: Metric; colors?: Record<string, string>; currency: string | null; action?: ReactNode; emptyText?: string }) {
   const label = METRICS.find(item => item.key === metric)!.label;
-  const items = rows.map((row, index) => ({ ...row, value: row[metric], color: colors?.[row.key] ?? ANALYTICS_COLORS[index % ANALYTICS_COLORS.length] }))
-    .filter(item => item.value > 0).sort((a, b) => b.value - a.value);
+  const sorted = rows.map(row => ({ key: row.key, label: row.label, value: row[metric] })).filter(item => item.value > 0).sort((a, b) => b.value - a.value);
+  // Long lists (regions, countries) keep the largest slices and group the rest as "Outros".
+  const grouped = sorted.length > MAX_SLICES
+    ? [...sorted.slice(0, MAX_SLICES - 1), { key: "__outros", label: "Outros", value: sorted.slice(MAX_SLICES - 1).reduce((sum, item) => sum + item.value, 0) }]
+    : sorted;
+  const items = grouped.map((item, index) => ({ ...item, color: item.key === "__outros" ? "#8a93a3" : colors?.[item.key] ?? ANALYTICS_COLORS[index % ANALYTICS_COLORS.length] }));
   const total = items.reduce((sum, item) => sum + item.value, 0);
   const radius = 52; const circumference = 2 * Math.PI * radius;
   const compact = formatter(metric, currency, true);
   // Start of each slice along the ring, in the same order as the items.
   const starts = items.map((_, index) => items.slice(0, index).reduce((sum, item) => sum + item.value / total * circumference, 0));
   return <article className="analytics-card audience-card">
-    <div className="analytics-card-heading"><div><h3>{title}</h3></div></div>
+    <div className="analytics-card-heading"><div><h3>{title}</h3></div>{action}</div>
     {total > 0 ? <div className="audience-donut">
       <svg viewBox="0 0 132 132" role="img" aria-label={`${title}: ${items.map(item => `${item.label} ${compact(item.value)}`).join(", ")}`}>
         <circle cx="66" cy="66" r={radius} className="audience-track" />
@@ -43,8 +52,8 @@ function Donut({ title, rows, metric, colors, currency }: { title: string; rows:
         <text x="66" y="64" className="audience-total">{compact(total)}</text>
         <text x="66" y="82" className="audience-total-label">{label}</text>
       </svg>
-      <ul className="audience-legend">{items.slice(0, 7).map(item => <li key={item.key}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{compact(item.value)}</strong></li>)}</ul>
-    </div> : <p className="analytics-empty-copy">Sem dados de {label.toLowerCase()} no período.</p>}
+      <ul className="audience-legend">{items.map(item => <li key={item.key}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{compact(item.value)}</strong></li>)}</ul>
+    </div> : <p className="analytics-empty-copy">{emptyText ?? `Sem dados de ${label.toLowerCase()} no período.`}</p>}
   </article>;
 }
 
@@ -68,14 +77,10 @@ export function AudienceBreakdowns({ clientId, dateFrom, dateTo, accountIds, dem
 
   const data = state.status === "ready" ? state.data : null;
   const currency = data?.currency ?? null;
-  const full = formatter(metric, currency, false);
-  const money = formatter("spend", currency, false);
-  const placeRows: AudienceRow[] = data ? data[place as AudienceDimension] : [];
-  const sortedPlaces = [...placeRows].sort((a, b) => b[metric] - a[metric]);
 
   return <section className="audience-section" aria-label="Público do período">
     <div className="audience-head">
-      <div><h3>Público do período</h3><p>Plataformas, gênero, idade e região, direto da Meta</p></div>
+      <div><h3>Público do período</h3><p>Plataformas, gênero, idade e local, direto da Meta</p></div>
       <label className="analytics-chart-metric"><span>Indicador</span>
         <select className="input" value={metric} onChange={event => setMetric(event.target.value as Metric)}>{METRICS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}</select>
       </label>
@@ -87,26 +92,13 @@ export function AudienceBreakdowns({ clientId, dateFrom, dateTo, accountIds, dem
         <Donut title="Plataformas" rows={data.platforms} metric={metric} colors={PLATFORM_COLORS} currency={currency} />
         <Donut title="Gênero" rows={data.gender} metric={metric} colors={GENDER_COLORS} currency={currency} />
         <Donut title="Idade" rows={data.age} metric={metric} currency={currency} />
-      </div>
-      <article className="analytics-card audience-places">
-        <div className="analytics-card-heading">
-          <div className="analytics-chart-switcher" role="group" aria-label="Local">
+        <Donut title={place === "region" ? "Região" : "País"} rows={place === "country" ? data.country.map(row => ({ ...row, label: countryName(row.key) ?? row.label })) : data.region} metric={metric} currency={currency}
+          emptyText={metric === "results" ? `A Meta não informa resultados por ${place === "region" ? "região" : "país"}.` : undefined}
+          action={<div className="analytics-chart-switcher" role="group" aria-label="Local">
             <button type="button" aria-pressed={place === "region"} className={place === "region" ? "is-active" : ""} onClick={() => setPlace("region")}><MapPin size={12} />Região</button>
-            <button type="button" aria-pressed={place === "country"} className={place === "country" ? "is-active" : ""} onClick={() => setPlace("country")}><Users size={12} />País</button>
-          </div>
-          <span className="muted text-xs">{sortedPlaces.length} {sortedPlaces.length === 1 ? "linha" : "linhas"}</span>
-        </div>
-        {sortedPlaces.length ? <div className="audience-table-scroll"><table className="analytics-table">
-          <caption className="sr-only">Desempenho por {place === "region" ? "região" : "país"}</caption>
-          <thead><tr><th scope="col">{place === "region" ? "Região" : "País"}</th><th scope="col">{METRICS.find(item => item.key === metric)!.label}</th>
-            {metric !== "clicks" && <th scope="col">Cliques</th>}{metric !== "impressions" && <th scope="col">Impressões</th>}<th scope="col">CPC médio</th><th scope="col">CTR</th></tr></thead>
-          <tbody>{sortedPlaces.map(row => <tr key={row.key}>
-            <th scope="row">{row.label}</th><td><strong>{full(row[metric])}</strong></td>
-            {metric !== "clicks" && <td>{row.clicks.toLocaleString("pt-BR")}</td>}{metric !== "impressions" && <td>{row.impressions.toLocaleString("pt-BR")}</td>}
-            <td>{row.clicks ? money(row.spend / row.clicks) : "—"}</td><td>{row.impressions ? `${(row.clicks / row.impressions * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}%` : "—"}</td>
-          </tr>)}</tbody>
-        </table></div> : <p className="analytics-empty-copy">Sem dados de local no período.</p>}
-      </article>
+            <button type="button" aria-pressed={place === "country"} className={place === "country" ? "is-active" : ""} onClick={() => setPlace("country")}><Globe2 size={12} />País</button>
+          </div>} />
+      </div>
     </>}
   </section>;
 }

@@ -680,4 +680,5 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Nova seção "Público do período" abaixo de "Desempenho do período" / "Investimento por conta": rosca de Plataformas, Gênero e Idade e tabela por Região/País (indicador escolhido, Cliques, Impressões, CPC médio, CTR).
 - Lista "Indicador" (Impressões, Alcance, Cliques, Investimento, Resultados) atualiza todos os gráficos e a ordenação da tabela.
 - Dados lidos ao vivo da Meta (`breakdowns` publisher_platform, gender, age, region, country) para o período e as contas selecionadas, somando contas; rota `GET /api/clientes/[clientId]/audiencia` (route handler, roda em paralelo). Seção oculta quando há filtro de campanha. Demonstração com dados fictícios.
-- Verificado visualmente na demonstração (3 colunas em desktop, troca de indicador). Pendente: conferir com conta Meta real em produção.
+- Ajuste a pedido (7/10/2026): Região/País virou a quarta rosca (com seletor Região | País no cabeçalho); grade 2×2 (1 coluna no celular). Listas com mais de 7 itens agrupam o restante em "Outros"; países aparecem pelo nome (Brasil) em vez do código; a Meta não devolve resultados por região/país, e a rosca avisa isso.
+- Verificado visualmente na demonstração (grade 2×2, troca de indicador e de Região/País) e com conta Meta real em produção (imagem do responsável).

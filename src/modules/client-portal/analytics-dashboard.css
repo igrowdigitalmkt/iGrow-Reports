@@ -427,7 +427,7 @@
 .audience-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .audience-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .audience-head p { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
-.audience-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.audience-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .audience-card { display: grid; gap: 12px; align-content: start; padding-bottom: 16px; }
 .audience-donut { display: flex; align-items: center; gap: 16px; padding: 0 18px; }
 .audience-donut svg { width: 150px; height: 150px; flex-shrink: 0; overflow: visible; }
@@ -440,12 +440,10 @@
 .audience-legend i { width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; }
 .audience-legend span { flex: 1; min-width: 0; overflow: hidden; color: var(--secondary); text-overflow: ellipsis; white-space: nowrap; }
 .audience-legend strong { font-variant-numeric: tabular-nums; font-weight: 600; }
-.audience-places .analytics-card-heading { align-items: center; }
-.audience-table-scroll { max-height: 320px; margin-top: 12px; overflow: auto; }
+.audience-card .analytics-card-heading { align-items: center; }
 .audience-loading { display: flex; align-items: center; gap: 10px; padding: 18px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 13px; }
 .audience-loading .spin { animation: audience-spin 1s linear infinite; }
 @keyframes audience-spin { to { transform: rotate(360deg); } }
-@media (max-width: 1200px) { .audience-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   .audience-grid { grid-template-columns: minmax(0, 1fr); }
   .audience-donut svg { width: 130px; height: 130px; }
