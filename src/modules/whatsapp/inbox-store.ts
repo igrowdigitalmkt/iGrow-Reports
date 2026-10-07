@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
+import type { Database, Json } from "@/types/database";
 import type { InboxMessage } from "./inbox-parse";
 
 type Service = SupabaseClient<Database>;
@@ -29,6 +29,8 @@ export async function recordInboxMessage(service: Service, input: {
     return null;
   }
   const row = data?.[0];
+  // QR Code files are fetched later by their reference (no-op before migration 202610070013).
+  if (message.mediaRef) await service.rpc("set_whatsapp_message_media_ref", { p_agency_id: input.agencyId, p_external_id: message.externalId, p_media_ref: message.mediaRef as unknown as Json }).then(() => undefined, () => undefined);
   // A group seen for the first time gets its name from the session.
   if (row?.needs_title && message.isGroup && input.groupSubject) {
     const subject = await input.groupSubject(message.remoteId);

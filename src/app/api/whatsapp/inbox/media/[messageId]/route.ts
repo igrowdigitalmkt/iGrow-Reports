@@ -31,7 +31,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ mess
       if (!message.media_id || !conversation.whatsapp_connection_id) return new Response("Este arquivo chegou antes de a plataforma guardar a referência dele.", { status: 404 });
       ({ bytes, mime } = await downloadOfficialMedia(service, { agencyId: context.agency.id, connectionId: conversation.whatsapp_connection_id, mediaId: message.media_id }));
     } else {
-      const file = await downloadQrMedia(context.agency.id, { externalId: message.external_id, remoteId: conversation.remote_id, isGroup: conversation.is_group, fromMe: message.direction === "out" });
+      const ref = message.media_ref && typeof message.media_ref === "object" && !Array.isArray(message.media_ref) ? message.media_ref as { type: string; data: Record<string, unknown> } : null;
+      const file = await downloadQrMedia(context.agency.id, { externalId: message.external_id, remoteId: conversation.remote_id, isGroup: conversation.is_group, fromMe: message.direction === "out", ref });
       bytes = Buffer.from(file.base64, "base64");
       mime = file.mime;
     }

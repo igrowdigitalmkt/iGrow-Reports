@@ -8,7 +8,7 @@ describe("parseEvolutionMessage", () => {
   it("mensagem recebida numa conversa privada", () => {
     expect(parseEvolutionMessage(upsert({ remoteJid: "558699990000@s.whatsapp.net", fromMe: false }, { conversation: "Oi, recebi" }))).toEqual({
       remoteId: "558699990000", isGroup: false, title: "Maria Souza", author: null, externalId: "3EB0A1", direction: "in",
-      kind: "text", body: "Oi, recebi", mediaName: null, mediaMime: null, sentAt: new Date(1791370000 * 1000).toISOString(),
+      kind: "text", body: "Oi, recebi", mediaName: null, mediaMime: null, sentAt: new Date(1791370000 * 1000).toISOString(), mediaRef: null,
     });
   });
 
@@ -36,6 +36,16 @@ describe("parseEvolutionMessage", () => {
     expect(parseEvolutionMessage(upsert({ remoteJid: "1@newsletter" }, { conversation: "x" }))).toBeNull();
     expect(parseEvolutionMessage(upsert({ remoteJid: "558699990000@s.whatsapp.net" }, { protocolMessage: { type: 0 } }))).toBeNull();
     expect(parseEvolutionMessage({ event: "messages.update", data: {} })).toBeNull();
+  });
+});
+
+describe("referência do arquivo (QR Code)", () => {
+  it("guarda só o necessário para buscar o arquivo, sem miniatura nem legenda", () => {
+    const message = parseEvolutionMessage(upsert({ remoteJid: "558699990000@s.whatsapp.net" }, {
+      imageMessage: { url: "https://mmg.whatsapp.net/x", directPath: "/v/t62/x", mediaKey: { 0: 1, 1: 2 }, mimetype: "image/jpeg", fileLength: "1234", caption: "Foto", jpegThumbnail: "AAAA" },
+    }));
+    expect(message?.mediaRef).toEqual({ type: "imageMessage", data: { url: "https://mmg.whatsapp.net/x", directPath: "/v/t62/x", mediaKey: { 0: 1, 1: 2 }, mimetype: "image/jpeg", fileLength: "1234" } });
+    expect(parseEvolutionMessage(upsert({ remoteJid: "558699990000@s.whatsapp.net" }, { conversation: "oi" }))?.mediaRef).toBeNull();
   });
 });
 

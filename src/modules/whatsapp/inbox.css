@@ -5,8 +5,8 @@
   --wai-green: #21c063; --wai-green-text: #0b141a; --wai-pill-on: #103529; --wai-pill-on-text: #d9fdd3; --wai-blue: #53bdeb;
   --wai-day: #242626; --wai-doc: rgba(0, 0, 0, .18); --wai-pattern: rgba(255, 255, 255, .025);
   display: grid; grid-template-columns: 64px minmax(300px, 420px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
-  height: calc(100dvh - 128px); min-height: 520px; overflow: hidden;
-  border: 1px solid var(--wai-line); border-radius: 14px; background: var(--wai-panel); color: var(--wai-text);
+  height: calc(100dvh - 57px); min-height: 480px; overflow: hidden;
+  border: 0; border-radius: 0; background: var(--wai-panel); color: var(--wai-text);
   font-size: 14.5px;
 }
 [data-theme="light"] .wai-shell {
@@ -174,7 +174,7 @@
 
 @media (max-width: 1100px) { .wai-shell { grid-template-columns: 64px minmax(260px, 340px) minmax(0, 1fr); } }
 @media (max-width: 760px) {
-  .wai-shell { grid-template-columns: 56px minmax(0, 1fr); height: calc(100dvh - 112px); }
+  .wai-shell { grid-template-columns: 56px minmax(0, 1fr); }
   .wai-chat { display: none; }
   .wai-shell.is-chat-open { grid-template-columns: minmax(0, 1fr); }
   .wai-shell.is-chat-open .wai-rail, .wai-shell.is-chat-open .wai-list { display: none; }
@@ -183,3 +183,6 @@
   .wai-bubble { max-width: 85%; }
   .wai-messages-inner { padding: 14px 10px 20px; }
 }
+
+/* The demo banner sits between the top bar and the inbox. */
+.workspace:has(.demo-banner) .wai-shell { height: calc(100dvh - 94px); }

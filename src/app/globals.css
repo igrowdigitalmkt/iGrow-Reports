@@ -222,6 +222,8 @@ kbd { padding: 0 5px; border: 1px solid var(--border); border-radius: 4px; color
 .demo-banner strong { font-weight: 500; }
 .demo-banner a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-weight: 500; white-space: nowrap; }
 .main-content { width: 100%; max-width: 1320px; margin: 0 auto; padding: 28px 28px 48px; flex: 1; outline: none; }
+/* WhatsApp fills the whole area below the top bar, like the desktop app. */
+.main-content.is-full { max-width: none; padding: 0; }
 
 /* Page structure */
 .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }

@@ -87,9 +87,11 @@ export class EvolutionClient {
   }
 
   /** File of a message the session saw (received or sent), as base64. */
-  async mediaOfMessage(name: string, key: { id: string; remoteJid: string; fromMe: boolean }) {
+  async mediaOfMessage(name: string, key: { id: string; remoteJid: string; fromMe: boolean }, ref?: { type: string; data: Record<string, unknown> } | null) {
+    // With the file reference the server downloads straight from WhatsApp (it does not keep messages).
+    const message = ref ? { key, message: { [ref.type]: ref.data } } : { key };
     const result = await this.request<{ base64?: string; mimetype?: string; fileName?: string }>(`/chat/getBase64FromMediaMessage/${encodeURIComponent(name)}`, {
-      method: "POST", timeoutMs: 45_000, body: { message: { key }, convertToMp4: false },
+      method: "POST", timeoutMs: 45_000, body: { message, convertToMp4: false },
     });
     if (!result?.base64) throw new EvolutionError("Arquivo indisponível.", 404);
     return { base64: result.base64, mime: result.mimetype ?? "application/octet-stream", fileName: result.fileName ?? null };

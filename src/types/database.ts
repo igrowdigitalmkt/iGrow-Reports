@@ -225,6 +225,8 @@ export type WhatsAppMessageRow = {
   status: "pending" | "sent" | "delivered" | "read" | "failed" | null; sent_at: string; created_at: string;
   // Added by migration 202610070012.
   media_id?: string | null;
+  // Added by migration 202610070013.
+  media_ref?: Json | null;
 };
 export type AutomationMessageRow = {
   id: string; agency_id: string; run_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null;
@@ -368,6 +370,7 @@ export type Database = {
         };
         Returns: { conversation_id: string; inserted: boolean; needs_title: boolean }[];
       };
+      set_whatsapp_message_media_ref: { Args: { p_agency_id: string; p_external_id: string; p_media_ref: Json }; Returns: undefined };
       update_whatsapp_message_status: { Args: { p_agency_id: string | null; p_external_id: string; p_status: string }; Returns: number };
       set_whatsapp_conversation_title: { Args: { p_conversation_id: string; p_title: string }; Returns: undefined };
       mark_whatsapp_conversation_read: { Args: { p_conversation_id: string }; Returns: undefined };

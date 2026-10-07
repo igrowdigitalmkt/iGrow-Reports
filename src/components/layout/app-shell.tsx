@@ -164,7 +164,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
           <button type="button" className="icon-button notification-button" onClick={() => setNoticeOpen(true)} aria-label="Abrir notificações"><Bell size={17} />{demo && <span className="notification-dot" />}</button>
         </header>
         {demo && <div className="demo-banner"><span><FlaskConical size={14} /><strong>Modo demonstração</strong><span>Todos os dados são fictícios. Nenhuma mensagem é enviada.</span></span><Link href="/entrar">Acessar meu espaço <ArrowUpRight size={13} /></Link></div>}
-        <main id="main-content" className="main-content" tabIndex={-1}>{children}</main>
+        <main id="main-content" className={cn("main-content", activeKey === "whatsapp" && "is-full")} tabIndex={-1}>{children}</main>
       </div>
 
       <Dialog open={noticeOpen} onOpenChange={setNoticeOpen} title="Notificações" description={demo ? "Exemplos fictícios de pendências." : "Avisos do seu espaço de trabalho."}>{demo ? <div className="space-y-3"><div className="notice-item"><span className="status-dot amber" /><div><strong>Um relatório aguarda aprovação</strong><p className="muted text-sm mt-1">Verde & Grão · revisão demonstrativa</p></div></div><div className="notice-item"><span className="status-dot cyan" /><div><strong>Primeiros passos da plataforma</strong><p className="muted text-sm mt-1">Conecte a Meta e cadastre seus clientes.</p></div></div><Link href={`${base}/relatorios/pdfs`} onClick={() => setNoticeOpen(false)} className="button button-secondary w-full">Ver relatórios</Link></div> : <p className="muted text-sm">Nenhum aviso no momento.</p>}</Dialog>

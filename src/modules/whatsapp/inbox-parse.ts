@@ -9,7 +9,27 @@ export type InboxMessage = {
   body: string | null; mediaName: string | null; mediaMime: string | null; sentAt: string;
   // Cloud API media id (the QR Code session finds files by the message id instead).
   mediaId?: string | null;
+  // QR Code session: WhatsApp's encrypted file reference (location and key, no content).
+  mediaRef?: MediaRef | null;
 };
+
+export type MediaRef = { type: string; data: Record<string, unknown> };
+const MEDIA_TYPES = ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"] as const;
+// Only what WhatsApp needs to fetch the file again; thumbnails and captions stay out.
+const REF_FIELDS = ["url", "directPath", "mediaKey", "mediaKeyTimestamp", "mimetype", "fileEncSha256", "fileSha256", "fileLength", "fileName", "seconds", "ptt", "width", "height"];
+
+/** File reference of a Baileys media message, or null for anything else. */
+export function baileysMediaRef(message: BaileysContent | undefined): MediaRef | null {
+  if (!message) return null;
+  const inner = message.ephemeralMessage?.message ?? message.viewOnceMessage?.message ?? message.viewOnceMessageV2?.message ?? message.documentWithCaptionMessage?.message;
+  if (inner) return baileysMediaRef(inner);
+  for (const type of MEDIA_TYPES) {
+    const media = message[type] as Record<string, unknown> | undefined;
+    if (!media || typeof media !== "object" || (!media.directPath && !media.url) || !media.mediaKey) continue;
+    return { type, data: Object.fromEntries(REF_FIELDS.filter(field => media[field] != null).map(field => [field, media[field]])) };
+  }
+  return null;
+}
 
 const text = (value: unknown, max = 8000) => typeof value === "string" && value.trim() ? value.slice(0, max) : null;
 const seconds = (value: unknown) => {
@@ -89,6 +109,7 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
     author: isGroup && !fromMe ? pushName ?? jidDigits(key.participantAlt ?? key.participant ?? undefined) : null,
     externalId: key.id.slice(0, 200), direction: fromMe ? "out" : "in",
     sentAt: seconds(payload.data?.messageTimestamp) ?? now.toISOString(),
+    mediaRef: baileysMediaRef(payload.data?.message),
   };
 }
 

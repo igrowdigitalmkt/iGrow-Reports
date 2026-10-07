@@ -95,11 +95,11 @@ export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> 
 }
 
 /** File of an inbox message on the QR Code session, fetched on demand (not stored). */
-export async function downloadQrMedia(agencyId: string, message: { externalId: string; remoteId: string; isGroup: boolean; fromMe: boolean }) {
+export async function downloadQrMedia(agencyId: string, message: { externalId: string; remoteId: string; isGroup: boolean; fromMe: boolean; ref?: { type: string; data: Record<string, unknown> } | null }) {
   const evolution = client();
   if (!evolution) throw new EvolutionError("O servidor do WhatsApp ainda não foi configurado.");
   const remoteJid = message.isGroup || message.remoteId.includes("@") ? message.remoteId : `${message.remoteId}@s.whatsapp.net`;
-  return evolution.mediaOfMessage(instanceNameFor(agencyId), { id: message.externalId, remoteJid, fromMe: message.fromMe });
+  return evolution.mediaOfMessage(instanceNameFor(agencyId), { id: message.externalId, remoteJid, fromMe: message.fromMe }, message.ref);
 }
 
 /** Reply from the inbox through the workspace's QR Code session. Returns the message id. */
