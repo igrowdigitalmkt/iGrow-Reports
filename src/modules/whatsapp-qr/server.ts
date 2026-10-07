@@ -94,6 +94,19 @@ export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> 
   return (await evolution.groups(name)).sort((a, b) => a.subject.localeCompare(b.subject, "pt-BR"));
 }
 
+/** Reply from the inbox through the workspace's QR Code session. Returns the message id. */
+export async function sendQrReply(agencyId: string, to: string, content: { text: string } | { base64: string; filename: string; mime: string; kind: "image" | "video" | "audio" | "document"; caption?: string }) {
+  const evolution = client();
+  if (!evolution) throw new EvolutionError("O servidor do WhatsApp ainda não foi configurado.");
+  const name = instanceNameFor(agencyId);
+  if (await evolution.state(name) !== "open") throw new EvolutionError("Seu WhatsApp (QR Code) está desconectado. Conecte de novo em Integrações.");
+  const number = to.endsWith("@g.us") ? to : to.replace(/\D/g, "");
+  const sent = "text" in content
+    ? await evolution.sendText(name, number, content.text)
+    : await evolution.sendMedia(name, number, { mediatype: content.kind, mimetype: content.mime, base64: content.base64, fileName: content.filename, caption: content.caption });
+  return sent.messageId;
+}
+
 /** Sender used by scheduled messages; null while the agency's number is not connected. */
 export async function createQrSender(agencyId: string): Promise<MessageSender | null> {
   const evolution = client();

@@ -65,7 +65,7 @@ export function DashboardWorkspace({ portfolio, whatsapp = [], whatsappReadiness
       {reportTab && <ReportTabs base={base} section={section} />}
       {section === "whatsapp" && (demo
         ? <WhatsAppInbox demo channels={demoInboxChannels} demoConversations={demoInboxConversations} demoThreads={demoInboxThreads} />
-        : <WhatsAppInbox channels={whatsapp.filter(number => number.id).map(number => ({ key: number.id!, kind: "official" as const, name: numberName(number), phone: number.displayPhone, coexistence: number.coexistence }))} />)}
+        : <WhatsAppInbox canReply={canSendReports} channels={whatsapp.filter(number => number.id).map(number => ({ key: number.id!, kind: "official" as const, name: numberName(number), phone: number.displayPhone, coexistence: number.coexistence }))} />)}
 
       {section === "relatorios-visao" && <ReportsOverview base={base} automations={demo ? demoAutomations : automations ?? null} deliveries={demo ? [] : deliveries} clients={demo ? demoAutomationClients : clients ?? []} timezone={identity.timezone || "America/Sao_Paulo"} />}
 

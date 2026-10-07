@@ -1,9 +1,11 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, BadgeCheck, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, Smile, Star, Sticker, UsersRound, Video } from "lucide-react";
+import { AlertCircle, ArrowLeft, BadgeCheck, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, Star, Sticker, UsersRound, Video, X, Headphones } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime } from "./inbox-format";
 import type { InboxChannel, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
+import { EmojiPicker } from "./emoji-picker";
+import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import "./inbox.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
@@ -11,11 +13,13 @@ const QR_CHANNEL: InboxChannel = { key: "qr", kind: "qr", name: "Seu WhatsApp", 
 
 /**
  * WhatsApp inbox in the layout of WhatsApp Desktop: numbers on the left rail, conversations,
- * and the open chat. Read-only in this stage; replying from the iGrow comes next.
+ * and the open chat, where the team replies with text, emojis and files.
  */
-export function WhatsAppInbox({ channels, demo = false, demoConversations = [], demoThreads = {} }: {
-  channels: InboxChannel[]; demo?: boolean; demoConversations?: InboxConversation[]; demoThreads?: Record<string, InboxMessageItem[]>;
+export function WhatsAppInbox({ channels, demo = false, canReply = true, demoConversations = [], demoThreads = {} }: {
+  channels: InboxChannel[]; demo?: boolean; canReply?: boolean; demoConversations?: InboxConversation[]; demoThreads?: Record<string, InboxMessageItem[]>;
 }) {
+  // Messages being sent (or sent in the demo), shown until the conversation reloads from the server.
+  const [outbox, setOutbox] = useState<Record<string, InboxMessageItem[]>>({});
   const [qrPhone, setQrPhone] = useState<string | null>(null);
   const allChannels = useMemo(() => [{ ...QR_CHANNEL, phone: qrPhone }, ...channels], [channels, qrPhone]);
   const [channelKey, setChannelKey] = useState("qr");
@@ -63,8 +67,26 @@ export function WhatsAppInbox({ channels, demo = false, demoConversations = [], 
     return () => { cancelled = true; clearInterval(timer); };
   }, [openId, demo]);
 
-  const messages = demo ? openId ? demoThreads[openId] ?? [] : [] : thread?.id === openId ? thread.messages : null;
+  const loaded = demo ? openId ? demoThreads[openId] ?? [] : [] : thread?.id === openId ? thread.messages : null;
+  const pending = openId ? outbox[openId] ?? [] : [];
+  const messages = loaded ? [...loaded, ...pending] : pending.length ? pending : null;
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [messages?.length, openId]);
+
+  function queue(conversationId: string, item: InboxMessageItem) {
+    setOutbox(current => ({ ...current, [conversationId]: [...(current[conversationId] ?? []), item] }));
+  }
+  function settle(conversationId: string, itemId: string, status: InboxStatus) {
+    setOutbox(current => ({ ...current, [conversationId]: (current[conversationId] ?? []).map(item => item.id === itemId ? { ...item, status } : item) }));
+  }
+  // After a send, reload the conversation and drop the local copies it now includes.
+  function reload(conversationId: string) {
+    fetch(`/api/whatsapp/inbox/${conversationId}`, { cache: "no-store" }).then(response => response.ok ? response.json() : null)
+      .then((body: { messages: InboxMessageItem[] } | null) => {
+        if (!body) return;
+        setThread(current => current?.id === conversationId || openId === conversationId ? { id: conversationId, messages: body.messages } : current);
+        setOutbox(current => ({ ...current, [conversationId]: (current[conversationId] ?? []).filter(item => item.status === "failed") }));
+      }).catch(() => undefined);
+  }
 
   const conversations = (list?.conversations ?? []).map(item => readLocally.includes(item.id) ? { ...item, unread: 0 } : item);
   const unreadByChannel = new Map<string, number>();
@@ -155,12 +177,8 @@ export function WhatsAppInbox({ channels, demo = false, demoConversations = [], 
             <div ref={bottom} />
           </div>
         </div>
-        <footer className="wai-composer">
-          <button type="button" className="wai-icon-button" disabled title="Anexar · em breve"><Plus size={22} /></button>
-          <button type="button" className="wai-icon-button" disabled title="Emojis · em breve"><Smile size={22} /></button>
-          <input disabled placeholder={channel.kind === "qr" ? "Responder pela iGrow chega na próxima etapa" : "Responder pela iGrow chega na próxima etapa (até 24 h depois da mensagem do cliente)"} aria-label="Mensagem" />
-          <button type="button" className="wai-icon-button" disabled title="Áudio · em breve"><Mic size={22} /></button>
-        </footer>
+        <Composer key={open.id} conversation={open} kind={channel.kind} now={now} demo={demo} canReply={canReply}
+          onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { if (!demo) reload(open.id); }} />
       </>}
     </section>
   </div>;
@@ -224,4 +242,110 @@ function Bubble({ message, tail, showAuthor }: { message: InboxMessageItem; tail
       {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
     </div>
   </div>;
+}
+
+function formatBytes(size: number) {
+  return size < 1024 * 1024 ? `${Math.max(1, Math.round(size / 1024))} KB` : `${(size / 1024 / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+}
+
+/**
+ * Message field: text (Enter sends, Shift+Enter breaks the line), emojis and one file with an
+ * optional caption. Official numbers only reply within 24 hours of the customer's last message.
+ */
+function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled, onSent }: {
+  conversation: InboxConversation; kind: "qr" | "official"; now: Date; demo: boolean; canReply: boolean;
+  onQueued: (item: InboxMessageItem) => void; onSettled: (itemId: string, status: InboxStatus) => void; onSent: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState("");
+  const [menu, setMenu] = useState<"attach" | "emoji" | null>(null);
+  const [sending, setSending] = useState(false);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const reply = replyWindow(kind, conversation.lastInboundAt, now);
+
+  function chooseFile(accept: string) {
+    setMenu(null);
+    if (!picker.current) return;
+    picker.current.accept = accept;
+    picker.current.click();
+  }
+  function onFile(selected: File | undefined) {
+    if (!selected) return;
+    if (!replyMediaKind(selected.type, kind)) { setError("Esse tipo de arquivo não é aceito pelo WhatsApp."); return; }
+    if (selected.size > MAX_REPLY_FILE_BYTES) { setError("O arquivo precisa ter até 4 MB."); return; }
+    setError(""); setFile(selected); field.current?.focus();
+  }
+  function insertEmoji(emoji: string) {
+    const element = field.current;
+    const start = element?.selectionStart ?? text.length;
+    const end = element?.selectionEnd ?? text.length;
+    setText(text.slice(0, start) + emoji + text.slice(end));
+    requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(start + emoji.length, start + emoji.length); });
+  }
+
+  async function send() {
+    const body = text.trim();
+    if ((!body && !file) || sending) return;
+    if (body.length > MAX_REPLY_TEXT) { setError("A mensagem passou de 4.096 caracteres."); return; }
+    const mediaKind = file ? replyMediaKind(file.type, kind) : null;
+    const item: InboxMessageItem = {
+      id: `local-${Date.now()}`, direction: "out", kind: mediaKind ?? "text", body: body || null,
+      mediaName: mediaKind === "document" ? file?.name ?? null : null, mediaMime: file?.type ?? null, author: null,
+      status: demo ? "sent" : "pending", sentAt: new Date().toISOString(),
+    };
+    onQueued(item);
+    setText(""); setFile(null); setError(""); setMenu(null);
+    if (demo) return;
+    setSending(true);
+    try {
+      const form = new FormData();
+      if (body) form.append("text", body);
+      if (file) form.append("file", file, file.name);
+      const response = await fetch(`/api/whatsapp/inbox/${conversation.id}/send`, { method: "POST", body: form });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) { onSettled(item.id, "failed"); setError(result.error ?? "Não foi possível enviar agora."); return; }
+      onSent();
+    } catch {
+      onSettled(item.id, "failed"); setError("Sem conexão. A mensagem não foi enviada.");
+    } finally { setSending(false); }
+  }
+
+  if (!canReply) return <footer className="wai-composer-note"><Lock size={14} />Seu perfil só pode consultar as conversas.</footer>;
+  if (!reply.open) return <footer className="wai-composer-note is-closed"><Clock3 size={15} />
+    <span>{conversation.lastInboundAt
+      ? "Passaram mais de 24 horas desde a última mensagem deste contato. Pela API oficial, só uma mensagem modelo aprovada retoma a conversa. A resposta livre volta a valer quando o contato escrever de novo."
+      : "Este contato ainda não escreveu para este número. Pela API oficial, só uma mensagem modelo aprovada inicia a conversa. Quando ele responder, você pode escrever livremente por 24 horas."}</span></footer>;
+
+  const closes = reply.closesAt;
+  return <footer className="wai-composer-area">
+    {error && <p role="alert" className="wai-composer-error"><AlertCircle size={14} />{error}</p>}
+    {file && <div className="wai-attachment">
+      <FileText size={18} /><span><strong>{file.name}</strong><small>{formatBytes(file.size)}{text ? " · o texto vai como legenda" : ""}</small></span>
+      <button type="button" className="wai-icon-button" onClick={() => setFile(null)} aria-label="Remover arquivo"><X size={16} /></button>
+    </div>}
+    {kind === "official" && closes && <p className="wai-window">Resposta livre até {dayLabel(closes, now).toLowerCase()} às {clockTime(closes)} · respostas pela API oficial podem ser cobradas pela Meta</p>}
+    <div className="wai-composer">
+      <div className="wai-composer-menu">
+        <button type="button" className={`wai-icon-button${menu === "attach" ? " is-on" : ""}`} onClick={() => setMenu(menu === "attach" ? null : "attach")} aria-expanded={menu === "attach"} title="Anexar"><Plus size={22} /></button>
+        {menu === "attach" && <div className="wai-attach-menu" role="menu">
+          <button type="button" role="menuitem" onClick={() => chooseFile(".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv")}><FileText size={18} className="is-doc" />Documento</button>
+          <button type="button" role="menuitem" onClick={() => chooseFile("image/jpeg,image/png,image/webp,video/mp4,video/3gpp")}><ImageIcon size={18} className="is-photo" />Fotos e vídeos</button>
+          <button type="button" role="menuitem" onClick={() => chooseFile("audio/mpeg,audio/ogg,audio/mp4,audio/aac")}><Headphones size={18} className="is-audio" />Áudio</button>
+        </div>}
+      </div>
+      <div className="wai-composer-menu">
+        <button type="button" className={`wai-icon-button${menu === "emoji" ? " is-on" : ""}`} onClick={() => setMenu(menu === "emoji" ? null : "emoji")} aria-expanded={menu === "emoji"} title="Emojis"><Smile size={22} /></button>
+        {menu === "emoji" && <EmojiPicker onPick={insertEmoji} />}
+      </div>
+      <textarea ref={field} rows={1} value={text} maxLength={MAX_REPLY_TEXT} placeholder="Digite uma mensagem" aria-label="Mensagem"
+        onChange={event => setText(event.target.value)}
+        onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
+      {text.trim() || file
+        ? <button type="button" className="wai-send" onClick={() => void send()} disabled={sending} aria-label="Enviar"><SendHorizontal size={20} /></button>
+        : <button type="button" className="wai-icon-button" disabled title="Gravar áudio pela iGrow ainda não está disponível"><Mic size={22} /></button>}
+      <input ref={picker} type="file" hidden accept={ACCEPTED_REPLY_FILES} onChange={event => { onFile(event.target.files?.[0]); event.target.value = ""; }} />
+    </div>
+  </footer>;
 }

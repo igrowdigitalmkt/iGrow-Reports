@@ -86,6 +86,15 @@ export class EvolutionClient {
     return (list ?? []).filter(group => group.id?.endsWith("@g.us")).map(group => ({ id: group.id, subject: group.subject?.trim() || "Grupo sem nome", size: group.size ?? null }));
   }
 
+  /** Photo, video, audio or document, sent as base64 with an optional caption. */
+  async sendMedia(name: string, number: string, media: { mediatype: "image" | "video" | "audio" | "document"; mimetype: string; base64: string; fileName: string; caption?: string }) {
+    const result = await this.request<{ key?: { id?: string } }>(`/message/sendMedia/${encodeURIComponent(name)}`, {
+      method: "POST", timeoutMs: 60_000,
+      body: { number, mediatype: media.mediatype, mimetype: media.mimetype, media: media.base64, fileName: media.fileName, ...(media.caption ? { caption: media.caption } : {}) },
+    });
+    return { messageId: result?.key?.id ?? null };
+  }
+
   // "delay" shows "typing…" before the message, like a person would.
   async sendText(name: string, number: string, text: string) {
     const result = await this.request<{ key?: { id?: string } }>(`/message/sendText/${encodeURIComponent(name)}`, { method: "POST", body: { number, text, delay: 1200 }, timeoutMs: 40_000 });

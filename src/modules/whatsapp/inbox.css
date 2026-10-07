@@ -68,6 +68,7 @@
 .wai-tick { flex-shrink: 0; color: var(--wai-muted); }
 .wai-tick.is-read { color: var(--wai-blue); }
 .wai-tick.is-failed { color: #f15c6d; }
+.is-out .wai-meta .wai-tick.is-failed { color: #f15c6d; }
 
 /* Chat. */
 .wai-chat { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--wai-chat); }
@@ -120,9 +121,41 @@
 .wai-audio small { color: var(--wai-muted); font-size: 11px; }
 .wai-media { display: flex; align-items: center; gap: 8px; padding: 2px 0 4px; color: var(--wai-muted); font-style: italic; }
 
-.wai-composer { display: flex; align-items: center; gap: 6px; margin: 8px 16px 14px; padding: 4px 8px; border-radius: 999px; background: var(--wai-panel); box-shadow: 0 1px 2px rgba(11, 20, 26, .2); }
-.wai-composer input { flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: var(--wai-text); font: inherit; outline: none; }
-.wai-composer input::placeholder { color: var(--wai-muted); }
+.wai-composer-area { position: relative; display: grid; gap: 6px; padding: 8px 16px 14px; }
+.wai-composer { display: flex; align-items: flex-end; gap: 4px; padding: 4px 6px; border-radius: 26px; background: var(--wai-panel); box-shadow: 0 1px 2px rgba(11, 20, 26, .2); }
+.wai-composer textarea { flex: 1; min-width: 0; min-height: 40px; max-height: 140px; padding: 10px 6px; border: 0; background: transparent; color: var(--wai-text); font: inherit; line-height: 20px; resize: none; outline: none; field-sizing: content; }
+.wai-composer textarea::placeholder { color: var(--wai-muted); }
+.wai-composer .wai-icon-button.is-on { background: var(--wai-hover); color: var(--wai-text); }
+.wai-send { display: grid; flex-shrink: 0; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--wai-green); color: var(--wai-green-text); cursor: pointer; }
+.wai-send:disabled { opacity: .6; cursor: default; }
+.wai-composer-menu { position: static; }
+.wai-attach-menu { position: absolute; bottom: 66px; left: 16px; z-index: 20; display: grid; min-width: 210px; padding: 8px; border: 1px solid var(--wai-line); border-radius: 16px; background: var(--wai-panel); box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
+.wai-attach-menu button { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--wai-text); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.wai-attach-menu button:hover { background: var(--wai-hover); }
+.wai-attach-menu .is-doc { color: #7f66ff; }
+.wai-attach-menu .is-photo { color: #007bfc; }
+.wai-attach-menu .is-audio { color: #fa6533; }
+.wai-attachment { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 12px; background: var(--wai-panel); color: var(--wai-muted); }
+.wai-attachment span { display: grid; flex: 1; min-width: 0; }
+.wai-attachment strong { overflow: hidden; color: var(--wai-text); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.wai-attachment small { font-size: 12px; }
+.wai-window { margin: 0 8px; color: var(--wai-muted); font-size: 12px; text-align: center; }
+.wai-composer-error { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 12px; border-radius: 10px; background: rgba(241, 92, 109, .14); color: #f15c6d; font-size: 13px; }
+.wai-composer-note { display: flex; align-items: flex-start; gap: 10px; margin: 8px 16px 14px; padding: 12px 16px; border-radius: 12px; background: var(--wai-panel); color: var(--wai-muted); font-size: 13px; line-height: 1.45; }
+.wai-composer-note.is-closed { color: var(--wai-text); }
+.wai-composer-note svg { flex-shrink: 0; margin-top: 2px; }
+
+/* Emoji panel. */
+.wai-emoji { position: absolute; bottom: 66px; left: 16px; z-index: 20; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); width: min(400px, calc(100% - 32px)); height: min(380px, 60vh); padding: 8px 10px 10px; border: 1px solid var(--wai-line); border-radius: 16px; background: var(--wai-panel); box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
+.wai-emoji-tabs { display: flex; justify-content: space-between; overflow-x: auto; border-bottom: 1px solid var(--wai-line); scrollbar-width: none; }
+.wai-emoji-tabs button { display: grid; place-items: center; width: 40px; height: 38px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--wai-muted); cursor: pointer; }
+.wai-emoji-tabs button.is-active { border-bottom-color: var(--wai-green); color: var(--wai-text); }
+.wai-emoji-search { margin: 10px 0 4px; }
+.wai-emoji-title { margin: 6px 4px; color: var(--wai-muted); font-size: 13px; }
+.wai-emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); align-content: start; overflow-y: auto; }
+.wai-emoji-grid button { height: 40px; border: 0; border-radius: 8px; background: transparent; font-size: 26px; line-height: 1; cursor: pointer; }
+.wai-emoji-grid button:hover { background: var(--wai-hover); }
+.wai-emoji-empty { grid-column: 1 / -1; margin: 24px 8px; color: var(--wai-muted); font-size: 13px; text-align: center; }
 
 .wai-empty { display: grid; flex: 1; place-content: center; justify-items: center; gap: 10px; min-height: 0; padding: 32px; text-align: center; }
 .wai-empty-icon { display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%; background: var(--wai-hover); color: var(--wai-muted); }

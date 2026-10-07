@@ -63,6 +63,34 @@ export class WhatsAppGraph {
     return result.id;
   }
 
+  /** Any file accepted by WhatsApp (image, document, video, audio), uploaded once to get a media id. */
+  async uploadMedia(phoneNumberId: string, file: Blob, filename: string, mime: string) {
+    const form = new FormData();
+    form.append("messaging_product", "whatsapp");
+    form.append("type", mime);
+    form.append("file", file, filename);
+    const result = await this.request<{ id: string }>(`${id(phoneNumberId)}/media`, { method: "POST", body: form });
+    return result.id;
+  }
+
+  /** Free-form message (text or media), only accepted inside the 24-hour customer service window. */
+  async sendMessage(phoneNumberId: string, to: string, content:
+    | { type: "text"; text: string }
+    | { type: "image" | "video"; mediaId: string; caption?: string }
+    | { type: "audio"; mediaId: string }
+    | { type: "document"; mediaId: string; filename: string; caption?: string }) {
+    const body = content.type === "text" ? { type: "text", text: { body: content.text, preview_url: true } }
+      : content.type === "document" ? { type: "document", document: { id: content.mediaId, filename: content.filename, ...(content.caption ? { caption: content.caption } : {}) } }
+      : content.type === "audio" ? { type: "audio", audio: { id: content.mediaId } }
+      : { type: content.type, [content.type]: { id: content.mediaId, ...(content.caption ? { caption: content.caption } : {}) } };
+    const result = await this.request<{ messages?: Array<{ id: string }> }>(`${id(phoneNumberId)}/messages`, {
+      method: "POST", body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: to.replace(/^\+/, ""), ...body }),
+    });
+    const wamid = result.messages?.[0]?.id;
+    if (!wamid) throw new WhatsAppApiError("O WhatsApp não confirmou o envio da mensagem.");
+    return wamid;
+  }
+
   async sendTemplate(phoneNumberId: string, to: string, template: { name: string; language: string; components: unknown[] }) {
     const result = await this.request<{ messages?: Array<{ id: string }> }>(`${id(phoneNumberId)}/messages`, {
       method: "POST",
