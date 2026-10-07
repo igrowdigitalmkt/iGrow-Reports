@@ -685,3 +685,11 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Ajuste visual (7/10/2026): número central das roscas menor (15 px) e legenda com largura máxima de 240 px, centralizada junto da rosca, para não separar tanto nome e valor.
 - Ajuste visual (7/10/2026): "Investimento por conta" trocou a rosca do ECharts pelo mesmo anel SVG das roscas de público (componente compartilhado `donut-ring.tsx`); texto central um pouco menor.
 - Ajuste (7/10/2026): na aba Campanhas do painel, o botão "Colunas" saiu da barra das abas e foi para o lado da busca de campanhas, no cabeçalho da tabela.
+
+### WhatsApp por coexistência (7/10/2026)
+
+- No app da Meta "iGrow Reports" (1403140724038533): criada a configuração do cadastro integrado a partir do modelo "WhatsApp Embedded Signup" (ID 1114589897603067; token de usuário do sistema com validade de 60 dias; permissões whatsapp_business_management e whatsapp_business_messaging). Em Login do Facebook para Empresas → Configurações: "Entrar com o SDK do JavaScript" ativado e domínio `https://i-grow-reports.vercel.app/` permitido. "Domínios do aplicativo" (Básico) ainda vazio.
+- Variável `WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID` enviada à Vercel (Production) pela CLI; a confirmação pela listagem não foi feita nesta sessão — conferir no painel da Vercel.
+- Correção: o SDK do Facebook era sempre iniciado com o app da Meta Ads, e a configuração do WhatsApp fica em outro app. Agora cada fluxo seleciona o próprio app antes de abrir a janela (`selectFacebookApp`); o cadastro integrado usa `WHATSAPP_APP_ID`.
+- "Trocar número ou token" também oferece o cadastro integrado (para reconectar um número já ligado à API pela coexistência).
+- Pendências: homologar com o número do responsável; avisar antes do vencimento do token de 60 dias e reconectar com um clique; agendamentos pela conexão oficial (mensagem modelo com variáveis, sem grupos); Tech Provider para liberar a outras empresas.

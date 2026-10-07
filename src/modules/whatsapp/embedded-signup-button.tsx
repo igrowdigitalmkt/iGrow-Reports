@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QrCode, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { loadFacebookSdk, type FacebookSdk } from "@/modules/meta/facebook-sdk";
+import { loadFacebookSdk, selectFacebookApp, type FacebookSdk } from "@/modules/meta/facebook-sdk";
 import { connectWhatsAppEmbeddedAction } from "./actions";
 import { EMBEDDED_SIGNUP_COEXISTENCE, parseEmbeddedSignupMessage } from "./embedded-signup";
 
@@ -14,7 +14,7 @@ type Session = { wabaId: string; phoneNumberId: string; coexistence: boolean };
  * Meta Embedded Signup. With coexistence the person scans a QR code inside the WhatsApp
  * Business app and keeps using the same number on the phone; no IDs or tokens to copy.
  */
-export function EmbeddedSignupButton({ configId, apiVersion }: { configId: string; apiVersion: string }) {
+export function EmbeddedSignupButton({ configId, apiVersion, appId }: { configId: string; apiVersion: string; appId: string }) {
   const router = useRouter();
   const sdk = useRef<FacebookSdk | null>(null);
   const session = useRef<Session | null>(null);
@@ -65,6 +65,7 @@ export function EmbeddedSignupButton({ configId, apiVersion }: { configId: strin
     setError(""); setNotice(""); setWaiting(true);
     session.current = null; code.current = null;
     try {
+      selectFacebookApp(sdk.current, appId, apiVersion);
       sdk.current.login(response => {
         const value = response.authResponse?.code;
         if (!value) { setWaiting(false); setNotice("Autorização não concluída. Você pode tentar novamente."); return; }

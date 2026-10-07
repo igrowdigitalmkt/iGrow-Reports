@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { connectMetaIntegration, previewMetaLoginAccounts } from "./actions";
-import { META_LOGIN_CONFIG_ID } from "./login-config";
-import { loadFacebookSdk, type FacebookSdk } from "./facebook-sdk";
+import { META_LOGIN_APP_ID, META_LOGIN_CONFIG_ID } from "./login-config";
+import { loadFacebookSdk, selectFacebookApp, type FacebookSdk } from "./facebook-sdk";
 
 export function FacebookLogin({ agencyId, clientId, apiVersion, label = "Conectar com a Meta", variant = "default", compact = false }: { agencyId: string; clientId: string; apiVersion: string; label?: string; variant?: "default" | "secondary"; compact?: boolean }) {
   const router = useRouter();
@@ -57,7 +57,7 @@ export function FacebookLogin({ agencyId, clientId, apiVersion, label = "Conecta
       setWaiting(false);
       setError("A Meta não concluiu a autorização. Se a janela não abriu, permita pop-ups para o iGrow e tente novamente.");
     }, 120000);
-    try { sdk.current.login(response => {
+    try { selectFacebookApp(sdk.current, META_LOGIN_APP_ID, apiVersion); sdk.current.login(response => {
       if (currentAttempt !== attempt.current) return;
       clearTimeout(authorizationTimeout.current);
       setWaiting(false);

@@ -14,7 +14,7 @@ export type WhatsAppSummary = {
 } | null;
 
 // Connection of the workspace's WhatsApp Business number and choice of the report template.
-export function WhatsAppManager({ connection, readiness, canManage, embedded }: { connection: WhatsAppSummary; readiness: { ready: boolean; missing: string[] }; canManage: boolean; embedded: { configId: string; apiVersion: string } | null }) {
+export function WhatsAppManager({ connection, readiness, canManage, embedded }: { connection: WhatsAppSummary; readiness: { ready: boolean; missing: string[] }; canManage: boolean; embedded: { configId: string; apiVersion: string; appId: string } | null }) {
   const router = useRouter();
   // Manual IDs and token become the advanced path once Embedded Signup is configured.
   const [editing, setEditing] = useState(!connection && !embedded);
@@ -83,7 +83,7 @@ export function WhatsAppManager({ connection, readiness, canManage, embedded }: 
     {!readiness.ready && <p className="meta-inline-note">Configuração do servidor pendente: {readiness.missing.join(", ")}.</p>}
     {!canManage && !connection && <p className="meta-inline-note">Peça a um proprietário ou administrador para conectar o WhatsApp.</p>}
 
-    {!connection && canManage && embedded && readiness.ready && <EmbeddedSignupButton configId={embedded.configId} apiVersion={embedded.apiVersion} />}
+    {(!connection || editing) && canManage && embedded && readiness.ready && <EmbeddedSignupButton configId={embedded.configId} apiVersion={embedded.apiVersion} appId={embedded.appId} />}
     {!connection && canManage && embedded && !editing && <button type="button" className="text-link whatsapp-advanced" onClick={() => setEditing(true)}>Conectar com IDs e token (avançado)</button>}
 
     {editing && canManage && <form className="whatsapp-form" action={connect}>

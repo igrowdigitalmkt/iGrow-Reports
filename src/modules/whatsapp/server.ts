@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptServerSecret, encryptServerSecret } from "@/lib/crypto";
 import { getEncryptionConfig, getMetaApiConfig } from "@/lib/env";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { META_LOGIN_APP_ID } from "@/modules/meta/login-config";
 import type { Database, WhatsAppConnectionRow } from "@/types/database";
 import { WhatsAppApiError, WhatsAppGraph } from "./graph";
 import { bodyParameterCount, bodyParameters, reportTemplates, SUGGESTED_TEMPLATE, type WhatsAppTemplate } from "./templates";
@@ -42,7 +43,7 @@ export function whatsAppReadiness(): WhatsAppReadiness {
 export function whatsAppEmbeddedSignup() {
   const configId = process.env.WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID?.trim();
   const meta = getMetaApiConfig();
-  return configId && /^\d{5,30}$/.test(configId) && meta ? { configId, apiVersion: meta.apiVersion } : null;
+  return configId && /^\d{5,30}$/.test(configId) && meta ? { configId, apiVersion: meta.apiVersion, appId: whatsAppAppId(META_LOGIN_APP_ID) } : null;
 }
 
 function dependencies() {

@@ -11,6 +11,17 @@ export type FacebookSdk = {
 declare global { interface Window { FB?: FacebookSdk; fbAsyncInit?: () => void } }
 
 let sdkPromise: Promise<FacebookSdk> | undefined;
+let currentAppId = META_LOGIN_APP_ID;
+
+/**
+ * The SDK holds one app at a time. Meta Ads login and WhatsApp Embedded Signup live in different
+ * Meta apps, so each flow selects its own app right before opening the login window.
+ */
+export function selectFacebookApp(sdk: FacebookSdk, appId: string, version: string) {
+  if (currentAppId === appId) return;
+  sdk.init({ appId, version, xfbml: false, fedCM: false });
+  currentAppId = appId;
+}
 export function loadFacebookSdk(version: string) {
   if (sdkPromise) return sdkPromise;
   sdkPromise = new Promise<FacebookSdk>((resolve, reject) => {
@@ -26,6 +37,7 @@ export function loadFacebookSdk(version: string) {
       if (settled || !window.FB || window.FB.__buffer) return;
       try {
         window.FB.init({ appId: META_LOGIN_APP_ID, version, xfbml: false, fedCM: false });
+        currentAppId = META_LOGIN_APP_ID;
         settled = true;
         clearTimeout(timeout);
         resolve(window.FB);

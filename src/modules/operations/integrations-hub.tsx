@@ -35,7 +35,7 @@ function IntegrationCard({ logo, logoClass, name, description, status, tone, fac
 // Catalog of integrations: one compact card each, details in a side panel.
 export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initialMetaClientId, canManage, whatsapp, whatsappReadiness, whatsappEmbedded }: {
   demo: boolean; agencyId?: string; clients: ClientItem[]; metaSnapshot?: MetaAdminSnapshot; initialMetaClientId?: string; canManage: boolean;
-  whatsapp: WhatsAppSummary; whatsappReadiness: { ready: boolean; missing: string[] }; whatsappEmbedded: { configId: string; apiVersion: string } | null;
+  whatsapp: WhatsAppSummary; whatsappReadiness: { ready: boolean; missing: string[] }; whatsappEmbedded: { configId: string; apiVersion: string; appId: string } | null;
 }) {
   // Returning from the Facebook login (?client=…) reopens the Meta panel on that client.
   const [panel, setPanel] = useState<Panel>(!demo && initialMetaClientId ? "meta" : null);
