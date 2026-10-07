@@ -6,6 +6,7 @@ import type { AdminReportVersion } from "@/modules/reports/types";
 import type { Database } from "@/types/database";
 import type { DeliveryItem } from "./deliveries-view";
 import type { SendableRecipient } from "./send-report-dialog";
+import { tokenExpiry } from "./token-expiry";
 import type { WhatsAppSummary } from "./whatsapp-manager";
 
 // Reads for the workspace pages, under the user's own RLS. Before the WhatsApp migration is
@@ -14,7 +15,8 @@ export async function loadWhatsAppSummary(supabase: SupabaseClient<Database>, ag
   const { data, error } = await supabase.from("whatsapp_connections").select("*").eq("agency_id", agencyId).maybeSingle();
   if (error || !data) return null;
   return { displayPhone: data.display_phone, verifiedName: data.verified_name, qualityRating: data.quality_rating,
-    templateName: data.template_name, templateLanguage: data.template_language, lastCheckedAt: data.last_checked_at };
+    templateName: data.template_name, templateLanguage: data.template_language, lastCheckedAt: data.last_checked_at,
+    tokenExpiry: tokenExpiry(data.token_expires_at, new Date()) };
 }
 
 export async function loadSendableRecipients(supabase: SupabaseClient<Database>, agencyId: string): Promise<SendableRecipient[]> {

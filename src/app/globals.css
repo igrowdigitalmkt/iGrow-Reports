@@ -505,6 +505,8 @@ a.attention-item:hover { background: var(--surface-hover); }
 .meta-feedback { margin: 12px 0 0 !important; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px !important; line-height: 1.5 !important; }
 .meta-feedback.error { color: var(--bad); background: var(--bad-bg); border-color: transparent; }
 .meta-feedback.success { color: var(--good); background: var(--good-bg); border-color: transparent; }
+.meta-feedback.warning { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+.whatsapp-expiry { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
 /* WhatsApp */
 .whatsapp-card { margin-top: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }

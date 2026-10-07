@@ -9,6 +9,7 @@ import { META_LOGIN_APP_ID } from "@/modules/meta/login-config";
 import type { Database, WhatsAppConnectionRow } from "@/types/database";
 import { WhatsAppApiError, WhatsAppGraph } from "./graph";
 import { bodyParameterCount, bodyParameters, reportTemplates, SUGGESTED_TEMPLATE, type WhatsAppTemplate } from "./templates";
+import { expiryFromDebugToken } from "./token-expiry";
 
 const SECRET_KIND = "whatsapp:access_token";
 const aad = (agencyId: string, integrationId: string) => `igrow-reports:${agencyId}:${integrationId}:${SECRET_KIND}`;
@@ -74,6 +75,17 @@ function pickTemplate(templates: WhatsAppTemplate[], current?: { name: string | 
     ?? usable.find(template => template.name === SUGGESTED_TEMPLATE.name) ?? usable[0] ?? null;
 }
 
+// When the token stops working (Embedded Signup tokens last 60 days). Unknown is treated as permanent.
+async function tokenExpiresAt(accessToken: string, apiVersion: string) {
+  const secret = whatsAppAppSecret();
+  if (!secret) return null;
+  try {
+    const query = new URLSearchParams({ input_token: accessToken, access_token: `${whatsAppAppId(META_LOGIN_APP_ID)}|${secret}` });
+    const response = await fetch(`https://graph.facebook.com/${apiVersion}/debug_token?${query}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    return response.ok ? expiryFromDebugToken(await response.json()) : null;
+  } catch { return null; }
+}
+
 export async function connectWhatsApp(input: { agencyId: string; wabaId: string; phoneNumberId: string; accessToken: string }) {
   const { service, apiVersion } = dependencies();
   const graph = new WhatsAppGraph({ accessToken: input.accessToken, apiVersion });
@@ -102,12 +114,15 @@ export async function connectWhatsApp(input: { agencyId: string; wabaId: string;
   // Only templates whose name and language fit the stored format can be selected.
   const template = pickTemplate(templates.filter(item => /^[a-z0-9_]{1,512}$/.test(item.name) && /^[a-z]{2,3}(_[A-Z]{2})?$/.test(item.language)));
   const text = (value: string | undefined, max: number) => value ? value.slice(0, max) : null;
-  const { error } = await service.from("whatsapp_connections").upsert({
+  const row = {
     agency_id: input.agencyId, integration_id: integration.id, waba_id: input.wabaId, phone_number_id: input.phoneNumberId,
     display_phone: text(phone.display_phone_number, 40), verified_name: text(phone.verified_name, 200), quality_rating: text(phone.quality_rating, 40),
     template_name: template?.name ?? null, template_language: template?.language ?? null, template_status: text(template?.status, 40),
     last_checked_at: now, updated_at: now,
-  }, { onConflict: "agency_id" });
+  };
+  let { error } = await service.from("whatsapp_connections").upsert({ ...row, token_expires_at: await tokenExpiresAt(input.accessToken, apiVersion) }, { onConflict: "agency_id" });
+  // Before migration 202610070009 the expiry column does not exist yet.
+  if (error?.code === "PGRST204") ({ error } = await service.from("whatsapp_connections").upsert(row, { onConflict: "agency_id" }));
   if (error) {
     console.error("whatsapp-connection-save", { code: error.code, message: error.message, details: error.details, hint: error.hint });
     throw new WhatsAppSetupError(error.code === "23505" ? "Este número já está conectado a outro espaço de trabalho." : `Não foi possível salvar a conexão do WhatsApp (código ${error.code ?? "desconhecido"}: ${error.message?.slice(0, 160) ?? "sem detalhe"}).`);

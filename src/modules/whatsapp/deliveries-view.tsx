@@ -34,6 +34,7 @@ const RUN_STATUS: Record<ReportAutomationRunStatus, { label: string; tone: strin
 
 // Most common WhatsApp Cloud API failures, in plain language with the action to take.
 const ERRORS: Record<string, string> = {
+  "190": "A autorização da Meta para este número venceu ou foi removida. Reconecte o número em Integrações.",
   "131042": "A conta do WhatsApp está sem forma de pagamento válida. Configure o pagamento no Gerenciador do WhatsApp.",
   "131026": "O número não pôde receber a mensagem (sem WhatsApp, bloqueado ou versão antiga).",
   "131047": "Fora da janela de 24 horas: é preciso usar uma mensagem modelo aprovada.",

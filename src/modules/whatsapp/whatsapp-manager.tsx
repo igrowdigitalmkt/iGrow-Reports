@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { connectWhatsAppAction, listWhatsAppTemplatesAction, selectWhatsAppTemplateAction } from "./actions";
 import { SUGGESTED_TEMPLATE } from "./templates";
 import { EmbeddedSignupButton } from "./embedded-signup-button";
+import type { TokenExpiry } from "./token-expiry";
 
 export type WhatsAppSummary = {
   displayPhone: string | null; verifiedName: string | null; qualityRating: string | null;
   templateName: string | null; templateLanguage: string | null; lastCheckedAt: string | null;
+  tokenExpiry?: TokenExpiry;
 } | null;
 
 // Connection of the workspace's WhatsApp Business number and choice of the report template.
@@ -67,7 +69,15 @@ export function WhatsAppManager({ connection, readiness, canManage, embedded }: 
       <div><dt>Nome exibido</dt><dd>{connection.verifiedName ?? "—"}</dd></div>
       <div><dt>Qualidade</dt><dd>{qualityLabel(connection.qualityRating)}</dd></div>
       <div><dt>Mensagem modelo</dt><dd>{connection.templateName ? `${connection.templateName} · ${connection.templateLanguage}` : "Nenhuma aprovada"}</dd></div>
+      {connection.tokenExpiry && <div><dt>Autorização válida até</dt><dd>{connection.tokenExpiry.expiresAt.slice(0, 10).split("-").reverse().join("/")}</dd></div>}
     </dl>}
+
+    {connection?.tokenExpiry && connection.tokenExpiry.level !== "ok" && <div role="alert" className={`meta-feedback ${connection.tokenExpiry.level === "expired" ? "error" : "warning"} whatsapp-expiry`}>
+      <span>{connection.tokenExpiry.level === "expired"
+        ? "A autorização da Meta para este número venceu. Os envios pela API oficial param até você reconectar."
+        : `A autorização da Meta para este número vence em ${connection.tokenExpiry.daysLeft} ${connection.tokenExpiry.daysLeft === 1 ? "dia" : "dias"}. Reconecte para continuar enviando sem interrupção.`}</span>
+      {canManage && embedded && <Button variant="secondary" className="button-sm" onClick={() => setEditing(true)}><RefreshCw size={14} />Reconectar</Button>}
+    </div>}
 
     {connection && canManage && <div className="whatsapp-actions">
       {templates ? <>

@@ -180,6 +180,8 @@ export type WhatsAppConnectionRow = {
   display_phone: string | null; verified_name: string | null; quality_rating: string | null;
   template_name: string | null; template_language: string | null; template_status: string | null;
   last_checked_at: string | null; created_at: string; updated_at: string;
+  // Added by migration 202610070009; absent before it is applied.
+  token_expires_at?: string | null;
 };
 export type ReportDeliveryStatus = "pending" | "sending" | "accepted" | "sent" | "delivered" | "read" | "failed" | "uncertain" | "cancelled";
 export type ReportDeliveryRow = {
