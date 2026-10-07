@@ -25,7 +25,7 @@
 .wa-rail-badge { position: absolute; top: 0; right: -2px; min-width: 20px; height: 20px; padding: 0 5px; border: 2px solid var(--wa-rail); border-radius: 999px; background: var(--wa-green); color: var(--wa-green-text); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; }
 
 /* Conversation list. */
-.wa-list { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--wa-line); background: var(--wa-panel); }
+.wa-list { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; border-right: 1px solid var(--wa-line); background: var(--wa-panel); }
 .wa-list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 16px 10px 20px; }
 .wa-list-head h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
 .wa-list-head small { display: block; margin-top: 2px; color: var(--wa-muted); font-size: 12.5px; }
@@ -70,7 +70,7 @@
 .wa-tick.is-failed { color: #f15c6d; }
 
 /* Chat. */
-.wa-chat { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--wa-chat); }
+.wa-chat { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; background: var(--wa-chat); }
 .wa-chat-head { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--wa-line); background: var(--wa-panel); }
 .wa-chat-title { display: grid; flex: 1; min-width: 0; }
 .wa-chat-title strong { overflow: hidden; font-size: 16px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
@@ -124,7 +124,7 @@
 .wa-composer input { flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: var(--wa-text); font: inherit; outline: none; }
 .wa-composer input::placeholder { color: var(--wa-muted); }
 
-.wa-empty { display: grid; place-content: center; justify-items: center; gap: 10px; height: 100%; padding: 32px; text-align: center; }
+.wa-empty { display: grid; flex: 1; place-content: center; justify-items: center; gap: 10px; min-height: 0; padding: 32px; text-align: center; }
 .wa-empty-icon { display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%; background: var(--wa-hover); color: var(--wa-muted); }
 .wa-empty h3 { margin: 6px 0 0; font-size: 26px; font-weight: 300; }
 .wa-empty p { max-width: 420px; margin: 0; color: var(--wa-muted); line-height: 1.5; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, Smile, Star, Sticker, UsersRound, Video } from "lucide-react";
+import { AlertCircle, ArrowLeft, BadgeCheck, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, Smile, Star, Sticker, UsersRound, Video } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime } from "./inbox-format";
 import type { InboxChannel, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import "./inbox.css";
@@ -94,7 +94,9 @@ export function WhatsAppInbox({ channels, demo = false, demoConversations = [], 
         return <button key={item.key} type="button" className={`wa-rail-item${item.key === channelKey ? " is-active" : ""}`} aria-pressed={item.key === channelKey}
           title={`${item.name}${item.phone ? ` · ${item.phone}` : ""}${item.kind === "official" ? item.coexistence ? " · API com coexistência" : " · API oficial" : " · QR Code"}`}
           onClick={() => { setChannelKey(item.key); setOpenId(null); setFilter("all"); }}>
-          {item.kind === "qr" ? <QrCode size={21} /> : <span className="wa-rail-initials" style={{ background: colorFor(item.key) }}>{initialsOf(item.name)}</span>}
+          {item.kind === "qr" ? <QrCode size={21} /> : /\p{L}/u.test(item.name)
+            ? <span className="wa-rail-initials" style={{ background: colorFor(item.key) }}>{initialsOf(item.name)}</span>
+            : <span className="wa-rail-initials is-icon" style={{ background: colorFor(item.key) }}><BadgeCheck size={17} /></span>}
           {unread > 0 && <span className="wa-rail-badge">{unread > 99 ? "99+" : unread}</span>}
         </button>;
       })}
