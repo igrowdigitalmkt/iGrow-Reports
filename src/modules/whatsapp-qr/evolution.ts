@@ -103,6 +103,12 @@ export class EvolutionClient {
     return { base64: result.base64, mime: result.mimetype ?? "application/octet-stream", fileName: result.fileName ?? null };
   }
 
+  /** Voice message (the server converts the recording to WhatsApp's voice format). */
+  async sendVoice(name: string, number: string, base64: string) {
+    const result = await this.request<{ key?: { id?: string } }>(`/message/sendWhatsAppAudio/${encodeURIComponent(name)}`, { method: "POST", timeoutMs: 60_000, body: { number, audio: base64, encoding: true } });
+    return { messageId: result?.key?.id ?? null };
+  }
+
   /** Photo, video, audio or document, sent as base64 with an optional caption. */
   async sendMedia(name: string, number: string, media: { mediatype: "image" | "video" | "audio" | "document"; mimetype: string; base64: string; fileName: string; caption?: string }) {
     const result = await this.request<{ key?: { id?: string } }>(`/message/sendMedia/${encodeURIComponent(name)}`, {

@@ -92,6 +92,27 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   // eslint-disable-next-line react-hooks/set-state-in-effect -- the drawer closes after any route change
   useEffect(() => { setDrawerOpen(false); setTooltip(null); }, [pathname]);
 
+  // WhatsApp unread conversations, refreshed in the background (and shown in the tab title like WhatsApp Web).
+  const [liveUnread, setLiveUnread] = useState<number | null>(null);
+  const whatsappVisible = !demo && !hiddenKeys.includes("whatsapp");
+  useEffect(() => {
+    if (!whatsappVisible) return;
+    let cancelled = false;
+    const load = () => {
+      if (document.hidden) return;
+      fetch("/api/whatsapp/inbox/unread", { cache: "no-store" }).then(response => response.ok ? response.json() : null)
+        .then((body: { count?: number } | null) => { if (!cancelled && typeof body?.count === "number") setLiveUnread(body.count); }).catch(() => undefined);
+    };
+    const timer = setInterval(load, 15000);
+    document.addEventListener("visibilitychange", load);
+    return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", load); };
+  }, [whatsappVisible]);
+  const unread = liveUnread ?? whatsappUnread ?? 0;
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\+?\) /, "");
+    document.title = unread > 0 ? `(${unread > 99 ? "99+" : unread}) ${base}` : base;
+  }, [unread, pathname]);
+
   function showTooltip(event: ReactMouseEvent<HTMLElement> | FocusEvent<HTMLElement>) {
     const target = (event.target as Element).closest<HTMLElement>("[data-tip]");
     if (!collapsed || !target || window.matchMedia(MOBILE_QUERY).matches) { setTooltip(null); return; }
@@ -124,7 +145,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
               <span className="collapse-hide">{label}</span>
               {planned && <span className="nav-soon collapse-hide">Em breve</span>}
               {key === "clientes" && !!clientCount && <span className="nav-count collapse-hide">{clientCount}</span>}
-              {key === "whatsapp" && !!whatsappUnread && <span className="nav-count is-unread" aria-label={`${whatsappUnread} conversas não lidas`}>{whatsappUnread > 99 ? "99+" : whatsappUnread}</span>}
+              {key === "whatsapp" && unread > 0 && <span className="nav-count is-unread" aria-label={`${unread} conversas não lidas`}>{unread > 99 ? "99+" : unread}</span>}
             </Link>)}
           </div>)}
         </nav>

@@ -37,16 +37,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   }
   const filename = file instanceof File && file.name ? file.name.slice(0, 200) : "arquivo";
   const mime = file instanceof Blob ? file.type || "application/octet-stream" : "";
-  const kind = file instanceof Blob ? replyMediaKind(mime, conversation.channel, form.get("asDocument") === "1") : null;
+  // A voice recording from the browser (WebM or Ogg with Opus).
+  const voice = file instanceof Blob && form.get("voice") === "1" && /^audio\/(webm|ogg)/.test(mime);
+  if (voice && conversation.channel === "official" && !mime.startsWith("audio/ogg")) {
+    return Response.json({ error: "Este navegador grava em um formato que a API oficial não aceita. Envie um arquivo de áudio pelo + ou responda pelo QR Code." }, { status: 400, headers });
+  }
+  const kind = voice ? "audio" : file instanceof Blob ? replyMediaKind(mime, conversation.channel, form.get("asDocument") === "1") : null;
   if (file instanceof Blob && !kind) return Response.json({ error: "Esse tipo de arquivo não é aceito pelo WhatsApp." }, { status: 400, headers });
 
   try {
     const sent = conversation.channel === "qr"
-      ? { externalId: await sendQrReply(context.agency.id, conversation.remote_id, file instanceof Blob
+      ? { externalId: await sendQrReply(context.agency.id, conversation.remote_id, voice
+        ? { voice: Buffer.from(await (file as Blob).arrayBuffer()).toString("base64") }
+        : file instanceof Blob
         ? { base64: Buffer.from(await file.arrayBuffer()).toString("base64"), filename, mime, kind: kind!, caption: text || undefined }
         : { text }), mediaId: null }
       : await sendOfficialReply(service, { agencyId: context.agency.id, connectionId: conversation.whatsapp_connection_id!, to: conversation.remote_id,
-        content: file instanceof Blob ? { file, filename, mime, kind: kind!, caption: text || undefined } : { text } });
+        content: file instanceof Blob ? { file, filename, mime: voice ? "audio/ogg" : mime, kind: kind!, caption: text || undefined } : { text } });
     // Recorded right away so it shows without waiting for the webhook (same id: no duplicate).
     await recordInboxMessage(service, { agencyId: context.agency.id, connectionId: conversation.whatsapp_connection_id, message: {
       remoteId: conversation.remote_id, isGroup: conversation.is_group, title: null, author: null,

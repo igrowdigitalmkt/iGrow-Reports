@@ -1,9 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, BadgeCheck, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, Star, Sticker, UsersRound, Video, X, Headphones } from "lucide-react";
-import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime } from "./inbox-format";
-import type { InboxChannel, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
+import { AlertCircle, ArrowLeft, BadgeCheck, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones } from "lucide-react";
+import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
+import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import "./inbox.css";
@@ -15,9 +15,12 @@ const QR_CHANNEL: InboxChannel = { key: "qr", kind: "qr", name: "Seu WhatsApp", 
  * WhatsApp inbox in the layout of WhatsApp Desktop: numbers on the left rail, conversations,
  * and the open chat, where the team replies with text, emojis and files.
  */
-export function WhatsAppInbox({ channels, demo = false, canReply = true, demoConversations = [], demoThreads = {} }: {
-  channels: InboxChannel[]; demo?: boolean; canReply?: boolean; demoConversations?: InboxConversation[]; demoThreads?: Record<string, InboxMessageItem[]>;
+export function WhatsAppInbox({ channels, demo = false, canReply = true, contacts = [], demoConversations = [], demoThreads = {} }: {
+  channels: InboxChannel[]; demo?: boolean; canReply?: boolean; contacts?: InboxContact[]; demoConversations?: InboxConversation[]; demoThreads?: Record<string, InboxMessageItem[]>;
 }) {
+  // "Nova conversa": the picker on the left and, until the first message, a draft chat on the right.
+  const [picking, setPicking] = useState(false);
+  const [draft, setDraft] = useState<{ phone: string; name: string | null; clientName: string | null } | null>(null);
   // Messages being sent (or sent in the demo), shown until the conversation reloads from the server.
   const [outbox, setOutbox] = useState<Record<string, InboxMessageItem[]>>({});
   const [qrPhone, setQrPhone] = useState<string | null>(null);
@@ -99,7 +102,21 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, demoCon
   const open = conversations.find(item => item.id === openId) ?? null;
   const channel = allChannels.find(item => item.key === channelKey) ?? allChannels[0];
 
+  function startWith(contact: { phone: string; name: string | null; clientName: string | null }) {
+    setPicking(false);
+    const existing = conversations.find(item => item.channelKey === "qr" && !item.isGroup && phoneKey(item.remoteId) === phoneKey(contact.phone));
+    if (existing) { setDraft(null); choose(existing.id); return; }
+    setOpenId(null); setDraft(contact);
+  }
+  function started(conversationId: string | null) {
+    setDraft(null);
+    if (!conversationId) return;
+    setOpenId(conversationId);
+    fetch("/api/whatsapp/inbox", { cache: "no-store" }).then(response => response.ok ? response.json() : null).then((body: InboxList | null) => { if (body) setList(body); }).catch(() => undefined);
+  }
+
   function choose(id: string) {
+    setDraft(null);
     setOpenId(id);
     setReadLocally(current => current.includes(id) ? current : [...current, id]);
   }
@@ -109,13 +126,13 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, demoCon
     fetch(`/api/whatsapp/inbox/${item.id}`, { method: "POST", body: JSON.stringify({ action: "favorite", value: !item.favorite }) }).catch(() => undefined);
   }
 
-  return <div className={`wai-shell${openId ? " is-chat-open" : ""}`}>
+  return <div className={`wai-shell${openId || draft ? " is-chat-open" : ""}`}>
     <nav className="wai-rail" aria-label="Números de WhatsApp">
       {allChannels.map(item => {
         const unread = unreadByChannel.get(item.key) ?? 0;
         return <button key={item.key} type="button" className={`wai-rail-item${item.key === channelKey ? " is-active" : ""}`} aria-pressed={item.key === channelKey}
           title={`${item.name}${item.phone ? ` · ${item.phone}` : ""}${item.kind === "official" ? item.coexistence ? " · API com coexistência" : " · API oficial" : " · QR Code"}`}
-          onClick={() => { setChannelKey(item.key); setOpenId(null); setFilter("all"); }}>
+          onClick={() => { setChannelKey(item.key); setOpenId(null); setDraft(null); setPicking(false); setFilter("all"); }}>
           {item.kind === "qr" ? <QrCode size={21} /> : /\p{L}/u.test(item.name)
             ? <span className="wai-rail-initials" style={{ background: colorFor(item.key) }}>{initialsOf(item.name)}</span>
             : <span className="wai-rail-initials is-icon" style={{ background: colorFor(item.key) }}><BadgeCheck size={17} /></span>}
@@ -128,10 +145,12 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, demoCon
       <header className="wai-list-head">
         <div><h2>Conversas</h2><small>{channel.name}{channel.phone ? ` · ${channel.phone}` : ""}</small></div>
         <div className="wai-head-actions">
-          <button type="button" className="wai-icon-button" disabled title="Nova conversa · em breve"><Plus size={20} /></button>
+          <button type="button" className={`wai-icon-button${picking ? " is-on" : ""}`} disabled={channel.kind !== "qr" || !canReply} onClick={() => setPicking(value => !value)}
+            title={channel.kind !== "qr" ? "Nos números oficiais, uma conversa nova só começa com mensagem modelo aprovada" : "Nova conversa"}><Plus size={20} /></button>
           <button type="button" className="wai-icon-button" disabled title="Mais opções · em breve"><MoreVertical size={20} /></button>
         </div>
       </header>
+      {picking ? <NewChat contacts={contacts} onPick={startWith} onClose={() => setPicking(false)} /> : <>
       <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar ou começar uma nova conversa" aria-label="Pesquisar conversas" /></label>
       <div className="wai-filters" role="group" aria-label="Filtrar conversas">
         {([["all", "Tudo"], ["unread", unreadHere ? `Não lidas ${unreadHere}` : "Não lidas"], ["favorites", "Favoritas"], ...(channel.kind === "qr" ? [["groups", "Grupos"]] : [])] as Array<[Filter, string]>).map(([key, label]) =>
@@ -143,10 +162,11 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, demoCon
         {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
         {visible.map(item => <ConversationRow key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} onOpen={() => choose(item.id)} />)}
       </div>
+      </>}
     </section>
 
-    <section className="wai-chat" aria-label="Conversa">
-      {!open ? <div className="wai-empty">
+    <section className={`wai-chat${draft ? " has-draft" : ""}`} aria-label="Conversa">
+      {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
         <h3>WhatsApp na iGrow</h3>
         <p>Escolha uma conversa para ver as mensagens. As respostas dos seus clientes aos relatórios aparecem aqui, junto com o que foi enviado por cada número.</p>
@@ -290,6 +310,63 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
   const field = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const reply = replyWindow(kind, conversation.lastInboundAt, now);
+  const recorder = useRef<{ media: MediaRecorder; chunks: Blob[]; stream: MediaStream; send: boolean } | null>(null);
+  const [recording, setRecording] = useState<{ startedAt: number; seconds: number } | null>(null);
+  // Official numbers only accept Ogg/Opus voice; Chrome records WebM, which only the QR Code server converts.
+  const [voiceFormat] = useState(() => typeof MediaRecorder === "undefined" ? null
+    : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus") ? "audio/ogg;codecs=opus"
+    : kind === "qr" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : null);
+
+  useEffect(() => {
+    if (!recording) return;
+    const timer = setInterval(() => setRecording(current => current && { ...current, seconds: Math.floor((Date.now() - current.startedAt) / 1000) }), 500);
+    return () => clearInterval(timer);
+  }, [recording]);
+  // Leaving the conversation stops the microphone.
+  useEffect(() => () => { recorder.current?.stream.getTracks().forEach(track => track.stop()); }, []);
+
+  async function startRecording() {
+    if (!voiceFormat || recorder.current) return;
+    setError(""); setMenu(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const media = new MediaRecorder(stream, { mimeType: voiceFormat });
+      const state = { media, chunks: [] as Blob[], stream, send: false };
+      media.ondataavailable = event => { if (event.data.size) state.chunks.push(event.data); };
+      media.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        recorder.current = null;
+        setRecording(null);
+        if (state.send && state.chunks.length) void sendVoice(new Blob(state.chunks, { type: voiceFormat.split(";")[0] }));
+      };
+      // The start time comes from the event, so the timer matches the recording.
+      media.onstart = event => setRecording({ startedAt: performance.timeOrigin + event.timeStamp, seconds: 0 });
+      recorder.current = state;
+      media.start();
+    } catch {
+      setError("Não foi possível usar o microfone. Permita o acesso ao microfone no navegador.");
+    }
+  }
+  function stopRecording(send: boolean) {
+    if (!recorder.current) return;
+    recorder.current.send = send;
+    recorder.current.media.stop();
+  }
+  async function sendVoice(blob: Blob) {
+    if (blob.size > MAX_REPLY_FILE_BYTES) { setError("A gravação passou de 4 MB. Grave um áudio mais curto."); return; }
+    const item: InboxMessageItem = { id: `local-${Date.now()}`, direction: "out", kind: "audio", body: null, mediaName: null, mediaMime: blob.type, author: null, status: demo ? "sent" : "pending", sentAt: new Date().toISOString() };
+    onQueued(item);
+    if (demo) return;
+    try {
+      const form = new FormData();
+      form.append("file", blob, blob.type.includes("ogg") ? "voz.ogg" : "voz.webm");
+      form.append("voice", "1");
+      const response = await fetch(`/api/whatsapp/inbox/${conversation.id}/send`, { method: "POST", body: form });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) { onSettled(item.id, "failed"); setError(result.error ?? "Não foi possível enviar o áudio."); return; }
+      onSent();
+    } catch { onSettled(item.id, "failed"); setError("Sem conexão. O áudio não foi enviado."); }
+  }
 
   function chooseFile(accept: string, document: boolean) {
     setMenu(null);
@@ -354,7 +431,13 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
       <button type="button" className="wai-icon-button" onClick={() => setFile(null)} aria-label="Remover arquivo"><X size={16} /></button>
     </div>}
     {kind === "official" && closes && <p className="wai-window">Resposta livre até {dayLabel(closes, now).toLowerCase()} às {clockTime(closes)} · respostas pela API oficial podem ser cobradas pela Meta</p>}
-    <div className="wai-composer">
+    {recording ? <div className="wai-composer wai-recording">
+      <button type="button" className="wai-icon-button" onClick={() => stopRecording(false)} aria-label="Descartar gravação" title="Descartar"><Trash2 size={20} /></button>
+      <span className="wai-recording-dot" aria-hidden />
+      <span className="wai-recording-time" aria-live="polite">{Math.floor(recording.seconds / 60)}:{String(recording.seconds % 60).padStart(2, "0")}</span>
+      <span className="wai-recording-label">Gravando áudio…</span>
+      <button type="button" className="wai-send" onClick={() => stopRecording(true)} aria-label="Enviar áudio"><SendHorizontal size={20} /></button>
+    </div> : <div className="wai-composer">
       <div className="wai-composer-menu">
         <button type="button" className={`wai-icon-button${menu === "attach" ? " is-on" : ""}`} onClick={() => setMenu(menu === "attach" ? null : "attach")} aria-expanded={menu === "attach"} title="Anexar"><Plus size={22} /></button>
         {menu === "attach" && <div className="wai-attach-menu" role="menu">
@@ -372,8 +455,71 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
         onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
       {text.trim() || file
         ? <button type="button" className="wai-send" onClick={() => void send()} disabled={sending} aria-label="Enviar"><SendHorizontal size={20} /></button>
-        : <button type="button" className="wai-icon-button" disabled title="Gravar áudio pela iGrow ainda não está disponível"><Mic size={22} /></button>}
+        : <button type="button" className="wai-icon-button" disabled={!voiceFormat} onClick={() => void startRecording()} aria-label="Gravar áudio"
+          title={voiceFormat ? "Gravar áudio" : "Este navegador não grava áudio no formato aceito por este número. Envie um arquivo de áudio pelo +."}><Mic size={22} /></button>}
       <input ref={picker} type="file" hidden accept={ACCEPTED_REPLY_FILES} onChange={event => { onFile(event.target.files?.[0]); event.target.value = ""; }} />
-    </div>
+    </div>}
   </footer>;
+}
+
+/** "Nova conversa": the client recipients registered in the iGrow, or any number typed with DDD. */
+function NewChat({ contacts, onPick, onClose }: { contacts: InboxContact[]; onPick: (contact: { phone: string; name: string | null; clientName: string | null }) => void; onClose: () => void }) {
+  const [query, setQuery] = useState("");
+  const search = query.trim().toLocaleLowerCase("pt-BR");
+  const digits = query.replace(/\D/g, "");
+  const shown = contacts.filter(contact => !search || `${contact.name} ${contact.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search) || (digits.length >= 3 && contact.phone.replace(/\D/g, "").includes(digits)));
+  const typed = digits.length >= 10 ? (digits.length <= 11 ? `55${digits}` : digits) : null;
+  return <div className="wai-new">
+    <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={onClose} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Nova conversa</strong></div>
+    <label className="wai-search"><Search size={17} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar nome ou digitar número com DDD" aria-label="Pesquisar contato ou número" /></label>
+    <p className="wai-new-note">Pelo QR Code, mande mensagem só para quem conhece seu número: mensagens para desconhecidos aumentam o risco de bloqueio.</p>
+    <div className="wai-rows">
+      {typed && <button type="button" className="wai-row" onClick={() => onPick({ phone: typed, name: null, clientName: null })}>
+        <span className="wai-avatar is-icon" style={{ width: 49, height: 49 }}><Contact size={24} /></span>
+        <span className="wai-row-main"><span className="wai-row-top"><strong>Conversar com {formatWhatsAppPhone(typed)}</strong></span><span className="wai-row-client">Número digitado</span></span>
+      </button>}
+      {shown.length > 0 && <p className="wai-new-title">Destinatários dos clientes</p>}
+      {shown.map(contact => <button key={contact.id} type="button" className="wai-row" onClick={() => onPick({ phone: contact.phone.replace(/\D/g, ""), name: contact.name, clientName: contact.clientName })}>
+        <span className="wai-avatar" style={{ width: 49, height: 49, background: colorFor(contact.name) }}>{initialsOf(contact.name)}</span>
+        <span className="wai-row-main"><span className="wai-row-top"><strong>{contact.name}</strong></span><span className="wai-row-preview"><span>{formatWhatsAppPhone(contact.phone.replace(/\D/g, ""))}</span></span>{contact.clientName && <span className="wai-row-client">{contact.clientName}</span>}</span>
+      </button>)}
+      {!shown.length && !typed && <p className="wai-list-note">{contacts.length ? "Nenhum destinatário encontrado. Digite o número com DDD para conversar com outra pessoa." : "Digite o número com DDD. Os destinatários cadastrados nos clientes aparecem aqui."}</p>}
+    </div>
+  </div>;
+}
+
+/** Conversation that does not exist yet: the first text creates it (QR Code session). */
+function DraftChat({ draft, demo, onClose, onStarted }: { draft: { phone: string; name: string | null; clientName: string | null }; demo: boolean; onClose: () => void; onStarted: (conversationId: string | null) => void }) {
+  const [text, setText] = useState("");
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
+  const title = draft.name ?? formatWhatsAppPhone(draft.phone);
+  async function send() {
+    const body = text.trim();
+    if (!body || sending) return;
+    if (demo) { setError("Na demonstração nenhuma mensagem é enviada."); return; }
+    setSending(true); setError("");
+    try {
+      const response = await fetch("/api/whatsapp/inbox/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: draft.phone, name: draft.name ?? undefined, text: body }) });
+      const result = await response.json().catch(() => ({})) as { error?: string; conversationId?: string | null };
+      if (!response.ok) { setError(result.error ?? "Não foi possível enviar agora."); return; }
+      onStarted(result.conversationId ?? null);
+    } catch { setError("Sem conexão. A mensagem não foi enviada."); } finally { setSending(false); }
+  }
+  return <>
+    <header className="wai-chat-head">
+      <button type="button" className="wai-icon-button wai-back" onClick={onClose} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button>
+      {draft.name ? <span className="wai-avatar" style={{ width: 40, height: 40, background: colorFor(title) }}>{initialsOf(draft.name)}</span> : <span className="wai-avatar is-icon" style={{ width: 40, height: 40 }}><Contact size={20} /></span>}
+      <div className="wai-chat-title"><strong>{title}</strong><small>{[draft.name ? formatWhatsAppPhone(draft.phone) : null, draft.clientName ? `Cliente: ${draft.clientName}` : null, "Nova conversa"].filter(Boolean).join(" · ")}</small></div>
+    </header>
+    <div className="wai-messages"><div className="wai-messages-inner"><p className="wai-day"><span>Escreva a primeira mensagem para começar a conversa</span></p></div></div>
+    <footer className="wai-composer-area">
+      {error && <p role="alert" className="wai-composer-error"><AlertCircle size={14} />{error}</p>}
+      <div className="wai-composer">
+        <textarea rows={1} autoFocus value={text} maxLength={MAX_REPLY_TEXT} placeholder="Digite uma mensagem" aria-label="Primeira mensagem" onChange={event => setText(event.target.value)}
+          onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
+        <button type="button" className="wai-send" onClick={() => void send()} disabled={sending || !text.trim()} aria-label="Enviar"><SendHorizontal size={20} /></button>
+      </div>
+    </footer>
+  </>;
 }

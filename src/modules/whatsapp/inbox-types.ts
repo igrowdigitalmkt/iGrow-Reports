@@ -18,5 +18,8 @@ export type InboxMessageItem = {
   author: string | null; status: InboxStatus; sentAt: string;
 };
 
+/** Recipient registered for a client, offered when starting a conversation. */
+export type InboxContact = { id: string; name: string; phone: string; clientName: string | null };
+
 export type InboxList = { ready: boolean; conversations: InboxConversation[] };
 export type InboxThread = { conversation: InboxConversation | null; messages: InboxMessageItem[] };

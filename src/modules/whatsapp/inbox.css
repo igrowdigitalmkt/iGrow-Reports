@@ -176,3 +176,18 @@
 
 /* The demo banner sits between the top bar and the inbox. */
 .workspace:has(.demo-banner) .wai-shell { height: calc(100dvh - 94px); }
+
+/* Nova conversa. */
+.wai-new { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.wai-new-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px 8px; }
+.wai-new-head strong { font-size: 18px; font-weight: 600; }
+.wai-new-note { margin: 10px 18px 4px; color: var(--wai-muted); font-size: 12.5px; line-height: 1.45; }
+.wai-new-title { margin: 10px 12px 4px; color: var(--wai-green); font-size: 13px; font-weight: 600; }
+
+/* Voice recording. */
+.wai-recording { align-items: center; gap: 10px; padding-left: 8px; }
+.wai-recording-dot { width: 10px; height: 10px; border-radius: 50%; background: #f15c6d; animation: wai-pulse 1s ease-in-out infinite; }
+.wai-recording-time { min-width: 44px; color: var(--wai-text); font-variant-numeric: tabular-nums; }
+.wai-recording-label { flex: 1; color: var(--wai-muted); font-size: 13.5px; }
+@keyframes wai-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .wai-recording-dot { animation: none; } }

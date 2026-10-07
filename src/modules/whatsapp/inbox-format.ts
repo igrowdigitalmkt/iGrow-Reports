@@ -60,3 +60,9 @@ export function colorFor(value: string) {
   for (const char of value) hash = (hash * 31 + char.codePointAt(0)!) | 0;
   return PALETTE[Math.abs(hash) % PALETTE.length];
 }
+
+/** Same key as the database: Brazilian mobiles compare by DDD + last 8 digits (with or without the 9). */
+export function phoneKey(digits: string) {
+  const clean = digits.replace(/\D/g, "");
+  return /^55\d{10,11}$/.test(clean) ? clean.slice(0, 4) + clean.slice(-8) : clean;
+}

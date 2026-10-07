@@ -116,7 +116,7 @@ export async function downloadQrMedia(agencyId: string, message: { externalId: s
 }
 
 /** Reply from the inbox through the workspace's QR Code session. Returns the message id. */
-export async function sendQrReply(agencyId: string, to: string, content: { text: string } | { base64: string; filename: string; mime: string; kind: "image" | "video" | "audio" | "document"; caption?: string }) {
+export async function sendQrReply(agencyId: string, to: string, content: { text: string } | { voice: string } | { base64: string; filename: string; mime: string; kind: "image" | "video" | "audio" | "document"; caption?: string }) {
   const evolution = client();
   if (!evolution) throw new EvolutionError("O servidor do WhatsApp ainda não foi configurado.");
   const name = instanceNameFor(agencyId);
@@ -124,6 +124,7 @@ export async function sendQrReply(agencyId: string, to: string, content: { text:
   const number = to.endsWith("@g.us") ? to : to.replace(/\D/g, "");
   const sent = "text" in content
     ? await evolution.sendText(name, number, content.text)
+    : "voice" in content ? await evolution.sendVoice(name, number, content.voice)
     : await evolution.sendMedia(name, number, { mediatype: content.kind, mimetype: content.mime, base64: content.base64, fileName: content.filename, caption: content.caption });
   return sent.messageId;
 }
