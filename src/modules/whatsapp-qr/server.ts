@@ -94,6 +94,14 @@ export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> 
   return (await evolution.groups(name)).sort((a, b) => a.subject.localeCompare(b.subject, "pt-BR"));
 }
 
+/** File of an inbox message on the QR Code session, fetched on demand (not stored). */
+export async function downloadQrMedia(agencyId: string, message: { externalId: string; remoteId: string; isGroup: boolean; fromMe: boolean }) {
+  const evolution = client();
+  if (!evolution) throw new EvolutionError("O servidor do WhatsApp ainda não foi configurado.");
+  const remoteJid = message.isGroup || message.remoteId.includes("@") ? message.remoteId : `${message.remoteId}@s.whatsapp.net`;
+  return evolution.mediaOfMessage(instanceNameFor(agencyId), { id: message.externalId, remoteJid, fromMe: message.fromMe });
+}
+
 /** Reply from the inbox through the workspace's QR Code session. Returns the message id. */
 export async function sendQrReply(agencyId: string, to: string, content: { text: string } | { base64: string; filename: string; mime: string; kind: "image" | "video" | "audio" | "document"; caption?: string }) {
   const evolution = client();

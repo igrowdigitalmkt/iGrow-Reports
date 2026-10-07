@@ -41,17 +41,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   if (file instanceof Blob && !kind) return Response.json({ error: "Esse tipo de arquivo não é aceito pelo WhatsApp." }, { status: 400, headers });
 
   try {
-    const externalId = conversation.channel === "qr"
-      ? await sendQrReply(context.agency.id, conversation.remote_id, file instanceof Blob
+    const sent = conversation.channel === "qr"
+      ? { externalId: await sendQrReply(context.agency.id, conversation.remote_id, file instanceof Blob
         ? { base64: Buffer.from(await file.arrayBuffer()).toString("base64"), filename, mime, kind: kind!, caption: text || undefined }
-        : { text })
+        : { text }), mediaId: null }
       : await sendOfficialReply(service, { agencyId: context.agency.id, connectionId: conversation.whatsapp_connection_id!, to: conversation.remote_id,
         content: file instanceof Blob ? { file, filename, mime, kind: kind!, caption: text || undefined } : { text } });
     // Recorded right away so it shows without waiting for the webhook (same id: no duplicate).
     await recordInboxMessage(service, { agencyId: context.agency.id, connectionId: conversation.whatsapp_connection_id, message: {
       remoteId: conversation.remote_id, isGroup: conversation.is_group, title: null, author: null,
-      externalId: externalId ?? `igrow-${crypto.randomUUID()}`, direction: "out", kind: kind ?? "text",
-      body: text || null, mediaName: kind === "document" ? filename : null, mediaMime: mime || null, sentAt: new Date().toISOString(),
+      externalId: sent.externalId ?? `igrow-${crypto.randomUUID()}`, direction: "out", kind: kind ?? "text",
+      body: text || null, mediaName: kind === "document" ? filename : null, mediaMime: mime || null, sentAt: new Date().toISOString(), mediaId: sent.mediaId,
     } });
     return Response.json({ ok: true }, { headers });
   } catch (error) {

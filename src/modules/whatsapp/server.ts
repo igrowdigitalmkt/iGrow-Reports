@@ -269,7 +269,7 @@ async function sendPdfTemplate(service: Service, apiVersion: string, connection:
       // The report also shows up in this number's conversation in the inbox.
       if (connection.id) await recordInboxMessage(service, { agencyId: input.agencyId, connectionId: connection.id, message: {
         remoteId: recipient.phone.replace(/\D/g, ""), isGroup: false, title: recipient.name, author: null, externalId: wamid, direction: "out",
-        kind: "document", body: renderTemplateBody(template, parameters), mediaName: input.filename, mediaMime: "application/pdf", sentAt: new Date().toISOString(),
+        kind: "document", body: renderTemplateBody(template, parameters), mediaName: input.filename, mediaMime: "application/pdf", sentAt: new Date().toISOString(), mediaId,
       } });
       results.push({ recipientId: recipient.id, name: recipient.name, status: "accepted" });
     } catch (sendError) {
@@ -318,14 +318,23 @@ export async function sendOfficialReply(service: Service, input: { agencyId: str
   const connection = await loadConnection(service, input.agencyId, input.connectionId);
   const graph = new WhatsAppGraph({ accessToken: await loadToken(service, connection), apiVersion: meta.apiVersion });
   try {
-    if ("text" in input.content) return await graph.sendMessage(connection.phone_number_id, input.to, { type: "text", text: input.content.text });
+    if ("text" in input.content) return { externalId: await graph.sendMessage(connection.phone_number_id, input.to, { type: "text", text: input.content.text }), mediaId: null };
     const { file, filename, mime, kind, caption } = input.content;
     const mediaId = await graph.uploadMedia(connection.phone_number_id, file, filename, mime);
-    return await graph.sendMessage(connection.phone_number_id, input.to, kind === "document" ? { type: "document", mediaId, filename, caption }
+    const externalId = await graph.sendMessage(connection.phone_number_id, input.to, kind === "document" ? { type: "document", mediaId, filename, caption }
       : kind === "audio" ? { type: "audio", mediaId } : { type: kind, mediaId, caption });
+    return { externalId, mediaId };
   } catch (error) {
     if (error instanceof WhatsAppApiError && error.code === "131047") throw new WhatsAppSetupError("Passaram mais de 24 horas desde a última mensagem do cliente. Pela API oficial, só uma mensagem modelo retoma a conversa.");
     if (error instanceof WhatsAppApiError && error.code === "190") throw new WhatsAppSetupError("A autorização da Meta para este número venceu. Reconecte o número em Integrações.");
     throw new WhatsAppSetupError(error instanceof WhatsAppApiError ? `O WhatsApp recusou a mensagem: ${error.message.slice(0, 200)}` : "Não foi possível enviar pelo WhatsApp agora.");
   }
+}
+
+/** File of an inbox message on an official number, fetched from WhatsApp on demand (not stored). */
+export async function downloadOfficialMedia(service: Service, input: { agencyId: string; connectionId: string; mediaId: string }) {
+  const meta = getMetaApiConfig();
+  if (!meta) throw new WhatsAppSetupError("A integração do WhatsApp ainda não está configurada no servidor.");
+  const connection = await loadConnection(service, input.agencyId, input.connectionId);
+  return new WhatsAppGraph({ accessToken: await loadToken(service, connection), apiVersion: meta.apiVersion }).downloadMedia(input.mediaId);
 }

@@ -223,6 +223,8 @@ export type WhatsAppMessageRow = {
   id: string; agency_id: string; conversation_id: string; external_id: string; direction: "in" | "out"; kind: string;
   body: string | null; media_name: string | null; media_mime: string | null; author: string | null;
   status: "pending" | "sent" | "delivered" | "read" | "failed" | null; sent_at: string; created_at: string;
+  // Added by migration 202610070012.
+  media_id?: string | null;
 };
 export type AutomationMessageRow = {
   id: string; agency_id: string; run_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null;
@@ -362,7 +364,7 @@ export type Database = {
         Args: {
           p_agency_id: string; p_connection_id: string | null; p_remote_id: string; p_is_group: boolean; p_title: string | null;
           p_external_id: string; p_direction: "in" | "out"; p_kind: string; p_body: string | null; p_media_name: string | null;
-          p_media_mime: string | null; p_author: string | null; p_status: string | null; p_sent_at: string;
+          p_media_mime: string | null; p_author: string | null; p_status: string | null; p_sent_at: string; p_media_id?: string | null;
         };
         Returns: { conversation_id: string; inserted: boolean; needs_title: boolean }[];
       };

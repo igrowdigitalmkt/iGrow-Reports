@@ -171,7 +171,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, demoCon
               const grouped = !newDay && previous?.direction === message.direction && previous.author === message.author;
               return <Fragment key={message.id}>
                 {newDay && <p className="wai-day"><span>{dayLabel(message.sentAt, now)}</span></p>}
-                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} />
+                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} live={!demo && !message.id.startsWith("local-")} />
               </Fragment>;
             })}
             <div ref={bottom} />
@@ -223,10 +223,22 @@ function ConversationRow({ item, active, now, onOpen }: { item: InboxConversatio
   </button>;
 }
 
-function Bubble({ message, tail, showAuthor }: { message: InboxMessageItem; tail: boolean; showAuthor: boolean }) {
+// Files open from WhatsApp only when shown (not stored by the iGrow); a failure falls back to the label.
+function MediaImage({ src, sticker }: { src: string; sticker: boolean }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <div className="wai-media"><ImageIcon size={18} />{sticker ? "Figurinha" : "Foto"} indisponível</div>;
+  return <a href={src} target="_blank" rel="noopener noreferrer" className={sticker ? "wai-sticker" : "wai-photo"}>
+    {/* eslint-disable-next-line @next/next/no-img-element -- private file streamed from WhatsApp */}
+    <img src={src} alt={sticker ? "Figurinha" : "Foto"} loading="lazy" onError={() => setFailed(true)} />
+  </a>;
+}
+
+function Bubble({ message, tail, showAuthor, live }: { message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean }) {
   const out = message.direction === "out";
   const meta = <span className="wai-meta">{clockTime(message.sentAt)}{out && <Ticks status={message.status} />}</span>;
-  const Icon = KIND_ICONS[message.kind];
+  const src = `/api/whatsapp/inbox/media/${message.id}`;
+  const shownLive = live && (message.kind === "image" || message.kind === "sticker" || message.kind === "video" || message.kind === "audio");
+  const Icon = shownLive ? undefined : KIND_ICONS[message.kind];
   return <div className={`wai-bubble-row ${out ? "is-out" : "is-in"}`}>
     <div className={`wai-bubble${tail ? " has-tail" : ""}${message.kind === "reaction" ? " is-reaction" : ""}`}>
       {showAuthor && message.author && <span className="wai-author" style={{ color: colorFor(message.author) }}>{message.author}</span>}
@@ -234,8 +246,14 @@ function Bubble({ message, tail, showAuthor }: { message: InboxMessageItem; tail
         <span className="wai-document-icon"><FileText size={22} /><small>{(message.mediaName?.split(".").pop() ?? "PDF").slice(0, 4).toUpperCase()}</small></span>
         <span className="wai-document-name">{message.mediaName ?? "Documento"}</span>
       </div>}
-      {message.kind === "audio" && <div className="wai-audio"><span className="wai-audio-play"><Play size={18} /></span><span className="wai-audio-wave" aria-hidden /><small>Áudio</small></div>}
-      {Icon && message.kind !== "document" && message.kind !== "audio" && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
+      {message.kind === "document" && live && <div className="wai-document-actions">
+        <a href={src} target="_blank" rel="noopener noreferrer">Ver</a><a href={`${src}?baixar`}>Salvar como…</a>
+      </div>}
+      {live && (message.kind === "image" || message.kind === "sticker") && <MediaImage src={src} sticker={message.kind === "sticker"} />}
+      {live && message.kind === "video" && <video className="wai-video" controls preload="none" src={src} />}
+      {live && message.kind === "audio" && <audio className="wai-audio-player" controls preload="none" src={src} />}
+      {!live && message.kind === "audio" && <div className="wai-audio"><span className="wai-audio-play"><Play size={18} /></span><span className="wai-audio-wave" aria-hidden /><small>Áudio</small></div>}
+      {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
       {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
       {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
       {message.body && message.kind !== "contact" && message.kind !== "location" && <p className="wai-text">{message.body}{meta}</p>}

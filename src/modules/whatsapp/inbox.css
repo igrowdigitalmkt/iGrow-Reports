@@ -115,6 +115,15 @@
 .wai-document-icon { position: relative; display: grid; place-items: center; width: 34px; height: 40px; border-radius: 4px; background: #e5484d; color: #fff; }
 .wai-document-icon small { position: absolute; bottom: 2px; font-size: 8px; font-weight: 700; }
 .wai-document-name { min-width: 0; overflow: hidden; font-size: 14px; text-overflow: ellipsis; overflow-wrap: anywhere; }
+.wai-document-actions { display: grid; grid-template-columns: 1fr 1fr; margin: -2px -9px 4px; border-top: 1px solid var(--wai-doc); border-bottom: 1px solid var(--wai-doc); }
+.wai-document-actions a { padding: 9px 0; color: var(--wai-green); font-size: 14.5px; font-weight: 500; text-align: center; text-decoration: none; }
+.wai-document-actions a + a { border-left: 1px solid var(--wai-doc); }
+.wai-document-actions a:hover { background: var(--wai-doc); }
+.wai-photo { display: block; margin: -3px -6px 4px; overflow: hidden; border-radius: 6px; }
+.wai-photo img { display: block; width: 100%; max-width: 330px; max-height: 340px; object-fit: cover; }
+.wai-sticker img { display: block; width: 140px; height: 140px; object-fit: contain; }
+.wai-video { display: block; width: min(330px, 100%); max-height: 300px; margin: -3px -6px 4px; border-radius: 6px; background: #000; }
+.wai-audio-player { display: block; width: min(300px, 62vw); height: 40px; margin: 2px 0 2px; }
 .wai-audio { display: flex; align-items: center; gap: 10px; width: min(260px, 60vw); max-width: 100%; padding: 4px 2px; }
 .wai-audio-play { display: grid; place-items: center; color: var(--wai-muted); }
 .wai-audio-wave { flex: 1; min-width: 0; height: 18px; background: repeating-linear-gradient(90deg, var(--wai-muted) 0 2px, transparent 2px 5px); -webkit-mask: linear-gradient(transparent 20%, #000 20% 80%, transparent 80%); opacity: .6; }

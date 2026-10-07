@@ -63,6 +63,15 @@ export class WhatsAppGraph {
     return result.id;
   }
 
+  /** Downloads a received or sent file (the media URL needs the same token). */
+  async downloadMedia(mediaId: string) {
+    const info = await this.request<{ url?: string; mime_type?: string }>(id(mediaId));
+    if (!info.url) throw new WhatsAppApiError("Arquivo indisponível.", null, 404);
+    const response = await fetch(info.url, { headers: { Authorization: `Bearer ${this.options.accessToken}` }, cache: "no-store", signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new WhatsAppApiError("Arquivo indisponível.", null, response.status);
+    return { bytes: await response.arrayBuffer(), mime: info.mime_type ?? response.headers.get("content-type") ?? "application/octet-stream" };
+  }
+
   /** Any file accepted by WhatsApp (image, document, video, audio), uploaded once to get a media id. */
   async uploadMedia(phoneNumberId: string, file: Blob, filename: string, mime: string) {
     const form = new FormData();

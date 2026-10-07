@@ -56,7 +56,7 @@ describe("parseCloudMessages", () => {
       contacts: [{ wa_id: "558699990000", profile: { name: "Maria" } }],
       messages: [
         { id: "wamid.IN1", from: "558699990000", timestamp: "1791370000", type: "text", text: { body: "Pode me explicar o CPC?" } },
-        { id: "wamid.IN2", from: "558699990000", timestamp: "1791370060", type: "document", document: { filename: "contrato.pdf", mime_type: "application/pdf" } },
+        { id: "wamid.IN2", from: "558699990000", timestamp: "1791370060", type: "document", document: { id: "MEDIA1", filename: "contrato.pdf", mime_type: "application/pdf" } },
         { id: "wamid.SYS", from: "558699990000", timestamp: "1791370060", type: "system" },
       ],
       message_echoes: [{ id: "wamid.OUT1", from: "558694037823", to: "558699990000", timestamp: "1791370100", type: "text", text: { body: "Claro!" } }],
@@ -71,6 +71,8 @@ describe("parseCloudMessages", () => {
       ["wamid.OUT1", "out", "text", "558699990000", null],
     ]);
     expect(messages.every(message => message.phoneNumberId === "991218314063731")).toBe(true);
+    expect(messages[1].mediaId).toBe("MEDIA1");
+    expect(messages[0].mediaId).toBeNull();
   });
 
   it("aviso só de status não vira mensagem", () => {

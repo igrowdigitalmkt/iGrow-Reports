@@ -86,6 +86,15 @@ export class EvolutionClient {
     return (list ?? []).filter(group => group.id?.endsWith("@g.us")).map(group => ({ id: group.id, subject: group.subject?.trim() || "Grupo sem nome", size: group.size ?? null }));
   }
 
+  /** File of a message the session saw (received or sent), as base64. */
+  async mediaOfMessage(name: string, key: { id: string; remoteJid: string; fromMe: boolean }) {
+    const result = await this.request<{ base64?: string; mimetype?: string; fileName?: string }>(`/chat/getBase64FromMediaMessage/${encodeURIComponent(name)}`, {
+      method: "POST", timeoutMs: 45_000, body: { message: { key }, convertToMp4: false },
+    });
+    if (!result?.base64) throw new EvolutionError("Arquivo indisponível.", 404);
+    return { base64: result.base64, mime: result.mimetype ?? "application/octet-stream", fileName: result.fileName ?? null };
+  }
+
   /** Photo, video, audio or document, sent as base64 with an optional caption. */
   async sendMedia(name: string, number: string, media: { mediatype: "image" | "video" | "audio" | "document"; mimetype: string; base64: string; fileName: string; caption?: string }) {
     const result = await this.request<{ key?: { id?: string } }>(`/message/sendMedia/${encodeURIComponent(name)}`, {

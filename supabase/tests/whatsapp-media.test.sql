@@ -1,0 +1,11 @@
+begin;
+set local search_path=public,extensions;
+select no_plan();
+insert into agencies(id,name) values ('c1aaaaaa-0000-4000-8000-000000000001','Espaço Mídia');
+set local role service_role;
+select lives_ok($$select record_whatsapp_message('c1aaaaaa-0000-4000-8000-000000000001',null,'558699990000',false,'Ana','IMG1','in','image','Foto do evento',null,'image/jpeg',null,null,'2026-10-07 10:00+00','1234567890')$$,'Mensagem com mídia guarda o identificador do arquivo');
+select is((select media_id from whatsapp_messages where external_id='IMG1'),'1234567890','Identificador gravado');
+select lives_ok($$select record_whatsapp_message('c1aaaaaa-0000-4000-8000-000000000001',null,'558699990000',false,null,'TXT1','in','text','Oi',null,null,null,null,'2026-10-07 10:01+00')$$,'Chamada sem o identificador continua valendo');
+reset role;
+select * from finish();
+rollback;

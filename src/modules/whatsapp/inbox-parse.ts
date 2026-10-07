@@ -7,6 +7,8 @@ export type InboxMessage = {
   remoteId: string; isGroup: boolean; title: string | null; author: string | null;
   externalId: string; direction: "in" | "out"; kind: InboxKind;
   body: string | null; mediaName: string | null; mediaMime: string | null; sentAt: string;
+  // Cloud API media id (the QR Code session finds files by the message id instead).
+  mediaId?: string | null;
 };
 
 const text = (value: unknown, max = 8000) => typeof value === "string" && value.trim() ? value.slice(0, max) : null;
@@ -90,11 +92,12 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
   };
 }
 
+type CloudMedia = { id?: string; mime_type?: string };
 type CloudMessage = {
   id?: string; from?: string; to?: string; timestamp?: string; type?: string;
-  text?: { body?: string }; image?: { caption?: string; mime_type?: string }; video?: { caption?: string; mime_type?: string };
-  audio?: { mime_type?: string }; voice?: { mime_type?: string }; document?: { caption?: string; filename?: string; mime_type?: string };
-  sticker?: unknown; location?: { name?: string; address?: string }; contacts?: Array<{ name?: { formatted_name?: string } }>;
+  text?: { body?: string }; image?: CloudMedia & { caption?: string }; video?: CloudMedia & { caption?: string };
+  audio?: CloudMedia; voice?: CloudMedia; document?: CloudMedia & { caption?: string; filename?: string };
+  sticker?: CloudMedia; location?: { name?: string; address?: string }; contacts?: Array<{ name?: { formatted_name?: string } }>;
   reaction?: { emoji?: string }; button?: { text?: string }; interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } };
 };
 
@@ -139,8 +142,9 @@ export function parseCloudMessages(payload: unknown, now = new Date()): CloudInb
         if (!message.id || !remote || remote.length < 8 || remote.length > 15) return;
         const content = describeCloudMessage(message);
         if (!content) return;
+        const media = message.image ?? message.video ?? message.audio ?? message.voice ?? message.document ?? message.sticker;
         result.push({
-          phoneNumberId, remoteId: remote, isGroup: false, ...content,
+          phoneNumberId, remoteId: remote, isGroup: false, ...content, mediaId: text(media?.id, 200),
           title: direction === "in" ? names.get(message.from) ?? null : null, author: null,
           externalId: message.id.slice(0, 200), direction, sentAt: seconds(message.timestamp) ?? now.toISOString(),
         });

@@ -733,3 +733,10 @@ Plano completo em `docs/PLANO_WHATSAPP_MULTINUMERO.md` (inclui a caixa de entrad
 - Números oficiais: resposta livre só até 24 h depois da última mensagem do contato (`reply-rules.ts`); fora disso o campo é trocado por um aviso (mensagem modelo pela caixa fica para depois). Mostra até quando a resposta livre vale e que a Meta pode cobrar.
 - Testes: `whatsapp-reply-rules.test.ts`; lint, 723 testes e build ok. Visual conferido na demonstração (texto, emoji, envio, aviso das 24 h).
 - Pendências do responsável: testar envio real (QR Code e número oficial dentro da janela). Gravar áudio pela iGrow, abrir/baixar mídias recebidas e mensagem modelo pela caixa ficam para a etapa 4.
+
+### Mídias na caixa de entrada (7/10/2026)
+
+- Fotos e figurinhas aparecem na conversa; vídeos e áudios com player; documentos com "Ver" e "Salvar como…", como no WhatsApp. O arquivo é buscado no WhatsApp quando a mensagem aparece e repassado ao navegador sem ser guardado (`GET /api/whatsapp/inbox/media/[messageId]`, cache privado de 5 min) — coerente com a Política de Privacidade.
+- QR Code: arquivo pela Evolution (`/chat/getBase64FromMediaMessage`) a partir do id da mensagem. Número oficial: pelo id de mídia do webhook (download com o token do número); PDFs de relatório e anexos enviados pela iGrow guardam o id de mídia do envio. A Meta mantém mídias por tempo limitado (cerca de 30 dias); depois aparece "indisponível".
+- Migração `202610070012_whatsapp_media.sql` (NÃO aplicada): coluna `media_id` e nova assinatura de `record_whatsapp_message` (parâmetro opcional). Antes dela a gravação segue sem o id (mídias oficiais antigas não abrem). Teste pgTAP `whatsapp-media.test.sql`.
+- Verificação: lint, 723 testes (parser com id de mídia), pgTAP, build.

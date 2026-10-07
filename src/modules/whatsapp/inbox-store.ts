@@ -15,12 +15,15 @@ export async function recordInboxMessage(service: Service, input: {
   groupSubject?: (groupId: string) => Promise<string | null>;
 }) {
   const { message } = input;
-  const { data, error } = await service.rpc("record_whatsapp_message", {
+  const args = {
     p_agency_id: input.agencyId, p_connection_id: input.connectionId, p_remote_id: message.remoteId, p_is_group: message.isGroup,
     p_title: message.title, p_external_id: message.externalId, p_direction: message.direction, p_kind: message.kind,
     p_body: message.body, p_media_name: message.mediaName, p_media_mime: message.mediaMime, p_author: message.author,
     p_status: message.direction === "out" ? input.status ?? "sent" : null, p_sent_at: message.sentAt,
-  });
+  };
+  let { data, error } = await service.rpc("record_whatsapp_message", { ...args, p_media_id: message.mediaId ?? null });
+  // Before migration 202610070012 the function has no media id parameter.
+  if (error?.code === "PGRST202") ({ data, error } = await service.rpc("record_whatsapp_message", args));
   if (error) {
     if (error.code !== "PGRST202" && error.code !== "42883") console.error("whatsapp-inbox-record", { code: error.code });
     return null;
