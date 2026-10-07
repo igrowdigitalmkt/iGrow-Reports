@@ -667,3 +667,10 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 
 - Configurações ganhou "Seu perfil": nome e foto. A foto é recortada em quadrado de 256 px (WEBP) no navegador, enviada para o bucket `avatars/<id do usuário>/` e o link vai para `avatar_url` da conta; fotos antigas são apagadas. Remover foto também disponível. Menu lateral e lista da Equipe mostram nome e foto.
 - Migração `202610070008_profile_avatars.sql` (NÃO aplicada): bucket `avatars` (público por link, 2 MB, PNG/JPG/WEBP) e regras: cada pessoa só envia, troca, lista e apaga a própria pasta. Teste com 5 verificações.
+
+### Login com Google homologado (6/10/2026)
+
+- Responsável criou o cliente OAuth no Google Cloud (Google Auth Platform, app publicado) e ativou o provedor Google no Supabase; Redirect URLs com `https://i-grow-reports.vercel.app/**`; migrações 0004–0008 aplicadas e conferidas via API.
+- Primeira tentativa falhou com "Signups not allowed for this instance": o cadastro de novos usuários estava desligado no Supabase (decisão original de plataforma fechada). O responsável ativou "Allow new users to sign up". O callback agora mostra o motivo informado pelo Supabase em vez de mensagem genérica.
+- Conta nova pelo Google entrou autenticada; `/sem-acesso` passou a levar direto a `/criar-espaco` quando não há espaço, convite nem área de cliente.
+- A tela do Google mostra o domínio do Supabase; trocar por "iGrow" exige domínio próprio (domínio personalizado no Supabase ou verificação do app). E-mails de cadastro/recuperação/convite para pessoas de fora dependem de SMTP próprio (Resend + domínio da iGrow, pendente).
