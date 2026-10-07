@@ -18,7 +18,7 @@ export async function loadAutomations(supabase: SupabaseClient<Database>, agency
   const automations: AutomationItem[] = data.map(row => ({
     id: row.id, clientId: row.client_id, name: row.name, messageTemplate: row.message_template, periodKey: row.period_key,
     frequency: row.frequency, weekdays: row.weekdays, monthDay: row.month_day, sendTime: row.send_time.slice(0, 5), timezone: row.timezone,
-    active: row.active, nextRunAt: row.next_run_at, lastRunAt: row.last_run_at,
+    active: row.active, sender: row.sender ?? "qr", connectionId: row.whatsapp_connection_id ?? null, nextRunAt: row.next_run_at, lastRunAt: row.last_run_at,
     targets: (targets ?? []).filter(target => target.automation_id === row.id).map((target): AutomationTarget => target.recipient_id
       ? { recipientId: target.recipient_id } : { groupId: target.group_id ?? "", groupName: target.group_name ?? "Grupo" }),
   }));

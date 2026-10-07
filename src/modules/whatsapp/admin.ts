@@ -12,11 +12,13 @@ import type { WhatsAppSummary } from "./whatsapp-manager";
 // Reads for the workspace pages, under the user's own RLS. Before the WhatsApp migration is
 // applied the tables do not exist: the pages then behave as "not connected".
 export async function loadWhatsAppSummary(supabase: SupabaseClient<Database>, agencyId: string): Promise<WhatsAppSummary> {
-  const { data, error } = await supabase.from("whatsapp_connections").select("*").eq("agency_id", agencyId).maybeSingle();
-  if (error || !data) return null;
-  return { displayPhone: data.display_phone, verifiedName: data.verified_name, qualityRating: data.quality_rating,
-    templateName: data.template_name, templateLanguage: data.template_language, lastCheckedAt: data.last_checked_at,
-    tokenExpiry: tokenExpiry(data.token_expires_at, new Date()) };
+  const { data, error } = await supabase.from("whatsapp_connections").select("*").eq("agency_id", agencyId).order("created_at");
+  if (error || !data) return [];
+  const now = new Date();
+  return data.map(row => ({ id: row.id ?? null, label: row.label ?? null, coexistence: row.coexistence ?? false,
+    displayPhone: row.display_phone, verifiedName: row.verified_name, qualityRating: row.quality_rating,
+    templateName: row.template_name, templateLanguage: row.template_language, lastCheckedAt: row.last_checked_at,
+    tokenExpiry: tokenExpiry(row.token_expires_at, now) }));
 }
 
 export async function loadSendableRecipients(supabase: SupabaseClient<Database>, agencyId: string): Promise<SendableRecipient[]> {

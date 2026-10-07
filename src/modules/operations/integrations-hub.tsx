@@ -58,7 +58,8 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
   const qrConnected = qr && "state" in qr && qr.state === "connected" ? qr : null;
   const qrStatus = demo ? { label: "Simulado", tone: "blue" as Tone } : !qr ? { label: "Verificando", tone: "neutral" as Tone }
     : !qr.configured ? { label: "Indisponível", tone: "neutral" as Tone } : qrConnected ? { label: "Conectado", tone: "green" as Tone } : { label: "Desconectado", tone: "amber" as Tone };
-  const officialReady = !!whatsapp?.templateName;
+  const officialReady = whatsapp.some(number => number.templateName);
+  const firstOfficial = whatsapp[0];
 
   return <div className="hub">
     <section className="hub-group">
@@ -81,9 +82,9 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
           fact={qrConnected ? <><strong>{qrConnected.name ?? "Número conectado"}</strong><span>{qrConnected.phone ?? ""}</span></> : <span>Usado pelos Agendamentos. Conecte em menos de um minuto.</span>}
           action={qrConnected ? "Gerenciar" : "Conectar"} onAction={live ? () => setPanel("qr") : undefined} disabled={!!qr && !qr.configured} featured={live && !!qr && qr.configured && !qrConnected} />
         <IntegrationCard logo={<Send size={17} />} logoClass="whatsapp-logo" name="WhatsApp API oficial" description="Envio do relatório em PDF por mensagem modelo aprovada pela Meta. Opção avançada."
-          status={demo ? "Simulado" : officialReady ? "Pronto" : whatsapp ? "Falta a mensagem modelo" : "Não conectado"} tone={demo ? "blue" : officialReady ? "green" : whatsapp ? "amber" : "neutral"}
-          fact={whatsapp?.displayPhone ? <><strong>{whatsapp.displayPhone}</strong><span>{whatsapp.templateName ? `Modelo ${whatsapp.templateName}` : "Sem mensagem modelo"}</span></> : undefined}
-          action={whatsapp ? "Gerenciar" : "Configurar"} onAction={live ? () => setPanel("official") : undefined} />
+          status={demo ? "Simulado" : officialReady ? "Pronto" : whatsapp.length ? "Falta a mensagem modelo" : "Não conectado"} tone={demo ? "blue" : officialReady ? "green" : whatsapp.length ? "amber" : "neutral"}
+          fact={firstOfficial ? <><strong>{whatsapp.length > 1 ? `${whatsapp.length} números` : firstOfficial.displayPhone ?? "Número oficial"}</strong><span>{whatsapp.length > 1 ? whatsapp.map(number => number.displayPhone).filter(Boolean).join(" · ") : firstOfficial.templateName ? `Modelo ${firstOfficial.templateName}` : "Sem mensagem modelo"}</span></> : undefined}
+          action={whatsapp.length ? "Gerenciar" : "Configurar"} onAction={live ? () => setPanel("official") : undefined} />
         <IntegrationCard logo={<Mail size={17} />} logoClass="neutral" name="E-mail" description="Relatório em PDF por e-mail, junto com a mensagem do WhatsApp." status="Em breve" tone="neutral" planned />
       </div>
     </section>
@@ -98,8 +99,8 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
       <Sheet open={panel === "qr"} onOpenChange={open => { setPanel(open ? "qr" : null); if (!open) loadQr(); }} title="Seu WhatsApp" description="Conecte o número que vai enviar os agendamentos.">
         <QrConnection canManage={canManage} onStatus={setQr} />
       </Sheet>
-      <Sheet open={panel === "official"} onOpenChange={open => setPanel(open ? "official" : null)} title="WhatsApp API oficial" description="Número da Cloud API e mensagem modelo para o PDF do relatório.">
-        <WhatsAppManager connection={whatsapp} readiness={whatsappReadiness} canManage={canManage} embedded={whatsappEmbedded} />
+      <Sheet open={panel === "official"} onOpenChange={open => setPanel(open ? "official" : null)} title="WhatsApp API oficial" description="Números da Cloud API e mensagem modelo de cada um para o PDF do relatório.">
+        <WhatsAppManager numbers={whatsapp} readiness={whatsappReadiness} canManage={canManage} embedded={whatsappEmbedded} />
       </Sheet>
     </>}
   </div>;

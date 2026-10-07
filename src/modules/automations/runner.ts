@@ -11,8 +11,15 @@ import { deliverToDestinations, runStatus, type MessageDestination, type Message
 
 type Service = SupabaseClient<Database>;
 export type SenderResolver = (agencyId: string) => Promise<MessageSender | null>;
+type Recipient = { id: string; name: string; phone: string; active: boolean; consent_status: string; unsubscribed_at: string | null };
+/** Official number: the period PDF with the number's approved template, one delivery per person. */
+export type OfficialPdfSender = (input: {
+  agencyId: string; connectionId: string; clientId: string; clientName: string; workspaceName: string; runId: string;
+  data: ReturnType<typeof normalizeClientAnalytics>; recipients: Recipient[];
+}) => Promise<{ results: Array<{ name: string; status: "accepted" | "failed" | "skipped"; message?: string }>; summary: string }>;
 
 const NOT_CONNECTED = "WhatsApp não conectado por QR Code. Conecte seu número em Integrações para ativar os envios.";
+const NO_OFFICIAL_NUMBER = "O número oficial deste agendamento foi removido. Escolha outro número no agendamento.";
 
 /** Period, local run date and the following slot for one due automation. */
 export function planRun(automation: Pick<ReportAutomationRow, "frequency" | "weekdays" | "month_day" | "send_time" | "timezone" | "period_key" | "next_run_at">, now: Date) {
@@ -25,7 +32,7 @@ export function planRun(automation: Pick<ReportAutomationRow, "frequency" | "wee
 }
 
 export type RunOutcome = { status: "sent" | "partial" | "failed" | "skipped"; sent: number; failed: number; message: string | null; runId: string | null };
-type ExecuteOptions = { resolveSender: SenderResolver; pause?: () => number; appUrl?: string | null };
+type ExecuteOptions = { resolveSender: SenderResolver; sendOfficialPdf?: OfficialPdfSender; pause?: () => number; appUrl?: string | null };
 
 /**
  * Sends one automation for a period and records the run. The unique (automation, slot) row is the
@@ -50,8 +57,11 @@ export async function executeAutomation(service: Service, automation: ReportAuto
   };
 
   try {
-    const sender = await options.resolveSender(automation.agency_id);
-    if (!sender) return await finish("skipped", { error_message: NOT_CONNECTED });
+    const official = automation.sender === "official";
+    if (official && !automation.whatsapp_connection_id) return await finish("skipped", { error_message: NO_OFFICIAL_NUMBER });
+    if (official && !options.sendOfficialPdf) return await finish("skipped", { error_message: "Envio pela API oficial indisponível neste ambiente." });
+    const sender = official ? null : await options.resolveSender(automation.agency_id);
+    if (!official && !sender) return await finish("skipped", { error_message: NOT_CONNECTED });
 
     const [{ data: targets }, { data: client }, { data: agency }] = await Promise.all([
       service.from("report_automation_targets").select("recipient_id,group_id,group_name").eq("automation_id", automation.id).eq("agency_id", automation.agency_id),
@@ -65,14 +75,24 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       : { data: [] };
     // Consent is checked again at send time: a recipient may have opted out since the schedule was saved.
     const people = (recipients ?? []).filter(item => item.active && !item.unsubscribed_at && item.consent_status === "granted");
-    const groups = (targets ?? []).flatMap(target => target.group_id ? [{ id: target.group_id, name: target.group_name ?? "Grupo" }] : []);
-    if (!people.length && !groups.length) return await finish("skipped", { error_message: "Nenhum destinatário autorizado." });
+    // The official API sends to people only; groups are a QR Code feature.
+    const groups = official ? [] : (targets ?? []).flatMap(target => target.group_id ? [{ id: target.group_id, name: target.group_name ?? "Grupo" }] : []);
+    if (!people.length && !groups.length) return await finish("skipped", { error_message: official ? "Nenhuma pessoa autorizada. Grupos não recebem pela API oficial." : "Nenhum destinatário autorizado." });
 
     const { data: payload, error: analyticsError } = await service.rpc("service_client_analytics", {
       p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo,
     });
     if (analyticsError || !payload) return await finish("failed", { error_message: "Não foi possível ler os números do período." });
     const data = normalizeClientAnalytics(payload);
+    if (official) {
+      const outcome = await options.sendOfficialPdf!({
+        agencyId: automation.agency_id, connectionId: automation.whatsapp_connection_id!, clientId: automation.client_id,
+        clientName: client.name, workspaceName: agency?.name ?? "", runId: row.id, data, recipients: people,
+      });
+      const sentCount = outcome.results.filter(item => item.status === "accepted").length;
+      const failures = outcome.results.filter(item => item.status === "failed").map(item => `${item.name}: ${item.message ?? "falhou"}`);
+      return await finish(sentCount || failures.length ? runStatus({ sent: sentCount, failed: failures.length }) : "skipped", { message_text: outcome.summary.slice(0, 6000), sent_count: sentCount, failed_count: failures.length, error_message: failures.join(" · ") || null });
+    }
     // The balance is read live from Meta only when the message shows it.
     const balance = usedVariables(automation.message_template).includes("saldo")
       ? await getClientAccountBilling({ agencyId: automation.agency_id, clientId: automation.client_id }).then(summarizeBalance, () => null) : null;
@@ -86,7 +106,7 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       ...groups.map(group => ({ destination: { kind: "group" as const, groupId: group.id, label: group.name }, text: renderMessage(automation.message_template, { ...context, recipientName: "pessoal" }) })),
     ];
     for (const [index, item] of deliveries.entries()) {
-      const report = await deliverToDestinations(sender, [item.destination], item.text, options.pause);
+      const report = await deliverToDestinations(sender!, [item.destination], item.text, options.pause);
       sent += report.sent; failed += report.failed; errors.push(...report.errors);
       // Best effort: without migration 202610070006 the send still counts, only receipts are missing.
       await service.from("automation_messages").insert(report.details.map(detail => ({
@@ -99,8 +119,10 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       if (index < deliveries.length - 1) await new Promise(resolve => setTimeout(resolve, options.pause?.() ?? 4000 + Math.random() * 5000));
     }
     return await finish(runStatus({ sent, failed, errors }), { message_text: deliveries[0].text.slice(0, 6000), sent_count: sent, failed_count: failed, error_message: errors.join(" · ") || null });
-  } catch {
-    return await finish("failed", { error_message: "Erro inesperado ao executar o agendamento." });
+  } catch (error) {
+    // Setup problems (template not approved, PDF without complete data) explain themselves.
+    const known = error instanceof Error && (error.name === "WhatsAppSetupError" || error.name === "PeriodPdfUnavailableError");
+    return await finish("failed", { error_message: known ? (error as Error).message : "Erro inesperado ao executar o agendamento." });
   }
 }
 

@@ -5,6 +5,9 @@ import type { EChartsCoreOption } from "echarts/core";
 import type { AnalyticsDashboardData, AnalyticsValues } from "./analytics-types";
 import { resultBreakdown } from "./analytics-results";
 import { DonutRing } from "./donut-ring";
+import { formatAnalyticsValue } from "./analytics-format";
+
+export { formatAnalyticsValue };
 
 export type AnalyticsMetric = AnalyticsDashboardData["metrics"][number];
 export const ANALYTICS_COLORS = ["#5b7cfa", "#3fc2d6", "#a594ff", "#3ccf8e", "#f0b44c", "#e57fa8"];
@@ -12,20 +15,6 @@ export const ANALYTICS_COLORS = ["#5b7cfa", "#3fc2d6", "#a594ff", "#3ccf8e", "#f
 const AXIS_TEXT = "#8a93a3";
 const GRID_LINE = "rgba(138, 147, 163, .18)";
 
-export function formatAnalyticsValue(value: number | null | undefined, metric: AnalyticsMetric, currency: string | null) {
-  if (value == null || !Number.isFinite(value)) return "Indisponível";
-  if (metric.unit === "currency" && !currency) return "Indisponível";
-  try {
-    const number = new Intl.NumberFormat("pt-BR", {
-      ...(metric.unit === "currency" ? { style: "currency", currency: currency! } : {}),
-      minimumFractionDigits: metric.precision,
-      maximumFractionDigits: metric.precision,
-    }).format(value);
-    return metric.unit === "percent" ? `${number}%` : number;
-  } catch {
-    return "Indisponível";
-  }
-}
 
 // Match Ads Manager semantics for entities that had no delivery in the period:
 // there is no result/cost denominator to show, so render a dash instead of

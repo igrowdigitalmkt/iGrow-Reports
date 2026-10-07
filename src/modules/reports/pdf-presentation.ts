@@ -1,7 +1,7 @@
 import { resultBreakdown } from "@/modules/client-portal/analytics-results";
 import { jsPDF } from "jspdf";
 import type { DashboardPdfInput } from "./pdf-download";
-import { formatAnalyticsValue } from "@/modules/client-portal/analytics-charts";
+import { formatAnalyticsValue } from "@/modules/client-portal/analytics-format";
 import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts } from "./report-presentation";
 
 const C = { background: "#0d1724", panel: "#152536", border: "#2b4055", ink: "#e5edf8", muted: "#97afc8", cyan: "#55d7eb", purple: "#948aee", gold: "#e4bf78" };

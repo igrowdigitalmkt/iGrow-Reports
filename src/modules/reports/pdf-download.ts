@@ -1,7 +1,7 @@
 import { resultBreakdown } from "@/modules/client-portal/analytics-results";
 import { changeDescription } from "@/modules/client-portal/analytics-comparison";
 import { jsPDF } from "jspdf";
-import { formatAnalyticsValue } from "@/modules/client-portal/analytics-charts";
+import { formatAnalyticsValue } from "@/modules/client-portal/analytics-format";
 import type { AnalyticsDashboardData, AnalyticsMetric } from "@/modules/client-portal/analytics-types";
 import type { AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 import { getSavedReportDocument } from "@/modules/client-portal/report-actions";

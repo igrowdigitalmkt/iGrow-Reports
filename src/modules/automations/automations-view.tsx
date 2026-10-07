@@ -16,6 +16,7 @@ import { addDays, describeSchedule, localDate, PERIOD_LABELS, upcomingRuns, WEEK
 import { SendNowButton } from "./send-now";
 import type { AutomationItem, AutomationsSnapshot } from "./types";
 import "./automations.css";
+import type { WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
 
 export const RUN_STATUS: Record<ReportAutomationRunStatus, { label: string; tone: string }> = {
   running: { label: "Enviando", tone: "neutral" },
@@ -26,9 +27,9 @@ export const RUN_STATUS: Record<ReportAutomationRunStatus, { label: string; tone
 };
 
 // Schedules split by client: pick a client on the left, see and manage only theirs on the right.
-export function AutomationsView({ snapshot, clients, recipients, canEdit, timezone, workspaceName, appUrl, channelReady, demo = false, templates = [], initialClientId }: {
+export function AutomationsView({ snapshot, clients, recipients, canEdit, timezone, workspaceName, appUrl, channelReady, demo = false, templates = [], numbers = [], initialClientId }: {
   snapshot: AutomationsSnapshot; clients: ClientItem[]; recipients: SendableRecipient[]; canEdit: boolean; timezone: string;
-  workspaceName: string; appUrl: string | null; channelReady: boolean; demo?: boolean; templates?: SavedTemplate[]; initialClientId?: string;
+  workspaceName: string; appUrl: string | null; channelReady: boolean; demo?: boolean; templates?: SavedTemplate[]; numbers?: WhatsAppSummary; initialClientId?: string;
 }) {
   const router = useRouter();
   const activeClients = clients.filter(client => !client.archived_at);
@@ -60,7 +61,7 @@ export function AutomationsView({ snapshot, clients, recipients, canEdit, timezo
 
   if (!snapshot.ready) return <section className="panel empty-state"><CalendarClock size={22} /><h3>Agendamentos ainda não instalados</h3><p>O banco de dados deste espaço precisa receber a atualização de agendamentos. Assim que ela for aplicada, esta página passa a funcionar.</p></section>;
 
-  if (editing) return <AutomationEditor draft={editing} clients={activeClients} recipients={recipients} timezone={timezone} workspaceName={workspaceName} appUrl={appUrl} demo={demo} groupsEnabled={channelReady && !demo} templates={templates}
+  if (editing) return <AutomationEditor draft={editing} clients={activeClients} recipients={recipients} timezone={timezone} workspaceName={workspaceName} appUrl={appUrl} demo={demo} groupsEnabled={channelReady && !demo} templates={templates} numbers={numbers}
     onCancel={() => setEditing(null)} onSaved={() => { if (editing.clientId) setClientId(editing.clientId); setEditing(null); router.refresh(); }} onSent={() => router.refresh()} />;
 
   const client = activeClients.find(item => item.id === clientId) ?? null;

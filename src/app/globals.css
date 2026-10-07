@@ -516,6 +516,16 @@ a.attention-item:hover { background: var(--surface-hover); }
 .whatsapp-facts dt { color: var(--muted); font-size: 12px; }
 .whatsapp-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 500; }
 .whatsapp-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.whatsapp-number { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; }
+.whatsapp-number-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.whatsapp-number-head > div { display: grid; gap: 2px; min-width: 0; }
+.whatsapp-number-head strong { font-size: 15px; }
+.whatsapp-rename { display: flex; gap: 8px; }
+.whatsapp-rename .input { flex: 1; min-width: 0; }
+.whatsapp-remove { color: var(--bad); }
+.whatsapp-add { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+.send-number { display: grid; gap: 6px; margin-top: 12px; color: var(--secondary); font-size: 13px; }
+.whatsapp-add-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .whatsapp-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
 .whatsapp-form label { display: grid; gap: 6px; color: var(--secondary); font-size: 13px; }
 .whatsapp-form .whatsapp-token { grid-column: 1 / -1; }

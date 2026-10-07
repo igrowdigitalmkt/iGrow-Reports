@@ -5,15 +5,19 @@ import { CheckCircle2, CircleAlert, Send } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { buildSavedReportPdfFile } from "@/modules/reports/pdf-download";
+import { numberName, type WhatsAppSummary } from "./whatsapp-manager";
 
 export type SendableRecipient = { id: string; clientId: string; name: string; phone: string; authorized: boolean; reason: string | null };
 type Result = { recipientId: string; name: string; status: "accepted" | "failed" | "skipped"; message?: string };
 
 // Choose recipients and send the report PDF by WhatsApp. Only authorized recipients can be chosen.
-export function SendReportDialog({ open, onOpenChange, clientId, clientName, reportVersionId, title, recipients, whatsAppReady, onSent }: {
+export function SendReportDialog({ open, onOpenChange, clientId, clientName, reportVersionId, title, recipients, numbers, onSent }: {
   open: boolean; onOpenChange: (open: boolean) => void; clientId: string; clientName: string; reportVersionId: string; title: string;
-  recipients: SendableRecipient[]; whatsAppReady: boolean; onSent: () => void;
+  recipients: SendableRecipient[]; numbers: WhatsAppSummary; onSent: () => void;
 }) {
+  // Only numbers with an approved template can send the PDF.
+  const whatsAppReady = numbers.length > 0;
+  const [numberId, setNumberId] = useState(numbers[0]?.id ?? "");
   const authorized = recipients.filter(recipient => recipient.authorized);
   const [selected, setSelected] = useState<string[]>(authorized.map(recipient => recipient.id));
   const [sending, setSending] = useState(false);
@@ -27,6 +31,7 @@ export function SendReportDialog({ open, onOpenChange, clientId, clientName, rep
       const form = new FormData();
       form.append("clientId", clientId);
       form.append("reportVersionId", reportVersionId);
+      if (numberId) form.append("connectionId", numberId);
       for (const id of selected) form.append("recipientIds", id);
       form.append("period", pdf.period);
       form.append("filename", pdf.filename);
@@ -46,6 +51,10 @@ export function SendReportDialog({ open, onOpenChange, clientId, clientName, rep
     {whatsAppReady && !recipients.length && <p className="meta-inline-note">Este cliente não tem destinatários. Cadastre em Clientes › Destinatários.</p>}
     {whatsAppReady && recipients.length > 0 && !results && <>
       <p className="muted text-sm">O PDF do relatório vai como arquivo na mensagem. Só destinatários com autorização de recebimento podem ser escolhidos.</p>
+      {numbers.length > 1 && <label className="send-number"><span>Enviar pelo número</span>
+        <select className="input" value={numberId} onChange={event => setNumberId(event.target.value)} disabled={sending}>
+          {numbers.map(number => <option key={number.id ?? "legacy"} value={number.id ?? ""}>{numberName(number)}{number.displayPhone && number.label ? ` · ${number.displayPhone}` : ""}</option>)}
+        </select></label>}
       <ul className="send-recipient-list">{recipients.map(recipient => <li key={recipient.id}>
         <label className={recipient.authorized ? undefined : "is-disabled"}>
           <input type="checkbox" disabled={!recipient.authorized || sending} checked={selected.includes(recipient.id)}

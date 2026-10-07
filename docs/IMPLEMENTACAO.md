@@ -698,3 +698,17 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Análise do app enviada pelo responsável em 7/10/2026 (vídeo novo, ícone 1024×1024, categoria "Negócio e Páginas", tratamento de dados respondido por ele). Aguardando a Meta.
 - Vencimento da autorização (7/10/2026): ao conectar, o servidor consulta `debug_token` e grava `token_expires_at` (60 dias no cadastro integrado; vazio para token permanente). Integrações mostra "Autorização válida até", aviso amarelo a partir de 10 dias antes e vermelho quando vence, com botão "Reconectar" (abre o cadastro integrado). Entregas explica o erro 190. Migração `202610070009_whatsapp_token_expiry.sql` (NÃO aplicada); antes dela a gravação ignora a coluna (PGRST204) e nada aparece. O token atual (conexão manual) não tem data gravada; passa a ter na próxima conexão.
 - Próximo passo: agendamentos pela conexão oficial (mensagem modelo com variáveis, sem grupos).
+
+### Vários números de WhatsApp — etapa 1 (7/10/2026)
+
+Plano completo em `docs/PLANO_WHATSAPP_MULTINUMERO.md` (inclui a caixa de entrada no estilo do WhatsApp Desktop, etapas 2–4).
+
+- Migração `202610070010_whatsapp_numbers.sql` (NÃO aplicada; depende da 0009): `whatsapp_connections` ganha `id` (nova chave), `label`, `coexistence` — vários números por espaço; `report_automations.sender` (`qr`|`official`) e `whatsapp_connection_id`; `report_deliveries.report_version_id` opcional + `automation_run_id`/`whatsapp_connection_id`; função `delete_integration_secret`. Teste pgTAP `whatsapp-numbers.test.sql` (10 verificações).
+- Credencial por número (`whatsapp:access_token:<phone_number_id>`); o número já conectado continua lendo a credencial antiga. Conectar de novo o mesmo número atualiza; número de outro espaço é recusado antes da gravação.
+- Integrações → WhatsApp API oficial: lista de números com nome, coexistência, qualidade, mensagem modelo e validade; Adicionar número, Renomear, Reconectar, Remover; mensagem modelo por número.
+- Envio manual de PDF: escolha do número quando há mais de um com mensagem modelo.
+- Agendamentos: campo "Enviar por" (QR Code com texto livre, ou um número oficial). Oficial: mensagem modelo aprovada + PDF do período gerado no servidor (`period-pdf.ts`, mesmo layout do PDF baixado), só para pessoas (grupos não), registrado em Entregas. Erros de configuração (modelo não aprovado, período sem dados completos, número removido) aparecem explicados no histórico.
+- `formatAnalyticsValue` saiu do arquivo de navegador (`analytics-format.ts`) para o PDF poder ser gerado no servidor.
+- Antes da 0010 tudo segue como antes (um número; agendamento oficial recusado com aviso).
+- Verificação: lint, 707 testes (novo `automation-official.test.ts`), pgTAP, build (local com `--webpack` por falta de memória na máquina; Turbopack falhou por memória, não por código). Visual conferido na demonstração (editor de agendamento).
+- Próximo: responsável aplicar 0009 e 0010; homologar agendamento oficial com o número da API; etapa 2 (caixa de entrada só leitura).

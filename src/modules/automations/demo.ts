@@ -1,3 +1,4 @@
+import type { WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
 import type { ClientItem } from "@/modules/clients/schema";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 import { SYSTEM_TEMPLATES } from "./message";
@@ -24,17 +25,17 @@ export const demoAutomations: AutomationsSnapshot = {
     {
       id: "d2000000-0000-4000-8000-000000000001", clientId: demoAutomationClients[0].id, name: "Resumo de segunda", messageTemplate: SYSTEM_TEMPLATES[0].body,
       periodKey: "last_7d", frequency: "weekly", weekdays: [1], monthDay: 1, sendTime: "08:30", timezone: "America/Sao_Paulo", active: true,
-      nextRunAt: null, lastRunAt: null, targets: [{ recipientId: demoAutomationRecipients[0].id }, { groupId: "120363000000000001@g.us", groupName: "Escola Horizonte · Marketing" }],
+      sender: "qr" as const, connectionId: null, nextRunAt: null, lastRunAt: null, targets: [{ recipientId: demoAutomationRecipients[0].id }, { groupId: "120363000000000001@g.us", groupName: "Escola Horizonte · Marketing" }],
     },
     {
       id: "d2000000-0000-4000-8000-000000000002", clientId: demoAutomationClients[1].id, name: "Parcial diária", messageTemplate: SYSTEM_TEMPLATES[1].body,
       periodKey: "yesterday", frequency: "weekly", weekdays: [1, 2, 3, 4, 5], monthDay: 1, sendTime: "09:00", timezone: "America/Sao_Paulo", active: true,
-      nextRunAt: null, lastRunAt: null, targets: [{ recipientId: demoAutomationRecipients[3].id }],
+      sender: "qr" as const, connectionId: null, nextRunAt: null, lastRunAt: null, targets: [{ recipientId: demoAutomationRecipients[3].id }],
     },
     {
       id: "d2000000-0000-4000-8000-000000000003", clientId: demoAutomationClients[2].id, name: "Fechamento do mês", messageTemplate: SYSTEM_TEMPLATES[2].body,
       periodKey: "last_month", frequency: "monthly", weekdays: [1], monthDay: 2, sendTime: "10:00", timezone: "America/Sao_Paulo", active: false,
-      nextRunAt: null, lastRunAt: null, targets: [{ groupId: "120363000000000002@g.us", groupName: "Aurora · Diretoria" }],
+      sender: "qr" as const, connectionId: null, nextRunAt: null, lastRunAt: null, targets: [{ groupId: "120363000000000002@g.us", groupName: "Aurora · Diretoria" }],
     },
   ],
   runs: [
@@ -49,3 +50,9 @@ export const demoAutomations: AutomationsSnapshot = {
     { runId: "d3000000-0000-4000-8000-000000000003", label: "Rafael Lima", status: "read", error: null, sentAt: "2026-10-05T12:00:05.000Z", deliveredAt: "2026-10-05T12:00:08.000Z", readAt: "2026-10-05T13:02:00.000Z" },
   ],
 };
+
+// Official numbers shown in the demo editor ("Enviar por").
+export const demoOfficialNumbers: WhatsAppSummary = [
+  { id: "00000000-0000-4000-8000-0000000000e1", label: "Relatórios", coexistence: false, displayPhone: "+55 86 9403-7823", verifiedName: "iGrow Digital", qualityRating: "GREEN", templateName: "relatorio_desempenho", templateLanguage: "pt_BR", lastCheckedAt: null },
+  { id: "00000000-0000-4000-8000-0000000000e2", label: "Atendimento", coexistence: true, displayPhone: "+55 86 99556-0428", verifiedName: "iGrow Digital", qualityRating: "GREEN", templateName: "relatorio_desempenho", templateLanguage: "pt_BR", lastCheckedAt: null },
+];

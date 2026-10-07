@@ -12,10 +12,10 @@ export async function POST(request: Request) {
   const headers = { "Cache-Control": "no-store" };
   const form = await request.formData().catch(() => null);
   const parsed = z.object({
-    clientId: z.uuid(), reportVersionId: z.uuid(), recipientIds: z.array(z.uuid()).min(1).max(50),
+    clientId: z.uuid(), reportVersionId: z.uuid(), connectionId: z.uuid().optional(), recipientIds: z.array(z.uuid()).min(1).max(50),
     period: z.string().trim().min(4).max(80), filename: z.string().trim().min(5).max(120).regex(/\.pdf$/i),
   }).safeParse({
-    clientId: form?.get("clientId"), reportVersionId: form?.get("reportVersionId"), recipientIds: form?.getAll("recipientIds"),
+    clientId: form?.get("clientId"), reportVersionId: form?.get("reportVersionId"), connectionId: form?.get("connectionId") ?? undefined, recipientIds: form?.getAll("recipientIds"),
     period: form?.get("period"), filename: form?.get("filename"),
   });
   const file = form?.get("file");
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const results = await sendReportByWhatsApp({
       agencyId: context.access.agencyId, clientId: parsed.data.clientId, reportVersionId: parsed.data.reportVersionId,
       recipientIds: parsed.data.recipientIds, actorId: context.user.id, pdf: file, filename: parsed.data.filename,
-      clientName: context.access.client.name, period: parsed.data.period,
+      clientName: context.access.client.name, period: parsed.data.period, connectionId: parsed.data.connectionId,
     });
     return Response.json({ results }, { headers });
   } catch (error) {

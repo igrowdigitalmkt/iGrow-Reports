@@ -33,7 +33,7 @@ function firstOf(channel: EditableChannel, saved: SavedTemplate[]): Selection {
 }
 
 // Templates by channel: ready-made ones (read-only, can be copied) and the workspace's own.
-export function TemplatesView({ snapshot, canEdit, demo = false, workspaceName, whatsapp = null }: {
+export function TemplatesView({ snapshot, canEdit, demo = false, workspaceName, whatsapp = [] }: {
   snapshot: TemplatesSnapshot; canEdit: boolean; demo?: boolean; workspaceName: string; whatsapp?: WhatsAppSummary;
 }) {
   const router = useRouter();
@@ -117,8 +117,8 @@ export function TemplatesView({ snapshot, canEdit, demo = false, workspaceName, 
       <div><h2>Mensagem modelo aprovada pela Meta</h2>
         <p>O relatório em PDF só pode ir pela API oficial do WhatsApp, e ela exige uma mensagem modelo aprovada pela Meta antes do envio. Por isso o texto não é editado aqui: ele é criado e aprovado no Gerenciador do WhatsApp e escolhido em Integrações.</p></div>
       <dl className="templates-pdf-facts">
-        <div><dt>Mensagem em uso</dt><dd>{whatsapp?.templateName ? `${whatsapp.templateName} · ${whatsapp.templateLanguage}` : "Nenhuma escolhida"}</dd></div>
-        <div><dt>Número</dt><dd>{whatsapp?.displayPhone ?? "API oficial não conectada"}</dd></div>
+        {whatsapp.length ? whatsapp.map(number => <div key={number.id ?? "legacy"}><dt>{number.displayPhone ?? "Número oficial"}</dt><dd>{number.templateName ? `${number.templateName} · ${number.templateLanguage}` : "Nenhuma mensagem modelo escolhida"}</dd></div>)
+          : <div><dt>Número</dt><dd>API oficial não conectada</dd></div>}
       </dl>
       <div className="templates-pdf-sample">
         <h3>Texto sugerido para aprovar</h3>

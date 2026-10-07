@@ -11,10 +11,11 @@ import { deleteDashboardReport } from "@/modules/client-portal/report-actions";
 import { publishReportVersion } from "./actions";
 import type { AdminReportVersion, ReportsAdminSnapshot } from "./types";
 import { SendReportDialog, type SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
+import type { WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
 
-export function ReportManager({ agencyId, clients, snapshot, canEdit, canSend = false, recipients = [], whatsAppReady = false }: {
+export function ReportManager({ agencyId, clients, snapshot, canEdit, canSend = false, recipients = [], whatsappNumbers = [] }: {
   agencyId: string; clients: ClientItem[]; snapshot: ReportsAdminSnapshot; canEdit: boolean;
-  canSend?: boolean; recipients?: SendableRecipient[]; whatsAppReady?: boolean;
+  canSend?: boolean; recipients?: SendableRecipient[]; whatsappNumbers?: WhatsAppSummary;
 }) {
   const [sending, setSending] = useState<AdminReportVersion | null>(null);
   const router = useRouter();
@@ -78,7 +79,7 @@ export function ReportManager({ agencyId, clients, snapshot, canEdit, canSend = 
         </div>
       </article>)}
       {sending && <SendReportDialog key={sending.id} open onOpenChange={open => { if (!open) setSending(null); }} clientId={sending.clientId} clientName={sending.clientName}
-        reportVersionId={sending.id} title={sending.title} recipients={recipients.filter(recipient => recipient.clientId === sending.clientId)} whatsAppReady={whatsAppReady}
+        reportVersionId={sending.id} title={sending.title} recipients={recipients.filter(recipient => recipient.clientId === sending.clientId)} numbers={whatsappNumbers.filter(number => number.templateName)}
         onSent={() => router.refresh()} />}
       {!rows.length && <section className="panel empty-state"><FileText size={28} /><h3>Nenhum relatório encontrado</h3><p>{snapshot.versions.length ? "Ajuste a busca ou os filtros." : "Os relatórios gerados na Visão geral aparecerão aqui."}</p></section>}
     </div>

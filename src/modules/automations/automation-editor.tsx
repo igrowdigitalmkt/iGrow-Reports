@@ -18,13 +18,15 @@ import { useUnsavedGuard } from "@/components/ui/unsaved-guard";
 import { describeSchedule, PERIOD_LABELS, upcomingRuns, WEEKDAY_SHORT } from "./schedule";
 import type { AutomationItem } from "./types";
 import { WhatsAppPreview } from "./whatsapp-preview";
+import { SUGGESTED_TEMPLATE } from "@/modules/whatsapp/templates";
+import { numberName, type WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
 
 export type EditorDraft = Omit<AutomationItem, "id" | "nextRunAt" | "lastRunAt" | "timezone"> & { id?: string };
 
 export function emptyDraft(clientId: string): EditorDraft {
   return {
     clientId, name: "Resumo semanal", messageTemplate: SYSTEM_TEMPLATES[0].body, periodKey: "last_7d", frequency: "weekly",
-    weekdays: [1], monthDay: 1, sendTime: "08:00", active: true, targets: [],
+    weekdays: [1], monthDay: 1, sendTime: "08:00", active: true, targets: [], sender: "qr", connectionId: null,
   };
 }
 
@@ -34,8 +36,8 @@ const FREQUENCIES: Array<{ key: ReportFrequency; label: string }> = [
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 // One screen: who, what, when on the left; the message exactly as it will arrive on the right.
-export function AutomationEditor({ draft: initial, clients, recipients, timezone, workspaceName, appUrl, demo = false, groupsEnabled = false, templates = [], onCancel, onSaved, onSent }: {
-  draft: EditorDraft; demo?: boolean; groupsEnabled?: boolean; templates?: SavedTemplate[]; onSent?: () => void; clients: ClientItem[]; recipients: SendableRecipient[]; timezone: string; workspaceName: string; appUrl: string | null;
+export function AutomationEditor({ draft: initial, clients, recipients, timezone, workspaceName, appUrl, demo = false, groupsEnabled = false, templates = [], numbers = [], onCancel, onSaved, onSent }: {
+  draft: EditorDraft; demo?: boolean; groupsEnabled?: boolean; templates?: SavedTemplate[]; numbers?: WhatsAppSummary; onSent?: () => void; clients: ClientItem[]; recipients: SendableRecipient[]; timezone: string; workspaceName: string; appUrl: string | null;
   onCancel: () => void; onSaved: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
@@ -47,6 +49,11 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
   const [groupError, setGroupError] = useState("");
   const [groupQuery, setGroupQuery] = useState("");
   const update = (patch: Partial<EditorDraft>) => setDraft(current => ({ ...current, ...patch }));
+  // Official numbers send the approved template with the PDF; the QR Code session sends free text.
+  const official = draft.sender === "official";
+  const officialNumbers = numbers.filter(number => number.id && number.templateName);
+  const chosenNumber = officialNumbers.find(number => number.id === draft.connectionId) ?? null;
+  const senderValue = official ? draft.connectionId ?? "" : "qr";
 
   const client = clients.find(item => item.id === draft.clientId);
   const clientRecipients = recipients.filter(recipient => recipient.clientId === draft.clientId);
@@ -76,10 +83,17 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
   }, [groupsEnabled]);
 
   const loading = preview?.key !== previewKey;
-  const rendered = renderMessage(draft.messageTemplate, {
+  const qrRendered = renderMessage(draft.messageTemplate, {
     clientName: client?.name ?? "Cliente", recipientName: firstRecipient?.name ?? "Maria", workspaceName,
     dashboardUrl: appUrl ? `${appUrl}/cliente/${draft.clientId}` : null, data: loading ? null : preview?.data ?? null,
   });
+  const brDate = (value: string) => value.split("-").reverse().join("/");
+  const periodText = preview?.data ? `${brDate(preview.data.dateFrom)} a ${brDate(preview.data.dateTo)}` : PERIOD_LABELS[draft.periodKey].toLowerCase();
+  // The approved template only fills the variables; the suggested text shows how it usually reads.
+  const officialText = `📄 ${(client?.name ?? "Cliente").replace(/\s+/g, "-")}.pdf\n\n` + (chosenNumber?.templateName === SUGGESTED_TEMPLATE.name
+    ? SUGGESTED_TEMPLATE.body.replace("{{1}}", (firstRecipient?.name ?? "Maria").split(" ")[0]).replace("{{2}}", client?.name ?? "Cliente").replace("{{3}}", periodText).replace("{{4}}", workspaceName)
+    : `Mensagem modelo "${chosenNumber?.templateName ?? "—"}" aprovada pela Meta, com o PDF do período.`);
+  const rendered = official ? officialText : qrRendered;
 
   const rule = { frequency: draft.frequency, weekdays: draft.weekdays, monthDay: draft.monthDay, sendTime: draft.sendTime, timezone };
   const [now] = useState(() => new Date());
@@ -104,9 +118,10 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
     setError("");
     if (demo) { setError("Na demonstração nada é salvo. Entre no seu espaço para criar agendamentos de verdade."); return null; }
     const result = await saveAutomationAction({
-        id: draft.id, clientId: draft.clientId, name: draft.name, messageTemplate: draft.messageTemplate, periodKey: draft.periodKey,
+        id: draft.id, clientId: draft.clientId, name: draft.name, messageTemplate: official ? "PDF do período pela mensagem modelo do número oficial." : draft.messageTemplate, periodKey: draft.periodKey,
+        sender: draft.sender, connectionId: official ? draft.connectionId : null,
         frequency: draft.frequency, weekdays: draft.weekdays, monthDay: draft.monthDay, sendTime: draft.sendTime, active: draft.active,
-        recipientIds: selectedIds, groups: draft.targets.flatMap(target => target.groupId ? [{ id: target.groupId, name: target.groupName }] : []),
+        recipientIds: selectedIds, groups: official ? [] : draft.targets.flatMap(target => target.groupId ? [{ id: target.groupId, name: target.groupName }] : []),
     });
     if ("error" in result && result.error) { setError(result.error); return null; }
     if (!("id" in result) || !result.id) return null;
@@ -145,16 +160,33 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
             <label><span>Nome do agendamento</span>
               <input className="input" value={draft.name} maxLength={120} onChange={event => update({ name: event.target.value })} placeholder="Ex.: Resumo de segunda" />
             </label>
+            <label className="automation-sender"><span>Enviar por</span>
+              <select className="input" value={senderValue} onChange={event => update(event.target.value === "qr" ? { sender: "qr", connectionId: null } : { sender: "official", connectionId: event.target.value, targets: draft.targets.filter(target => target.recipientId) })}>
+                <option value="qr">Seu WhatsApp (QR Code) · texto livre</option>
+                {officialNumbers.map(number => <option key={number.id!} value={number.id!}>{numberName(number)}{number.displayPhone && number.label ? ` · ${number.displayPhone}` : ""} · PDF pela API oficial</option>)}
+                {official && !chosenNumber && <option value={draft.connectionId ?? ""}>Número removido, escolha outro</option>}
+              </select>
+            </label>
           </div>
+          {!officialNumbers.length && <p className="automation-hint"><Sparkles size={14} />Para enviar o PDF, conecte um número da API oficial com mensagem modelo aprovada em Integrações.</p>}
         </section>
 
         <section className="panel automation-step">
-          <header><span className="step-number">2</span><div><h3>Mensagem</h3><p>Comece por um template ou escreva a sua. Clique numa variável para inseri-la onde está o cursor.</p></div></header>
+          <header><span className="step-number">2</span><div><h3>Mensagem</h3><p>{official ? "Mensagem modelo aprovada pela Meta, com o PDF do período no cabeçalho." : "Comece por um template ou escreva a sua. Clique numa variável para inseri-la onde está o cursor."}</p></div></header>
+          {official ? <div className="automation-official">
+            <dl>
+              <div><dt>Número</dt><dd>{chosenNumber ? `${numberName(chosenNumber)}${chosenNumber.displayPhone ? ` · ${chosenNumber.displayPhone}` : ""}` : "—"}</dd></div>
+              <div><dt>Mensagem modelo</dt><dd>{chosenNumber?.templateName ? `${chosenNumber.templateName} · ${chosenNumber.templateLanguage}` : "—"}</dd></div>
+              <div><dt>Anexo</dt><dd>PDF do relatório de {PERIOD_LABELS[draft.periodKey].toLowerCase()}</dd></div>
+            </dl>
+            <p className="automation-hint">O texto vem da mensagem modelo aprovada; o nome da pessoa, o cliente, o período e o nome do seu espaço entram nas variáveis. Para mudar o texto, crie outra mensagem modelo no Gerenciador do WhatsApp e escolha-a em Integrações. Cada envio é cobrado pela Meta na conta deste número.</p>
+          </div> : <>
           <div className="automation-template-bar">
             <TemplatePicker saved={savedTemplates} onPick={body => update({ messageTemplate: body })} className="input" />
             <SaveTemplateButton body={draft.messageTemplate} demo={demo} onSaved={template => setSavedTemplates(current => [...current.filter(item => item.id !== template.id), template])} />
           </div>
           <MessageComposer value={draft.messageTemplate} onChange={messageTemplate => update({ messageTemplate })} />
+          </>}
         </section>
 
         <section className="panel automation-step">
@@ -165,7 +197,7 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
               <span><strong>{recipient.name}</strong><small>{recipient.phone}{recipient.reason ? ` · ${recipient.reason}` : ""}</small></span>
             </label>
           </li>)}</ul> : <p className="automation-empty-note"><Users size={16} />Este cliente ainda não tem destinatários. Cadastre em Clientes › Destinatários.</p>}
-          {groupsEnabled ? <div className="automation-groups">
+          {official ? <p className="automation-hint"><Sparkles size={14} />A API oficial envia só para pessoas. Para grupos, use o envio pelo seu WhatsApp (QR Code).</p> : groupsEnabled ? <div className="automation-groups">
             <div className="automation-groups-head"><strong>Grupos do WhatsApp</strong>
               {(groups?.length ?? 0) > 8 && <label className="automation-group-search"><Search size={14} /><input className="input" placeholder="Buscar grupo" value={groupQuery} onChange={event => setGroupQuery(event.target.value)} aria-label="Buscar grupo" /></label>}</div>
             {groups === null && !groupError ? <p className="automation-hint"><Loader2 size={14} className="spin" />Carregando os grupos do seu WhatsApp…</p>

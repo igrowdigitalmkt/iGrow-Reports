@@ -7,6 +7,7 @@ import { getClientAnalytics } from "@/modules/client-portal/analytics";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createQrSender } from "@/modules/whatsapp-qr/server";
 import { executeAutomation } from "./runner";
+import { sendOfficialPdf } from "./official-sender";
 import { unknownVariables } from "./message";
 import { localDate, nextRunAt, resolvePeriod } from "./schedule";
 
@@ -25,10 +26,15 @@ const automationSchema = z.object({
   sendTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horário inválido."),
   active: z.boolean(),
   recipientIds: z.array(uuid).max(50),
+  sender: z.enum(["qr", "official"]).default("qr"),
+  connectionId: uuid.nullable().default(null),
   groups: z.array(z.object({ id: z.string().regex(/^[\w.-]+@g\.us$/), name: z.string().trim().min(1).max(200) })).max(20),
 }).superRefine((value, ctx) => {
   if (value.frequency === "weekly" && !value.weekdays.length) ctx.addIssue({ code: "custom", message: "Escolha ao menos um dia da semana.", path: ["weekdays"] });
   if (!value.recipientIds.length && !value.groups.length) ctx.addIssue({ code: "custom", message: "Escolha quem vai receber a mensagem.", path: ["recipientIds"] });
+  if (value.sender === "official" && !value.connectionId) ctx.addIssue({ code: "custom", message: "Escolha o número oficial que vai enviar.", path: ["connectionId"] });
+  if (value.sender === "official" && !value.recipientIds.length) ctx.addIssue({ code: "custom", message: "A API oficial não envia para grupos. Escolha ao menos uma pessoa.", path: ["recipientIds"] });
+  if (value.sender === "official") return;
   const unknown = unknownVariables(value.messageTemplate);
   if (unknown.length) ctx.addIssue({ code: "custom", message: `Variável desconhecida: {{${unknown[0]}}}. Use os botões de variáveis.`, path: ["messageTemplate"] });
 });
@@ -51,6 +57,13 @@ export async function saveAutomationAction(input: unknown) {
     if (value.recipientIds.some(id => !allowed.has(id))) return { error: "Há destinatário sem autorização de recebimento ou de outro cliente." };
   }
 
+  if (value.sender === "official") {
+    const { data: number } = await context.supabase.from("whatsapp_connections").select("id").eq("agency_id", agencyId).eq("id", value.connectionId!).maybeSingle();
+    if (!number) return { error: "Este número oficial não está conectado. Escolha outro." };
+  }
+  // The official API only reaches people; groups stay for the QR Code session.
+  const groups = value.sender === "official" ? [] : value.groups;
+
   const timezone = context.agency.timezone || "America/Sao_Paulo";
   const weekdays = value.frequency === "weekly" ? [...new Set(value.weekdays)].sort() : [];
   const next = value.active ? nextRunAt({ frequency: value.frequency, weekdays, monthDay: value.monthDay, sendTime: value.sendTime, timezone }, new Date()) : null;
@@ -58,10 +71,19 @@ export async function saveAutomationAction(input: unknown) {
     agency_id: agencyId, client_id: value.clientId, name: value.name, message_template: value.messageTemplate, period_key: value.periodKey,
     frequency: value.frequency, weekdays: weekdays.length ? weekdays : [1], month_day: value.monthDay, send_time: value.sendTime,
     timezone, active: value.active, next_run_at: next?.toISOString() ?? null, updated_at: new Date().toISOString(),
+    sender: value.sender, whatsapp_connection_id: value.sender === "official" ? value.connectionId : null,
   };
-  const saved = value.id
-    ? await context.supabase.from("report_automations").update(row).eq("agency_id", agencyId).eq("id", value.id).select("id").single()
-    : await context.supabase.from("report_automations").insert({ ...row, created_by: context.user.id }).select("id").single();
+  const write = (values: typeof row | Omit<typeof row, "sender" | "whatsapp_connection_id">) => value.id
+    ? context.supabase.from("report_automations").update(values).eq("agency_id", agencyId).eq("id", value.id).select("id").single()
+    : context.supabase.from("report_automations").insert({ ...values, created_by: context.user.id }).select("id").single();
+  let saved = await write(row);
+  // Before migration 202610070010 schedules can only use the QR Code session.
+  if (saved.error?.code === "PGRST204") {
+    if (value.sender === "official") return { error: "Para enviar por número oficial, a atualização do banco de dados precisa ser aplicada." };
+    const legacy: Partial<typeof row> = { ...row };
+    delete legacy.sender; delete legacy.whatsapp_connection_id;
+    saved = await write(legacy as Omit<typeof row, "sender" | "whatsapp_connection_id">);
+  }
   if (saved.error || !saved.data) return { error: "Não foi possível salvar o agendamento." };
   const automationId = saved.data.id;
 
@@ -69,7 +91,7 @@ export async function saveAutomationAction(input: unknown) {
   if (removed.error) return { error: "O agendamento foi salvo, mas não foi possível atualizar os destinatários." };
   const targets = [
     ...value.recipientIds.map(recipientId => ({ agency_id: agencyId, automation_id: automationId, client_id: value.clientId, recipient_id: recipientId })),
-    ...value.groups.map(group => ({ agency_id: agencyId, automation_id: automationId, client_id: value.clientId, group_id: group.id, group_name: group.name })),
+    ...groups.map(group => ({ agency_id: agencyId, automation_id: automationId, client_id: value.clientId, group_id: group.id, group_name: group.name })),
   ];
   const inserted = await context.supabase.from("report_automation_targets").insert(targets);
   if (inserted.error) return { error: "O agendamento foi salvo, mas não foi possível gravar os destinatários." };
@@ -134,6 +156,7 @@ export async function sendAutomationNowAction(input: unknown) {
   const period = resolvePeriod(automation.period_key, localDate(now, automation.timezone));
   const outcome = await executeAutomation(service, automation, { scheduledFor: now, period, trigger: "manual" }, {
     resolveSender: agencyId => createQrSender(agencyId).catch(() => null),
+    sendOfficialPdf,
     appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null,
   });
   revalidatePath("/dashboard/agendamentos");

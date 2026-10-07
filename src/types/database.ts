@@ -182,10 +182,14 @@ export type WhatsAppConnectionRow = {
   last_checked_at: string | null; created_at: string; updated_at: string;
   // Added by migration 202610070009; absent before it is applied.
   token_expires_at?: string | null;
+  // Added by migration 202610070010 (several numbers per workspace); absent before it.
+  id?: string; label?: string | null; coexistence?: boolean;
 };
 export type ReportDeliveryStatus = "pending" | "sending" | "accepted" | "sent" | "delivered" | "read" | "failed" | "uncertain" | "cancelled";
 export type ReportDeliveryRow = {
-  id: string; agency_id: string; client_id: string; recipient_id: string; report_version_id: string; channel: "whatsapp";
+  id: string; agency_id: string; client_id: string; recipient_id: string; report_version_id: string | null; channel: "whatsapp";
+  // Added by migration 202610070010 (scheduled sends through an official number).
+  automation_run_id?: string | null; whatsapp_connection_id?: string | null;
   template_name: string; template_language: string; status: ReportDeliveryStatus; wamid: string | null;
   error_code: string | null; error_message: string | null; status_at: string; created_by: string | null; created_at: string; updated_at: string;
 };
@@ -196,6 +200,8 @@ export type ReportAutomationRow = {
   id: string; agency_id: string; client_id: string; name: string; message_template: string; period_key: ReportPeriodKey;
   frequency: ReportFrequency; weekdays: number[]; month_day: number; send_time: string; timezone: string; channel: "whatsapp";
   active: boolean; next_run_at: string | null; last_run_at: string | null; created_by: string | null; created_at: string; updated_at: string;
+  // Added by migration 202610070010: QR Code session (free text) or one official number (template + PDF).
+  sender?: "qr" | "official"; whatsapp_connection_id?: string | null;
 };
 export type ReportAutomationTargetRow = {
   id: string; agency_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null; group_name: string | null; created_at: string;
@@ -255,7 +261,7 @@ export type Database = {
       report_metrics: Table<ReportMetricRow, never, never>;
       audit_logs: Table<AuditRow, Pick<AuditRow, "agency_id" | "action"> & Partial<AuditRow>, Partial<AuditRow>>;
       whatsapp_connections: Table<WhatsAppConnectionRow, Pick<WhatsAppConnectionRow, "agency_id" | "integration_id" | "waba_id" | "phone_number_id"> & Partial<WhatsAppConnectionRow>, Partial<WhatsAppConnectionRow>>;
-      report_deliveries: Table<ReportDeliveryRow, Pick<ReportDeliveryRow, "agency_id" | "client_id" | "recipient_id" | "report_version_id" | "template_name" | "template_language"> & Partial<ReportDeliveryRow>, Partial<ReportDeliveryRow>>;
+      report_deliveries: Table<ReportDeliveryRow, Pick<ReportDeliveryRow, "agency_id" | "client_id" | "recipient_id" | "template_name" | "template_language"> & Partial<ReportDeliveryRow>, Partial<ReportDeliveryRow>>;
       report_automations: Table<ReportAutomationRow, Pick<ReportAutomationRow, "agency_id" | "client_id" | "name" | "message_template"> & Partial<ReportAutomationRow>, Partial<ReportAutomationRow>>;
       report_automation_targets: Table<ReportAutomationTargetRow, Pick<ReportAutomationTargetRow, "agency_id" | "automation_id" | "client_id"> & Partial<ReportAutomationTargetRow>, Partial<ReportAutomationTargetRow>>;
       agency_member_permissions: Table<{ agency_id: string; user_id: string; modules: string[]; updated_at: string }, never, never>;
@@ -341,6 +347,7 @@ export type Database = {
       service_recipient_opt_out: { Args: { p_agency_id: string; p_phone: string; p_source: string }; Returns: number };
       service_client_analytics: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };
       record_whatsapp_webhook: { Args: { p_dedup_key: string; p_payload: Json }; Returns: boolean };
+      delete_integration_secret: { Args: { p_agency_id: string; p_integration_id: string; p_secret_kind: string }; Returns: undefined };
       get_integration_secret: {
         Args: { p_agency_id: string; p_integration_id: string; p_secret_kind: string };
         Returns: { key_id: string; nonce_b64: string; ciphertext_b64: string; auth_tag_b64: string }[];

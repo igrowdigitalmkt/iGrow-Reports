@@ -14,6 +14,9 @@ export type AutomationItem = {
   sendTime: string;
   timezone: string;
   active: boolean;
+  // QR Code session (free text) or one official number (approved template + PDF of the period).
+  sender: "qr" | "official";
+  connectionId: string | null;
   nextRunAt: string | null;
   lastRunAt: string | null;
   targets: AutomationTarget[];

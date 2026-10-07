@@ -2,6 +2,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { authorizeWorkerRequest } from "@/modules/integrations/worker-auth";
 import { runDueAutomations } from "@/modules/automations/runner";
 import { createQrSender } from "@/modules/whatsapp-qr/server";
+import { sendOfficialPdf } from "@/modules/automations/official-sender";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -18,6 +19,8 @@ export async function GET(request: Request) {
     const summary = await runDueAutomations(service, {
       // Only the agency's own number connected by QR Code sends free text; without it runs are recorded as not sent.
       resolveSender: agencyId => createQrSender(agencyId).catch(() => null),
+      // Schedules set to an official number send the period PDF with the approved template.
+      sendOfficialPdf,
       appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null,
     });
     console.info("report-automations", summary);
