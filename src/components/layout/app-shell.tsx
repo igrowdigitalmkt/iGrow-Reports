@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bell, CalendarClock, ChevronRight, ChevronsUpDown, MessageCircleQuestion, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarClock, Moon, Sun, SunMoon, ChevronRight, ChevronsUpDown, MessageCircleQuestion, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Brand } from "./brand";
 import { NavigationProgress } from "./navigation-progress";
 import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
@@ -38,6 +39,7 @@ export const useWorkspaceSearch = () => useContext(SearchContext);
 const MOBILE_QUERY = "(max-width: 900px)";
 const subscribeMobile = (listener: () => void) => { const query = window.matchMedia(MOBILE_QUERY); query.addEventListener("change", listener); return () => query.removeEventListener("change", listener); };
 const useIsMobile = () => useSyncExternalStore(subscribeMobile, () => window.matchMedia(MOBILE_QUERY).matches, () => false);
+const subscribeToHydration = () => () => {};
 const initialsOf = (value: string) => value.split(/[ @._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
 export function AppShell({ demo, identity, initialCollapsed = false, clientCount, workspaceCount = 1, hiddenKeys = [], children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; workspaceCount?: number; hiddenKeys?: string[]; children: ReactNode }) {
@@ -55,6 +57,10 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   const [tooltip, setTooltip] = useState<{ text: string; top: number; left: number } | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const mobile = useIsMobile();
+  const { resolvedTheme, setTheme } = useTheme();
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const dark = resolvedTheme !== "light";
+  const themeLabel = !hydrated ? "Mudar tema" : dark ? "Mudar para o tema claro" : "Mudar para o tema escuro";
   const toggleLabel = mobile ? (drawerOpen ? "Fechar menu" : "Abrir menu") : (collapsed ? "Expandir menu" : "Recolher menu");
   const initials = initialsOf(identity.userName) || "IG";
   const href = (key: string) => `${base}${key ? `/${key}` : ""}`;
@@ -150,6 +156,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
             <input ref={searchInput} value={search} onChange={event => setSearch(event.target.value)} aria-label="Buscar cliente ou relatório" placeholder="Buscar cliente ou relatório" />
             {search ? <button type="button" aria-label="Limpar busca" onClick={() => setSearch("")}><X size={14} /></button> : <kbd>Ctrl K</kbd>}
           </label>
+          <button type="button" className="icon-button" onClick={() => setTheme(dark ? "light" : "dark")} aria-label={themeLabel} title={themeLabel}>{!hydrated ? <SunMoon size={17} /> : dark ? <Sun size={17} /> : <Moon size={17} />}</button>
           <button type="button" className="icon-button notification-button" onClick={() => setNoticeOpen(true)} aria-label="Abrir notificações"><Bell size={17} />{demo && <span className="notification-dot" />}</button>
         </header>
         {demo && <div className="demo-banner"><span><FlaskConical size={14} /><strong>Modo demonstração</strong><span>Todos os dados são fictícios. Nenhuma mensagem é enviada.</span></span><Link href="/entrar">Acessar meu espaço <ArrowUpRight size={13} /></Link></div>}
