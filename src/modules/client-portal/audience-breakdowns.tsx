@@ -49,8 +49,8 @@ function Donut({ title, rows, metric, colors, currency, action, emptyText }: { t
           const length = item.value / total * circumference;
           return <circle key={item.key} cx="66" cy="66" r={radius} stroke={item.color} strokeDasharray={`${Math.max(length - 1.5, 0.5)} ${circumference}`} strokeDashoffset={-starts[index]} className="audience-segment"><title>{`${item.label}: ${compact(item.value)}`}</title></circle>;
         })}
-        <text x="66" y="64" className="audience-total">{compact(total)}</text>
-        <text x="66" y="82" className="audience-total-label">{label}</text>
+        <text x="66" y="66" className="audience-total">{compact(total)}</text>
+        <text x="66" y="80" className="audience-total-label">{label}</text>
       </svg>
       <ul className="audience-legend">{items.map(item => <li key={item.key}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{compact(item.value)}</strong></li>)}</ul>
     </div> : <p className="analytics-empty-copy">{emptyText ?? `Sem dados de ${label.toLowerCase()} no período.`}</p>}
