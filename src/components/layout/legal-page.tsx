@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Brand } from "./brand";
 
 export const LEGAL_CONTACT_EMAIL = "igrowdigitalmkt@gmail.com";
-export const LEGAL_UPDATED_AT = "6 de outubro de 2026";
+export const LEGAL_UPDATED_AT = "7 de outubro de 2026";
 
 // Public legal pages (privacy, data deletion): readable text column, no login required.
 export function LegalPage({ title, children }: { title: string; children: ReactNode }) {
