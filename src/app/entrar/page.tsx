@@ -9,7 +9,7 @@ import { LinkSessionHandler } from "@/modules/auth/link-session-handler";
 
 export const metadata: Metadata = { title: "Entrar", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; erro?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; erro?: string; motivo?: string }> }) {
   const params = await searchParams;
   const configured = Boolean(getSupabaseConfig());
   const next = safeRedirect(params.next);
@@ -19,6 +19,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <p className="mt-2 text-sm leading-6 text-slate-400">Entre para acessar os resultados e ambientes liberados para a sua conta.</p>
     {!configured && <div role="status" className="mt-6 rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm"><p className="flex items-center gap-2 font-medium text-amber-200"><Settings2 size={16} />Não configurado</p><p className="mt-2 leading-6 text-slate-400">A autenticação ainda precisa ser conectada ao Supabase. O responsável pelo ambiente deve concluir a configuração.</p></div>}
     {params.erro === "link-invalido" && <p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">Este link não é válido ou expirou. Peça um novo link.</p>}
+    {params.erro === "acesso" && <p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">Não foi possível concluir o acesso. Tente de novo ou use e-mail e senha.{params.motivo && <span className="mt-1 block text-xs text-rose-300/80">Motivo informado: {params.motivo.slice(0, 160)}</span>}</p>}
     {params.erro === "google" && <p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">Não foi possível entrar com o Google agora. Tente de novo ou use e-mail e senha.</p>}
     <LinkSessionHandler />
     <LoginForm configured={configured} next={next} />

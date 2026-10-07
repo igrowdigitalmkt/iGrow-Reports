@@ -24,7 +24,10 @@ export function LinkSessionHandler() {
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
     async function run() {
       await Promise.resolve();
-      if (failed || !refreshToken) { setStatus("error"); setMessage(invalidLink); return; }
+      if (failed || !refreshToken) {
+        const detail = params.get("error_description")?.replaceAll("+", " ").slice(0, 160);
+        setStatus("error"); setMessage(detail ? `${invalidLink} Motivo: ${detail}` : invalidLink); return;
+      }
       setStatus("working");
       try {
         // Where the link should continue (e.g. the invitation page), kept across login and password setup.
