@@ -684,3 +684,4 @@ Proposta aprovada pelo responsável (protótipo "Novo layout iGrow"). Commits `c
 - Verificado visualmente na demonstração (grade 2×2, troca de indicador e de Região/País) e com conta Meta real em produção (imagem do responsável).
 - Ajuste visual (7/10/2026): número central das roscas menor (15 px) e legenda com largura máxima de 240 px, centralizada junto da rosca, para não separar tanto nome e valor.
 - Ajuste visual (7/10/2026): "Investimento por conta" trocou a rosca do ECharts pelo mesmo anel SVG das roscas de público (componente compartilhado `donut-ring.tsx`); texto central um pouco menor.
+- Ajuste (7/10/2026): na aba Campanhas do painel, o botão "Colunas" saiu da barra das abas e foi para o lado da busca de campanhas, no cabeçalho da tabela.

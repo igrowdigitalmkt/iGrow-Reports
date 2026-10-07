@@ -824,18 +824,6 @@ export function ClientAnalyticsDashboard({
           </div>)}
         </div>
       </details></div>}
-      {tab === "campaigns" && analyticsReady && <details className="analytics-filter-menu analytics-metric-menu">
-        <summary><Filter size={14} />Colunas <span className="analytics-count">{campaignMetrics.length}</span><ChevronDown size={13} /></summary>
-        <div className="analytics-filter-popover">
-          <div className="analytics-metric-picker-heading"><strong>Métricas da tabela</strong>
-            <span className="muted text-xs">Arraste os cabeçalhos para reordenar</span>
-          </div>
-          {scopedData.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
-            <label><input type="checkbox" checked={campaignMetricKeys.includes(metric.key)}
-              onChange={() => toggleCampaignMetric(metric.key)} /><span>{metric.label}</span></label>
-          </div>)}
-        </div>
-      </details>}
     </div>
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
       {tab === "overview" && analyticsReady && <>
@@ -1017,6 +1005,18 @@ export function ClientAnalyticsDashboard({
               </div>
               <label className="analytics-search"><Search size={14} /><input type="search" value={campaignQuery}
                 onChange={(event) => setCampaignQuery(event.target.value)} placeholder="Buscar campanha…" /></label>
+              <details className="analytics-filter-menu analytics-metric-menu">
+                <summary><Filter size={14} />Colunas <span className="analytics-count">{campaignMetrics.length}</span><ChevronDown size={13} /></summary>
+                <div className="analytics-filter-popover">
+                  <div className="analytics-metric-picker-heading"><strong>Métricas da tabela</strong>
+                    <span className="muted text-xs">Arraste os cabeçalhos para reordenar</span>
+                  </div>
+                  {scopedData.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
+                    <label><input type="checkbox" checked={campaignMetricKeys.includes(metric.key)}
+                      onChange={() => toggleCampaignMetric(metric.key)} /><span>{metric.label}</span></label>
+                  </div>)}
+                </div>
+              </details>
             </div>
           </div>
           <div className="analytics-table-scroll is-capped"><table className="analytics-table analytics-campaign-table">

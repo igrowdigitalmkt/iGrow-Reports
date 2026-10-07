@@ -210,6 +210,8 @@
 .analytics-search input::placeholder { color: var(--muted); }
 
 /* Tables */
+.analytics-campaign-card { overflow: visible; }
+.analytics-campaign-card .analytics-table-scroll { border-radius: 0 0 12px 12px; }
 .analytics-campaign-card .analytics-card-heading { padding-bottom: 14px; }
 .analytics-table-scroll { width: 100%; overflow-x: auto; scrollbar-width: thin; }
 .analytics-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
