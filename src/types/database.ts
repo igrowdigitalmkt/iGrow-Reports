@@ -213,6 +213,17 @@ export type ReportAutomationRunRow = {
   trigger: "schedule" | "manual";
 };
 export type AutomationMessageStatus = "sent" | "delivered" | "read" | "failed";
+export type WhatsAppConversationRow = {
+  id: string; agency_id: string; channel: "qr" | "official"; whatsapp_connection_id: string | null; channel_key: string; remote_id: string;
+  is_group: boolean; title: string | null; client_id: string | null; favorite: boolean; unread_count: number;
+  last_message_at: string | null; last_message_preview: string | null; last_message_direction: "in" | "out" | null; last_message_kind: string | null;
+  last_message_status: "pending" | "sent" | "delivered" | "read" | "failed" | null; last_inbound_at: string | null; created_at: string; updated_at: string;
+};
+export type WhatsAppMessageRow = {
+  id: string; agency_id: string; conversation_id: string; external_id: string; direction: "in" | "out"; kind: string;
+  body: string | null; media_name: string | null; media_mime: string | null; author: string | null;
+  status: "pending" | "sent" | "delivered" | "read" | "failed" | null; sent_at: string; created_at: string;
+};
 export type AutomationMessageRow = {
   id: string; agency_id: string; run_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null;
   destination_label: string; message_id: string | null; status: AutomationMessageStatus; error_message: string | null; sent_at: string; delivered_at: string | null; read_at: string | null;
@@ -265,6 +276,8 @@ export type Database = {
       report_automations: Table<ReportAutomationRow, Pick<ReportAutomationRow, "agency_id" | "client_id" | "name" | "message_template"> & Partial<ReportAutomationRow>, Partial<ReportAutomationRow>>;
       report_automation_targets: Table<ReportAutomationTargetRow, Pick<ReportAutomationTargetRow, "agency_id" | "automation_id" | "client_id"> & Partial<ReportAutomationTargetRow>, Partial<ReportAutomationTargetRow>>;
       agency_member_permissions: Table<{ agency_id: string; user_id: string; modules: string[]; updated_at: string }, never, never>;
+      whatsapp_conversations: Table<WhatsAppConversationRow, never, never>;
+      whatsapp_messages: Table<WhatsAppMessageRow, never, never>;
       automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
       report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
@@ -345,6 +358,18 @@ export type Database = {
         Returns: boolean;
       };
       service_recipient_opt_out: { Args: { p_agency_id: string; p_phone: string; p_source: string }; Returns: number };
+      record_whatsapp_message: {
+        Args: {
+          p_agency_id: string; p_connection_id: string | null; p_remote_id: string; p_is_group: boolean; p_title: string | null;
+          p_external_id: string; p_direction: "in" | "out"; p_kind: string; p_body: string | null; p_media_name: string | null;
+          p_media_mime: string | null; p_author: string | null; p_status: string | null; p_sent_at: string;
+        };
+        Returns: { conversation_id: string; inserted: boolean; needs_title: boolean }[];
+      };
+      update_whatsapp_message_status: { Args: { p_agency_id: string | null; p_external_id: string; p_status: string }; Returns: number };
+      set_whatsapp_conversation_title: { Args: { p_conversation_id: string; p_title: string }; Returns: undefined };
+      mark_whatsapp_conversation_read: { Args: { p_conversation_id: string }; Returns: undefined };
+      set_whatsapp_conversation_favorite: { Args: { p_conversation_id: string; p_favorite: boolean }; Returns: undefined };
       service_client_analytics: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };
       record_whatsapp_webhook: { Args: { p_dedup_key: string; p_payload: Json }; Returns: boolean };
       delete_integration_secret: { Args: { p_agency_id: string; p_integration_id: string; p_secret_kind: string }; Returns: undefined };

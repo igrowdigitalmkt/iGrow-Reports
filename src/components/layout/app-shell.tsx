@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bell, CalendarClock, Moon, Sun, SunMoon, ChevronRight, ChevronsUpDown, MessageCircleQuestion, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarClock, Moon, Sun, SunMoon, ChevronRight, ChevronsUpDown, MessageCircleQuestion, MessagesSquare, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Brand } from "./brand";
 import { NavigationProgress } from "./navigation-progress";
@@ -25,6 +25,9 @@ export const navigationGroups: { title: string; items: NavItem[] }[] = [
     { key: "equipe", label: "Equipe", icon: UsersRound },
     { key: "configuracoes", label: "Configurações", icon: Settings2 },
   ] },
+  { title: "Comunicação", items: [
+    { key: "whatsapp", label: "WhatsApp", icon: MessagesSquare },
+  ] },
 ];
 export const navigation = navigationGroups.flatMap(group => group.items);
 // Entregas, Templates and PDFs are tabs inside Relatórios: their names appear in the breadcrumb.
@@ -42,7 +45,7 @@ const useIsMobile = () => useSyncExternalStore(subscribeMobile, () => window.mat
 const subscribeToHydration = () => () => {};
 const initialsOf = (value: string) => value.split(/[ @._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
-export function AppShell({ demo, identity, initialCollapsed = false, clientCount, workspaceCount = 1, hiddenKeys = [], children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; workspaceCount?: number; hiddenKeys?: string[]; children: ReactNode }) {
+export function AppShell({ demo, identity, initialCollapsed = false, clientCount, whatsappUnread, workspaceCount = 1, hiddenKeys = [], children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; whatsappUnread?: number; workspaceCount?: number; hiddenKeys?: string[]; children: ReactNode }) {
   const base = demo ? "/demo" : "/dashboard";
   const pathname = usePathname();
   const segments = pathname.replace(base, "").split("/").filter(Boolean);
@@ -121,6 +124,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
               <span className="collapse-hide">{label}</span>
               {planned && <span className="nav-soon collapse-hide">Em breve</span>}
               {key === "clientes" && !!clientCount && <span className="nav-count collapse-hide">{clientCount}</span>}
+              {key === "whatsapp" && !!whatsappUnread && <span className="nav-count is-unread" aria-label={`${whatsappUnread} conversas não lidas`}>{whatsappUnread > 99 ? "99+" : whatsappUnread}</span>}
             </Link>)}
           </div>)}
         </nav>

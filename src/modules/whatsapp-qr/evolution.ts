@@ -61,9 +61,10 @@ export class EvolutionClient {
     return { qr: result?.base64 ?? null, pairingCode: result?.pairingCode ?? null };
   }
 
-  // Incoming messages are forwarded to the iGrow (used for "PARAR" replies), signed by a header.
+  // Messages (received, sent from the phone and sent by the iGrow) and receipts are forwarded to the
+  // iGrow for the inbox and the "PARAR" replies, signed by a header.
   setWebhook(name: string, url: string, token: string) {
-    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE"] } } });
+    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE"] } } });
   }
 
   logout(name: string) {
@@ -72,6 +73,12 @@ export class EvolutionClient {
 
   remove(name: string) {
     return this.request(`/instance/delete/${encodeURIComponent(name)}`, { method: "DELETE" });
+  }
+
+  /** Subject of one group (names the conversation in the inbox). */
+  async groupSubject(name: string, groupJid: string) {
+    const result = await this.request<{ subject?: string }>(`/group/findGroupInfos/${encodeURIComponent(name)}?groupJid=${encodeURIComponent(groupJid)}`, { timeoutMs: 15_000 });
+    return result?.subject?.trim() || null;
   }
 
   async groups(name: string): Promise<EvolutionGroup[]> {

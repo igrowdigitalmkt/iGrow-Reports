@@ -8,7 +8,7 @@ import { isDemoEnabled } from "@/lib/env";
 export default async function DemoLayout({ children }: { children: ReactNode }) {
   if (!isDemoEnabled()) notFound();
   const collapsed = isSidebarCollapsed((await cookies()).get(SIDEBAR_COOKIE)?.value);
-  return <AppShell demo initialCollapsed={collapsed} clientCount={6}
+  return <AppShell demo initialCollapsed={collapsed} clientCount={6} whatsappUnread={3}
     identity={{ agencyName: "iGrow Digital", userName: "Silvio", roleLabel: "Proprietário · demonstração", timezone: "America/Sao_Paulo" }}>
     {children}
   </AppShell>;

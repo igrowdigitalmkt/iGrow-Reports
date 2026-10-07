@@ -6,6 +6,7 @@ export const TEAM_MODULES = [
   { key: "relatorios", label: "Relatórios", hint: "Entregas, templates e PDFs" },
   { key: "agendamentos", label: "Agendamentos", hint: "Mensagens automáticas e envio imediato" },
   { key: "integracoes", label: "Integrações", hint: "Meta Ads e WhatsApp" },
+  { key: "whatsapp", label: "WhatsApp", hint: "Caixa de entrada das conversas dos números conectados" },
 ] as const;
 export type TeamModule = typeof TEAM_MODULES[number]["key"];
 
@@ -19,7 +20,7 @@ export const ROLE_HINTS: Record<AgencyRole, string> = {
 // Workspace section → module that controls it. Configurações is personal and always open.
 const SECTION_MODULE: Record<string, TeamModule> = {
   "": "visao_geral", clientes: "clientes", "relatorios-visao": "relatorios", entregas: "relatorios", templates: "relatorios", relatorios: "relatorios",
-  agendamentos: "agendamentos", integracoes: "integracoes",
+  agendamentos: "agendamentos", integracoes: "integracoes", whatsapp: "whatsapp",
 };
 
 /** Owners and administrators see everything; null modules means no restriction. */

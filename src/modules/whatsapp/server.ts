@@ -8,7 +8,8 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { META_LOGIN_APP_ID } from "@/modules/meta/login-config";
 import type { Database, WhatsAppConnectionRow } from "@/types/database";
 import { WhatsAppApiError, WhatsAppGraph } from "./graph";
-import { bodyParameterCount, bodyParameters, reportTemplates, SUGGESTED_TEMPLATE, type WhatsAppTemplate } from "./templates";
+import { bodyParameterCount, bodyParameters, renderTemplateBody, reportTemplates, SUGGESTED_TEMPLATE, type WhatsAppTemplate } from "./templates";
+import { recordInboxMessage } from "./inbox-store";
 import { expiryFromDebugToken } from "./token-expiry";
 
 // Numbers connected before migration 202610070010 share one credential per workspace; newer ones
@@ -256,14 +257,20 @@ async function sendPdfTemplate(service: Service, apiVersion: string, connection:
     }).select("id").single();
     if (error || !delivery) { results.push({ recipientId: recipient.id, name: recipient.name, status: "failed", message: "Não foi possível registrar o envio" }); continue; }
     try {
+      const parameters = bodyParameters(bodyParameterCount(template), { recipient: recipient.name.split(" ")[0], client: input.clientName, period: input.period, workspace: agency?.name ?? "" });
       const wamid = await graph.sendTemplate(connection.phone_number_id, recipient.phone, {
         name: template.name, language: template.language,
         components: [
           { type: "header", parameters: [{ type: "document", document: { id: mediaId, filename: input.filename } }] },
-          ...(bodyParameterCount(template) ? [{ type: "body", parameters: bodyParameters(bodyParameterCount(template), { recipient: recipient.name.split(" ")[0], client: input.clientName, period: input.period, workspace: agency?.name ?? "" }) }] : []),
+          ...(parameters.length ? [{ type: "body", parameters }] : []),
         ],
       });
       await service.from("report_deliveries").update({ status: "accepted", wamid, status_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", delivery.id);
+      // The report also shows up in this number's conversation in the inbox.
+      if (connection.id) await recordInboxMessage(service, { agencyId: input.agencyId, connectionId: connection.id, message: {
+        remoteId: recipient.phone.replace(/\D/g, ""), isGroup: false, title: recipient.name, author: null, externalId: wamid, direction: "out",
+        kind: "document", body: renderTemplateBody(template, parameters), mediaName: input.filename, mediaMime: "application/pdf", sentAt: new Date().toISOString(),
+      } });
       results.push({ recipientId: recipient.id, name: recipient.name, status: "accepted" });
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message.slice(0, 1000) : "Falha no envio";

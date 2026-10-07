@@ -75,7 +75,7 @@ export default async function DashboardPage({
   if (key === "" || key === "relatorios" || key === "entregas" || key === "relatorios-visao") {
     reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
   }
-  const whatsapp = key === "integracoes" || key === "relatorios" || key === "entregas" || key === "templates" || key === "agendamentos" ? await loadWhatsAppSummary(context.supabase, context.agency.id) : [];
+  const whatsapp = key === "integracoes" || key === "relatorios" || key === "entregas" || key === "templates" || key === "agendamentos" || key === "whatsapp" ? await loadWhatsAppSummary(context.supabase, context.agency.id) : [];
   const recipients = key === "relatorios" || key === "agendamentos" ? await loadSendableRecipients(context.supabase, context.agency.id) : [];
   const deliveries = key === "entregas" || key === "relatorios-visao" ? await loadDeliveries(context.supabase, context.agency.id, clients, reportsSnapshot?.versions ?? []) : [];
   const automations = key === "agendamentos" || key === "entregas" || key === "relatorios-visao" ? await loadAutomations(context.supabase, context.agency.id) : undefined;

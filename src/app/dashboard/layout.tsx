@@ -14,10 +14,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const { count } = await context.supabase.from("clients").select("id", { count: "exact", head: true }).eq("agency_id", context.agency.id).is("archived_at", null);
   // Areas limited for this member (Equipe › Permissões) disappear from the menu; Equipe is for owners and admins.
   const modules = context.role === "owner" || context.role === "admin" ? null : await loadOwnModules(context.supabase, context.agency.id, context.user.id);
-  const hiddenKeys = [["", ""], ["clientes", "clientes"], ["relatorios", "relatorios-visao"], ["agendamentos", "agendamentos"], ["integracoes", "integracoes"]]
+  const hiddenKeys = [["", ""], ["clientes", "clientes"], ["relatorios", "relatorios-visao"], ["agendamentos", "agendamentos"], ["integracoes", "integracoes"], ["whatsapp", "whatsapp"]]
     .filter(([, section]) => !canOpenSection(context.role, modules, section)).map(([key]) => key);
+  // Unread conversations of the WhatsApp inbox (0 before its migration or without access).
+  const { data: unread } = hiddenKeys.includes("whatsapp") ? { data: null } : await context.supabase.from("whatsapp_conversations").select("unread_count").eq("agency_id", context.agency.id).gt("unread_count", 0).limit(500);
   const metadata = context.user.user_metadata as { full_name?: string; avatar_url?: string } | undefined;
-  return <AppShell key={context.agency.id} demo={false} initialCollapsed={collapsed} clientCount={count ?? undefined} workspaceCount={context.memberships.length} hiddenKeys={hiddenKeys}
+  return <AppShell key={context.agency.id} demo={false} initialCollapsed={collapsed} clientCount={count ?? undefined} whatsappUnread={unread?.length ?? 0} workspaceCount={context.memberships.length} hiddenKeys={hiddenKeys}
     identity={{ agencyName: context.agency.name, userName: metadata?.full_name?.trim() || (context.user.email?.split("@")[0] ?? "Gestor"), roleLabel: roleLabels[context.role], timezone: context.agency.timezone, avatarUrl: metadata?.avatar_url ?? null }}>
     {children}
   </AppShell>;

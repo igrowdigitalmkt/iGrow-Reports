@@ -36,6 +36,9 @@ import { ReportTabs } from "./report-tabs";
 import { ReportsOverview } from "./reports-overview";
 import { demoAutomationClients, demoAutomationRecipients, demoAutomations, demoOfficialNumbers } from "@/modules/automations/demo";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
+import { WhatsAppInbox } from "@/modules/whatsapp/inbox-view";
+import { demoInboxChannels, demoInboxConversations, demoInboxThreads } from "@/modules/whatsapp/inbox-demo";
+import { numberName } from "@/modules/whatsapp/whatsapp-manager";
 
 interface Props { portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string; appId: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; templates?: TemplatesSnapshot; team?: TeamSnapshot; currentUserId?: string; currentRole?: AgencyRole; blocked?: boolean; initialClientId?: string; overviewPeriod?: "7d" | "30d" | "90d"; qrConnected?: boolean; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 const subscribeToHydration = () => () => {};
@@ -54,12 +57,15 @@ export function DashboardWorkspace({ portfolio, whatsapp = [], whatsappReadiness
 
   return <>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .18 }}>
-      <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · todo o trabalho com os clientes no período`}</p></div><div className="heading-actions">{!section && <nav className="segmented" aria-label="Período da visão geral">{([["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"]] as const).map(([key, label]) => <Link key={key} href={key === "30d" ? base : `${base}?periodo=${key}`} aria-current={(demo ? "30d" : overviewPeriod) === key ? "page" : undefined} className="segmented-link" scroll={false}>{label}</Link>)}</nav>}</div></div>
+      {section !== "whatsapp" && <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · todo o trabalho com os clientes no período`}</p></div><div className="heading-actions">{!section && <nav className="segmented" aria-label="Período da visão geral">{([["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"]] as const).map(([key, label]) => <Link key={key} href={key === "30d" ? base : `${base}?periodo=${key}`} aria-current={(demo ? "30d" : overviewPeriod) === key ? "page" : undefined} className="segmented-link" scroll={false}>{label}</Link>)}</nav>}</div></div>}
 
       {blocked ? <section className="panel empty-state"><ShieldCheck size={22} /><h3>Área não liberada para você</h3><p>O acesso a esta área foi limitado por um proprietário ou administrador do espaço de trabalho. Peça a liberação em Equipe.</p></section> : <>
       {!section && (demo ? <PortfolioView summary={demoPortfolio} base={base} demo /> : portfolio)}
 
       {reportTab && <ReportTabs base={base} section={section} />}
+      {section === "whatsapp" && (demo
+        ? <WhatsAppInbox demo channels={demoInboxChannels} demoConversations={demoInboxConversations} demoThreads={demoInboxThreads} />
+        : <WhatsAppInbox channels={whatsapp.filter(number => number.id).map(number => ({ key: number.id!, kind: "official" as const, name: numberName(number), phone: number.displayPhone, coexistence: number.coexistence }))} />)}
 
       {section === "relatorios-visao" && <ReportsOverview base={base} automations={demo ? demoAutomations : automations ?? null} deliveries={demo ? [] : deliveries} clients={demo ? demoAutomationClients : clients ?? []} timezone={identity.timezone || "America/Sao_Paulo"} />}
 

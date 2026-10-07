@@ -30,3 +30,9 @@ export const SUGGESTED_TEMPLATE = {
   header: "Documento (PDF)",
   body: "Olá, {{1}}! O relatório de desempenho de {{2}}, referente ao período de {{3}}, está no arquivo acima. Qualquer dúvida, fale com a equipe {{4}} por aqui.",
 };
+
+/** The approved body with its variables filled, as the recipient reads it (for the inbox). */
+export function renderTemplateBody(template: Pick<WhatsAppTemplate, "components">, parameters: Array<{ text: string }>) {
+  const body = template.components?.find(component => component.type === "BODY")?.text;
+  return body ? body.replace(/\{\{\s*(\d+)\s*\}\}/g, (match, index) => parameters[Number(index) - 1]?.text ?? match) : null;
+}

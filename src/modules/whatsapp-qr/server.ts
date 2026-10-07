@@ -71,6 +71,13 @@ export async function replyFromInstance(instance: string, phone: string, text: s
   await evolution.sendText(instance, phone.replace(/\D/g, ""), text).catch(() => undefined);
 }
 
+/** Group name for the inbox; null when the session cannot tell. */
+export async function qrGroupSubject(instance: string, groupJid: string) {
+  const evolution = client();
+  if (!evolution) return null;
+  return evolution.groupSubject(instance, groupJid).catch(() => null);
+}
+
 export async function disconnectQr(agencyId: string) {
   const evolution = client();
   if (!evolution) return;

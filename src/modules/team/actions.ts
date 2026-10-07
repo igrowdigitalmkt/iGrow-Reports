@@ -10,7 +10,7 @@ import { canManageAgency } from "@/modules/agencies/roles";
 import type { Database } from "@/types/database";
 
 const ROLES = ["owner", "admin", "editor", "viewer"] as const;
-const MODULES = ["visao_geral", "clientes", "relatorios", "agendamentos", "integracoes"] as const;
+const MODULES = ["visao_geral", "clientes", "relatorios", "agendamentos", "integracoes", "whatsapp"] as const;
 const denied = { error: "Somente proprietários e administradores gerenciam a equipe." };
 
 function appOrigin() {

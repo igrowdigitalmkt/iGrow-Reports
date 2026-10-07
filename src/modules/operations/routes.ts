@@ -10,6 +10,7 @@ export const SECTION_ROUTES: Record<string, string> = {
   integracoes: "integracoes",
   equipe: "equipe",
   configuracoes: "configuracoes",
+  whatsapp: "whatsapp",
 };
 
 // Former addresses keep working.

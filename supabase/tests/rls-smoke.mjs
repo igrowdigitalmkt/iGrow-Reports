@@ -26,6 +26,10 @@ try {
     create function auth.uid() returns uuid language sql stable as $$
       select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid;
     $$;
+    -- Supabase reads the role from the JWT; in tests the session role stands in for it.
+    create function auth.role() returns text language sql stable as $$
+      select coalesce(nullif(current_setting('request.jwt.claim.role',true),''), nullif(current_setting('role',true),'none'), current_user::text);
+    $$;
     create table storage.buckets (
       id text primary key, name text not null, public boolean not null default false,
       file_size_limit bigint, allowed_mime_types text[]
