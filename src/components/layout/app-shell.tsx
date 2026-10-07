@@ -30,7 +30,7 @@ export const navigation = navigationGroups.flatMap(group => group.items);
 const REPORT_TAB_LABELS: Record<string, string> = { entregas: "Entregas", templates: "Templates", pdfs: "PDFs salvos" };
 
 export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; avatarUrl?: string | null; email?: string; }
-const SUPPORT_URL = "https://wa.me/5586994037823?text=" + encodeURIComponent("Olá! Preciso de ajuda com o iGrow Reports.");
+const SUPPORT_URL = "https://wa.me/5586995560428?text=" + encodeURIComponent("Olá! Preciso de ajuda com o iGrow Reports.");
 
 const SearchContext = createContext<{ search: string; setSearch: (value: string) => void }>({ search: "", setSearch: () => {} });
 export const useWorkspaceSearch = () => useContext(SearchContext);
