@@ -1,10 +1,11 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, BadgeCheck, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
+import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import "./inbox.css";
 
@@ -20,6 +21,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
 }) {
   // "Nova conversa": the picker on the left and, until the first message, a draft chat on the right.
   const [picking, setPicking] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [viewer, setViewer] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ phone: string; name: string | null; clientName: string | null } | null>(null);
   // Messages being sent (or sent in the demo), shown until the conversation reloads from the server.
   const [outbox, setOutbox] = useState<Record<string, InboxMessageItem[]>>({});
@@ -92,9 +96,11 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   }
 
   const conversations = (list?.conversations ?? []).map(item => readLocally.includes(item.id) ? { ...item, unread: 0 } : item);
+  // Archived conversations stay out of the counters, as in WhatsApp.
   const unreadByChannel = new Map<string, number>();
-  for (const item of conversations) if (item.unread) unreadByChannel.set(item.channelKey, (unreadByChannel.get(item.channelKey) ?? 0) + 1);
-  const inChannel = conversations.filter(item => item.channelKey === channelKey);
+  for (const item of conversations) if (item.unread && !item.archived) unreadByChannel.set(item.channelKey, (unreadByChannel.get(item.channelKey) ?? 0) + 1);
+  const archivedHere = conversations.filter(item => item.channelKey === channelKey && item.archived);
+  const inChannel = conversations.filter(item => item.channelKey === channelKey && item.archived === showArchived);
   const search = query.trim().toLocaleLowerCase("pt-BR");
   const visible = inChannel.filter(item => (filter === "all" || (filter === "unread" && item.unread > 0) || (filter === "favorites" && item.favorite) || (filter === "groups" && item.isGroup))
     && (!search || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""} ${item.preview ?? ""}`.toLocaleLowerCase("pt-BR").includes(search)));
@@ -117,8 +123,16 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
 
   function choose(id: string) {
     setDraft(null);
+    setMenuOpen(false);
     setOpenId(id);
     setReadLocally(current => current.includes(id) ? current : [...current, id]);
+  }
+  function toggleArchived(item: InboxConversation) {
+    setMenuOpen(false);
+    if (demo) return;
+    setList(current => current && { ...current, conversations: current.conversations.map(entry => entry.id === item.id ? { ...entry, archived: !item.archived } : entry) });
+    if (!item.archived) setOpenId(null);
+    fetch(`/api/whatsapp/inbox/${item.id}`, { method: "POST", body: JSON.stringify({ action: "archive", value: !item.archived }) }).catch(() => undefined);
   }
   function toggleFavorite(item: InboxConversation) {
     if (demo) return;
@@ -132,7 +146,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         const unread = unreadByChannel.get(item.key) ?? 0;
         return <button key={item.key} type="button" className={`wai-rail-item${item.key === channelKey ? " is-active" : ""}`} aria-pressed={item.key === channelKey}
           title={`${item.name}${item.phone ? ` · ${item.phone}` : ""}${item.kind === "official" ? item.coexistence ? " · API com coexistência" : " · API oficial" : " · QR Code"}`}
-          onClick={() => { setChannelKey(item.key); setOpenId(null); setDraft(null); setPicking(false); setFilter("all"); }}>
+          onClick={() => { setChannelKey(item.key); setOpenId(null); setDraft(null); setPicking(false); setShowArchived(false); setFilter("all"); }}>
           {item.kind === "qr" ? <QrCode size={21} /> : /\p{L}/u.test(item.name)
             ? <span className="wai-rail-initials" style={{ background: colorFor(item.key) }}>{initialsOf(item.name)}</span>
             : <span className="wai-rail-initials is-icon" style={{ background: colorFor(item.key) }}><BadgeCheck size={17} /></span>}
@@ -150,13 +164,23 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <button type="button" className="wai-icon-button" disabled title="Mais opções · em breve"><MoreVertical size={20} /></button>
         </div>
       </header>
-      {picking ? <NewChat contacts={contacts} onPick={startWith} onClose={() => setPicking(false)} /> : <>
+      {picking ? <NewChat contacts={contacts} onPick={startWith} onClose={() => setPicking(false)} /> : showArchived ? <>
+      <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setShowArchived(false)} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button><strong>Arquivadas</strong></div>
+      <p className="wai-new-note">As conversas arquivadas aqui também ficam arquivadas no celular. As arquivadas só pelo celular não aparecem nesta lista, porque o WhatsApp não avisa esse arquivamento à plataforma.</p>
+      <div className="wai-rows">
+        {!inChannel.length && <p className="wai-list-note">Nenhuma conversa arquivada.</p>}
+        {inChannel.map(item => <ConversationRow key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} onOpen={() => choose(item.id)} />)}
+      </div>
+      </> : <>
       <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar ou começar uma nova conversa" aria-label="Pesquisar conversas" /></label>
       <div className="wai-filters" role="group" aria-label="Filtrar conversas">
         {([["all", "Tudo"], ["unread", unreadHere ? `Não lidas ${unreadHere}` : "Não lidas"], ["favorites", "Favoritas"], ...(channel.kind === "qr" ? [["groups", "Grupos"]] : [])] as Array<[Filter, string]>).map(([key, label]) =>
           <button key={key} type="button" aria-pressed={filter === key} className={filter === key ? "is-active" : undefined} onClick={() => setFilter(key)}>{label}</button>)}
       </div>
       <div className="wai-rows">
+        {archivedHere.length > 0 && <button type="button" className="wai-archived-row" onClick={() => { setShowArchived(true); setFilter("all"); }}>
+          <Archive size={20} /><span>Arquivadas</span>{archivedHere.some(item => item.unread) && <small>{archivedHere.filter(item => item.unread).length}</small>}
+        </button>}
         {!list && <p className="wai-list-note">Carregando conversas…</p>}
         {list && !list.ready && <p className="wai-list-note">A caixa de entrada precisa da atualização do banco de dados. Assim que ela for aplicada, as conversas passam a aparecer aqui.</p>}
         {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
@@ -165,6 +189,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       </>}
     </section>
 
+    {viewer && <PhotoViewer src={viewer} onClose={() => setViewer(null)} />}
     <section className={`wai-chat${draft ? " has-draft" : ""}`} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
@@ -179,7 +204,13 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             <small>{[open.isGroup ? "Grupo" : open.title ? formatWhatsAppPhone(open.remoteId) : null, open.clientName ? `Cliente: ${open.clientName}` : null].filter(Boolean).join(" · ") || channel.name}</small></div>
           <div className="wai-head-actions">
             <button type="button" className={`wai-icon-button${open.favorite ? " is-on" : ""}`} onClick={() => toggleFavorite(open)} aria-pressed={open.favorite} title={open.favorite ? "Remover das favoritas" : "Favoritar"}><Star size={19} /></button>
-            <button type="button" className="wai-icon-button" disabled title="Mais opções · em breve"><MoreVertical size={20} /></button>
+            <div className="wai-head-menu">
+              <button type="button" className={`wai-icon-button${menuOpen ? " is-on" : ""}`} onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-label="Mais opções"><MoreVertical size={20} /></button>
+              {menuOpen && <div className="wai-attach-menu wai-chat-menu" role="menu">
+                <button type="button" role="menuitem" onClick={() => toggleArchived(open)}><Archive size={18} />{open.archived ? "Desarquivar conversa" : "Arquivar conversa"}</button>
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); toggleFavorite(open); }}><Star size={18} />{open.favorite ? "Remover das favoritas" : "Adicionar às favoritas"}</button>
+              </div>}
+            </div>
           </div>
         </header>
         <div className="wai-messages">
@@ -191,7 +222,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               const grouped = !newDay && previous?.direction === message.direction && previous.author === message.author;
               return <Fragment key={message.id}>
                 {newDay && <p className="wai-day"><span>{dayLabel(message.sentAt, now)}</span></p>}
-                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} live={!demo && !message.id.startsWith("local-")} />
+                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} live={!demo && !message.id.startsWith("local-")} onView={setViewer} />
               </Fragment>;
             })}
             <div ref={bottom} />
@@ -249,16 +280,78 @@ function ConversationRow({ item, active, now, photo, onOpen }: { item: InboxConv
 }
 
 // Files open from WhatsApp only when shown (not stored by the iGrow); a failure falls back to the label.
-function MediaImage({ src, sticker }: { src: string; sticker: boolean }) {
+function MediaImage({ src, sticker, onView }: { src: string; sticker: boolean; onView: (src: string) => void }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <div className="wai-media"><ImageIcon size={18} />{sticker ? "Figurinha" : "Foto"} indisponível</div>;
-  return <a href={src} target="_blank" rel="noopener noreferrer" className={sticker ? "wai-sticker" : "wai-photo"}>
+  return <button type="button" className={sticker ? "wai-sticker" : "wai-photo"} onClick={() => { if (!sticker) onView(src); }} aria-label={sticker ? "Figurinha" : "Abrir foto"}>
     {/* eslint-disable-next-line @next/next/no-img-element -- private file streamed from WhatsApp */}
     <img src={src} alt={sticker ? "Figurinha" : "Foto"} loading="lazy" onError={() => setFailed(true)} />
-  </a>;
+  </button>;
 }
 
-function Bubble({ message, tail, showAuthor, live }: { message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean }) {
+/** Full-screen photo, as WhatsApp opens it: close with the X, Esc or a click outside; download keeps the original. */
+function PhotoViewer({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return <div className="wai-viewer" role="dialog" aria-modal="true" aria-label="Foto" onClick={onClose}>
+    <div className="wai-viewer-bar" onClick={event => event.stopPropagation()}>
+      <a className="wai-icon-button" href={`${src}?baixar`} aria-label="Baixar foto" title="Baixar"><Download size={20} /></a>
+      <button type="button" className="wai-icon-button" onClick={onClose} aria-label="Fechar" title="Fechar"><X size={22} /></button>
+    </div>
+    {/* eslint-disable-next-line @next/next/no-img-element -- private file streamed from WhatsApp */}
+    <img src={src} alt="Foto" onClick={event => event.stopPropagation()} />
+  </div>;
+}
+
+/** Voice and audio messages: WhatsApp-like player; the file downloads only when played. */
+function AudioPlayer({ src, out }: { src: string; out: boolean }) {
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const url = useRef<string | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "playing" | "paused" | "error">("idle");
+  const [time, setTime] = useState({ current: 0, duration: 0 });
+  const [speed, setSpeed] = useState(1);
+  useEffect(() => () => { audio.current?.pause(); if (url.current) URL.revokeObjectURL(url.current); }, []);
+
+  async function toggle() {
+    if (state === "playing") { audio.current?.pause(); return; }
+    if (audio.current) { void audio.current.play(); return; }
+    setState("loading");
+    try {
+      const response = await fetch(src);
+      if (!response.ok) throw new Error();
+      url.current = URL.createObjectURL(await response.blob());
+      const element = new Audio(url.current);
+      element.playbackRate = speed;
+      element.onloadedmetadata = () => setTime({ current: 0, duration: Number.isFinite(element.duration) ? element.duration : 0 });
+      element.ontimeupdate = () => setTime({ current: element.currentTime, duration: Number.isFinite(element.duration) ? element.duration : element.currentTime });
+      element.onplay = () => setState("playing");
+      element.onpause = () => setState("paused");
+      element.onended = () => { element.currentTime = 0; setState("paused"); };
+      audio.current = element;
+      await element.play();
+    } catch { setState("error"); }
+  }
+  function seek(value: number) { if (audio.current && time.duration) audio.current.currentTime = value; }
+  function cycleSpeed() { const next = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1; setSpeed(next); if (audio.current) audio.current.playbackRate = next; }
+  const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  if (state === "error") return <div className="wai-media"><Mic size={18} />Áudio indisponível</div>;
+  return <div className={`wai-voice${out ? " is-out" : ""}`}>
+    <button type="button" className="wai-voice-play" onClick={() => void toggle()} aria-label={state === "playing" ? "Pausar áudio" : "Tocar áudio"}>
+      {state === "loading" ? <Loader2 size={20} className="wai-spin" /> : state === "playing" ? <Pause size={20} /> : <Play size={20} />}
+    </button>
+    <div className="wai-voice-track">
+      <input type="range" min={0} max={time.duration || 1} step={0.1} value={time.current} onChange={event => seek(Number(event.target.value))} disabled={!time.duration} aria-label="Posição do áudio"
+        style={{ "--wai-progress": `${time.duration ? (time.current / time.duration) * 100 : 0}%` } as React.CSSProperties} />
+      <small>{state === "idle" ? "Áudio" : clock(state === "playing" || time.current ? time.current : time.duration)}</small>
+    </div>
+    {state !== "idle" && <button type="button" className="wai-voice-speed" onClick={cycleSpeed} aria-label="Velocidade">{speed}×</button>}
+  </div>;
+}
+
+function Bubble({ message, tail, showAuthor, live, onView }: { message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; onView: (src: string) => void }) {
   const out = message.direction === "out";
   const meta = <span className="wai-meta">{clockTime(message.sentAt)}{out && <Ticks status={message.status} />}</span>;
   const src = `/api/whatsapp/inbox/media/${message.id}`;
@@ -274,14 +367,14 @@ function Bubble({ message, tail, showAuthor, live }: { message: InboxMessageItem
       {message.kind === "document" && live && <div className="wai-document-actions">
         <a href={src} target="_blank" rel="noopener noreferrer">Ver</a><a href={`${src}?baixar`}>Salvar como…</a>
       </div>}
-      {live && (message.kind === "image" || message.kind === "sticker") && <MediaImage src={src} sticker={message.kind === "sticker"} />}
+      {live && (message.kind === "image" || message.kind === "sticker") && <MediaImage src={src} sticker={message.kind === "sticker"} onView={onView} />}
       {live && message.kind === "video" && <video className="wai-video" controls preload="none" src={src} />}
-      {live && message.kind === "audio" && <audio className="wai-audio-player" controls preload="none" src={src} />}
+      {live && message.kind === "audio" && <AudioPlayer src={src} out={out} />}
       {!live && message.kind === "audio" && <div className="wai-audio"><span className="wai-audio-play"><Play size={18} /></span><span className="wai-audio-wave" aria-hidden /><small>Áudio</small></div>}
       {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
       {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
       {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
-      {message.body && message.kind !== "contact" && message.kind !== "location" && <p className="wai-text">{message.body}{meta}</p>}
+      {message.body && message.kind !== "contact" && message.kind !== "location" && <p className="wai-text"><WhatsAppText text={message.body} />{meta}</p>}
       {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
     </div>
   </div>;

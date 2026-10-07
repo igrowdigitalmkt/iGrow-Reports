@@ -109,8 +109,9 @@
 .wai-document-actions a { padding: 9px 0; color: var(--wai-green); font-size: 14.5px; font-weight: 500; text-align: center; text-decoration: none; }
 .wai-document-actions a + a { border-left: 1px solid var(--wai-doc); }
 .wai-document-actions a:hover { background: var(--wai-doc); }
-.wai-photo { display: block; margin: -3px -6px 4px; overflow: hidden; border-radius: 6px; }
+.wai-photo { display: block; margin: -3px -6px 4px; padding: 0; overflow: hidden; border: 0; border-radius: 6px; background: none; cursor: zoom-in; }
 .wai-photo img { display: block; width: 100%; max-width: 330px; max-height: 340px; object-fit: cover; }
+.wai-sticker { display: block; padding: 0; border: 0; background: none; }
 .wai-sticker img { display: block; width: 140px; height: 140px; object-fit: contain; }
 .wai-video { display: block; width: min(330px, 100%); max-height: 300px; margin: -3px -6px 4px; border-radius: 6px; background: #000; }
 .wai-audio-player { display: block; width: min(300px, 62vw); height: 40px; margin: 2px 0 2px; }
@@ -191,3 +192,37 @@
 .wai-recording-label { flex: 1; color: var(--wai-muted); font-size: 13.5px; }
 @keyframes wai-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .wai-recording-dot { animation: none; } }
+
+/* WhatsApp formatting inside bubbles. */
+.wai-text a { color: var(--wai-blue); text-decoration: underline; overflow-wrap: anywhere; }
+.wai-text code { padding: 1px 4px; border-radius: 4px; background: var(--wai-doc); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+.wai-text code.wai-mono { display: block; margin: 2px 0; padding: 6px 8px; white-space: pre-wrap; }
+
+/* Voice and audio player. */
+.wai-voice { display: flex; align-items: center; gap: 10px; width: min(300px, 62vw); padding: 4px 2px 0; }
+.wai-voice-play { display: grid; flex-shrink: 0; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: transparent; color: var(--wai-muted); cursor: pointer; }
+.wai-voice-play:hover { background: var(--wai-hover); color: var(--wai-text); }
+.wai-voice-track { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.wai-voice-track small { color: var(--wai-muted); font-size: 11px; }
+.wai-voice-track input { width: 100%; height: 4px; margin: 6px 0 2px; border-radius: 999px; appearance: none; background: linear-gradient(to right, var(--wai-green) var(--wai-progress, 0%), color-mix(in srgb, var(--wai-muted) 35%, transparent) var(--wai-progress, 0%)); cursor: pointer; }
+.wai-voice-track input::-webkit-slider-thumb { width: 12px; height: 12px; border-radius: 50%; appearance: none; background: var(--wai-green); }
+.wai-voice-track input::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: var(--wai-green); }
+.wai-voice-track input:disabled { cursor: default; }
+.wai-voice-speed { flex-shrink: 0; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--wai-doc); color: var(--wai-text); font-size: 12px; font-weight: 600; cursor: pointer; }
+.wai-spin { animation: wai-rotate 1s linear infinite; }
+@keyframes wai-rotate { to { transform: rotate(360deg); } }
+
+/* Photo viewer. */
+.wai-viewer { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 64px 24px 24px; background: color-mix(in srgb, var(--bg) 94%, transparent); }
+.wai-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 10px 40px rgba(0, 0, 0, .4); }
+.wai-viewer-bar { position: absolute; top: 12px; right: 16px; display: flex; gap: 6px; }
+.wai-viewer-bar .wai-icon-button { color: var(--text); }
+
+/* Archived. */
+.wai-archived-row { display: flex; align-items: center; gap: 20px; width: 100%; padding: 12px 22px; border: 0; border-radius: 10px; background: transparent; color: var(--wai-text); font: inherit; font-size: 15.5px; text-align: left; cursor: pointer; }
+.wai-archived-row:hover { background: var(--wai-hover); }
+.wai-archived-row svg { color: var(--wai-green); }
+.wai-archived-row span { flex: 1; }
+.wai-archived-row small { color: var(--wai-green); font-size: 12px; font-weight: 600; }
+.wai-head-menu { position: relative; }
+.wai-chat-menu { top: 46px; right: 0; bottom: auto; left: auto; min-width: 230px; }

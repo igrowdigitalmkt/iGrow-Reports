@@ -86,6 +86,16 @@ export class EvolutionClient {
     return (list ?? []).filter(group => group.id?.endsWith("@g.us")).map(group => ({ id: group.id, subject: group.subject?.trim() || "Grupo sem nome", size: group.size ?? null }));
   }
 
+  /** Marks received messages as read on WhatsApp (the contact sees the blue ticks, as when opening the chat). */
+  async markRead(name: string, keys: Array<{ remoteJid: string; fromMe: boolean; id: string }>) {
+    await this.request(`/chat/markMessageAsRead/${encodeURIComponent(name)}`, { method: "POST", body: { readMessages: keys } });
+  }
+
+  /** Archives or unarchives a chat on WhatsApp (needs its last message). */
+  async archive(name: string, chat: string, lastMessage: { key: { remoteJid: string; fromMe: boolean; id: string }; messageTimestamp: number }, archive: boolean) {
+    await this.request(`/chat/archiveChat/${encodeURIComponent(name)}`, { method: "POST", body: { chat, lastMessage, archive } });
+  }
+
   /** Public profile photo URL of a contact or group (null when hidden or absent). */
   async profilePictureUrl(name: string, number: string) {
     const result = await this.request<{ profilePictureUrl?: string | null }>(`/chat/fetchProfilePictureUrl/${encodeURIComponent(name)}`, { method: "POST", timeoutMs: 15_000, body: { number } });

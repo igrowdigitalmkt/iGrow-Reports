@@ -11,7 +11,7 @@ function toConversation(row: WhatsAppConversationRow, clientNames: Map<string, s
     id: row.id, channelKey: row.channel_key, remoteId: row.remote_id, isGroup: row.is_group, title: row.title,
     clientId: row.client_id, clientName: row.client_id ? clientNames.get(row.client_id) ?? null : null, favorite: row.favorite, unread: row.unread_count,
     lastAt: row.last_message_at, preview: row.last_message_preview, lastDirection: row.last_message_direction, lastKind: row.last_message_kind,
-    lastStatus: row.last_message_status, lastInboundAt: row.last_inbound_at,
+    lastStatus: row.last_message_status, lastInboundAt: row.last_inbound_at, archived: row.archived ?? false,
   };
 }
 

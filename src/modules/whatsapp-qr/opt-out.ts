@@ -44,3 +44,13 @@ export function parseMessageReceipt(body: unknown): MessageReceipt | null {
   const status = data.status === "DELIVERY_ACK" ? "delivered" : data.status === "READ" || data.status === "PLAYED" ? "read" : null;
   return status ? { instance: payload.instance, messageId, status } : null;
 }
+
+/** A received message read on another device (phone, WhatsApp Web), or null. */
+export function parseIncomingRead(body: unknown): { messageId: string } | null {
+  const payload = body as { event?: string; data?: { keyId?: string; key?: { id?: string }; fromMe?: boolean; status?: string } } | null;
+  if (!payload || (payload.event !== "messages.update" && payload.event !== "MESSAGES_UPDATE")) return null;
+  const data = payload.data;
+  const messageId = data?.keyId ?? data?.key?.id;
+  if (!data || data.fromMe !== false || !messageId || (data.status !== "READ" && data.status !== "PLAYED")) return null;
+  return { messageId };
+}

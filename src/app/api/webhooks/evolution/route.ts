@@ -1,7 +1,7 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { parseEvolutionMessage } from "@/modules/whatsapp/inbox-parse";
 import { recordInboxMessage, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
-import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
+import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
 import { qrGroupSubject, replyFromInstance, validWebhookToken } from "@/modules/whatsapp-qr/server";
 
 export const runtime = "nodejs";
@@ -29,6 +29,13 @@ export async function POST(request: Request) {
     if (receipt.status === "read") await service.from("automation_messages").update({ status: "read", read_at: at }).eq("agency_id", agencyId).eq("message_id", receipt.messageId).in("status", ["sent", "delivered"]);
     else await service.from("automation_messages").update({ status: "delivered" }).eq("agency_id", agencyId).eq("message_id", receipt.messageId).eq("status", "sent");
     await updateInboxStatus(service, agencyId, receipt.messageId, receipt.status);
+    return Response.json({ ok: true });
+  }
+
+  // Read on the phone: the conversation is read here too (no-op before migration 202610070014).
+  const incomingRead = parseIncomingRead(body);
+  if (incomingRead) {
+    await service.rpc("mark_whatsapp_read_by_message", { p_agency_id: agencyId, p_external_id: incomingRead.messageId }).then(() => undefined, () => undefined);
     return Response.json({ ok: true });
   }
 

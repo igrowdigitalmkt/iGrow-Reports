@@ -218,6 +218,8 @@ export type WhatsAppConversationRow = {
   is_group: boolean; title: string | null; client_id: string | null; favorite: boolean; unread_count: number;
   last_message_at: string | null; last_message_preview: string | null; last_message_direction: "in" | "out" | null; last_message_kind: string | null;
   last_message_status: "pending" | "sent" | "delivered" | "read" | "failed" | null; last_inbound_at: string | null; created_at: string; updated_at: string;
+  // Added by migration 202610070014.
+  archived?: boolean;
 };
 export type WhatsAppMessageRow = {
   id: string; agency_id: string; conversation_id: string; external_id: string; direction: "in" | "out"; kind: string;
@@ -374,6 +376,8 @@ export type Database = {
       update_whatsapp_message_status: { Args: { p_agency_id: string | null; p_external_id: string; p_status: string }; Returns: number };
       set_whatsapp_conversation_title: { Args: { p_conversation_id: string; p_title: string }; Returns: undefined };
       mark_whatsapp_conversation_read: { Args: { p_conversation_id: string }; Returns: undefined };
+      mark_whatsapp_read_by_message: { Args: { p_agency_id: string; p_external_id: string }; Returns: number };
+      set_whatsapp_conversation_archived: { Args: { p_conversation_id: string; p_archived: boolean }; Returns: undefined };
       set_whatsapp_conversation_favorite: { Args: { p_conversation_id: string; p_favorite: boolean }; Returns: undefined };
       service_client_analytics: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };
       record_whatsapp_webhook: { Args: { p_dedup_key: string; p_payload: Json }; Returns: boolean };

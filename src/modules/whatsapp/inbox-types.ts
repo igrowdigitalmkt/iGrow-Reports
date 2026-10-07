@@ -10,7 +10,7 @@ export type InboxConversation = {
   id: string; channelKey: string; remoteId: string; isGroup: boolean; title: string | null;
   clientId: string | null; clientName: string | null; favorite: boolean; unread: number;
   lastAt: string | null; preview: string | null; lastDirection: "in" | "out" | null; lastKind: string | null; lastStatus: InboxStatus;
-  lastInboundAt: string | null;
+  lastInboundAt: string | null; archived: boolean;
 };
 
 export type InboxMessageItem = {

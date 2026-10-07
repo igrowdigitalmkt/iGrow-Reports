@@ -10,7 +10,7 @@ export const demoInboxChannels: InboxChannel[] = [
 
 const conversation = (partial: Partial<InboxConversation> & Pick<InboxConversation, "id" | "channelKey" | "remoteId">): InboxConversation => ({
   isGroup: false, title: null, clientId: null, clientName: null, favorite: false, unread: 0, lastAt: null, preview: null,
-  lastDirection: null, lastKind: "text", lastStatus: null, lastInboundAt: null, ...partial,
+  lastDirection: null, lastKind: "text", lastStatus: null, lastInboundAt: null, archived: false, ...partial,
 });
 
 export const demoInboxConversations: InboxConversation[] = [
@@ -37,7 +37,7 @@ export const demoInboxThreads: Record<string, InboxMessageItem[]> = {
     message("m6", "in", 36, "Oiê! Bom dia!!!!\nNão esqueceeee 🙏"),
   ],
   d2: [
-    message("g1", "out", 60 * 3, "Bom dia, pessoal! Segue o resumo da semana do Colégio Crescer:\n\n💰 Investimento: R$ 727,43\n👀 Alcance: 50.836 pessoas\n🎯 Resultados: 14 cadastros concluídos"),
+    message("g1", "out", 60 * 3, "Bom dia, pessoal! Segue o *resumo da semana* do Colégio Crescer:\n\n💰 *Investimento:* R$ 727,43\n👀 *Alcance:* 50.836 pessoas\n🎯 *Resultados:* 14 cadastros concluídos\n\n_Para não receber mais estas mensagens, responda PARAR._"),
     message("g2", "in", 65, "Ótimo, obrigado!", { author: "Carlos Mendes" }),
     message("g3", "in", 62, "Os números da semana ficaram ótimos", { author: "Fernanda Lima" }),
   ],

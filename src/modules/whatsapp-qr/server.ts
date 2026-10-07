@@ -94,6 +94,24 @@ export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> 
   return (await evolution.groups(name)).sort((a, b) => a.subject.localeCompare(b.subject, "pt-BR"));
 }
 
+const chatJid = (remoteId: string) => remoteId.includes("@") ? remoteId : `${remoteId.replace(/\D/g, "")}@s.whatsapp.net`;
+
+/** Mirrors "read" on the phone for the given received messages (best effort). */
+export async function markQrRead(agencyId: string, remoteId: string, messageIds: string[]) {
+  const evolution = client();
+  if (!evolution || !messageIds.length) return;
+  const remoteJid = chatJid(remoteId);
+  await evolution.markRead(instanceNameFor(agencyId), messageIds.map(id => ({ remoteJid, fromMe: false, id }))).catch(() => undefined);
+}
+
+/** Mirrors archiving on the phone (best effort). */
+export async function archiveQrChat(agencyId: string, remoteId: string, last: { id: string; fromMe: boolean; sentAt: string }, archive: boolean) {
+  const evolution = client();
+  if (!evolution) return;
+  const remoteJid = chatJid(remoteId);
+  await evolution.archive(instanceNameFor(agencyId), remoteJid, { key: { remoteJid, fromMe: last.fromMe, id: last.id }, messageTimestamp: Math.floor(Date.parse(last.sentAt) / 1000) }, archive).catch(() => undefined);
+}
+
 /** Profile photo of a contact or group seen by the QR Code session, fetched on demand (not stored). */
 export async function qrProfilePicture(agencyId: string, remoteId: string) {
   const evolution = client();
