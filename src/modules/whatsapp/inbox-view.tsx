@@ -25,7 +25,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [picking, setPicking] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [viewer, setViewer] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ displaySrc: string; downloadSrc: string } | null>(null);
   const [draft, setDraft] = useState<{ phone: string; name: string | null; clientName: string | null } | null>(null);
   // Messages being sent (or sent in the demo), shown until the conversation reloads from the server.
   const [outbox, setOutbox] = useState<Record<string, InboxMessageItem[]>>({});
@@ -243,7 +243,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       </>}
     </section>
 
-    {viewer && <PhotoViewer src={viewer} onClose={() => setViewer(null)} />}
+    {viewer && <PhotoViewer src={viewer.displaySrc} downloadSrc={viewer.downloadSrc} onClose={() => setViewer(null)} />}
     <section className={`wai-chat${draft ? " has-draft" : ""}`} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
@@ -276,7 +276,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               const grouped = !newDay && previous?.direction === message.direction && previous.author === message.author;
               return <Fragment key={message.id}>
                 {newDay && <p className="wai-day"><span>{dayLabel(message.sentAt, now)}</span></p>}
-                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} live={!demo && !message.id.startsWith("local-")} onView={setViewer} />
+                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} live={!demo && !message.id.startsWith("local-")} onView={(displaySrc, downloadSrc) => setViewer({ displaySrc, downloadSrc })} />
               </Fragment>;
             })}
             <div ref={bottom} />
@@ -333,18 +333,100 @@ function ConversationRow({ item, active, now, photo, onOpen }: { item: InboxConv
   </button>;
 }
 
-// Files open from WhatsApp only when shown (not stored by the iGrow); a failure falls back to the label.
-function MediaImage({ src, sticker, onView }: { src: string; sticker: boolean; onView: (src: string) => void }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return <div className="wai-media"><ImageIcon size={18} />{sticker ? "Figurinha" : "Foto"} indisponível</div>;
-  return <button type="button" className={sticker ? "wai-sticker" : "wai-photo"} onClick={() => { if (!sticker) onView(src); }} aria-label={sticker ? "Figurinha" : "Abrir foto"}>
-    {/* eslint-disable-next-line @next/next/no-img-element -- private file streamed from WhatsApp */}
-    <img src={src} alt={sticker ? "Figurinha" : "Foto"} loading="lazy" onError={() => setFailed(true)} />
+// Photos and stickers are fetched ONLY after an explicit click. No background downloads.
+const MEDIA_PREVIEW_MS = 2 * 60_000;
+const MAX_PREVIEW_BYTES = 12 * 1024 * 1024;
+
+async function loadTemporaryMedia(src: string, signal: AbortSignal) {
+  const response = await fetch(src, { cache: "no-store", signal });
+  if (!response.ok) throw new Error("Arquivo indisponível.");
+  const length = Number(response.headers.get("content-length") ?? "0");
+  if (length > MAX_PREVIEW_BYTES) throw new Error("Arquivo grande demais para visualizar.");
+  const blob = await response.blob();
+  if (blob.size > MAX_PREVIEW_BYTES) throw new Error("Arquivo grande demais para visualizar.");
+  return URL.createObjectURL(blob);
+}
+
+function MediaImage({ src, sticker, onView }: { src: string; sticker: boolean; onView: (displaySrc: string, downloadSrc: string) => void }) {
+  const [state, setState] = useState<"idle" | "loading" | "error">("idle");
+  const imageUrl = useRef<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    request.current?.abort();
+    if (timer.current) clearTimeout(timer.current);
+    if (imageUrl.current) URL.revokeObjectURL(imageUrl.current);
+  }, []);
+  async function open() {
+    if (state === "loading") return;
+    if (imageUrl.current) { onView(imageUrl.current, src); return; }
+    setState("loading");
+    const controller = new AbortController();
+    request.current = controller;
+    try {
+      const url = await loadTemporaryMedia(src, controller.signal);
+      if (controller.signal.aborted) { URL.revokeObjectURL(url); return; }
+      imageUrl.current = url;
+      timer.current = setTimeout(() => {
+        if (imageUrl.current === url) {
+          URL.revokeObjectURL(url);
+          imageUrl.current = null;
+        }
+      }, MEDIA_PREVIEW_MS);
+      setState("idle");
+      onView(url, src);
+    } catch { if (!controller.signal.aborted) setState("error"); }
+  }
+  return <button type="button" className="wai-media-on-demand" disabled={state === "loading"} onClick={() => void open()}>
+    {state === "loading" ? <Loader2 size={19} className="wai-spin" /> : <ImageIcon size={19} />}
+    {state === "loading" ? "Carregando…" : state === "error" ? "Tentar carregar novamente" : sticker ? "Visualizar figurinha" : "Visualizar foto"}
   </button>;
 }
 
+function DeferredVideo({ src }: { src: string }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "error">("idle");
+  const current = useRef<string | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    request.current?.abort();
+    if (timer.current) clearTimeout(timer.current);
+    if (current.current) URL.revokeObjectURL(current.current);
+  }, []);
+  async function open() {
+    if (state === "loading") return;
+    const controller = new AbortController();
+    request.current = controller;
+    setState("loading");
+    try {
+      const url = await loadTemporaryMedia(src, controller.signal);
+      if (controller.signal.aborted) { URL.revokeObjectURL(url); return; }
+      current.current = url;
+      setPreview(url);
+      timer.current = setTimeout(() => {
+        if (current.current === url) {
+          URL.revokeObjectURL(url);
+          current.current = null;
+          setPreview(null);
+          setState("idle");
+        }
+      }, MEDIA_PREVIEW_MS);
+      setState("idle");
+    } catch { if (!controller.signal.aborted) setState("error"); }
+  }
+  return <div>
+    {preview ? <video className="wai-video" controls preload="none" src={preview} />
+      : <button type="button" className="wai-media-on-demand" onClick={() => void open()} disabled={state === "loading"}>
+        {state === "loading" ? <Loader2 size={18} className="wai-spin" /> : <Video size={18} />}
+        {state === "loading" ? "Carregando…" : state === "error" ? "Tentar carregar vídeo" : "Visualizar vídeo"}
+      </button>}
+    <a className="wai-media-save" href={`${downloadSrc}?baixar`}>Baixar vídeo</a>
+  </div>;
+}
+
 /** Full-screen photo, as WhatsApp opens it: close with the X, Esc or a click outside; download keeps the original. */
-function PhotoViewer({ src, onClose }: { src: string; onClose: () => void }) {
+function PhotoViewer({ src, downloadSrc, onClose }: { src: string; downloadSrc: string; onClose: () => void }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
@@ -364,20 +446,39 @@ function PhotoViewer({ src, onClose }: { src: string; onClose: () => void }) {
 function AudioPlayer({ src, out }: { src: string; out: boolean }) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const url = useRef<string | null>(null);
+  const expiry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const request = useRef<AbortController | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "playing" | "paused" | "error">("idle");
   const [time, setTime] = useState({ current: 0, duration: 0 });
   const [speed, setSpeed] = useState(1);
-  useEffect(() => () => { audio.current?.pause(); if (url.current) URL.revokeObjectURL(url.current); }, []);
+  useEffect(() => () => {
+    request.current?.abort();
+    if (expiry.current) clearTimeout(expiry.current);
+    audio.current?.pause();
+    if (url.current) URL.revokeObjectURL(url.current);
+  }, []);
 
   async function toggle() {
     if (state === "playing") { audio.current?.pause(); return; }
     if (audio.current) { void audio.current.play(); return; }
     setState("loading");
     try {
-      const response = await fetch(src);
-      if (!response.ok) throw new Error();
-      url.current = URL.createObjectURL(await response.blob());
-      const element = new Audio(url.current);
+      const controller = new AbortController();
+      request.current = controller;
+      const previewUrl = await loadTemporaryMedia(src, controller.signal);
+      if (controller.signal.aborted) { URL.revokeObjectURL(previewUrl); return; }
+      url.current = previewUrl;
+      const element = new Audio(previewUrl);
+      expiry.current = setTimeout(() => {
+        element.pause();
+        if (url.current === previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          url.current = null;
+          audio.current = null;
+          setState("idle");
+          setTime({ current: 0, duration: 0 });
+        }
+      }, MEDIA_PREVIEW_MS);
       element.playbackRate = speed;
       element.onloadedmetadata = () => setTime({ current: 0, duration: Number.isFinite(element.duration) ? element.duration : 0 });
       element.ontimeupdate = () => setTime({ current: element.currentTime, duration: Number.isFinite(element.duration) ? element.duration : element.currentTime });
@@ -405,7 +506,7 @@ function AudioPlayer({ src, out }: { src: string; out: boolean }) {
   </div>;
 }
 
-function Bubble({ message, tail, showAuthor, live, onView }: { message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; onView: (src: string) => void }) {
+function Bubble({ message, tail, showAuthor, live, onView }: { message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; onView: (displaySrc: string, downloadSrc: string) => void }) {
   const out = message.direction === "out";
   const meta = <span className="wai-meta">{clockTime(message.sentAt)}{out && <Ticks status={message.status} />}</span>;
   const src = `/api/whatsapp/inbox/media/${message.id}`;
@@ -422,7 +523,7 @@ function Bubble({ message, tail, showAuthor, live, onView }: { message: InboxMes
         <a href={src} target="_blank" rel="noopener noreferrer">Ver</a><a href={`${src}?baixar`}>Salvar como…</a>
       </div>}
       {live && (message.kind === "image" || message.kind === "sticker") && <MediaImage src={src} sticker={message.kind === "sticker"} onView={onView} />}
-      {live && message.kind === "video" && <video className="wai-video" controls preload="none" src={src} />}
+      {live && message.kind === "video" && <DeferredVideo src={src} />}
       {live && message.kind === "audio" && <AudioPlayer src={src} out={out} />}
       {!live && message.kind === "audio" && <div className="wai-audio"><span className="wai-audio-play"><Play size={18} /></span><span className="wai-audio-wave" aria-hidden /><small>Áudio</small></div>}
       {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}

@@ -240,3 +240,15 @@
 .wai-archived-row small { color: var(--wai-green); font-size: 12px; font-weight: 600; }
 .wai-head-menu { position: relative; }
 .wai-chat-menu { top: 46px; right: 0; bottom: auto; left: auto; min-width: 230px; }
+
+/* WhatsApp media: no thumbnails or file payloads load until the user asks. */
+.wai-media-on-demand {
+  display: flex; align-items: center; gap: 9px;
+  max-width: 100%; min-height: 42px; padding: 8px 11px;
+  border: 1px solid var(--wai-doc); border-radius: 7px;
+  background: transparent; color: var(--wai-text); cursor: pointer;
+  font-size: 13px;
+}
+.wai-media-on-demand:hover { background: var(--wai-doc); }
+.wai-media-on-demand:disabled { opacity: .7; cursor: wait; }
+.wai-media-save { display: inline-block; padding: 6px 4px; font-size: 12px; color: var(--wai-green); }
