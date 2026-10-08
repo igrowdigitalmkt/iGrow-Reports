@@ -20,6 +20,8 @@ export type InboxMessageItem = {
   pinned?: boolean;
   revoked?: boolean;
   canRevokeForEveryone?: boolean;
+  /** WhatsApp reply context (not a second message). */
+  quote?: { externalId: string; preview: string; author: string; fromMe: boolean | null } | null;
 };
 
 /** Recipient registered for a client, offered when starting a conversation. */
