@@ -298,3 +298,12 @@
 .wai-details-shortlinks > button { display:flex; gap:18px; align-items:center; min-height:56px; padding:0 12px; border:0; border-radius:9px; color:#f4f6f5; text-align:left; background:transparent; cursor:pointer; font-size:15px; }
 .wai-details-shortlinks > button:hover { background:#2b2d2d; }
 .wai-details-shortlinks > button svg { color:#b0b6b8; }
+
+/* Quoted replies (screens 17 and 20): nested in the original message bubble. */
+.wai-reply-in-bubble { display:flex; flex-direction:column; gap:4px; min-width:160px; max-width:100%; margin:0 0 4px; padding:8px 11px; border-left:4px solid var(--wai-quote-accent,#a38dff); border-radius:6px; background:rgba(0,0,0,.20); }
+.wai-reply-in-bubble > strong { display:block; color:var(--wai-quote-accent,#a38dff); font-size:13px; font-weight:600; line-height:17px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wai-reply-in-bubble > span { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:#bac4bf; font-size:13px; line-height:17px; overflow-wrap:anywhere; }
+.wai-reply-banner { position:relative; }
+.wai-reply-banner > span { display:flex; flex-direction:column; align-items:flex-start; padding:8px 12px; min-width:0; border-left:4px solid #f33068; gap:3px; background:rgba(0,0,0,.16); border-radius:7px; }
+.wai-reply-banner > span > strong { color:#28d76f; font-size:13px; }
+.wai-reply-banner > span > small { color:#c4cbca; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
