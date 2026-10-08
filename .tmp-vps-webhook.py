@@ -22,14 +22,14 @@ def call(path, method="GET", body=None):
 
 instances=call("/instance/fetchInstances")
 if isinstance(instances,dict): instances=instances.get("instances",[])
-events=["MESSAGES_UPSERT","MESSAGES_UPDATE","MESSAGES_SET","SEND_MESSAGE","CHATS_SET","CHATS_UPSERT","CHATS_UPDATE"]
+events=["MESSAGES_UPSERT","MESSAGES_UPDATE","SEND_MESSAGE","CHATS_UPSERT","CHATS_UPDATE"]
 for row in instances:
     name=row.get("name") or row.get("instanceName") or (row.get("instance") or {}).get("instanceName")
     if not name or not name.startswith("igrow-"): continue
     current=call("/webhook/find/"+urllib.parse.quote(name,safe=""))
     wh=current.get("webhook",current) if isinstance(current,dict) else {}
     payload={"webhook":{
-        "enabled": bool(wh.get("enabled",True)),
+        "enabled": True,
         "url": wh.get("url"),
         "headers": wh.get("headers") or {},
         "byEvents": bool(wh.get("byEvents",False)),
