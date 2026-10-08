@@ -286,3 +286,15 @@
 .wai-forward-dialog .wai-forward-destinations button { min-height:66px; }
 .wai-forward-dialog .wai-search { background:transparent; border:2px solid #f1f3f2; }
 /* Reference view is full screen; preserve iGrow's own navigation outside .wai-shell. */
+
+/* 20–21: functional contact shortcuts, avoiding misleading call buttons. */
+.wai-details-shortcuts { display:flex; justify-content:center; gap:14px; width:100%; margin-top:17px; }
+.wai-details-shortcuts button { display:flex; flex-direction:column; align-items:center; gap:7px; min-width:86px; border:0; background:transparent; color:#f0f2f1; font-size:12px; cursor:pointer; }
+.wai-details-shortcuts svg { box-sizing:content-box; width:22px; height:22px; padding:13px; border-radius:50%; background:#303232; }
+.wai-details-shortcuts button:hover svg { background:#454949; }
+.wai-details-section h4:has(svg) { display:flex; align-items:center; gap:16px; }
+.wai-details-section h4 > small { margin-left:auto; font-size:14px; color:#adb3b5; font-weight:400; }
+.wai-details-shortlinks { padding:8px 12px; }
+.wai-details-shortlinks > button { display:flex; gap:18px; align-items:center; min-height:56px; padding:0 12px; border:0; border-radius:9px; color:#f4f6f5; text-align:left; background:transparent; cursor:pointer; font-size:15px; }
+.wai-details-shortlinks > button:hover { background:#2b2d2d; }
+.wai-details-shortlinks > button svg { color:#b0b6b8; }
