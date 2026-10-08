@@ -1151,6 +1151,11 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
         {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
         {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
+        {message.quote && !message.revoked && <div className="wai-reply-in-bubble"
+          style={{ "--wai-quote-accent": message.quote.fromMe === true ? "#25d366" : "#a38dff" } as React.CSSProperties}>
+          <strong>{message.quote.author}</strong>
+          <span>{message.quote.preview}</span>
+        </div>}
         {message.body && message.kind !== "contact" && message.kind !== "location" && <p className={`wai-text${message.revoked ? " is-revoked" : ""}`}><WhatsAppText text={message.body} />{meta}</p>}
         {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
       </div>
@@ -1344,8 +1349,7 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
   return <footer className="wai-composer-area">
     {error && <p role="alert" className="wai-composer-error"><AlertCircle size={14} />{error}</p>}
     {replyTarget && <div className="wai-reply-banner">
-      <Reply size={18} />
-      <span><strong>Respondendo à {replyTarget.direction === "in" ? "mensagem recebida" : "mensagem enviada"}</strong>
+      <span><strong>{replyTarget.direction === "out" ? "Você" : replyTarget.author || conversationTitle(conversation)}</strong>
         <small>{replyTarget.body?.slice(0, 110) || kindLabel(replyTarget.kind)}</small></span>
       <button type="button" className="wai-icon-button" onClick={onClearReply} aria-label="Cancelar resposta"><X size={17} /></button>
     </div>}
