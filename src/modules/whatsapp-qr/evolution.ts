@@ -82,6 +82,19 @@ export class EvolutionClient {
     return result?.subject?.trim() || null;
   }
 
+  async groupInfo(name: string, groupJid: string) {
+    const result = await this.request<{ subject?: string; desc?: string; size?: number; participants?: Array<{ id?: string; admin?: string | null }> }>(
+      `/group/findGroupInfos/${encodeURIComponent(name)}?groupJid=${encodeURIComponent(groupJid)}`, { timeoutMs: 12_000 });
+    return {
+      subject: typeof result?.subject === "string" ? result.subject.slice(0, 200) : null,
+      description: typeof result?.desc === "string" ? result.desc.slice(0, 1500) : null,
+      members: typeof result?.size === "number" ? result.size : result?.participants?.length ?? null,
+      participants: (result?.participants ?? []).slice(0, 40).flatMap(item =>
+        typeof item.id === "string" && item.id.length < 120
+          ? [{ id: item.id, admin: !!item.admin }] : []),
+    };
+  }
+
   async resolvePeerLinks(name: string, lids: string[]): Promise<Array<{ lid: string; phone: string }>> {
     return this.request<Array<{ lid: string; phone: string }>>(`/chat/resolvePeerLinks/${encodeURIComponent(name)}`, {
       method: "POST", body: { lids: lids.slice(0, 60) }, timeoutMs: 25_000,

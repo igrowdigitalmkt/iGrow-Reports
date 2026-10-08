@@ -100,6 +100,12 @@ export async function qrResolvePeerLinks(agencyId: string, lids: string[]) {
   return evolution.resolvePeerLinks(instanceNameFor(agencyId), lids);
 }
 
+export async function qrGroupInfo(agencyId: string, groupJid: string) {
+  const evolution = client();
+  if (!evolution) return null;
+  return evolution.groupInfo(instanceNameFor(agencyId), groupJid).catch(() => null);
+}
+
 export async function qrGroupSubject(instance: string, groupJid: string, timeoutMs = 15_000) {
   const evolution = client();
   if (!evolution) return null;

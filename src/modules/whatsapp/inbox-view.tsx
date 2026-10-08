@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -12,6 +12,8 @@ import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
 import "./inbox.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
+type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
+type DetailData = { media: Array<{ id: string; kind: string; media_name: string | null; sent_at: string }>; group: { subject: string | null; description: string | null; members: number | null; participants: Array<{ id: string; admin: boolean }> } | null };
 const QR_CHANNEL: InboxChannel = { key: "qr", kind: "qr", name: "Seu WhatsApp", phone: null, coexistence: false };
 
 /**
@@ -25,6 +27,17 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [picking, setPicking] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [listMenuOpen, setListMenuOpen] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ completed: 0, total: 0 });
+  const [starPanel, setStarPanel] = useState(false);
+  const [stars, setStars] = useState<StarredItem[]>([]);
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [details, setDetails] = useState<DetailData | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [viewer, setViewer] = useState<{ displaySrc: string; downloadSrc: string } | null>(null);
   const [draft, setDraft] = useState<{ phone: string; name: string | null; clientName: string | null } | null>(null);
   // Messages being sent (or sent in the demo), shown until the conversation reloads from the server.
@@ -42,6 +55,36 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [readLocally, setReadLocally] = useState<Record<string, OptimisticRead>>({});
   const [actionError, setActionError] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
+
+  async function refreshStars() {
+    if (demo) return;
+    const response = await fetch("/api/whatsapp/inbox/starred", { cache: "no-store" });
+    if (!response.ok) throw new Error("Não foi possível consultar as mensagens favoritas.");
+    const payload = await response.json() as { items: StarredItem[] };
+    setStars(payload.items);
+    setStarredIds(new Set(payload.items.map(item => item.id)));
+  }
+
+  useEffect(() => {
+    if (demo) return;
+    void fetch("/api/whatsapp/inbox/starred", { cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then((body: { items?: StarredItem[] } | null) => {
+        if (!body?.items) return;
+        setStars(body.items); setStarredIds(new Set(body.items.map(item => item.id)));
+      }).catch(() => undefined);
+  }, [demo]);
+
+  useEffect(() => {
+    if (!detailsOpen || !openId) return;
+    if (demo) return;
+    let cancelled = false;
+    void fetch(`/api/whatsapp/inbox/${openId}/details`, { cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then((result: DetailData | null) => { if (!cancelled) { setDetails(result); setDetailsLoading(false); } })
+      .catch(() => { if (!cancelled) setDetailsLoading(false); });
+    return () => { cancelled = true; };
+  }, [demo, detailsOpen, openId]);
 
   // Recent monitoring only: deltas every 10 seconds; reconcile deletions every 10 minutes.
   // Skip inactive tabs and avoid overlapping requests so a slow poll cannot overwrite fresh data.
@@ -210,6 +253,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   function choose(id: string) {
     setDraft(null);
     setMenuOpen(false);
+    setListMenuOpen(false);
+    setDetailsOpen(false); setDetails(null);
     setOpenId(id);
     const selected = list?.conversations.find(item => item.id === id);
     if (!demo && selected?.unread) {
@@ -240,13 +285,86 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     fetch(`/api/whatsapp/inbox/${item.id}`, { method: "POST", body: JSON.stringify({ action: "favorite", value: !item.favorite }) }).catch(() => undefined);
   }
 
+  async function toggleMessageStar(message: InboxMessageItem) {
+    if (demo || message.id.startsWith("local-")) return;
+    const value = !starredIds.has(message.id);
+    setStarredIds(current => {
+      const next = new Set(current);
+      if (value) next.add(message.id); else next.delete(message.id);
+      return next;
+    });
+    try {
+      const response = await fetch("/api/whatsapp/inbox/starred", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: message.id, starred: value }),
+      });
+      if (!response.ok) throw new Error("Não foi possível salvar a mensagem favorita.");
+      await refreshStars();
+    } catch {
+      setStarredIds(current => {
+        const next = new Set(current);
+        if (value) next.delete(message.id); else next.add(message.id);
+        return next;
+      });
+      setActionError("Não foi possível atualizar o favorito. Tente novamente.");
+    }
+  }
+
+  async function markSelectedRead(ids: string[]) {
+    if (!ids.length || bulkBusy) return;
+    setListMenuOpen(false); setBulkBusy(true); setBulkProgress({ completed: 0, total: ids.length }); setActionError("");
+    let done = 0;
+    const failures: string[] = [];
+    // At most two phone calls concurrently; an entire WhatsApp account must not
+    // generate hundreds of simultaneous Baileys app-state writes.
+    for (let start = 0; start < ids.length; start += 2) {
+      const batch = ids.slice(start, start + 2);
+      const results = await Promise.all(batch.map(async id => {
+        if (demo) return true;
+        try {
+          const response = await fetch(`/api/whatsapp/inbox/${id}`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "read" }),
+          });
+          return response.ok;
+        } catch { return false; }
+      }));
+      results.forEach((ok, index) => {
+        if (!ok) failures.push(batch[index]); else {
+          const id = batch[index];
+          setList(previous => previous && { ...previous,
+            conversations: previous.conversations.map(item => item.id === id ? { ...item, unread: 0 } : item) });
+          setReadLocally(current => { const next = { ...current }; delete next[id]; return next; });
+        }
+      });
+      done += batch.length;
+      setBulkProgress({ completed: done, total: ids.length });
+    }
+    setBulkBusy(false);
+    if (failures.length) {
+      setSelectedIds(failures);
+      setSelecting(true);
+      setActionError(`${failures.length} conversa(s) não foram confirmadas pelo WhatsApp. Elas permanecem selecionadas para tentar novamente.`);
+    } else {
+      setSelectedIds([]);
+      setSelecting(false);
+      setActionError("");
+    }
+    if (!demo) void fetch("/api/whatsapp/inbox", { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null).then((fresh: InboxList | null) => { if (fresh?.ready) setList(fresh); }).catch(() => undefined);
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
+  }
+
   return <div className={`wai-shell${openId || draft ? " is-chat-open" : ""}`}>
     <nav className="wai-rail" aria-label="Números de WhatsApp">
       {allChannels.map(item => {
         const unread = unreadByChannel.get(item.key) ?? 0;
         return <button key={item.key} type="button" className={`wai-rail-item${item.key === channelKey ? " is-active" : ""}`} aria-pressed={item.key === channelKey}
           title={`${item.name}${item.phone ? ` · ${item.phone}` : ""}${item.kind === "official" ? item.coexistence ? " · API com coexistência" : " · API oficial" : " · QR Code"}`}
-          onClick={() => { setChannelKey(item.key); setOpenId(null); setDraft(null); setPicking(false); setShowArchived(false); setFilter("all"); }}>
+          onClick={() => { setChannelKey(item.key); setOpenId(null); setDraft(null); setPicking(false); setShowArchived(false); setStarPanel(false); setSelecting(false); setSelectedIds([]); setListMenuOpen(false); setDetailsOpen(false); setFilter("all"); }}>
           {item.kind === "qr" ? <QrCode size={21} /> : /\p{L}/u.test(item.name)
             ? <span className="wai-rail-initials" style={{ background: colorFor(item.key) }}>{initialsOf(item.name)}</span>
             : <span className="wai-rail-initials is-icon" style={{ background: colorFor(item.key) }}><BadgeCheck size={17} /></span>}
@@ -261,16 +379,40 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         <div className="wai-head-actions">
           <button type="button" className={`wai-icon-button${picking ? " is-on" : ""}`} disabled={channel.kind !== "qr" || !canReply} onClick={() => setPicking(value => !value)}
             title={channel.kind !== "qr" ? "Nos números oficiais, uma conversa nova só começa com mensagem modelo aprovada" : "Nova conversa"}><Plus size={20} /></button>
-          <button type="button" className="wai-icon-button" disabled title="Mais opções · em breve"><MoreVertical size={20} /></button>
+          <div className="wai-head-menu">
+            <button type="button" className="wai-icon-button" aria-label="Opções de conversas" aria-expanded={listMenuOpen}
+              onClick={() => setListMenuOpen(value => !value)}><MoreVertical size={20} /></button>
+            {listMenuOpen && <div className="wai-attach-menu wai-chat-menu wai-list-menu" role="menu">
+              <button type="button" role="menuitem" onClick={() => { setListMenuOpen(false); setStarPanel(true); setPicking(false); setSelecting(false); void refreshStars().catch(() => setActionError("Não foi possível carregar as favoritas.")); }}><BookmarkCheck size={18} />Mensagens favoritas</button>
+              <button type="button" role="menuitem" onClick={() => { setListMenuOpen(false); setSelecting(true); setStarPanel(false); setPicking(false); setShowArchived(false); }}><CheckSquare size={18} />Selecionar conversas</button>
+              <button type="button" role="menuitem" disabled={bulkBusy || !inChannel.some(item => item.unread > 0)}
+                onClick={() => void markSelectedRead(inChannel.filter(item => item.unread > 0).map(item => item.id))}><CheckCheck size={18} />Marcar todas como lidas</button>
+            </div>}
+          </div>
         </div>
       </header>
       {actionError && <p role="alert" className="wai-list-note">{actionError}</p>}
-      {picking ? <NewChat contacts={contacts} onPick={startWith} onClose={() => setPicking(false)} /> : showArchived ? <>
+      {selecting && !picking && !starPanel && <div className="wai-selection-bar">
+        <span>{bulkBusy ? `Sincronizando ${bulkProgress.completed}/${bulkProgress.total}` : `${selectedIds.length} selecionada(s)`}</span>
+        <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => void markSelectedRead(selectedIds)}><CheckCheck size={16} />Marcar como lidas</button>
+        <button type="button" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); }} aria-label="Cancelar seleção"><X size={18} /></button>
+      </div>}
+      {picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={choose} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
+        <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setStarPanel(false)} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Mensagens favoritas</strong></div>
+        <p className="wai-new-note">Favoritos privados nesta plataforma, preservados enquanto as mensagens estiverem disponíveis no iGrow.</p>
+        <div className="wai-rows">
+          {!stars.length && <p className="wai-list-note">Nenhuma mensagem favorita.</p>}
+          {stars.map(item => <button type="button" key={item.id} className="wai-starred-item" onClick={() => { setStarPanel(false); setChannelKey(item.channelKey); choose(item.conversationId); }}>
+            <Star size={16} fill="currentColor" /><span><strong>{conversationTitle({ title: item.title, remoteId: item.remoteId, isGroup: item.isGroup })}</strong><small>{item.body?.slice(0, 130) || kindLabel(item.kind) || "Mensagem"} · {listTime(item.sentAt, now)}</small></span>
+          </button>)}
+        </div>
+      </div> : showArchived ? <>
       <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setShowArchived(false)} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button><strong>Arquivadas</strong></div>
       <p className="wai-new-note">As conversas arquivadas no celular também aparecem aqui após a sincronização do WhatsApp. Alterações podem levar alguns instantes para atualizar.</p>
       <div className="wai-rows">
         {!inChannel.length && <p className="wai-list-note">Nenhuma conversa arquivada.</p>}
-        {inChannel.map(item => <ConversationRow key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} onOpen={() => choose(item.id)} />)}
+        {inChannel.map(item => <ConversationChoice key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} selecting={selecting}
+          selected={selectedIds.includes(item.id)} onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
       </> : <>
       <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar ou começar uma nova conversa" aria-label="Pesquisar conversas" /></label>
@@ -285,7 +427,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         {!list && <p className="wai-list-note">Carregando conversas…</p>}
         {list && !list.ready && <p className="wai-list-note">A caixa de entrada precisa da atualização do banco de dados. Assim que ela for aplicada, as conversas passam a aparecer aqui.</p>}
         {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
-        {visible.map(item => <ConversationRow key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} onOpen={() => choose(item.id)} />)}
+        {visible.map(item => <ConversationChoice key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} selecting={selecting}
+          selected={selectedIds.includes(item.id)} onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
       </>}
     </section>
@@ -299,15 +442,19 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         <span className="wai-empty-lock"><Lock size={13} />Visível só para a equipe com acesso ao WhatsApp</span>
       </div> : <>
         <header className="wai-chat-head">
-          <button type="button" className="wai-icon-button wai-back" onClick={() => setOpenId(null)} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button>
-          <Avatar key={open.id} item={open} size={40} photo={!demo} />
-          <div className="wai-chat-title"><strong>{conversationTitle(open)}</strong>
-            <small>{[open.isGroup ? "Grupo" : open.title ? formatWhatsAppPhone(open.remoteId) : null, open.clientName ? `Cliente: ${open.clientName}` : null].filter(Boolean).join(" · ") || channel.name}</small></div>
+          <button type="button" className="wai-icon-button wai-back" onClick={() => { setOpenId(null); setDetailsOpen(false); }} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button>
+          <button type="button" className="wai-contact-trigger" title={open.isGroup ? "Informações do grupo" : "Dados do contato"}
+            onClick={() => { setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}>
+            <Avatar key={open.id} item={open} size={40} photo={!demo} />
+            <span className="wai-chat-title"><strong>{conversationTitle(open)}</strong>
+              <small>{[open.isGroup ? "Grupo" : open.title ? formatWhatsAppPhone(open.remoteId) : null, open.clientName ? `Cliente: ${open.clientName}` : null].filter(Boolean).join(" · ") || channel.name}</small></span>
+          </button>
           <div className="wai-head-actions">
             <button type="button" className={`wai-icon-button${open.favorite ? " is-on" : ""}`} onClick={() => toggleFavorite(open)} aria-pressed={open.favorite} title={open.favorite ? "Remover das favoritas" : "Favoritar"}><Star size={19} /></button>
             <div className="wai-head-menu">
               <button type="button" className={`wai-icon-button${menuOpen ? " is-on" : ""}`} onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-label="Mais opções"><MoreVertical size={20} /></button>
               {menuOpen && <div className="wai-attach-menu wai-chat-menu" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}><Info size={18} />{open.isGroup ? "Informações do grupo" : "Dados do contato"}</button>
                 <button type="button" role="menuitem" onClick={() => toggleArchived(open)}><Archive size={18} />{open.archived ? "Desarquivar conversa" : "Arquivar conversa"}</button>
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); toggleFavorite(open); }}><Star size={18} />{open.favorite ? "Remover das favoritas" : "Adicionar às favoritas"}</button>
               </div>}
@@ -323,7 +470,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               const grouped = !newDay && previous?.direction === message.direction && previous.author === message.author;
               return <Fragment key={message.id}>
                 {newDay && <p className="wai-day"><span>{dayLabel(message.sentAt, now)}</span></p>}
-                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} live={!demo && !message.id.startsWith("local-")} onView={(displaySrc, downloadSrc) => setViewer({ displaySrc, downloadSrc })} />
+                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} live={!demo && !message.id.startsWith("local-")}
+                  starred={starredIds.has(message.id)} onStar={() => void toggleMessageStar(message)}
+                  onView={(displaySrc, downloadSrc) => setViewer({ displaySrc, downloadSrc })} />
               </Fragment>;
             })}
             <div ref={bottom} />
@@ -331,6 +480,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         </div>
         <Composer key={open.id} conversation={open} kind={channel.kind} now={now} demo={demo} canReply={canReply}
           onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { if (!demo) reload(open.id); }} />
+        {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo} onClose={() => setDetailsOpen(false)} />}
       </>}
     </section>
   </div>;
@@ -358,6 +508,16 @@ function Ticks({ status }: { status: InboxStatus }) {
 }
 
 const KIND_ICONS: Record<string, typeof ImageIcon> = { image: ImageIcon, video: Video, audio: Mic, document: FileText, sticker: Sticker, location: MapPin, contact: Contact };
+
+function ConversationChoice({ item, active, now, photo, selecting, selected, onOpen, onSelect }: {
+  item: InboxConversation; active: boolean; now: Date; photo: boolean; selecting: boolean; selected: boolean;
+  onOpen: () => void; onSelect: () => void;
+}) {
+  return <div className={`wai-select-row${selected ? " is-selected" : ""}`}>
+    {selecting && <input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Selecionar ${conversationTitle(item)}`} />}
+    <ConversationRow item={item} active={active} now={now} photo={photo} onOpen={onOpen} />
+  </div>;
+}
 
 function ConversationRow({ item, active, now, photo, onOpen }: { item: InboxConversation; active: boolean; now: Date; photo: boolean; onOpen: () => void }) {
   const Icon = item.lastKind ? KIND_ICONS[item.lastKind] : undefined;
@@ -553,14 +713,18 @@ function AudioPlayer({ src, out }: { src: string; out: boolean }) {
   </div>;
 }
 
-function Bubble({ message, tail, showAuthor, live, onView }: { message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; onView: (displaySrc: string, downloadSrc: string) => void }) {
+function Bubble({ message, tail, showAuthor, live, starred, onStar, onView }: {
+  message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; starred: boolean; onStar: () => void;
+  onView: (displaySrc: string, downloadSrc: string) => void;
+}) {
   const out = message.direction === "out";
   const meta = <span className="wai-meta">{clockTime(message.sentAt)}{out && <Ticks status={message.status} />}</span>;
   const src = `/api/whatsapp/inbox/media/${message.id}`;
   const shownLive = live && (message.kind === "image" || message.kind === "sticker" || message.kind === "video" || message.kind === "audio");
   const Icon = shownLive ? undefined : KIND_ICONS[message.kind];
   return <div className={`wai-bubble-row ${out ? "is-out" : "is-in"}`}>
-    <div className={`wai-bubble${tail ? " has-tail" : ""}${message.kind === "reaction" ? " is-reaction" : ""}`}>
+    <div className={`wai-bubble${tail ? " has-tail" : ""}${message.kind === "reaction" ? " is-reaction" : ""}`} id={`wai-msg-${message.id}`}>
+      {live && <button type="button" className={`wai-bubble-star${starred ? " is-starred" : ""}`} aria-pressed={starred} title={starred ? "Remover mensagem dos favoritos" : "Favoritar mensagem"} onClick={onStar}><Star size={15} fill={starred ? "currentColor" : "none"} /></button>}
       {showAuthor && message.author && <span className="wai-author" style={{ color: colorFor(message.author) }}>{message.author}</span>}
       {message.kind === "document" && <div className="wai-document">
         <span className="wai-document-icon"><FileText size={22} /><small>{(message.mediaName?.split(".").pop() ?? "PDF").slice(0, 4).toUpperCase()}</small></span>
@@ -758,12 +922,22 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
 }
 
 /** "Nova conversa": the client recipients registered in the iGrow, or any number typed with DDD. */
-function NewChat({ contacts, onPick, onClose }: { contacts: InboxContact[]; onPick: (contact: { phone: string; name: string | null; clientName: string | null }) => void; onClose: () => void }) {
+function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
+  contacts: InboxContact[]; conversations: InboxConversation[]; onExisting: (id: string) => void;
+  onPick: (contact: { phone: string; name: string | null; clientName: string | null }) => void; onClose: () => void;
+}) {
   const [query, setQuery] = useState("");
   const search = query.trim().toLocaleLowerCase("pt-BR");
   const digits = query.replace(/\D/g, "");
   const shown = contacts.filter(contact => !search || `${contact.name} ${contact.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search) || (digits.length >= 3 && contact.phone.replace(/\D/g, "").includes(digits)));
   const typed = digits.length >= 10 ? (digits.length <= 11 ? `55${digits}` : digits) : null;
+  const recent = conversations.filter(item => !search ||
+    `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search)
+    || (digits.length >= 3 && item.remoteId.replace(/\D/g, "").includes(digits))).slice(0, search ? 60 : 20);
+  // A saved recipient already visible as a recent conversation should not
+  // appear twice in the contact picker (DDD+last 8 handles Brazil's ninth digit).
+  const recentPhones = new Set(recent.filter(item => !item.remoteId.endsWith("@lid")).map(item => phoneKey(item.remoteId)));
+  const recipients = shown.filter(contact => !recentPhones.has(phoneKey(contact.phone)));
   return <div className="wai-new">
     <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={onClose} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Nova conversa</strong></div>
     <label className="wai-search"><Search size={17} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar nome ou digitar número com DDD" aria-label="Pesquisar contato ou número" /></label>
@@ -773,14 +947,73 @@ function NewChat({ contacts, onPick, onClose }: { contacts: InboxContact[]; onPi
         <span className="wai-avatar is-icon" style={{ width: 49, height: 49 }}><Contact size={24} /></span>
         <span className="wai-row-main"><span className="wai-row-top"><strong>Conversar com {formatWhatsAppPhone(typed)}</strong></span><span className="wai-row-client">Número digitado</span></span>
       </button>}
-      {shown.length > 0 && <p className="wai-new-title">Destinatários dos clientes</p>}
-      {shown.map(contact => <button key={contact.id} type="button" className="wai-row" onClick={() => onPick({ phone: contact.phone.replace(/\D/g, ""), name: contact.name, clientName: contact.clientName })}>
+      {recent.length > 0 && <p className="wai-new-title">Conversas recentes deste WhatsApp</p>}
+      {recent.map(item => <button type="button" key={item.id} className="wai-row" onClick={() => onExisting(item.id)}>
+        <Avatar item={item} size={49} photo={false} />
+        <span className="wai-row-main"><span className="wai-row-top"><strong>{conversationTitle(item)}</strong></span>
+          <span className="wai-row-preview"><span>{formatWhatsAppPhone(item.remoteId)}</span></span>
+          {item.clientName && <span className="wai-row-client">{item.clientName}</span>}
+        </span>
+      </button>)}
+      {recipients.length > 0 && <p className="wai-new-title">Destinatários dos clientes</p>}
+      {recipients.map(contact => <button key={contact.id} type="button" className="wai-row" onClick={() => onPick({ phone: contact.phone.replace(/\D/g, ""), name: contact.name, clientName: contact.clientName })}>
         <span className="wai-avatar" style={{ width: 49, height: 49, background: colorFor(contact.name) }}>{initialsOf(contact.name)}</span>
         <span className="wai-row-main"><span className="wai-row-top"><strong>{contact.name}</strong></span><span className="wai-row-preview"><span>{formatWhatsAppPhone(contact.phone.replace(/\D/g, ""))}</span></span>{contact.clientName && <span className="wai-row-client">{contact.clientName}</span>}</span>
       </button>)}
-      {!shown.length && !typed && <p className="wai-list-note">{contacts.length ? "Nenhum destinatário encontrado. Digite o número com DDD para conversar com outra pessoa." : "Digite o número com DDD. Os destinatários cadastrados nos clientes aparecem aqui."}</p>}
+      {!recipients.length && !typed && !recent.length && <p className="wai-list-note">{search ? "Nenhum contato encontrado. Digite um número com DDD para iniciar uma nova conversa." : "Pesquise as conversas recentes, os destinatários dos clientes ou digite um número com DDD."}</p>}
     </div>
   </div>;
+}
+
+/** Contact and group details. The panel fetches only when requested and never preloads media. */
+function ContactDetails({ item, data, loading, demo, onClose }: {
+  item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean; onClose: () => void;
+}) {
+  const name = conversationTitle(item);
+  const media = data?.media ?? [];
+  const group = data?.group;
+  return <aside className="wai-details" aria-label={item.isGroup ? "Informações do grupo" : "Dados do contato"}>
+    <header className="wai-details-head">
+      <button type="button" className="wai-icon-button" onClick={onClose} aria-label="Fechar informações"><X size={21} /></button>
+      <strong>{item.isGroup ? "Informações do grupo" : "Dados do contato"}</strong>
+    </header>
+    <div className="wai-details-scroll">
+      <div className="wai-details-identity">
+        <Avatar item={item} size={100} photo={!demo} />
+        <h3>{name}</h3>
+        {!item.isGroup && <p>{formatWhatsAppPhone(item.remoteId)}</p>}
+        {item.clientName && <span className="wai-details-chip">Cliente: {item.clientName}</span>}
+      </div>
+      {item.isGroup && <div className="wai-details-section">
+        <h4>Sobre o grupo</h4>
+        {group?.description && <p className="wai-details-description">{group.description}</p>}
+        {group?.members != null && <p>{group.members} participantes</p>}
+        {!group && <p className="wai-details-muted">Informações adicionais não disponíveis nesta sessão.</p>}
+      </div>}
+      {item.isGroup && !!group?.participants?.length && <div className="wai-details-section">
+        <h4>Participantes</h4>
+        {group.participants.map(participant => <div key={participant.id} className="wai-details-member">
+          <Contact size={18} /><span>{participant.id.endsWith("@lid") ? `Participante · ${participant.id.split("@")[0].slice(-4)}` : formatWhatsAppPhone(participant.id.replace("@s.whatsapp.net", ""))}</span>
+          {participant.admin && <small>Admin.</small>}
+        </div>)}
+        {group.members != null && group.members > group.participants.length && <p className="wai-details-muted">Exibindo até {group.participants.length} participantes.</p>}
+      </div>}
+      <div className="wai-details-section">
+        <h4>Mídia, links e documentos</h4>
+        {loading && <p className="wai-details-muted">Carregando informações…</p>}
+        {!loading && !media.length && <p className="wai-details-muted">Nenhum arquivo recente disponível.</p>}
+        {media.map(file => {
+          const Icon = KIND_ICONS[file.kind] ?? FileText;
+          return <a key={file.id} className="wai-details-file" target="_blank" rel="noopener noreferrer"
+            href={`/api/whatsapp/inbox/media/${file.id}`}>
+            <Icon size={18} /><span><strong>{file.media_name || kindLabel(file.kind)}</strong>
+              <small>{listTime(file.sent_at)}</small></span><Download size={15} />
+          </a>;
+        })}
+        <p className="wai-details-muted">Até 30 arquivos recentes. Os arquivos são buscados somente ao abrir.</p>
+      </div>
+    </div>
+  </aside>;
 }
 
 /** Conversation that does not exist yet: the first text creates it (QR Code session). */

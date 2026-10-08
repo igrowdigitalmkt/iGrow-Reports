@@ -286,6 +286,7 @@ export type Database = {
       whatsapp_qr_peer_links: Table<{ agency_id: string; lid: string; phone: string; session_epoch: string; created_at: string }, never, never>;
       whatsapp_conversations: Table<WhatsAppConversationRow, never, never>;
       whatsapp_messages: Table<WhatsAppMessageRow, never, never>;
+      whatsapp_message_stars: Table<{ agency_id: string; user_id: string; message_id: string; created_at: string }, { agency_id: string; user_id: string; message_id: string; created_at?: string }, never>;
       automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
       report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
