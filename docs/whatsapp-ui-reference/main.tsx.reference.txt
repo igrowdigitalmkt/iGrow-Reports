@@ -1,0 +1,192 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+  BellOff, Check, CheckCheck, ChevronDown, ChevronLeft, Clipboard, EllipsisVertical,
+  Forward, Image, Info, Mail, MessageCircle, MessageCircleMore, MessageSquareText, Mic,
+  Phone, Pin, Plus, Search, Send, Settings, ShieldCheck, Smile, Star, Store, Trash2,
+  Users, Video, X, CheckSquare, CornerUpLeft, FileText, ContactRound, Camera, CheckCircle2
+} from 'lucide-react';
+import { Chat, Message, initialChats, initialMessages } from './mock';
+import './styles.css';
+
+type Filter = 'all' | 'unread' | 'favorites' | 'groups';
+type MenuState = { messageId: string; x: number; y: number } | null;
+const emojiOptions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+const clock = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const IconButton = ({ children, title, onClick, className = '', disabled = false }: {
+  children: React.ReactNode; title: string; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; className?: string; disabled?: boolean;
+}) => <button type="button" aria-label={title} title={title} className={`icon-button ${className}`} onClick={onClick} disabled={disabled}>{children}</button>;
+
+function App() {
+  const [chats, setChats] = useState<Chat[]>(initialChats);
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
+  const [draft, setDraft] = useState('');
+  const [menu, setMenu] = useState<MenuState>(null);
+  const [sidebarMenu, setSidebarMenu] = useState(false);
+  const [chatMenu, setChatMenu] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [reactionTo, setReactionTo] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [notificationHidden, setNotificationHidden] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [modal, setModal] = useState<'new' | 'forward' | 'delete' | 'info' | 'attachment' | null>(null);
+  const [forwardSource, setForwardSource] = useState<Message | null>(null);
+  const [deleteSource, setDeleteSource] = useState<string[]>([]);
+  const [mobileSidebar, setMobileSidebar] = useState(false);
+  const [nav, setNav] = useState('chats');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const activeChat = chats.find(c => c.id === activeId) ?? null;
+  const currentMessages = useMemo(() => messages.filter(m => m.chatId === activeId), [messages, activeId]);
+  const filteredChats = chats.filter(c =>
+    (filter === 'all' || (filter === 'unread' && c.unread > 0) || (filter === 'favorites' && c.isFavorite) || (filter === 'groups' && c.kind === 'group'))
+    && (c.name.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')) || c.lastMessage.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')))
+  );
+  const unreadTotal = chats.reduce((s, c) => s + c.unread, 0);
+  const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(null), 3600); };
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [activeId, messages.length]);
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setMenu(null); setChatMenu(false); setSidebarMenu(false); setModal(null); setEmojiOpen(false); setReactionTo(null); }
+    }; window.addEventListener('keydown', fn); return () => window.removeEventListener('keydown', fn);
+  }, []);
+  const openChat = (chatId: string) => {
+    setActiveId(chatId); setChats(cs => cs.map(c => c.id === chatId ? { ...c, unread: 0 } : c));
+    setMenu(null); setReplyTo(null); setMobileSidebar(true); setSelectMode(false); setSelectedIds([]);
+    setModal(null); setNav('chats');
+  };
+  const sendMessage = () => {
+    const text = draft.trim(); if (!text || !activeId) return;
+    const msg: Message = { id: id(), chatId: activeId, sender: 'me', text, date: 'Hoje', time: clock(),
+      ...(replyTo ? { reply: { sender: replyTo.sender === 'me' ? 'Você' : (activeChat?.name ?? 'Contato'), text: replyTo.text } } : {}) };
+    setMessages(ms => [...ms, msg]); setChats(cs => cs.map(c => c.id === activeId ? { ...c, lastMessage: `Você: ${text}`, lastTime: msg.time } : c));
+    setDraft(''); setReplyTo(null); setEmojiOpen(false); inputRef.current?.focus();
+    // Integração real: disparar a API de envio do sistema autorizado, sem criar mensagem somente na interface.
+  };
+  const updateMessage = (messageId: string, patch: Partial<Message>) => setMessages(ms => ms.map(m => m.id === messageId ? { ...m, ...patch } : m));
+  const selectedMessage = menu ? messages.find(m => m.id === menu.messageId) : null;
+  const react = (messageId: string, emoji: string) => {
+    const m = messages.find(x => x.id === messageId); if (!m) return;
+    const existing = m.reactions ?? {};
+    updateMessage(messageId, { reactions: { ...existing, ...(existing.me === emoji ? { me: '' } : { me: emoji }) } });
+    setReactionTo(null); setMenu(null);
+    // Integração real: mapear ID da mensagem e enviar a reação por endpoint autorizado.
+  };
+  const askDelete = (ids: string[]) => {
+    if (ids.some(mid => messages.find(m => m.id === mid)?.sender !== 'me')) {
+      notify('Não é permitido apagar mensagens recebidas nesta plataforma.'); return;
+    }
+    setDeleteSource(ids); setMenu(null); setModal('delete');
+  };
+  const deleteMessages = (everyone: boolean) => {
+    if (deleteSource.some(mid => messages.find(m => m.id === mid)?.sender !== 'me')) return;
+    if (everyone) setMessages(ms => ms.map(m => deleteSource.includes(m.id) ? { ...m, deletedForEveryone: true, text: 'Você apagou esta mensagem', reactions: {}, reply: undefined } : m));
+    else setMessages(ms => ms.filter(m => !deleteSource.includes(m.id)));
+    setModal(null); setSelectMode(false); setSelectedIds([]);
+    notify(everyone ? 'Exclusão para todos simulada. Conecte a API para sincronizar.' : 'Mensagem removida da visualização local.');
+  };
+  const activeMenu = (e: React.MouseEvent, messageId: string) => {
+    e.preventDefault(); const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenu({ messageId, x: Math.min(r.left + 4, window.innerWidth - 260), y: Math.min(r.bottom + 6, window.innerHeight - 390) });
+    setReactionTo(null);
+  };
+  const doMenuAction = (action: string) => {
+    const m = selectedMessage; setMenu(null); if (!m) return;
+    switch (action) {
+      case 'react': setReactionTo(m.id); break;
+      case 'reply': setReplyTo(m); inputRef.current?.focus(); break;
+      case 'forward': setForwardSource(m); setModal('forward'); break;
+      case 'star': updateMessage(m.id, { starred: !m.starred }); break;
+      case 'pin': updateMessage(m.id, { pinned: !m.pinned }); break;
+      case 'copy': void navigator.clipboard?.writeText(m.text).then(() => notify('Texto copiado.')); break;
+      case 'select': setSelectMode(true); setSelectedIds([m.id]); break;
+      case 'delete': askDelete([m.id]); break;
+      case 'info': setModal('info'); setForwardSource(m); break;
+    }
+  };
+  const forward = (chatId: string) => {
+    if (!forwardSource) return;
+    const copy: Message = { ...forwardSource, id: id(), chatId, sender: 'me', date: 'Hoje', time: clock(), reactions: {}, reply: undefined };
+    setMessages(ms => [...ms, copy]); setChats(cs => cs.map(c => c.id === chatId ? { ...c, lastMessage: `Você: ${copy.text}`, lastTime: copy.time } : c));
+    setModal(null); setForwardSource(null); notify('Mensagem encaminhada na demonstração.'); openChat(chatId);
+  };
+  const selectMessage = (mid: string) => setSelectedIds(xs => xs.includes(mid) ? xs.filter(x => x !== mid) : [...xs, mid]);
+  const buttonNav = (name: string) => { setNav(name); if (name !== 'chats') notify(`${name}: inclua aqui a implementação do seu produto.`); };
+  return <main className="app" onClick={() => { if (sidebarMenu) setSidebarMenu(false); if (chatMenu) setChatMenu(false); }}>
+    <aside className="rail" aria-label="Navegação principal">
+      <div className="rail-top">
+        <div className="rail-pos"><IconButton title="Conversas" className={`rail-btn ${nav === 'chats' ? 'selected' : ''}`} onClick={() => { setNav('chats'); setMobileSidebar(false); }}><MessageSquareText size={24} /></IconButton>{unreadTotal > 0 && <span className="rail-counter">{unreadTotal}</span>}</div>
+        <IconButton title="Ligações" className={`rail-btn ${nav === 'calls' ? 'selected' : ''}`} onClick={() => buttonNav('calls')}><Phone size={24} /></IconButton>
+        <IconButton title="Atualizações" className={`rail-btn ${nav === 'updates' ? 'selected' : ''}`} onClick={() => buttonNav('updates')}><MessageCircleMore size={25} /></IconButton>
+        <IconButton title="Canais" className={`rail-btn ${nav === 'channels' ? 'selected' : ''}`} onClick={() => buttonNav('channels')}><MessageCircle size={24} /></IconButton>
+        <IconButton title="Comunidades" className={`rail-btn ${nav === 'communities' ? 'selected' : ''}`} onClick={() => buttonNav('communities')}><Users size={26} /></IconButton>
+        <div className="rail-separator" />
+        <IconButton title="Ferramentas comerciais" className="rail-btn" onClick={() => buttonNav('business')}><Store size={25} /></IconButton>
+        <IconButton title="Avisos" className="rail-btn" onClick={() => buttonNav('alerts')}><BellOff size={23} /></IconButton>
+      </div>
+      <div className="rail-bottom">
+        <IconButton title="Configurações" className="rail-btn" onClick={() => buttonNav('settings')}><Settings size={23} /></IconButton>
+        <IconButton title="Perfil" className="rail-btn profile-rail" onClick={() => notify('Perfil de demonstração.')}><span>ME</span></IconButton>
+      </div>
+    </aside>
+    <section className={`inbox ${mobileSidebar ? 'mobile-hidden' : ''}`} aria-label="Lista de conversas">
+      <header className="inbox-heading"><h1>WhatsApp</h1><div className="inbox-actions"><IconButton title="Mais opções" onClick={e => { e.stopPropagation(); setSidebarMenu(v => !v); }}><EllipsisVertical size={23} /></IconButton><IconButton title="Nova conversa" className="create-btn" onClick={() => setModal('new')}><Plus size={27} strokeWidth={2.6} /></IconButton></div></header>
+      {sidebarMenu && <div className="dropdown sidebar-dropdown" onClick={e => e.stopPropagation()}>{[['Novo grupo','new'],['Mensagens favoritas','favorites'],['Selecionar conversas','select'],['Configurações','settings']].map(([label, action]) => <button key={label} onClick={() => { setSidebarMenu(false); if (action === 'new') setModal('new'); else if (action === 'favorites') setFilter('favorites'); else notify(`${label}: ação demonstrativa.`); }}>{label}</button>)}</div>}
+      <div className="search-box"><Search size={23} /><input aria-label="Pesquisar ou começar uma nova conversa" value={query} onChange={e => setQuery(e.target.value)} placeholder="Pesquisar ou começar uma nova conversa" />{query && <IconButton title="Limpar busca" onClick={() => setQuery('')}><X size={18} /></IconButton>}</div>
+      <div className="filters" role="group" aria-label="Filtrar conversas">
+        {[['all', 'Tudo'],['unread','Não lidas'],['favorites','Favoritas'],['groups','Grupos']].map(([k, label]) => <button key={k} type="button" className={`chip ${filter === k ? 'chip-on' : ''}`} onClick={() => setFilter(k as Filter)}>{label}{k === 'unread' && unreadTotal > 0 ? ` ${unreadTotal}` : ''}</button>)}
+        <IconButton className="chip add-filter" title="Criar novo filtro" onClick={() => notify('Novo filtro: vincule às preferências salvas.') }><Plus size={22}/></IconButton>
+      </div>
+      {!notificationHidden && <div className="notice"><BellOff size={35}/><p>As notificações de mensagens e ligações estão desativadas. <button onClick={() => { setNotificationHidden(true); notify('Notificações são configuradas pelo navegador.'); }}>Ativar</button></p><IconButton title="Fechar aviso" onClick={() => setNotificationHidden(true)}><X size={24}/></IconButton></div>}
+      <div className="chat-list" role="list">{filteredChats.length === 0 ? <div className="empty-filter">Nenhuma conversa encontrada.</div> : filteredChats.map(c => <button type="button" role="listitem" key={c.id} className={`chat-row ${activeId === c.id ? 'active' : ''}`} onClick={() => openChat(c.id)}>
+        <Avatar chat={c} /><div className="chat-row-body"><div className="chat-row-top"><span className="chat-name">{c.name}</span><time className={c.unread ? 'unread-time' : ''}>{c.lastTime}</time></div><div className="chat-row-bottom"><span className="last-text">{c.lastMessage}</span><span className="row-icons">{c.muted && <BellOff size={14}/>} {c.unread > 0 && <span className="unread-badge">{c.unread}</span>}</span></div></div>
+      </button>)}</div>
+      <footer className="inbox-footer"><ShieldCheck size={13} /> As mensagens são protegidas de ponta a ponta</footer>
+    </section>
+    <section className={`main-pane ${activeId && !mobileSidebar ? 'mobile-no-chat' : ''}`} aria-label="Área da conversa">
+      {!activeChat ? <div className="landing"><div className="landing-card"><div className="landing-illustration"><div className="illustration-laptop"><MessageSquareText size={67} strokeWidth={1.6}/><Phone size={38}/></div></div><h2>As ligações de voz e vídeo já estão disponíveis</h2><p>Agora você pode fazer e participar de ligações no WhatsApp Web.</p><button className="primary-muted" onClick={() => notify('Abra a seção Ligações na navegação.')}>Acessar a aba Ligações</button></div><div className="landing-shortcuts"><button onClick={() => setModal('attachment')}><FileText size={27}/>Enviar documento</button><button onClick={() => setModal('new')}><ContactRound size={27}/>Adicionar contato</button><button onClick={() => notify('Convite demonstrativo.') }><Mail size={27}/>Convite a amigo</button><button onClick={() => notify('Videoconferência demonstrativa.')}><Video size={27}/>Nova ligação</button></div></div> : <>
+        <header className="conversation-head"><IconButton className="back-mobile" title="Voltar" onClick={() => setMobileSidebar(false)}><ChevronLeft size={24}/></IconButton><Avatar chat={activeChat} small/><button className="contact-title" onClick={() => setModal('info')}><strong>{activeChat.name}</strong><small>{activeChat.online ? 'online' : activeChat.kind === 'group' ? 'Toque para ver os dados do grupo' : 'Clique aqui para dados do contato'}</small></button><div className="conversation-actions"><IconButton title="Videochamada" onClick={() => notify('Conecte a API de chamadas para habilitar.')}><Video size={23}/></IconButton><IconButton title="Pesquisar na conversa" onClick={() => { setQuery(activeChat.name); notify('Filtro de conversas ativado.'); }}><Search size={24}/></IconButton><IconButton title="Mais opções" onClick={e => { e.stopPropagation(); setChatMenu(x => !x); }}><EllipsisVertical size={23}/></IconButton></div></header>
+        {chatMenu && <div className="dropdown conversation-dropdown" onClick={e => e.stopPropagation()}>{['Dados do contato','Selecionar mensagens','Mensagens favoritas','Fechar conversa'].map((s,i) => <button key={s} onClick={() => { setChatMenu(false); if (i === 0) setModal('info'); if (i === 1) {setSelectMode(true);setSelectedIds([]);} if(i===2) notify('Use a estrela no menu da mensagem.');if(i===3){setActiveId(null);setMobileSidebar(false);} }}>{s}</button>)}</div>}
+        <div ref={scrollRef} className="message-scroll"><div className="date-pill">Hoje</div>{currentMessages.map(m => <div key={m.id} className={`message-line ${m.sender === 'me' ? 'out' : 'in'} ${selectMode ? 'selecting' : ''}`} onContextMenu={e => activeMenu(e,m.id)} onClick={() => { if (selectMode) selectMessage(m.id); }}>
+          {selectMode && <span className={`check-msg ${selectedIds.includes(m.id) ? 'checked' : ''}`}>{selectedIds.includes(m.id) && <Check size={15}/>}</span>}
+          <div className={`bubble ${m.sender === 'me' ? 'bubble-out' : 'bubble-in'}`}>
+            {!selectMode && <button className="msg-drop" title="Opções da mensagem" onClick={e => activeMenu(e,m.id)}><ChevronDown size={19}/></button>}
+            {m.reply && <div className="quoted"><strong>{m.reply.sender}</strong><p>{m.reply.text}</p></div>}
+            <span className={m.deletedForEveryone ? 'deleted-text' : 'msg-content'}>{m.text}</span><span className="msg-meta">{m.starred && <Star size={11} fill="currentColor"/>}{m.pinned && <Pin size={11}/>}<time>{m.time}</time>{m.sender === 'me' && !m.deletedForEveryone && <CheckCheck size={16} className="read-ticks" />}</span>
+            {Boolean(m.reactions?.me) && <button className="reaction-badge" title="Alterar reação" onClick={() => setReactionTo(m.id)}>{m.reactions?.me}</button>}
+            {reactionTo === m.id && <div className="reactions" onClick={e => e.stopPropagation()}>{emojiOptions.map(emoji => <button key={emoji} title={`Reagir com ${emoji}`} onClick={() => react(m.id,emoji)}>{emoji}</button>)}<IconButton title="Fechar" onClick={() => setReactionTo(null)}><X size={15}/></IconButton></div>}
+          </div></div>)}
+        </div>
+        {selectMode ? <div className="selection-toolbar"><IconButton title="Cancelar seleção" onClick={() => {setSelectMode(false);setSelectedIds([]);}}><X size={23}/></IconButton><strong>{selectedIds.length} selecionada(s)</strong><div className="spacer"/><IconButton title="Encaminhar" disabled={selectedIds.length !== 1} onClick={() => {setForwardSource(messages.find(m => m.id === selectedIds[0]) ?? null);setModal('forward');}}><Forward size={22}/></IconButton><IconButton title="Excluir mensagens enviadas" disabled={selectedIds.length === 0} onClick={() => askDelete(selectedIds)}><Trash2 size={23}/></IconButton></div> : <div className="composer-wrap">
+          {replyTo && <div className="reply-preview"><div><b>Responder a {replyTo.sender === 'me' ? 'você' : activeChat.name}</b><span>{replyTo.text}</span></div><IconButton title="Cancelar resposta" onClick={() => setReplyTo(null)}><X size={19}/></IconButton></div>}
+          {emojiOpen && <div className="emoji-picker" role="group" aria-label="Selecionar emoji">{[...emojiOptions,'🔥','🎉','🙂','😊','✅','👏','💚','🤝','🙌','😉','💬','⭐'].map(emoji => <button key={emoji} onClick={() => {setDraft(x => x + emoji);inputRef.current?.focus();}}>{emoji}</button>)}</div>}
+          <div className="composer"><IconButton title="Adicionar anexo" onClick={() => setModal('attachment')}><Plus size={26}/></IconButton><IconButton title="Emojis" onClick={() => setEmojiOpen(v => !v)}><Smile size={26}/></IconButton><textarea ref={inputRef} rows={1} value={draft} placeholder="Digite uma mensagem" aria-label="Digite uma mensagem" onChange={e => setDraft(e.target.value)} onKeyDown={e => {if(e.key === 'Enter' && !e.shiftKey){e.preventDefault();sendMessage();}}} />{draft.trim() ? <IconButton title="Enviar mensagem" onClick={sendMessage}><Send size={24}/></IconButton> : <IconButton title="Mensagem de voz" onClick={() => notify('Gravação de voz requer implementação de mídia.')}><Mic size={24}/></IconButton>}</div>
+        </div>}
+      </>}
+    </section>
+    {menu && selectedMessage && <><div className="transparent-backdrop" onClick={() => setMenu(null)}/><div className="message-menu dropdown" style={{ left: menu.x, top: Math.max(menu.y, 10) }} role="menu">{[
+      ['Reagir','react',<Smile size={18}/>],['Responder','reply',<CornerUpLeft size={18}/>],['Encaminhar','forward',<Forward size={18}/>],
+      [selectedMessage.starred ? 'Desfavoritar' : 'Favoritar','star',<Star size={18}/>],
+      [selectedMessage.pinned ? 'Desafixar' : 'Fixar','pin',<Pin size={18}/>],['Copiar','copy',<Clipboard size={18}/>],
+      ['Selecionar','select',<CheckSquare size={18}/>],['Dados','info',<Info size={18}/>],
+      ...(selectedMessage.sender === 'me' ? [['Apagar','delete',<Trash2 size={18}/>]] as [string,string,React.ReactNode][] : [])
+    ].map(([label, action, icon]) => <button role="menuitem" key={String(action)} onClick={() => doMenuAction(String(action))}>{icon}<span>{label}</span></button>)}</div></>}
+    {modal && <div className="modal-scrim" onMouseDown={() => setModal(null)}><div className="modal" role="dialog" aria-modal="true" onMouseDown={e => e.stopPropagation()}><div className="modal-title"><h3>{modal === 'new' ? 'Nova conversa' : modal === 'forward' ? 'Encaminhar mensagem' : modal === 'delete' ? 'Apagar mensagem' : modal === 'attachment' ? 'Anexar' : 'Dados do contato'}</h3><IconButton title="Fechar" onClick={() => setModal(null)}><X size={22}/></IconButton></div>
+      {modal === 'new' && <div className="modal-chat-list">{chats.map(c => <button key={c.id} onClick={() => openChat(c.id)}><Avatar chat={c} small/>{c.name}</button>)}</div>}
+      {modal === 'forward' && <div className="modal-chat-list"><p>Selecione um destinatário para encaminhar:</p>{chats.map(c => <button key={c.id} onClick={() => forward(c.id)}><Avatar chat={c} small/>{c.name}</button>)}</div>}
+      {modal === 'delete' && <div className="modal-copy"><p>Você deseja apagar {deleteSource.length > 1 ? 'essas mensagens enviadas' : 'esta mensagem enviada'}?</p><button className="modal-action" onClick={() => deleteMessages(false)}>Apagar para mim</button><button className="modal-action highlight" onClick={() => deleteMessages(true)}>Apagar para todos</button><small>Esta demonstração altera apenas os dados locais. A exclusão no WhatsApp exige sincronização pela integração autorizada.</small></div>}
+      {modal === 'attachment' && <div className="attachment-grid">{[[<Image size={22}/>, 'Fotos e vídeos'],[<FileText size={22}/>, 'Documento'],[<ContactRound size={22}/>, 'Contato'],[<Camera size={22}/>, 'Câmera']].map(([icon,txt]) => <button key={String(txt)} onClick={() => {setModal(null);notify(`${txt}: conectar fluxo de upload real.`)}}>{icon}{txt}</button>)}</div>}
+      {modal === 'info' && <div className="contact-info">{activeChat ? <><Avatar chat={activeChat}/><h2>{activeChat.name}</h2><p>Interface de demonstração. Dados fictícios.</p></> : <p>Nenhum contato selecionado.</p>}<div className="info-footer"><Info size={18}/> Integre apenas contas e dados autorizados.</div></div>}
+    </div></div>}
+    {toast && <div className="toast"><CheckCircle2 size={19}/>{toast}</div>}
+    <div className="demo-marker">DEMONSTRAÇÃO DE INTERFACE · SEM CONEXÃO COM WHATSAPP</div>
+  </main>;
+}
+function Avatar({ chat, small = false }: { chat: Chat; small?: boolean }) { return <span className={`avatar ${small ? 'small' : ''}`} style={{ background: chat.color }} aria-label={chat.name}>{chat.kind === 'group' ? <Users size={small ? 18 : 26}/> : chat.initials}</span>; }
+createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
