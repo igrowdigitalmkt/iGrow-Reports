@@ -28,8 +28,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   const action = body.data;
   // Read and archive also happen on the phone for the QR Code session, like WhatsApp Web.
   if (conversation.channel === "qr" && action.action === "read" && conversation.unread_count > 0) {
-    const { data: unread } = await context.supabase.from("whatsapp_messages").select("external_id").eq("agency_id", context.agency.id).eq("conversation_id", id.data)
+    const { data: unread, error: unreadError } = await context.supabase.from("whatsapp_messages").select("external_id").eq("agency_id", context.agency.id).eq("conversation_id", id.data)
       .eq("direction", "in").order("sent_at", { ascending: false }).limit(Math.min(conversation.unread_count, 100));
+    if (unreadError) return Response.json({ error: "Não foi possível consultar as mensagens pendentes." }, { status: 503, headers });
     try {
       await markQrRead(context.agency.id, conversation.remote_id, (unread ?? []).map(row => row.external_id));
     } catch {

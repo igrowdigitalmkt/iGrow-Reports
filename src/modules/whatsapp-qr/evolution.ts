@@ -88,8 +88,8 @@ export class EvolutionClient {
   }
 
   /** Marks received messages as read on WhatsApp (the contact sees the blue ticks, as when opening the chat). */
-  async markRead(name: string, keys: Array<{ remoteJid: string; fromMe: boolean; id: string }>) {
-    await this.request(`/chat/markMessageAsRead/${encodeURIComponent(name)}`, { method: "POST", body: { readMessages: keys } });
+  async markRead(name: string, keys: Array<{ remoteJid: string; fromMe: boolean; id: string }>, chat: string) {
+    await this.request(`/chat/markMessageAsRead/${encodeURIComponent(name)}`, { method: "POST", body: { readMessages: keys, chat } });
   }
 
   /** Archives or unarchives a chat on WhatsApp. */

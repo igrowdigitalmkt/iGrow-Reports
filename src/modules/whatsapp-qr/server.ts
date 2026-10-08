@@ -138,9 +138,10 @@ const chatJid = (remoteId: string) => remoteId.includes("@") ? remoteId : `${rem
 /** Mirrors "read" on the phone for the given received messages. */
 export async function markQrRead(agencyId: string, remoteId: string, messageIds: string[]) {
   const evolution = client();
-  if (!evolution || !messageIds.length) return;
+  if (!evolution) throw new EvolutionError("Servidor do WhatsApp não configurado.");
   const remoteJid = chatJid(remoteId);
-  await evolution.markRead(instanceNameFor(agencyId), messageIds.map(id => ({ remoteJid, fromMe: false, id })));
+  await evolution.markRead(instanceNameFor(agencyId),
+    messageIds.map(id => ({ remoteJid, fromMe: false, id })), remoteJid);
 }
 
 /** Mirrors archiving on the phone. The last message is optional for history-only chats. */

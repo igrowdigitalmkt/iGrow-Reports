@@ -98,13 +98,47 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   useEffect(() => {
     if (!openId || demo) return;
     let cancelled = false;
+    const attempted = new Set<string>();
     const load = () => {
       if (document.hidden) return;
       fetch(`/api/whatsapp/inbox/${openId}`, { cache: "no-store" }).then(response => response.ok ? response.json() : null)
         .then((body: { conversation: InboxConversation | null; messages: InboxMessageItem[] } | null) => {
           if (cancelled || !body) return;
           setThread({ id: openId, messages: body.messages });
-          if (body.conversation?.unread) fetch(`/api/whatsapp/inbox/${openId}`, { method: "POST", body: JSON.stringify({ action: "read" }) }).catch(() => undefined);
+          const item = body.conversation;
+          if (!item?.unread) return;
+          // Do not silently swallow a failed phone sync, retry every 8s, or
+          // let a transient optimistic badge imply the phone was marked read.
+          const snapshot = `${item.lastInboundAt}:${item.lastAt}:${item.unread}`;
+          if (attempted.has(snapshot)) return;
+          attempted.add(snapshot);
+          void (async () => {
+            try {
+              const response = await fetch(`/api/whatsapp/inbox/${openId}`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "read" }),
+              });
+              if (!response.ok) {
+                const detail = await response.json().catch(() => null) as { error?: string } | null;
+                throw new Error(detail?.error ?? "O celular não confirmou a leitura.");
+              }
+              if (cancelled) return;
+              setActionError("");
+              setList(current => current && {
+                ...current,
+                conversations: current.conversations.map(entry =>
+                  entry.id === openId && entry.lastInboundAt === item.lastInboundAt && entry.lastAt === item.lastAt
+                    ? { ...entry, unread: 0 } : entry),
+              });
+              setReadLocally(current => {
+                const next = { ...current };
+                delete next[openId];
+                return next;
+              });
+            } catch (error) {
+              if (!cancelled) setActionError(error instanceof Error ? error.message : "Não foi possível sincronizar a leitura.");
+            }
+          })();
         }).catch(() => undefined);
     };
     load();

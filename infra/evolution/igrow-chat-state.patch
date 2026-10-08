@@ -1,5 +1,11 @@
+diff --git a/src/api/dto/chat.dto.ts b/src/api/dto/chat.dto.ts
+index b11f32b..e081ee3 100644
+--- a/src/api/dto/chat.dto.ts
++++ b/src/api/dto/chat.dto.ts
+@@ -70,0 +71 @@ export class ReadMessageDto {
++  chat?: string;
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..084baaa 100644
+index 60e857f..dc10364 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 @@ -760,2 +760,14 @@ export class BaileysStartupService extends ChannelStartupService {
@@ -107,7 +113,32 @@ index 60e857f..084baaa 100644
 +            progress,
 +          });
 +        }
-@@ -3692,13 +3730,13 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -1649 +1687,5 @@ export class BaileysStartupService extends ChannelStartupService {
+-              this.logger.warn(`Original message not found for update. Skipping. Key: ${JSON.stringify(key)}`);
++              // This QR integration keeps recent messages in iGrow, not in the
++              // Evolution database. Forward read receipts regardless.
++              if (!key.fromMe && status[update.status] === 'READ') {
++                this.sendDataWebhook(Events.MESSAGES_UPDATE, message);
++              }
+@@ -3680,2 +3722,2 @@ export class BaileysStartupService extends ChannelStartupService {
+-        if (isJidGroup(read.remoteJid) || isPnUser(read.remoteJid)) {
+-          keys.push({ remoteJid: read.remoteJid, fromMe: read.fromMe, id: read.id });
++        if (isJidGroup(read.remoteJid) || isPnUser(read.remoteJid) || read.remoteJid?.endsWith('@lid')) {
++          if (read.id) keys.push({ remoteJid: read.remoteJid, fromMe: read.fromMe, id: read.id });
+@@ -3684 +3726,11 @@ export class BaileysStartupService extends ChannelStartupService {
+-      await this.client.readMessages(keys);
++      // Read receipts alone do not clear chat badges on the primary phone.
++      // Synchronize the app-state 'markRead' action for every valid chat JID,
++      // including @lid, even when no historical message ids were received.
++      const remoteJids = [...new Set([...data.readMessages.map(read => read.remoteJid), data.chat].filter(
++        (jid): jid is string => typeof jid === 'string' &&
++          (isJidGroup(jid) || isPnUser(jid) || jid.endsWith('@lid')),
++      ))];
++      if (keys.length > 0) await this.client.readMessages(keys);
++      for (const jid of remoteJids) {
++        await this.client.chatModify({ markRead: true, lastMessages: [] }, jid);
++      }
+@@ -3692,13 +3744,13 @@ export class BaileysStartupService extends ChannelStartupService {
 -    const where: any = { key: { remoteJid: number }, instanceId: this.instance.id };
 -
 -    const messages = await this.prismaRepository.message.findMany({
@@ -134,22 +165,22 @@ index 60e857f..084baaa 100644
 +        orderBy: { messageTimestamp: 'desc' },
 +        take: 1,
 +      });
-@@ -3706,4 +3744 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3706,4 +3758 @@ export class BaileysStartupService extends ChannelStartupService {
 -    for (const message of messages) {
 -      if (message.messageTimestamp >= lastMessage.messageTimestamp) {
 -        lastMessage = message;
 -      }
 +      if (messages.length > 0) return messages[0] as unknown as LastMessage;
-@@ -3712 +3747 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3712 +3761 @@ export class BaileysStartupService extends ChannelStartupService {
 -    return lastMessage as unknown as LastMessage;
 +    throw new NotFoundException('Messages not found');
-@@ -3720,4 +3755 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3720,4 +3769 @@ export class BaileysStartupService extends ChannelStartupService {
 -      if (!last_message && number) {
 -        last_message = await this.getLastMessage(number);
 -      } else {
 -        last_message = data.lastMessage;
 +      if (last_message) {
-@@ -3725 +3757,9 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3725 +3771,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        number = last_message?.key?.remoteJid;
 +        number = last_message?.key?.remoteJid ?? number;
 +      } else if (number) {
@@ -160,12 +191,12 @@ index 60e857f..084baaa 100644
 +        } catch {
 +          last_message = undefined;
 +        }
-@@ -3728,3 +3768 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3728,3 +3782 @@ export class BaileysStartupService extends ChannelStartupService {
 -      if (!last_message || Object.keys(last_message).length === 0) {
 -        throw new NotFoundException('Last message not found');
 -      }
 +      if (!number) throw new NotFoundException('Chat not found');
-@@ -3732 +3770,8 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3732 +3784,8 @@ export class BaileysStartupService extends ChannelStartupService {
 -      await this.client.chatModify({ archive: data.archive, lastMessages: [last_message] }, createJid(number));
 +      // iGrow supplies a fully-qualified WhatsApp JID. Calling createJid() again causes
 +      // Evolution's contact lookup to fail on v2.3.7 (Prisma invalid remoteJid argument).
@@ -175,6 +206,15 @@ index 60e857f..084baaa 100644
 +        { archive: data.archive, lastMessages: last_message ? [last_message] : [] },
 +        chatJid,
 +      );
-@@ -3734 +3779 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3734 +3793 @@ export class BaileysStartupService extends ChannelStartupService {
 -      return { chatId: number, archived: true };
 +      return { chatId: number, archived: data.archive };
+diff --git a/src/validate/chat.schema.ts b/src/validate/chat.schema.ts
+index 7dae445..75f1118 100644
+--- a/src/validate/chat.schema.ts
++++ b/src/validate/chat.schema.ts
+@@ -47,0 +48 @@ export const readMessageSchema: JSONSchema7 = {
++    chat: { type: 'string', minLength: 3 },
+@@ -50 +51 @@ export const readMessageSchema: JSONSchema7 = {
+-      minItems: 1,
++      minItems: 0,
