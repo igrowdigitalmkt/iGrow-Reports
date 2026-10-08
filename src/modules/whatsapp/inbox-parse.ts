@@ -134,6 +134,7 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
   if (remoteId.length < 3 || remoteId.length > 120) return null;
   const content = describeBaileysContent(payload.data?.message);
   if (!content) return null;
+  const quote = baileysQuotedMessage(payload.data?.message);
   const fromMe = key.fromMe === true || payload.event === "send.message" || payload.event === "SEND_MESSAGE";
   const receivedPushName = text(payload.data?.pushName, 200);
   // The numeric @lid identity is not the contact's name.
@@ -148,7 +149,7 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
     externalId: key.id.slice(0, 200), direction: fromMe ? "out" : "in",
     sentAt: seconds(payload.data?.messageTimestamp) ?? now.toISOString(),
     mediaRef: baileysMediaRef(payload.data?.message),
-    quote: baileysQuotedMessage(payload.data?.message),
+    ...(quote ? { quote } : {}),
     ...(fromMe && normalizeEvolutionMessageStatus(payload.data?.status) ? { deliveryStatus: normalizeEvolutionMessageStatus(payload.data?.status) } : {}),
   };
 }
