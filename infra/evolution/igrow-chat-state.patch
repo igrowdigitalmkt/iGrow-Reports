@@ -1,3 +1,12 @@
+diff --git a/src/api/controllers/chat.controller.ts b/src/api/controllers/chat.controller.ts
+index 22e90b9..59b9637 100644
+--- a/src/api/controllers/chat.controller.ts
++++ b/src/api/controllers/chat.controller.ts
+@@ -72,0 +73,4 @@ export class ChatController {
++  public async resolvePeerLinks({ instanceName }: InstanceDto, lids: string[]) {
++    return await this.waMonitor.waInstances[instanceName].resolvePeerLinks(lids);
++  }
++
 diff --git a/src/api/dto/chat.dto.ts b/src/api/dto/chat.dto.ts
 index b11f32b..e081ee3 100644
 --- a/src/api/dto/chat.dto.ts
@@ -5,61 +14,89 @@ index b11f32b..e081ee3 100644
 @@ -70,0 +71 @@ export class ReadMessageDto {
 +  chat?: string;
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..f487da6 100644
+index 60e857f..35f9f74 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-@@ -760,2 +760,14 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -750,0 +751,23 @@ export class BaileysStartupService extends ChannelStartupService {
++  // The WhatsApp signal repository is authoritative for phone↔LID links.
++  // Profile pictures, titles and timestamps are NOT valid identity evidence.
++  private async mappedPhoneJid(jid: string | undefined): Promise<string | undefined> {
++    if (!jid?.endsWith('@lid')) return undefined;
++    try {
++      const phone = await this.client.signalRepository.lidMapping.getPNForLID(jid);
++      return typeof phone === 'string' && /^[0-9]{8,15}@s[.]whatsapp[.]net$/.test(phone) ? phone : undefined;
++    } catch {
++      return undefined;
++    }
++  }
++
++  public async resolvePeerLinks(lids: string[]): Promise<{ lid: string; phone: string }[]> {
++    const links: { lid: string; phone: string }[] = [];
++    for (let i = 0; i < lids.length; i += 20) {
++      const chunk = await Promise.all(lids.slice(i, i + 20).map(async (lid) => ({
++        lid, phone: await this.mappedPhoneJid(lid),
++      })));
++      for (const pair of chunk) if (pair.phone) links.push({ lid: pair.lid, phone: pair.phone });
++    }
++    return links;
++  }
++
+@@ -760,3 +783,3 @@ export class BaileysStartupService extends ChannelStartupService {
 -      const chatsToInsert = chats
 -        .filter((chat) => !existingChatIdSet?.has(chat.id))
-+      const chatsForWebhook = chats.map((chat) => ({
-+        remoteJid: chat.id,
-+        instanceId: this.instanceId,
-+        name: chat.name,
-+        archived: chat.archived,
-+        unreadMessages: chat.unreadCount,
-+      }));
-+
-+      for (let i = 0; i < chatsForWebhook.length; i += 20) {
-+        this.sendDataWebhook(Events.CHATS_UPSERT, chatsForWebhook.slice(i, i + 20));
+-        .map((chat) => ({
++      const chatsForWebhook = [];
++      for (let i = 0; i < chats.length; i += 20) {
++        const chunk = await Promise.all(chats.slice(i, i + 20).map(async (chat) => ({
+@@ -763,0 +787 @@ export class BaileysStartupService extends ChannelStartupService {
++          remoteJidAlt: await this.mappedPhoneJid(chat.id),
+@@ -766,2 +790,6 @@ export class BaileysStartupService extends ChannelStartupService {
+-          unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
+-        }));
++          archived: chat.archived,
++          unreadMessages: chat.unreadCount,
++        })));
++        chatsForWebhook.push(...chunk);
++        this.sendDataWebhook(Events.CHATS_UPSERT, chunk);
 +      }
-+
+@@ -769 +797,8 @@ export class BaileysStartupService extends ChannelStartupService {
+-      this.sendDataWebhook(Events.CHATS_UPSERT, chatsToInsert);
 +      const chatsToInsert = chatsForWebhook
 +        .filter((chat) => !existingChatIdSet?.has(chat.remoteJid))
-@@ -763,2 +775,2 @@ export class BaileysStartupService extends ChannelStartupService {
--          remoteJid: chat.id,
--          instanceId: this.instanceId,
++        .map((chat) => ({
 +          remoteJid: chat.remoteJid,
 +          instanceId: chat.instanceId,
-@@ -766 +778 @@ export class BaileysStartupService extends ChannelStartupService {
--          unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
++          name: chat.name,
 +          unreadMessages: chat.unreadMessages,
-@@ -769,2 +780,0 @@ export class BaileysStartupService extends ChannelStartupService {
--      this.sendDataWebhook(Events.CHATS_UPSERT, chatsToInsert);
--
-@@ -784,3 +794,6 @@ export class BaileysStartupService extends ChannelStartupService {
++        }));
+@@ -784,3 +819,7 @@ export class BaileysStartupService extends ChannelStartupService {
 -      const chatsRaw = chats.map((chat) => {
 -        return { remoteJid: chat.id, instanceId: this.instanceId };
 -      });
-+      const chatsRaw = chats.map((chat) => ({
++      const chatsRaw = await Promise.all(chats.map(async (chat) => ({
 +        remoteJid: chat.id,
++        remoteJidAlt: await this.mappedPhoneJid(chat.id),
 +        instanceId: this.instanceId,
 +        archived: chat.archived,
 +        unreadMessages: chat.unreadCount,
-+      }));
-@@ -977 +990,11 @@ export class BaileysStartupService extends ChannelStartupService {
++      })));
+@@ -977 +1016,14 @@ export class BaileysStartupService extends ChannelStartupService {
 -        const chatsRaw: { remoteJid: string; instanceId: string; name?: string }[] = [];
-+        const chatsForWebhook = chats.map((chat) => ({
-+          remoteJid: chat.id,
-+          instanceId: this.instanceId,
-+          name: chat.name,
-+          archived: chat.archived,
-+          unreadMessages: chat.unreadCount,
-+        }));
-+        for (let i = 0; i < chatsForWebhook.length; i += 20) {
-+          this.sendDataWebhook(Events.CHATS_SET, chatsForWebhook.slice(i, i + 20));
++        const chatsForWebhook = [];
++        for (let i = 0; i < chats.length; i += 20) {
++          const chunk = await Promise.all(chats.slice(i, i + 20).map(async (chat) => ({
++            remoteJid: chat.id,
++            remoteJidAlt: await this.mappedPhoneJid(chat.id),
++            instanceId: this.instanceId,
++            name: chat.name,
++            archived: chat.archived,
++            unreadMessages: chat.unreadCount,
++          })));
++          chatsForWebhook.push(...chunk);
++          this.sendDataWebhook(Events.CHATS_SET, chunk);
 +        }
 +
-@@ -983,10 +1006,8 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -983,10 +1035,8 @@ export class BaileysStartupService extends ChannelStartupService {
 -
 -        for (const chat of chats) {
 -          if (chatsRepository?.has(chat.id)) {
@@ -78,7 +115,7 @@ index 60e857f..f487da6 100644
 +            name: chat.name,
 +            unreadMessages: chat.unreadMessages,
 +          }));
-@@ -1018,4 +1039,16 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -1018,4 +1068,16 @@ export class BaileysStartupService extends ChannelStartupService {
 -        for (const m of messages) {
 -          if (!m.message || !m.key || !m.messageTimestamp) {
 -            continue;
@@ -99,7 +136,15 @@ index 60e857f..f487da6 100644
 +          if ((perChat.get(jid) ?? 0) >= 50 || recentHistoryCount >= 300) continue;
 +          perChat.set(jid, (perChat.get(jid) ?? 0) + 1);
 +          recentHistoryCount++;
-@@ -1049,4 +1082,9 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -1046 +1108,6 @@ export class BaileysStartupService extends ChannelStartupService {
+-          messagesRaw.push(this.prepareMessage(m));
++          const prepared = this.prepareMessage(m);
++          if (m.key.remoteJid?.endsWith('@lid') && !prepared.key?.remoteJidAlt) {
++            const phone = await this.mappedPhoneJid(m.key.remoteJid);
++            if (phone) prepared.key.remoteJidAlt = phone;
++          }
++          messagesRaw.push(prepared);
+@@ -1049,4 +1116,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        this.sendDataWebhook(Events.MESSAGES_SET, [...messagesRaw], true, undefined, {
 -          isLatest,
 -          progress,
@@ -113,19 +158,32 @@ index 60e857f..f487da6 100644
 +            progress,
 +          });
 +        }
-@@ -1649 +1687,5 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -1478,2 +1550,10 @@ export class BaileysStartupService extends ChannelStartupService {
+-          if (messageRaw.key.remoteJid?.includes('@lid') && messageRaw.key.remoteJidAlt) {
+-            messageRaw.key.remoteJid = messageRaw.key.remoteJidAlt;
++          if (messageRaw.key.remoteJid?.endsWith('@lid')) {
++            const lidJid = messageRaw.key.remoteJid;
++            const phone = messageRaw.key.remoteJidAlt || await this.mappedPhoneJid(lidJid);
++            if (typeof phone === 'string' && /^[0-9]{8,15}@s[.]whatsapp[.]net$/.test(phone)) {
++              messageRaw.key.remoteJidAlt = phone;
++              // Keep the original LID only in the outbound webhook metadata.
++              // The original Evolution chat/send routing remains unchanged.
++              messageRaw.key.lidJid = lidJid;
++              messageRaw.key.remoteJid = phone;
++            }
+@@ -1649 +1729,5 @@ export class BaileysStartupService extends ChannelStartupService {
 -              this.logger.warn(`Original message not found for update. Skipping. Key: ${JSON.stringify(key)}`);
 +              // This QR integration keeps recent messages in iGrow, not in the
 +              // Evolution database. Forward read receipts regardless.
 +              if (!key.fromMe && status[update.status] === 'READ') {
 +                this.sendDataWebhook(Events.MESSAGES_UPDATE, message);
 +              }
-@@ -3680,2 +3722,2 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3680,2 +3764,2 @@ export class BaileysStartupService extends ChannelStartupService {
 -        if (isJidGroup(read.remoteJid) || isPnUser(read.remoteJid)) {
 -          keys.push({ remoteJid: read.remoteJid, fromMe: read.fromMe, id: read.id });
 +        if (isJidGroup(read.remoteJid) || isPnUser(read.remoteJid) || read.remoteJid?.endsWith('@lid')) {
 +          if (read.id) keys.push({ remoteJid: read.remoteJid, fromMe: read.fromMe, id: read.id });
-@@ -3684 +3726,19 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3684 +3768,19 @@ export class BaileysStartupService extends ChannelStartupService {
 -      await this.client.readMessages(keys);
 +      // Read receipts alone do not clear chat badges on the primary phone.
 +      // Synchronize the app-state 'markRead' action for every valid chat JID,
@@ -146,7 +204,7 @@ index 60e857f..f487da6 100644
 +          this.logger.warn('Read receipt unavailable for an older QR message.');
 +        }
 +      }
-@@ -3692,13 +3752,13 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3692,13 +3794,13 @@ export class BaileysStartupService extends ChannelStartupService {
 -    const where: any = { key: { remoteJid: number }, instanceId: this.instance.id };
 -
 -    const messages = await this.prismaRepository.message.findMany({
@@ -173,22 +231,22 @@ index 60e857f..f487da6 100644
 +        orderBy: { messageTimestamp: 'desc' },
 +        take: 1,
 +      });
-@@ -3706,4 +3766 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3706,4 +3808 @@ export class BaileysStartupService extends ChannelStartupService {
 -    for (const message of messages) {
 -      if (message.messageTimestamp >= lastMessage.messageTimestamp) {
 -        lastMessage = message;
 -      }
 +      if (messages.length > 0) return messages[0] as unknown as LastMessage;
-@@ -3712 +3769 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3712 +3811 @@ export class BaileysStartupService extends ChannelStartupService {
 -    return lastMessage as unknown as LastMessage;
 +    throw new NotFoundException('Messages not found');
-@@ -3720,4 +3777 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3720,4 +3819 @@ export class BaileysStartupService extends ChannelStartupService {
 -      if (!last_message && number) {
 -        last_message = await this.getLastMessage(number);
 -      } else {
 -        last_message = data.lastMessage;
 +      if (last_message) {
-@@ -3725 +3779,9 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3725 +3821,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        number = last_message?.key?.remoteJid;
 +        number = last_message?.key?.remoteJid ?? number;
 +      } else if (number) {
@@ -199,12 +257,12 @@ index 60e857f..f487da6 100644
 +        } catch {
 +          last_message = undefined;
 +        }
-@@ -3728,3 +3790 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3728,3 +3832 @@ export class BaileysStartupService extends ChannelStartupService {
 -      if (!last_message || Object.keys(last_message).length === 0) {
 -        throw new NotFoundException('Last message not found');
 -      }
 +      if (!number) throw new NotFoundException('Chat not found');
-@@ -3732 +3792,8 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3732 +3834,8 @@ export class BaileysStartupService extends ChannelStartupService {
 -      await this.client.chatModify({ archive: data.archive, lastMessages: [last_message] }, createJid(number));
 +      // iGrow supplies a fully-qualified WhatsApp JID. Calling createJid() again causes
 +      // Evolution's contact lookup to fail on v2.3.7 (Prisma invalid remoteJid argument).
@@ -214,9 +272,25 @@ index 60e857f..f487da6 100644
 +        { archive: data.archive, lastMessages: last_message ? [last_message] : [] },
 +        chatJid,
 +      );
-@@ -3734 +3801 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3734 +3843 @@ export class BaileysStartupService extends ChannelStartupService {
 -      return { chatId: number, archived: true };
 +      return { chatId: number, archived: data.archive };
+diff --git a/src/api/routes/chat.router.ts b/src/api/routes/chat.router.ts
+index 158947e..27c62b4 100644
+--- a/src/api/routes/chat.router.ts
++++ b/src/api/routes/chat.router.ts
+@@ -193,0 +194,11 @@ export class ChatRouter extends RouterBroker {
++      // Private, API-key-protected lookup. Uses Baileys' signal identity map,
++      // never names, profile pictures, or guessed number suffixes.
++      .post(this.routerPath('resolvePeerLinks'), ...guards, async (req, res) => {
++        const instance = req.params as unknown as InstanceDto;
++        const lids = (req.body as { lids?: unknown } | null)?.lids;
++        if (!Array.isArray(lids) || lids.length > 60 || !lids.every(lid => typeof lid === 'string' && /^[0-9]{8,20}@lid$/.test(lid))) {
++          return res.status(HttpStatus.BAD_REQUEST).json({ error: 'Invalid peer identifiers' });
++        }
++        const result = await chatController.resolvePeerLinks(instance, [...new Set(lids)]);
++        return res.status(HttpStatus.OK).json(result);
++      })
 diff --git a/src/validate/chat.schema.ts b/src/validate/chat.schema.ts
 index 7dae445..75f1118 100644
 --- a/src/validate/chat.schema.ts

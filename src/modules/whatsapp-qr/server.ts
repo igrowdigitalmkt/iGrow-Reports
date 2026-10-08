@@ -94,6 +94,12 @@ export async function replyFromInstance(instance: string, phone: string, text: s
 }
 
 /** Group name for the inbox; null when the session cannot tell. */
+export async function qrResolvePeerLinks(agencyId: string, lids: string[]) {
+  const evolution = client();
+  if (!evolution) throw new EvolutionError("Servidor do WhatsApp não configurado.");
+  return evolution.resolvePeerLinks(instanceNameFor(agencyId), lids);
+}
+
 export async function qrGroupSubject(instance: string, groupJid: string, timeoutMs = 15_000) {
   const evolution = client();
   if (!evolution) return null;

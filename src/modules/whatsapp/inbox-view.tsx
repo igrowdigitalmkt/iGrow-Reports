@@ -86,6 +86,19 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       }
     };
     void load(true);
+    // Refresh proven phone/LID aliases once per page load, without requiring the
+    // user to disconnect their QR session or lose recent messages.
+    void fetch("/api/whatsapp/qr/peers", { method: "POST" })
+      .then(response => response.ok ? response.json() : null)
+      .then(async (result: { merged?: number } | null) => {
+        if (cancelled || !result?.merged || result.merged <= 0) return;
+        // Force an authoritative snapshot: incremental polling cannot represent
+        // deleted alias rows after two conversations become one.
+        const response = await fetch("/api/whatsapp/inbox", { cache: "no-store" });
+        if (!response.ok) return;
+        const updated = await response.json() as InboxList;
+        if (!cancelled && updated.ready) { setList(updated); since = latestInboxCursor(null,updated.conversations); lastFull = Date.now(); }
+      }).catch(() => undefined);
     fetch("/api/whatsapp/qr", { cache: "no-store" }).then(response => response.ok ? response.json() : null)
       .then((status: { state?: string; phone?: string | null } | null) => { if (!cancelled && status?.state === "connected") setQrPhone(status.phone ?? null); }).catch(() => undefined);
     const timer = setInterval(() => void load(), 10_000);

@@ -82,6 +82,12 @@ export class EvolutionClient {
     return result?.subject?.trim() || null;
   }
 
+  async resolvePeerLinks(name: string, lids: string[]): Promise<Array<{ lid: string; phone: string }>> {
+    return this.request<Array<{ lid: string; phone: string }>>(`/chat/resolvePeerLinks/${encodeURIComponent(name)}`, {
+      method: "POST", body: { lids: lids.slice(0, 60) }, timeoutMs: 25_000,
+    });
+  }
+
   async groups(name: string): Promise<EvolutionGroup[]> {
     const list = await this.request<Array<{ id: string; subject?: string; size?: number }>>(`/group/fetchAllGroups/${encodeURIComponent(name)}?getParticipants=false`, { timeoutMs: 40_000 });
     return (list ?? []).filter(group => group.id?.endsWith("@g.us")).map(group => ({ id: group.id, subject: group.subject?.trim() || "Grupo sem nome", size: group.size ?? null }));

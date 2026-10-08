@@ -3,6 +3,7 @@ import { parseEvolutionMessage, parseEvolutionRecentHistory } from "@/modules/wh
 import { isRecentQrMessage } from "@/modules/whatsapp/recent-policy";
 import { recordInboxMessage, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
+import { bindQrPeerLinks, canonicalQrPeers, qrPeerLinks } from "@/modules/whatsapp-qr/peer-identity";
 import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
 import { qrGroupSubject, replyFromInstance, validWebhookToken } from "@/modules/whatsapp-qr/server";
 import { clearQrInboxForLostSession } from "@/modules/whatsapp-qr/session-lifecycle";
@@ -36,6 +37,14 @@ export async function POST(request: Request) {
   if (!scoped && !legacy) return Response.json({ error: "Acesso negado." }, { status: 401 });
   if (guard?.blocked) return Response.json({ ok: true, ignored: "reset_in_progress" });
 
+  // Merge only identities explicitly paired by WhatsApp; never by names or avatars.
+  try {
+    await bindQrPeerLinks(service, agencyId, qrPeerLinks(body));
+  } catch (error) {
+    console.error("whatsapp-qr-peer-link", { message: error instanceof Error ? error.message : "unknown" });
+    return Response.json({ error: "Identificadores do WhatsApp indisponíveis." }, { status: 503 });
+  }
+
   if (isConfirmedQrLogout(body)) {
     try {
       const removed = await clearQrInboxForLostSession(agencyId);
@@ -54,6 +63,8 @@ export async function POST(request: Request) {
     if (!scoped || !Number.isFinite(age) || age < 0 || age > 30 * 60_000)
       return Response.json({ ok: true, ignored: "history_not_authorized" });
     const history = parseEvolutionRecentHistory(body).filter(message => isRecentQrMessage(message.sentAt));
+    const peers = await canonicalQrPeers(service, agencyId, guard?.fresh_after, history.map(message => message.remoteId));
+    for (const message of history) message.remoteId = peers.get(message.remoteId) ?? message.remoteId;
     // Keep group-name lookups bounded and cache repeated groups within the webhook.
     const groupTitles = new Map<string, Promise<string | null>>();
     const resolveGroup = (groupId: string) => {
@@ -95,6 +106,8 @@ export async function POST(request: Request) {
   // Authoritative chat state from Baileys: archive/unarchive and unread count, including initial sync.
   const chatStates = parseQrChatStates(body);
   if (chatStates.length) {
+    const peers = await canonicalQrPeers(service, agencyId, guard?.fresh_after, chatStates.map(item => item.remoteId));
+    for (const item of chatStates) item.remoteId = peers.get(item.remoteId) ?? item.remoteId;
     // Initial history can contain hundreds of groups. Never block the archive-state write on
     // serial group-info requests: Vercel's webhook deadline would otherwise discard the batch.
     // Small live updates can still resolve a missing group title in parallel.
@@ -113,6 +126,8 @@ export async function POST(request: Request) {
   const inbox = parseEvolutionMessage(body);
   if (inbox && isRecentQrMessage(inbox.sentAt)
     && (!guard || Date.parse(inbox.sentAt) >= Date.parse(guard.fresh_after))) {
+    const peers = await canonicalQrPeers(service, agencyId, guard?.fresh_after, [inbox.remoteId]);
+    inbox.remoteId = peers.get(inbox.remoteId) ?? inbox.remoteId;
     await recordInboxMessage(service, { agencyId, connectionId: null, message: inbox, groupSubject: groupId => qrGroupSubject(instance, groupId) });
   }
 

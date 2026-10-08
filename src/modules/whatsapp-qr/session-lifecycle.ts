@@ -22,7 +22,14 @@ export async function clearBlockedQrInbox(agencyId: string) {
     if (error || typeof data !== "number" || !Number.isInteger(data) || data < 0 || data > 40)
       throw new Error("Limpeza interrompida. Tente novamente para concluir.");
     removed += data;
-    if (data < 40) return removed;
+    if (data < 40) {
+      // A QR reset must forget the contact identity map together with the
+      // conversations, preventing links from a former phone from surviving.
+      const { error: linkError } = await service.from("whatsapp_qr_peer_links")
+        .delete().eq("agency_id", agencyId);
+      if (linkError) throw new Error("Não foi possível limpar os identificadores da sessão anterior.");
+      return removed;
+    }
   }
   // Keep the inbox blocked until everything has been removed.
   throw new Error("Limpeza parcial. Tente novamente para concluir.");
