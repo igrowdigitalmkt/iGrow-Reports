@@ -22,9 +22,12 @@ select is((select archived from whatsapp_conversations where remote_id='55869999
 select is((select sync_whatsapp_qr_chat_states('e1aaaaaa-0000-4000-8000-000000000001','[{"remote_id":"558699990000","archived":false,"unread_count":0}]'::jsonb)),1,'Estado do celular atualiza arquivo e leitura');
 select is((select archived from whatsapp_conversations where remote_id='558699990000'),false,'Celular desarquivou a conversa');
 select is((select unread_count from whatsapp_conversations where remote_id='558699990000'),0,'Contador segue a leitura do celular');
-select is((select sync_whatsapp_qr_chat_states('e1aaaaaa-0000-4000-8000-000000000001','[{"remote_id":"558699990000","archived":true,"unread_count":7},{"remote_id":"nao-existe","archived":true}]'::jsonb)),1,'Sincronização em lote altera apenas conversa conhecida');
+select is((select sync_whatsapp_qr_chat_states('e1aaaaaa-0000-4000-8000-000000000001','[{"remote_id":"558699990000","archived":true,"unread_count":7},{"remote_id":"120363777@g.us","title":"Grupo antigo","archived":true,"unread_count":4}]'::jsonb)),2,'Sincronização em lote atualiza conhecida e cria conversa histórica');
 select is((select archived from whatsapp_conversations where remote_id='558699990000'),true,'Celular arquivou a conversa');
 select is((select unread_count from whatsapp_conversations where remote_id='558699990000'),7,'Contador não lido acompanha o celular');
+select is((select archived from whatsapp_conversations where remote_id='120363777@g.us'),true,'Grupo histórico entra arquivado');
+select is((select title from whatsapp_conversations where remote_id='120363777@g.us'),'Grupo antigo','Grupo histórico preserva o nome');
+select is((select is_group from whatsapp_conversations where remote_id='120363777@g.us'),true,'Grupo histórico é reconhecido como grupo');
 reset role;
 select * from finish();
 rollback;

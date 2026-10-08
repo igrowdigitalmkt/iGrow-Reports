@@ -2,6 +2,7 @@
 
 export type QrChatState = {
   remoteId: string;
+  title?: string;
   archived?: boolean;
   unread?: number;
 };
@@ -39,10 +40,17 @@ export function parseQrChatStates(body: unknown): QrChatState[] {
     const item = row as Record<string, unknown>;
     const remoteId = remoteIdOf(item.remoteJid ?? item.id);
     if (!remoteId) continue;
+    const rawTitle = typeof item.name === "string" ? item.name.trim() : "";
+    const title = rawTitle ? rawTitle.slice(0, 200) : undefined;
     const archived = typeof item.archived === "boolean" ? item.archived : undefined;
     const unread = finiteUnread(item.unreadMessages ?? item.unreadCount);
-    if (archived === undefined && unread === undefined) continue;
-    result.push({ remoteId, ...(archived === undefined ? {} : { archived }), ...(unread === undefined ? {} : { unread }) });
+    if (title === undefined && archived === undefined && unread === undefined) continue;
+    result.push({
+      remoteId,
+      ...(title === undefined ? {} : { title }),
+      ...(archived === undefined ? {} : { archived }),
+      ...(unread === undefined ? {} : { unread }),
+    });
   }
   return result;
 }
