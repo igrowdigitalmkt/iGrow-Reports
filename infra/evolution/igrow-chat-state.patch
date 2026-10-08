@@ -1,0 +1,93 @@
+diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
+index 60e857f..f843cb3 100644
+--- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
++++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
+@@ -757,17 +757,25 @@ export class BaileysStartupService extends ChannelStartupService {
+ 
+       const existingChatIdSet = new Set(existingChatIds.map((chat) => chat.remoteJid));
+ 
+-      const chatsToInsert = chats
+-        .filter((chat) => !existingChatIdSet?.has(chat.id))
++      const chatsForWebhook = chats.map((chat) => ({
++        remoteJid: chat.id,
++        instanceId: this.instanceId,
++        name: chat.name,
++        archived: chat.archived,
++        unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
++      }));
++
++      this.sendDataWebhook(Events.CHATS_UPSERT, chatsForWebhook);
++
++      const chatsToInsert = chatsForWebhook
++        .filter((chat) => !existingChatIdSet?.has(chat.remoteJid))
+         .map((chat) => ({
+-          remoteJid: chat.id,
+-          instanceId: this.instanceId,
++          remoteJid: chat.remoteJid,
++          instanceId: chat.instanceId,
+           name: chat.name,
+-          unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
++          unreadMessages: chat.unreadMessages,
+         }));
+ 
+-      this.sendDataWebhook(Events.CHATS_UPSERT, chatsToInsert);
+-
+       if (chatsToInsert.length > 0) {
+         if (this.configService.get<Database>('DATABASE').SAVE_DATA.CHATS)
+           await this.prismaRepository.chat.createMany({ data: chatsToInsert, skipDuplicates: true });
+@@ -781,9 +789,12 @@ export class BaileysStartupService extends ChannelStartupService {
+         }
+       >[],
+     ) => {
+-      const chatsRaw = chats.map((chat) => {
+-        return { remoteJid: chat.id, instanceId: this.instanceId };
+-      });
++      const chatsRaw = chats.map((chat) => ({
++        remoteJid: chat.id,
++        instanceId: this.instanceId,
++        archived: chat.archived,
++        unreadMessages: chat.unreadCount,
++      }));
+ 
+       this.sendDataWebhook(Events.CHATS_UPDATE, chatsRaw);
+ 
+@@ -974,22 +985,28 @@ export class BaileysStartupService extends ChannelStartupService {
+           }
+         }
+ 
+-        const chatsRaw: { remoteJid: string; instanceId: string; name?: string }[] = [];
++        const chatsForWebhook = chats.map((chat) => ({
++          remoteJid: chat.id,
++          instanceId: this.instanceId,
++          name: chat.name,
++          archived: chat.archived,
++          unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
++        }));
++        this.sendDataWebhook(Events.CHATS_SET, chatsForWebhook);
++
+         const chatsRepository = new Set(
+           (await this.prismaRepository.chat.findMany({ where: { instanceId: this.instanceId } })).map(
+             (chat) => chat.remoteJid,
+           ),
+         );
+-
+-        for (const chat of chats) {
+-          if (chatsRepository?.has(chat.id)) {
+-            continue;
+-          }
+-
+-          chatsRaw.push({ remoteJid: chat.id, instanceId: this.instanceId, name: chat.name });
+-        }
+-
+-        this.sendDataWebhook(Events.CHATS_SET, chatsRaw);
++        const chatsRaw = chatsForWebhook
++          .filter((chat) => !chatsRepository?.has(chat.remoteJid))
++          .map((chat) => ({
++            remoteJid: chat.remoteJid,
++            instanceId: chat.instanceId,
++            name: chat.name,
++            unreadMessages: chat.unreadMessages,
++          }));
+ 
+         if (this.configService.get<Database>('DATABASE').SAVE_DATA.HISTORIC) {
+           await this.prismaRepository.chat.createMany({ data: chatsRaw, skipDuplicates: true });

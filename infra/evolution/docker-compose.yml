@@ -6,7 +6,10 @@
 # Apenas o Caddy publica portas (80/443, HTTPS automático); o resto fica na rede interna.
 services:
   evolution:
-    image: evoapicloud/evolution-api:v2.3.7
+    image: igrow/evolution-api:2.3.7-chat-state-1
+    build:
+      context: .
+      dockerfile: Dockerfile.igrow
     restart: unless-stopped
     depends_on: [postgres, redis]
     environment:

@@ -61,10 +61,10 @@ export class EvolutionClient {
     return { qr: result?.base64 ?? null, pairingCode: result?.pairingCode ?? null };
   }
 
-  // Messages (received, sent from the phone and sent by the iGrow) and receipts are forwarded to the
-  // iGrow for the inbox and the "PARAR" replies, signed by a header.
+  // Messages, receipts and chat state are forwarded to the iGrow, signed by a header.
+  // CHATS_SET backfills state after a WhatsApp history sync; UPDATE/UPSERT keep archive/unread live.
   setWebhook(name: string, url: string, token: string) {
-    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE"] } } });
+    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE", "CHATS_SET", "CHATS_UPSERT", "CHATS_UPDATE"] } } });
   }
 
   logout(name: string) {

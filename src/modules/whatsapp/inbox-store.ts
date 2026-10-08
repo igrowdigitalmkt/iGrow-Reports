@@ -43,3 +43,20 @@ export async function recordInboxMessage(service: Service, input: {
 export async function updateInboxStatus(service: Service, agencyId: string | null, externalId: string, status: "sent" | "delivered" | "read" | "failed") {
   await service.rpc("update_whatsapp_message_status", { p_agency_id: agencyId, p_external_id: externalId, p_status: status }).then(() => undefined, () => undefined);
 }
+
+/** Mirrors the phone's authoritative archive/unread state in one database round trip. */
+export async function syncQrChatStates(service: Service, agencyId: string, states: Array<{ remoteId: string; archived?: boolean; unread?: number }>) {
+  if (!states.length) return 0;
+  const payload = states.map(state => ({
+    remote_id: state.remoteId,
+    ...(state.archived === undefined ? {} : { archived: state.archived }),
+    ...(state.unread === undefined ? {} : { unread_count: state.unread }),
+  })) as unknown as Json;
+  const { data, error } = await service.rpc("sync_whatsapp_qr_chat_states", { p_agency_id: agencyId, p_states: payload });
+  if (error) {
+    // The webhook must remain available during a rolling deploy where the migration may arrive first/last.
+    if (error.code !== "PGRST202" && error.code !== "42883") console.error("whatsapp-chat-state-sync", { code: error.code });
+    return 0;
+  }
+  return data ?? 0;
+}

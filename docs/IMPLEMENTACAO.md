@@ -756,3 +756,12 @@ Plano completo em `docs/PLANO_WHATSAPP_MULTINUMERO.md` (inclui a caixa de entrad
   - Lidas em sincronia com o celular (QR Code): ler no celular zera a conversa aqui (aviso `messages.update` de mensagem recebida com status READ, `mark_whatsapp_read_by_message`); abrir na iGrow marca como lida no WhatsApp (`/chat/markMessageAsRead`, o contato vê o azul).
   - Arquivadas: menu da conversa (⋮) arquiva/desarquiva; linha "Arquivadas" no topo da lista; arquivar pela iGrow também arquiva no celular (`/chat/archiveChat`); mensagem nova desarquiva conversa privada; arquivadas não contam nas não lidas. Limite: a Evolution v2.3.7 envia `chats.update` só com o id da conversa (conferido no código), então o que é arquivado apenas no celular não chega à plataforma.
   - Migração `202610070014_whatsapp_read_archive.sql` (NÃO aplicada). Teste pgTAP `whatsapp-read-archive.test.sql`.
+
+### Sincronização de arquivadas e leitura do WhatsApp (7/10/2026)
+
+- Corrigida a sincronização bidirecional do estado de conversa do QR Code. O iGrow agora aceita `CHATS_SET`, `CHATS_UPSERT` e `CHATS_UPDATE`, normaliza `archived`/`unreadCount` e grava o estado do celular em lote.
+- Migration `202610070015_whatsapp_chat_state_sync.sql`: RPC de serviço `sync_whatsapp_qr_chat_states`, remoção do trigger que desarquivava conversa por suposição local e manutenção do celular como fonte autoritativa.
+- A Evolution API 2.3.7 descartava `archived` e `unreadCount` antes do webhook. Foi criado patch mínimo versionado em `infra/evolution/igrow-chat-state.patch` e imagem própria via `infra/evolution/Dockerfile.igrow`, preservando os campos em `CHATS_SET/UPSERT/UPDATE`.
+- Validações locais: 13 testes focados, typecheck, lint, suíte SQL/RLS/pgTAP completa e build da Evolution 2.3.7 com o patch passaram.
+- Migration aplicada em produção no Supabase em 7/10/2026 e conferida: função presente e trigger antigo ausente.
+- Pendente nesta etapa: publicar o commit do iGrow, atualizar a imagem da Evolution na VPS, reconfigurar o webhook da sessão conectada para os três eventos de chat e homologar em aparelho real arquivar/desarquivar/ler.

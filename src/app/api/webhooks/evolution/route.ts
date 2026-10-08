@@ -1,6 +1,7 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { parseEvolutionMessage } from "@/modules/whatsapp/inbox-parse";
-import { recordInboxMessage, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
+import { recordInboxMessage, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
+import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
 import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
 import { qrGroupSubject, replyFromInstance, validWebhookToken } from "@/modules/whatsapp-qr/server";
 
@@ -32,11 +33,18 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   }
 
-  // Read on the phone: the conversation is read here too (no-op before migration 202610070014).
+  // Read on the phone: the conversation is read here too (fallback when WhatsApp emits a message receipt).
   const incomingRead = parseIncomingRead(body);
   if (incomingRead) {
     await service.rpc("mark_whatsapp_read_by_message", { p_agency_id: agencyId, p_external_id: incomingRead.messageId }).then(() => undefined, () => undefined);
     return Response.json({ ok: true });
+  }
+
+  // Authoritative chat state from Baileys: archive/unarchive and unread count, including initial sync.
+  const chatStates = parseQrChatStates(body);
+  if (chatStates.length) {
+    await syncQrChatStates(service, agencyId, chatStates);
+    return Response.json({ ok: true, chats: chatStates.length });
   }
 
   const inbox = parseEvolutionMessage(body);

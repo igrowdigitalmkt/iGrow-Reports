@@ -18,7 +18,13 @@ select is((select archived from whatsapp_conversations where remote_id='55869999
 reset role;
 set local role service_role;
 select record_whatsapp_message('e1aaaaaa-0000-4000-8000-000000000001',null,'558699990000',false,null,'IN3','in','text','Oi de novo',null,null,null,null,'2026-10-07 11:00+00');
-select is((select archived from whatsapp_conversations where remote_id='558699990000'),false,'Mensagem nova desarquiva a conversa privada');
+select is((select archived from whatsapp_conversations where remote_id='558699990000'),true,'Mensagem nova não adivinha o estado de arquivo do celular');
+select is((select sync_whatsapp_qr_chat_states('e1aaaaaa-0000-4000-8000-000000000001','[{"remote_id":"558699990000","archived":false,"unread_count":0}]'::jsonb)),1,'Estado do celular atualiza arquivo e leitura');
+select is((select archived from whatsapp_conversations where remote_id='558699990000'),false,'Celular desarquivou a conversa');
+select is((select unread_count from whatsapp_conversations where remote_id='558699990000'),0,'Contador segue a leitura do celular');
+select is((select sync_whatsapp_qr_chat_states('e1aaaaaa-0000-4000-8000-000000000001','[{"remote_id":"558699990000","archived":true,"unread_count":7},{"remote_id":"nao-existe","archived":true}]'::jsonb)),1,'Sincronização em lote altera apenas conversa conhecida');
+select is((select archived from whatsapp_conversations where remote_id='558699990000'),true,'Celular arquivou a conversa');
+select is((select unread_count from whatsapp_conversations where remote_id='558699990000'),7,'Contador não lido acompanha o celular');
 reset role;
 select * from finish();
 rollback;
