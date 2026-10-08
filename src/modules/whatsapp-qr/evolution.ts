@@ -65,7 +65,7 @@ export class EvolutionClient {
   // Messages, receipts and chat state are forwarded to the iGrow, signed by a header.
   // CHATS_SET backfills state after a WhatsApp history sync; UPDATE/UPSERT keep archive/unread live.
   setWebhook(name: string, url: string, token: string) {
-    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_SET", "SEND_MESSAGE", "CHATS_SET", "CHATS_UPSERT", "CHATS_UPDATE"] } } });
+    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE", "CHATS_SET", "CHATS_UPSERT", "CHATS_UPDATE"] } } });
   }
 
   logout(name: string) {

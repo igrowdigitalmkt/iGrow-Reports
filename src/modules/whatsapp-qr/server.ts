@@ -154,10 +154,9 @@ export async function createQrSender(agencyId: string): Promise<MessageSender | 
   if (!evolution) return null;
   const name = instanceNameFor(agencyId);
   if (await evolution.state(name) !== "open") return null;
-  // Sessions connected before delivery receipts existed get the status webhook here.
-  const origin = appOrigin();
-  const token = webhookToken(name);
-  if (origin && token) await evolution.setWebhook(name, `${origin}/api/webhooks/evolution`, token).catch(() => undefined);
+  // Do not overwrite webhook settings on every scheduled send. Webhook registration
+  // happens during explicit connection; auto-registration here can reactivate an
+  // intentionally paused initial history import and overload the database.
   return {
     async sendText(destination, text) {
       const number = destination.kind === "group" ? destination.groupId : destination.phone.replace(/\D/g, "");
