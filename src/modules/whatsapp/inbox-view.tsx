@@ -600,7 +600,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             <button type="button" role="menuitem" onClick={() => { setBulkMenuOpen(false); void bulkArchiveSelected(); }}><Archive size={18}/>Arquivar conversas</button>
           </div>}
         </div>
-      </div>
+      </div>}
       {picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={choose} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
         <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setStarPanel(false)} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Mensagens favoritas</strong></div>
         <p className="wai-new-note">Favoritos privados nesta plataforma, preservados enquanto as mensagens estiverem disponíveis no iGrow.</p>
