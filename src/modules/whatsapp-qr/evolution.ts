@@ -34,7 +34,7 @@ export class EvolutionClient {
   async instance(name: string): Promise<EvolutionInstance | null> {
     try {
       const list = await this.request<EvolutionInstance[]>(`/instance/fetchInstances?instanceName=${encodeURIComponent(name)}`);
-      return list?.[0] ?? null;
+      return Array.isArray(list) ? list.find(row => row.name === name) ?? null : null;
     } catch (error) {
       if (error instanceof EvolutionError && error.status === 404) return null;
       throw error;

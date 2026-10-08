@@ -105,7 +105,9 @@ export async function resetQrSession(agencyId: string) {
   const evolution = client();
   if (!evolution) throw new EvolutionError("Servidor do WhatsApp não configurado.");
   const name = instanceNameFor(agencyId);
-  if (await evolution.state(name) !== null) {
+  // Evolution can return "close" from /connectionState even when the instance
+  // was already removed. Only /fetchInstances confirms that it still exists.
+  if (await evolution.instance(name)) {
     // A disconnected device may reject logout; deletion must still succeed.
     await evolution.logout(name).catch(() => undefined);
     try {
@@ -114,7 +116,13 @@ export async function resetQrSession(agencyId: string) {
       if (!(error instanceof EvolutionError && error.status === 404)) throw error;
     }
   }
-  if (await evolution.state(name) !== null) throw new EvolutionError("A sessão antiga ainda existe; nada foi apagado.");
+  // Instance deletion may be asynchronous; verify by its exact name rather
+  // than treating a cached "close" connection state as an existing session.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (!await evolution.instance(name)) return;
+    if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+  }
+  throw new EvolutionError("A sessão antiga ainda existe; nada foi apagado.");
 }
 
 export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> {
