@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, Phone, Delete } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -1386,42 +1386,75 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
   contacts: InboxContact[]; conversations: InboxConversation[]; onExisting: (id: string) => void;
   onPick: (contact: { phone: string; name: string | null; clientName: string | null }) => void; onClose: () => void;
 }) {
+  const [mode, setMode] = useState<"contacts" | "phone">("contacts");
   const [query, setQuery] = useState("");
+  const [number, setNumber] = useState("");
   const search = query.trim().toLocaleLowerCase("pt-BR");
   const digits = query.replace(/\D/g, "");
   const shown = contacts.filter(contact => !search || `${contact.name} ${contact.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search) || (digits.length >= 3 && contact.phone.replace(/\D/g, "").includes(digits)));
   const typed = digits.length >= 10 ? (digits.length <= 11 ? `55${digits}` : digits) : null;
   const recent = conversations.filter(item => !search ||
     `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search)
-    || (digits.length >= 3 && item.remoteId.replace(/\D/g, "").includes(digits))).slice(0, search ? 60 : 20);
-  // A saved recipient already visible as a recent conversation should not
-  // appear twice in the contact picker (DDD+last 8 handles Brazil's ninth digit).
+    || (digits.length >= 3 && item.remoteId.replace(/\D/g, "").includes(digits))).slice(0, search ? 60 : 30);
   const recentPhones = new Set(recent.filter(item => !item.remoteId.endsWith("@lid")).map(item => phoneKey(item.remoteId)));
   const recipients = shown.filter(contact => !recentPhones.has(phoneKey(contact.phone)));
+  const phoneDigits = number.replace(/\D/g, "");
+  const validNumber = phoneDigits.length >= 10 && phoneDigits.length <= 13;
+  const callNumber = () => {
+    if (!validNumber) return;
+    onPick({ phone: phoneDigits.length <= 11 ? `55${phoneDigits}` : phoneDigits, name: null, clientName: null });
+  };
   return <div className="wai-new">
-    <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={onClose} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Nova conversa</strong></div>
-    <label className="wai-search"><Search size={17} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar nome ou digitar número com DDD" aria-label="Pesquisar contato ou número" /></label>
-    <p className="wai-new-note">Pelo QR Code, mande mensagem só para quem conhece seu número: mensagens para desconhecidos aumentam o risco de bloqueio.</p>
-    <div className="wai-rows">
-      {typed && <button type="button" className="wai-row" onClick={() => onPick({ phone: typed, name: null, clientName: null })}>
-        <span className="wai-avatar is-icon" style={{ width: 49, height: 49 }}><Contact size={24} /></span>
-        <span className="wai-row-main"><span className="wai-row-top"><strong>Conversar com {formatWhatsAppPhone(typed)}</strong></span><span className="wai-row-client">Número digitado</span></span>
-      </button>}
-      {recent.length > 0 && <p className="wai-new-title">Conversas recentes deste WhatsApp</p>}
-      {recent.map(item => <button type="button" key={item.id} className="wai-row" onClick={() => onExisting(item.id)}>
-        <Avatar item={item} size={49} photo={false} />
-        <span className="wai-row-main"><span className="wai-row-top"><strong>{conversationTitle(item)}</strong></span>
-          <span className="wai-row-preview"><span>{formatWhatsAppPhone(item.remoteId)}</span></span>
-          {item.clientName && <span className="wai-row-client">{item.clientName}</span>}
-        </span>
-      </button>)}
-      {recipients.length > 0 && <p className="wai-new-title">Destinatários dos clientes</p>}
-      {recipients.map(contact => <button key={contact.id} type="button" className="wai-row" onClick={() => onPick({ phone: contact.phone.replace(/\D/g, ""), name: contact.name, clientName: contact.clientName })}>
-        <span className="wai-avatar" style={{ width: 49, height: 49, background: colorFor(contact.name) }}>{initialsOf(contact.name)}</span>
-        <span className="wai-row-main"><span className="wai-row-top"><strong>{contact.name}</strong></span><span className="wai-row-preview"><span>{formatWhatsAppPhone(contact.phone.replace(/\D/g, ""))}</span></span>{contact.clientName && <span className="wai-row-client">{contact.clientName}</span>}</span>
-      </button>)}
-      {!recipients.length && !typed && !recent.length && <p className="wai-list-note">{search ? "Nenhum contato encontrado. Digite um número com DDD para iniciar uma nova conversa." : "Pesquise as conversas recentes, os destinatários dos clientes ou digite um número com DDD."}</p>}
+    <div className="wai-new-head">
+      <button type="button" className="wai-icon-button" onClick={() => mode === "phone" ? setMode("contacts") : onClose()} aria-label="Voltar"><ArrowLeft size={22} /></button>
+      <strong>{mode === "phone" ? "Telefone" : "Nova conversa"}</strong>
+      {mode === "contacts" && <button type="button" className="wai-icon-button wai-new-dialer-toggle"
+        onClick={() => setMode("phone")} title="Iniciar pelo número de telefone" aria-label="Abrir teclado numérico"><Phone size={21} /></button>}
     </div>
+    {mode === "phone" ? <div className="wai-dialer">
+      <input autoFocus type="tel" inputMode="tel" value={number} maxLength={21}
+        placeholder="Telefone" aria-label="Telefone"
+        onChange={event => setNumber(event.target.value.replace(/[^\d+()\s-]/g, ""))}
+        onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); callNumber(); } }} />
+      <p>Insira um número de telefone para iniciar uma conversa</p>
+      <div className="wai-dialpad" role="group" aria-label="Teclado numérico">
+        {[
+          ["1", ""], ["2", "ABC"], ["3", "DEF"], ["4", "GHI"], ["5", "JKL"], ["6", "MNO"],
+          ["7", "PQRS"], ["8", "TUV"], ["9", "WXYZ"], ["+", ""], ["0", ""], ["del", ""],
+        ].map(([digit, letters]) =>
+          <button type="button" key={digit} onClick={() => setNumber(value => digit === "del" ? value.slice(0,-1) : value + digit)}
+            aria-label={digit === "del" ? "Apagar último dígito" : `Digitar ${digit}`}>
+            {digit === "del" ? <Delete size={20} /> : <span>{digit}</span>}
+            {!!letters && <small>{letters}</small>}
+          </button>)}
+      </div>
+      <button type="button" className="wai-dialer-submit" disabled={!validNumber} onClick={callNumber}>Iniciar conversa</button>
+    </div> : <>
+      <label className="wai-search"><Search size={18} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)}
+        placeholder="Pesquisar nome, número ou @nomedeusuário" aria-label="Pesquisar contato ou número" /></label>
+      <div className="wai-new-quick">
+        <button type="button" onClick={() => setMode("phone")}><span className="wai-new-quick-icon"><Phone size={22} /></span>Iniciar por telefone</button>
+      </div>
+      <div className="wai-rows">
+        {typed && <button type="button" className="wai-row" onClick={() => onPick({ phone: typed, name: null, clientName: null })}>
+          <span className="wai-avatar is-icon" style={{ width: 49, height: 49 }}><Phone size={24} /></span>
+          <span className="wai-row-main"><span className="wai-row-top"><strong>Conversar com {formatWhatsAppPhone(typed)}</strong></span></span>
+        </button>}
+        {recent.length > 0 && <p className="wai-new-title">Conversas recentes</p>}
+        {recent.map(item => <button type="button" key={item.id} className="wai-row" onClick={() => onExisting(item.id)}>
+          <Avatar item={item} size={49} photo={false} />
+          <span className="wai-row-main"><span className="wai-row-top"><strong>{conversationTitle(item)}</strong></span>
+            <span className="wai-row-preview"><span>{formatWhatsAppPhone(item.remoteId)}</span></span></span>
+        </button>)}
+        {recipients.length > 0 && <p className="wai-new-title">Destinatários dos clientes</p>}
+        {recipients.map(contact => <button key={contact.id} type="button" className="wai-row" onClick={() => onPick({ phone: contact.phone.replace(/\D/g, ""), name: contact.name, clientName: contact.clientName })}>
+          <span className="wai-avatar" style={{ width: 49, height: 49, background: colorFor(contact.name) }}>{initialsOf(contact.name)}</span>
+          <span className="wai-row-main"><span className="wai-row-top"><strong>{contact.name}</strong></span>
+            <span className="wai-row-preview"><span>{formatWhatsAppPhone(contact.phone.replace(/\D/g, ""))}</span></span></span>
+        </button>)}
+        {!recipients.length && !typed && !recent.length && <p className="wai-list-note">Nenhum contato encontrado. Digite um número com DDD para iniciar a conversa.</p>}
+      </div>
+    </>}
   </div>;
 }
 
