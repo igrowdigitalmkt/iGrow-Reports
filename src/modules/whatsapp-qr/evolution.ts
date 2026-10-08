@@ -133,6 +133,13 @@ export class EvolutionClient {
     return { base64: result.base64, mime: result.mimetype ?? "application/octet-stream", fileName: result.fileName ?? null };
   }
 
+  /** React to a real WhatsApp message (including removal via empty emoji). */
+  async reactToMessage(name: string, key: { id: string; remoteJid: string; fromMe: boolean; participant?: string }, emoji: string) {
+    return this.request<unknown>(`/message/sendReaction/${encodeURIComponent(name)}`, {
+      method: "POST", timeoutMs: 30_000, body: { key, reaction: emoji },
+    });
+  }
+
   /** Voice message (the server converts the recording to WhatsApp's voice format). */
   async sendVoice(name: string, number: string, base64: string) {
     const result = await this.request<{ key?: { id?: string } }>(`/message/sendWhatsAppAudio/${encodeURIComponent(name)}`, { method: "POST", timeoutMs: 60_000, body: { number, audio: base64, encoding: true } });
@@ -149,8 +156,15 @@ export class EvolutionClient {
   }
 
   // "delay" shows "typing…" before the message, like a person would.
-  async sendText(name: string, number: string, text: string) {
-    const result = await this.request<{ key?: { id?: string } }>(`/message/sendText/${encodeURIComponent(name)}`, { method: "POST", body: { number, text, delay: 1200 }, timeoutMs: 40_000 });
+  async sendText(name: string, number: string, text: string, replyTo?: {
+    id: string; fromMe: boolean; remoteJid: string; text: string;
+  }) {
+    const quoted = replyTo ? {
+      key: { id: replyTo.id, remoteJid: replyTo.remoteJid, fromMe: replyTo.fromMe },
+      message: { conversation: replyTo.text || "Mensagem" },
+    } : undefined;
+    const result = await this.request<{ key?: { id?: string } }>(`/message/sendText/${encodeURIComponent(name)}`,
+      { method: "POST", body: { number, text, delay: 1200, ...(quoted ? { quoted } : {}) }, timeoutMs: 40_000 });
     return { messageId: result?.key?.id ?? null };
   }
 }

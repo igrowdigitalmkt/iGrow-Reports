@@ -272,12 +272,6 @@
 .wai-starred-item strong, .wai-starred-item small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wai-starred-item strong { font-size: 14px; font-weight: 600; }
 .wai-starred-item small { color: var(--wai-muted); font-size: 12px; }
-.wai-bubble-star { position: absolute; top: -7px; right: -11px; z-index: 3; display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid var(--wai-line); border-radius: 50%; background: var(--wai-panel); color: var(--wai-muted); opacity: 0; cursor: pointer; }
-.wai-bubble:hover .wai-bubble-star, .wai-bubble-star:focus-visible, .wai-bubble-star.is-starred { opacity: 1; }
-.wai-bubble-star.is-starred { color: #efb84d; }
-.wai-bubble-star:hover { background: var(--wai-hover); color: #efb84d; }
-@media (hover: none) { .wai-bubble-star { opacity: .75; } }
-
 /* Contact / group information is optional, opened only on explicit request. */
 .wai-contact-trigger { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .wai-contact-trigger:hover .wai-chat-title strong { color: var(--wai-green); }
@@ -306,9 +300,62 @@
 .wai-details-file small { color: var(--wai-muted); font-size: 12px; }
 @media (max-width: 760px) { .wai-details { width: 100%; } }
 
-/* Emoji reactions belong to the message bubble. They do not add another chat line. */
-.wai-bubble-row.has-reactions { margin-bottom: 21px; }
-.wai-reactions { position: absolute; z-index: 2; bottom: -15px; right: 8px; display: flex; flex-wrap: wrap; gap: 3px; max-width: min(100%, 300px); }
-.wai-reactions span { display: inline-flex; align-items: center; gap: 3px; min-height: 23px; padding: 1px 6px; border: 1px solid var(--wai-line); border-radius: 999px; background: var(--wai-panel); font-size: 15px; box-shadow: 0 2px 4px color-mix(in srgb, #000 9%, transparent); }
+
+/* Messages: hover controls are separated from the content and read receipts. */
+.wai-bubble-row { position: relative; overflow: visible; }
+.wai-bubble-row.is-selected .wai-bubble { outline: 2px solid var(--wai-green); outline-offset: 2px; }
+.wai-bubble-stack { position: relative; display: flex; flex-direction: column; align-items: flex-end; width: fit-content; min-width: 54px; max-width: min(65%, 560px); }
+.wai-bubble-stack .wai-bubble { width: fit-content; max-width: 100%; min-width: 54px; }
+.wai-bubble-row.is-in .wai-bubble-stack { align-items: flex-start; }
+.wai-bubble-row.has-reactions { margin-bottom: 4px; }
+.wai-reactions { position: relative; display: flex; align-items: center; flex-wrap: wrap; align-self: flex-end; justify-content: flex-end; gap: 4px; z-index: 2; max-width: 100%; margin: -2px 4px 5px 0; }
+/* Unlike an absolute badge, this occupies document-flow space and never hides the time/ticks. */
+.wai-reactions span { display: inline-flex; align-items: center; gap: 3px; min-height: 23px; padding: 1px 7px; border: 1px solid var(--wai-line); border-radius: 999px; background: var(--wai-panel); font-size: 15px; white-space: nowrap; box-shadow: 0 2px 5px color-mix(in srgb, #000 10%, transparent); }
 .wai-reactions span.is-mine { border-color: var(--wai-blue); }
 .wai-reactions small { color: var(--wai-muted); font-size: 11px; }
+.wai-bubble-stack:has(.wai-message-popup) { z-index: 30; }
+.wai-message-controls { position: absolute; top: 1px; right: -68px; display: flex; gap: 1px; padding: 1px; border-radius: 10px; background: var(--wai-chat); opacity: 0; transform: translateY(2px); pointer-events: none; transition: opacity .12s, transform .12s; }
+.is-out .wai-message-controls { left: -68px; right: auto; }
+.wai-bubble-stack:hover > .wai-message-controls, .wai-bubble-stack:focus-within > .wai-message-controls { opacity: 1; transform: none; pointer-events: auto; }
+.wai-message-controls button { display: grid; place-items: center; flex: 0 0 31px; width: 31px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--wai-muted); cursor: pointer; }
+.wai-message-controls button:hover, .wai-message-controls button[aria-expanded="true"] { background: var(--wai-hover); color: var(--wai-text); }
+.wai-message-controls button:disabled { opacity: .45; cursor: wait; }
+.wai-message-popup { position: absolute; z-index: 35; top: auto; bottom: calc(100% + 9px); left: 0; width: min(324px, 86vw); padding: 6px; border: 1px solid var(--wai-line); border-radius: 15px; background: var(--wai-panel); color: var(--wai-text); box-shadow: 0 10px 34px color-mix(in srgb, #000 40%, transparent); }
+.wai-bubble-row.is-out .wai-message-popup { left: auto; right: 0; }
+.wai-message-popup.is-below { top: calc(100% + 8px); bottom: auto; }
+.wai-message-quick-reactions { display: grid; grid-template-columns: repeat(7, 1fr); align-items: center; gap: 0; padding: 3px 0 6px; }
+.wai-message-quick-reactions button { display: grid; place-items: center; height: 39px; min-width: 0; padding: 0; border: none; border-radius: 50%; background: transparent; color: var(--wai-text); font-size: 22px; line-height: 1; cursor: pointer; }
+.wai-message-quick-reactions button:hover, .wai-message-quick-reactions button.is-current { background: var(--wai-hover); transform: scale(1.11); }
+.wai-message-quick-reactions button:disabled { opacity: .5; }
+.wai-message-all-emoji { max-height: min(340px, 46vh); overflow: hidden; border-top: 1px solid var(--wai-line); }
+.wai-message-all-emoji > .wai-emoji { position: relative; inset: auto; width: 100%; height: min(330px, 42vh); padding: 8px 2px 4px; border: 0; border-radius: 10px; box-shadow: none; }
+.wai-message-menu-list { display: grid; gap: 1px; padding: 5px 0 2px; border-top: 1px solid var(--wai-line); }
+.wai-message-menu-list button { display: flex; align-items: center; gap: 13px; width: 100%; min-height: 41px; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--wai-text); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.wai-message-menu-list button:hover { background: var(--wai-hover); }
+.wai-message-menu-list button:disabled { opacity: .48; cursor: not-allowed; }
+.wai-message-selection-bar { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-bottom: 1px solid var(--wai-line); background: var(--wai-active); }
+.wai-message-selection-bar span { flex: 1; color: var(--wai-muted); font-size: 13px; }
+.wai-message-selection-bar button { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; border: 0; border-radius: 7px; background: var(--wai-hover); color: var(--wai-text); cursor: pointer; }
+.wai-message-selection-bar button:hover { filter: brightness(1.1); }
+.wai-reply-banner { display: flex; align-items: center; gap: 10px; padding: 7px 13px; border-left: 3px solid var(--wai-green); border-radius: 9px; background: var(--wai-hover); }
+.wai-reply-banner > span { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.wai-reply-banner strong { color: var(--wai-green); font-size: 12px; }
+.wai-reply-banner small { overflow: hidden; color: var(--wai-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.wai-message-info-backdrop { position: absolute; z-index: 38; inset: 0; display: grid; place-items: center; padding: 15px; background: color-mix(in srgb, #000 55%, transparent); }
+.wai-message-info { width: min(440px, 100%); padding: 20px; border: 1px solid var(--wai-line); border-radius: 16px; background: var(--wai-panel); box-shadow: 0 10px 35px color-mix(in srgb, #000 40%, transparent); }
+.wai-message-info header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.wai-message-info strong { font-weight: 650; }
+.wai-message-info p { margin: 9px 0; color: var(--wai-muted); overflow-wrap: anywhere; }
+.wai-message-info p strong { color: var(--wai-text); }
+@media (max-width: 760px) {
+ .wai-bubble-stack { max-width: 84%; }
+ .wai-message-controls { opacity: .65; pointer-events: auto; }
+ .wai-message-popup { width: min(315px, 83vw); }
+ .wai-message-selection-bar { flex-wrap: wrap; }
+}
+
+/* Floating reaction and context menu remains in the viewport even in long chats. */
+.wai-message-popup.wai-message-popup-fixed {
+  position: fixed; right: auto; bottom: auto; z-index: 400;
+  max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain;
+}

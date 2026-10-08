@@ -34,6 +34,16 @@ export async function recordInboxMessage(service: Service, input: {
     return null;
   }
   const row = data?.[0];
+  if (row?.conversation_id && message.isGroup && message.participantJid
+    && /^\d{8,20}@(lid|s\.whatsapp\.net)$/.test(message.participantJid)) {
+    // Preserve sender metadata only on the exact message. One-time group
+    // incoming update; without this key, Baileys may react to the wrong target.
+    const { error: identityError } = await service.from("whatsapp_messages")
+      .update({ participant_jid: message.participantJid })
+      .eq("agency_id", input.agencyId).eq("conversation_id", row.conversation_id)
+      .eq("external_id", message.externalId).is("participant_jid", null);
+    if (identityError) console.error("whatsapp-group-participant", { code: identityError.code });
+  }
   // QR Code files are fetched later by their reference (no-op before migration 202610070013).
   if (message.mediaRef) await service.rpc("set_whatsapp_message_media_ref", { p_agency_id: input.agencyId, p_external_id: message.externalId, p_media_ref: message.mediaRef as unknown as Json }).then(() => undefined, () => undefined);
   // A group seen for the first time gets its name from the session.

@@ -9,6 +9,8 @@ export type InboxMessage = {
   body: string | null; mediaName: string | null; mediaMime: string | null; sentAt: string;
   // Cloud API media id (the QR Code session finds files by the message id instead).
   mediaId?: string | null;
+  /** Sender JID for group messages, used to target the original key for reactions. */
+  participantJid?: string | null;
   deliveryStatus?: "sent" | "delivered" | "read" | "failed" | null;
   // QR Code session: WhatsApp's encrypted file reference (location and key, no content).
   mediaRef?: MediaRef | null;
@@ -117,6 +119,8 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
   const pushName = receivedPushName && !/^\d{12,20}$/.test(receivedPushName) ? receivedPushName : null;
   return {
     remoteId, isGroup, ...content,
+    ...(isGroup && !fromMe && /^\d{8,20}@(lid|s\.whatsapp\.net)$/.test(key.participantAlt ?? key.participant ?? "")
+      ? { participantJid: key.participantAlt ?? key.participant } : {}),
     // In a private chat the sender's name names the conversation; in a group it names the author.
     title: !isGroup && !fromMe ? pushName : null,
     author: isGroup && !fromMe ? pushName ?? jidDigits(key.participantAlt ?? key.participant ?? undefined) : null,

@@ -87,17 +87,26 @@ export class WhatsAppGraph {
     | { type: "text"; text: string }
     | { type: "image" | "video"; mediaId: string; caption?: string }
     | { type: "audio"; mediaId: string }
-    | { type: "document"; mediaId: string; filename: string; caption?: string }) {
+    | { type: "document"; mediaId: string; filename: string; caption?: string }, replyToId?: string) {
     const body = content.type === "text" ? { type: "text", text: { body: content.text, preview_url: true } }
       : content.type === "document" ? { type: "document", document: { id: content.mediaId, filename: content.filename, ...(content.caption ? { caption: content.caption } : {}) } }
       : content.type === "audio" ? { type: "audio", audio: { id: content.mediaId } }
       : { type: content.type, [content.type]: { id: content.mediaId, ...(content.caption ? { caption: content.caption } : {}) } };
     const result = await this.request<{ messages?: Array<{ id: string }> }>(`${id(phoneNumberId)}/messages`, {
-      method: "POST", body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: to.replace(/^\+/, ""), ...body }),
+      method: "POST", body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: to.replace(/^\+/, ""), ...body, ...(replyToId ? { context: { message_id: replyToId } } : {}) }),
     });
     const wamid = result.messages?.[0]?.id;
     if (!wamid) throw new WhatsAppApiError("O WhatsApp não confirmou o envio da mensagem.");
     return wamid;
+  }
+
+  /** Official Cloud API: update or remove an emoji reaction on a specific wamid. */
+  async sendReaction(phoneNumberId: string, to: string, messageId: string, emoji: string) {
+    const result = await this.request<{ messages?: Array<{ id: string }> }>(`${id(phoneNumberId)}/messages`, {
+      method: "POST", body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual",
+        to: to.replace(/^\+/, ""), type: "reaction", reaction: { message_id: messageId, emoji } }),
+    });
+    if (!result.messages?.[0]?.id) throw new WhatsAppApiError("O WhatsApp não confirmou a reação.");
   }
 
   async sendTemplate(phoneNumberId: string, to: string, template: { name: string; language: string; components: unknown[] }) {

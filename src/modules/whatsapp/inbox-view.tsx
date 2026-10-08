@@ -1,7 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck } from "lucide-react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -54,6 +55,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   // Only suppress the badge for the message snapshot that was opened, never for future messages.
   const [readLocally, setReadLocally] = useState<Record<string, OptimisticRead>>({});
   const [actionError, setActionError] = useState("");
+  const [replyTarget, setReplyTarget] = useState<InboxMessageItem | null>(null);
+  const [messageInfo, setMessageInfo] = useState<InboxMessageItem | null>(null);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [reactingId, setReactingId] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   async function refreshStars() {
@@ -255,6 +260,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setMenuOpen(false);
     setListMenuOpen(false);
     setDetailsOpen(false); setDetails(null);
+    setReplyTarget(null); setMessageInfo(null); setSelectedMessageIds(new Set());
     setOpenId(id);
     const selected = list?.conversations.find(item => item.id === id);
     if (!demo && selected?.unread) {
@@ -308,6 +314,57 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       });
       setActionError("Não foi possível atualizar o favorito. Tente novamente.");
     }
+  }
+
+  async function reactTo(message: InboxMessageItem, emoji: string) {
+    if (!openId || demo || reactingId || message.id.startsWith("local-")) return;
+    setReactingId(message.id);
+    setActionError("");
+    // Tapping the emoji already used by this account removes the reaction.
+    const value = message.reactions?.some(reaction => reaction.mine && reaction.emoji === emoji) ? "" : emoji;
+    try {
+      const response = await fetch(`/api/whatsapp/inbox/${openId}/react`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: message.id, emoji: value }),
+      });
+      const body = await response.json().catch(() => null) as { error?: string; recorded?: boolean } | null;
+      if (!response.ok) throw new Error(body?.error || "O WhatsApp não confirmou a reação.");
+      if (body?.recorded === false) setActionError("Reação enviada, mas ainda não foi possível atualizar o histórico local.");
+      reload(openId);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Não foi possível reagir.");
+    } finally {
+      setReactingId(null);
+    }
+  }
+
+  async function copyMessage(message: InboxMessageItem) {
+    if (!message.body) { setActionError("Essa mensagem não possui texto para copiar."); return; }
+    try { await navigator.clipboard.writeText(message.body); }
+    catch { setActionError("Não foi possível copiar. Verifique a permissão do navegador."); }
+  }
+
+  function toggleSelectedMessage(id: string) {
+    setSelectedMessageIds(previous => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function copySelectedMessages() {
+    const selected = (messages ?? []).filter(message => selectedMessageIds.has(message.id) && message.body);
+    if (!selected.length) return;
+    try {
+      await navigator.clipboard.writeText(selected.map(item => item.body).join("\n"));
+      setSelectedMessageIds(new Set());
+    } catch { setActionError("Não foi possível copiar as mensagens selecionadas."); }
+  }
+
+  async function favoriteSelectedMessages() {
+    const selected = (messages ?? []).filter(message => selectedMessageIds.has(message.id) && !starredIds.has(message.id));
+    for (const message of selected) await toggleMessageStar(message);
+    setSelectedMessageIds(new Set());
   }
 
   async function markSelectedRead(ids: string[]) {
@@ -461,6 +518,12 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             </div>
           </div>
         </header>
+        {!!selectedMessageIds.size && <div className="wai-message-selection-bar" role="toolbar" aria-label="Mensagens selecionadas">
+          <span>{selectedMessageIds.size} mensagem(ns) selecionada(s)</span>
+          <button type="button" onClick={() => void copySelectedMessages()}><Copy size={15} />Copiar textos</button>
+          <button type="button" onClick={() => void favoriteSelectedMessages()}><Star size={15} />Favoritar</button>
+          <button type="button" onClick={() => setSelectedMessageIds(new Set())} title="Cancelar seleção"><X size={17} /></button>
+        </div>}
         <div className="wai-messages">
           <div className="wai-messages-inner">
             {messages === null && <p className="wai-day"><span>Carregando…</span></p>}
@@ -470,8 +533,16 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               const grouped = !newDay && previous?.direction === message.direction && previous.author === message.author;
               return <Fragment key={message.id}>
                 {newDay && <p className="wai-day"><span>{dayLabel(message.sentAt, now)}</span></p>}
-                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped} live={!demo && !message.id.startsWith("local-")}
-                  starred={starredIds.has(message.id)} onStar={() => void toggleMessageStar(message)}
+                <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped}
+                  live={!demo && !message.id.startsWith("local-")} canReact={canReply && reactingId === null} reactionBusy={reactingId === message.id}
+                  selected={selectedMessageIds.has(message.id)}
+                  starred={starredIds.has(message.id)}
+                  onReply={() => { setReplyTarget(message); setSelectedMessageIds(new Set()); }}
+                  onReact={emoji => void reactTo(message, emoji)}
+                  onCopy={() => void copyMessage(message)}
+                  onInfo={() => setMessageInfo(message)}
+                  onSelect={() => toggleSelectedMessage(message.id)}
+                  onStar={() => void toggleMessageStar(message)}
                   onView={(displaySrc, downloadSrc) => setViewer({ displaySrc, downloadSrc })} />
               </Fragment>;
             })}
@@ -479,7 +550,18 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           </div>
         </div>
         <Composer key={open.id} conversation={open} kind={channel.kind} now={now} demo={demo} canReply={canReply}
-          onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { if (!demo) reload(open.id); }} />
+          replyTarget={replyTarget} onClearReply={() => setReplyTarget(null)}
+          onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { setReplyTarget(null); if (!demo) reload(open.id); }} />
+        {messageInfo && <div className="wai-message-info-backdrop" role="presentation" onClick={() => setMessageInfo(null)}>
+          <section className="wai-message-info" role="dialog" aria-modal="true" aria-label="Dados da mensagem" onClick={event => event.stopPropagation()}>
+            <header><strong>Dados da mensagem</strong><button type="button" className="wai-icon-button" onClick={() => setMessageInfo(null)} aria-label="Fechar"><X size={20} /></button></header>
+            <p><strong>Data:</strong> {new Date(messageInfo.sentAt).toLocaleString("pt-BR")}</p>
+            <p><strong>Direção:</strong> {messageInfo.direction === "out" ? "Enviada por este número" : "Recebida"}</p>
+            {messageInfo.direction === "out" && <p><strong>Entrega:</strong> {messageInfo.status === "read" ? "Lida" : messageInfo.status === "delivered" ? "Entregue" : messageInfo.status === "failed" ? "Falha" : "Enviada"}</p>}
+            <p><strong>Formato:</strong> {kindLabel(messageInfo.kind) || "Texto"}</p>
+            <p><strong>Reações:</strong> {messageInfo.reactions?.map(item => `${item.emoji} × ${item.count}`).join(" · ") || "Nenhuma"}</p>
+          </section>
+        </div>}
         {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo} onClose={() => setDetailsOpen(false)} />}
       </>}
     </section>
@@ -713,41 +795,132 @@ function AudioPlayer({ src, out }: { src: string; out: boolean }) {
   </div>;
 }
 
-function Bubble({ message, tail, showAuthor, live, starred, onStar, onView }: {
-  message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; starred: boolean; onStar: () => void;
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"] as const;
+
+/** WhatsApp-like message actions: emoji on hover and dropdown for contextual actions. */
+function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selected, starred,
+  onStar, onReact, onCopy, onReply, onSelect, onInfo, onView }: {
+  message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean;
+  canReact: boolean; reactionBusy: boolean; selected: boolean; starred: boolean;
+  onStar: () => void; onReact: (emoji: string) => void; onCopy: () => void;
+  onReply: () => void; onSelect: () => void; onInfo: () => void;
   onView: (displaySrc: string, downloadSrc: string) => void;
 }) {
   const out = message.direction === "out";
+  const [panel, setPanel] = useState<"emoji" | "menu" | null>(null);
+  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
+  const [allEmoji, setAllEmoji] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  const popover = useRef<HTMLDivElement>(null);
+  const [popupCoordinates, setPopupCoordinates] = useState<{ top: number; left: number } | null>(null);
+  // Portaling to the WhatsApp shell prevents the emoji picker from being cut
+  // off by the scrolling conversation viewport and keeps the same theme tokens.
+  useLayoutEffect(() => {
+    if (!panel || !wrapper.current || !popover.current) return;
+    const calculate = () => {
+      if (!wrapper.current || !popover.current) return;
+      const anchor = wrapper.current.getBoundingClientRect();
+      const panelBox = popover.current;
+      const height = Math.min(panelBox.scrollHeight, window.innerHeight - 80);
+      const width = panelBox.getBoundingClientRect().width || 324;
+      const above = anchor.top - 68;
+      const below = window.innerHeight - anchor.bottom - 12;
+      let top: number;
+      if (above >= height) top = anchor.top - height - 8;
+      else if (below >= height) top = anchor.bottom + 8;
+      else top = Math.max(68, Math.min(anchor.top - height / 2, window.innerHeight - height - 12));
+      const idealLeft = out ? anchor.right - width : anchor.left;
+      const left = Math.max(12, Math.min(idealLeft, window.innerWidth - width - 12));
+      setPopupCoordinates(previous => previous?.top === top && previous?.left === left ? previous : { top, left });
+    };
+    calculate();
+    window.addEventListener("resize", calculate);
+    return () => window.removeEventListener("resize", calculate);
+  }, [panel, allEmoji, out]);
+  useEffect(() => {
+    if (!panel) return;
+    const clickAway = (event: PointerEvent) => {
+      if (!wrapper.current?.contains(event.target as Node) && !popover.current?.contains(event.target as Node)) {
+        setPanel(null); setAllEmoji(false);
+      }
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setPanel(null); setAllEmoji(false); }
+    };
+    document.addEventListener("pointerdown", clickAway);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", clickAway); document.removeEventListener("keydown", escape); };
+  }, [panel]);
+  const openPanel = (mode: "emoji" | "menu") => {
+    setPortalHost((wrapper.current?.closest(".wai-shell") as HTMLElement | null) ?? document.body);
+    setPopupCoordinates(null);
+    setPanel(previous => previous === mode ? null : mode);
+    setAllEmoji(false);
+  };
+  const choose = (emoji: string) => { setPanel(null); setAllEmoji(false); onReact(emoji); };
+  const run = (fn: () => void) => { setPanel(null); setAllEmoji(false); fn(); };
+  const currentMine = message.reactions?.find(item => item.mine)?.emoji;
   const meta = <span className="wai-meta">{clockTime(message.sentAt)}{out && <Ticks status={message.status} />}</span>;
   const src = `/api/whatsapp/inbox/media/${message.id}`;
   const shownLive = live && (message.kind === "image" || message.kind === "sticker" || message.kind === "video" || message.kind === "audio");
   const Icon = shownLive ? undefined : KIND_ICONS[message.kind];
-  return <div className={`wai-bubble-row ${out ? "is-out" : "is-in"}${message.reactions?.length ? " has-reactions" : ""}`}>
-    <div className={`wai-bubble${tail ? " has-tail" : ""}${message.kind === "reaction" ? " is-reaction" : ""}`} id={`wai-msg-${message.id}`}>
-      {live && <button type="button" className={`wai-bubble-star${starred ? " is-starred" : ""}`} aria-pressed={starred} title={starred ? "Remover mensagem dos favoritos" : "Favoritar mensagem"} onClick={onStar}><Star size={15} fill={starred ? "currentColor" : "none"} /></button>}
-      {showAuthor && message.author && <span className="wai-author" style={{ color: colorFor(message.author) }}>{message.author}</span>}
-      {message.kind === "document" && <div className="wai-document">
-        <span className="wai-document-icon"><FileText size={22} /><small>{(message.mediaName?.split(".").pop() ?? "PDF").slice(0, 4).toUpperCase()}</small></span>
-        <span className="wai-document-name">{message.mediaName ?? "Documento"}</span>
-      </div>}
-      {message.kind === "document" && live && <div className="wai-document-actions">
-        <a href={src} target="_blank" rel="noopener noreferrer">Ver</a><a href={`${src}?baixar`}>Salvar como…</a>
-      </div>}
-      {live && (message.kind === "image" || message.kind === "sticker") && <MediaImage src={src} sticker={message.kind === "sticker"} onView={onView} />}
-      {live && message.kind === "video" && <DeferredVideo src={src} />}
-      {live && message.kind === "audio" && <AudioPlayer src={src} out={out} />}
-      {!live && message.kind === "audio" && <div className="wai-audio"><span className="wai-audio-play"><Play size={18} /></span><span className="wai-audio-wave" aria-hidden /><small>Áudio</small></div>}
-      {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
-      {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
-      {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
-      {message.body && message.kind !== "contact" && message.kind !== "location" && <p className="wai-text"><WhatsAppText text={message.body} />{meta}</p>}
-      {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
+
+  return <div className={`wai-bubble-row ${out ? "is-out" : "is-in"}${message.reactions?.length ? " has-reactions" : ""}${selected ? " is-selected" : ""}`}>
+    <div className="wai-bubble-stack" ref={wrapper}>
+      <div className={`wai-bubble${tail ? " has-tail" : ""}`} id={`wai-msg-${message.id}`}>
+        {showAuthor && message.author && <span className="wai-author" style={{ color: colorFor(message.author) }}>{message.author}</span>}
+        {message.kind === "document" && <div className="wai-document">
+          <span className="wai-document-icon"><FileText size={22} /><small>{(message.mediaName?.split(".").pop() ?? "PDF").slice(0, 4).toUpperCase()}</small></span>
+          <span className="wai-document-name">{message.mediaName ?? "Documento"}</span>
+        </div>}
+        {message.kind === "document" && live && <div className="wai-document-actions">
+          <a href={src} target="_blank" rel="noopener noreferrer">Ver</a><a href={`${src}?baixar`}>Salvar como…</a>
+        </div>}
+        {live && (message.kind === "image" || message.kind === "sticker") && <MediaImage src={src} sticker={message.kind === "sticker"} onView={onView} />}
+        {live && message.kind === "video" && <DeferredVideo src={src} />}
+        {live && message.kind === "audio" && <AudioPlayer src={src} out={out} />}
+        {!live && message.kind === "audio" && <div className="wai-audio"><span className="wai-audio-play"><Play size={18} /></span><span className="wai-audio-wave" aria-hidden /><small>Áudio</small></div>}
+        {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
+        {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
+        {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
+        {message.body && message.kind !== "contact" && message.kind !== "location" && <p className="wai-text"><WhatsAppText text={message.body} />{meta}</p>}
+        {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
+      </div>
+      {/* Badge in the document flow AFTER the bubble: never covers timestamp or checkmarks. */}
       {!!message.reactions?.length && <div className="wai-reactions" aria-label="Reações nesta mensagem">
         {message.reactions.map(item => <span key={item.emoji} className={item.mine ? "is-mine" : undefined}
           title={`${item.count} reação(ões) com ${item.emoji}`}>
           {item.emoji}{item.count > 1 && <small>{item.count}</small>}
         </span>)}
       </div>}
+      <div className="wai-message-controls">
+        {canReact && <button type="button" title="Reagir à mensagem" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
+          disabled={reactionBusy} onClick={() => openPanel("emoji")}>
+          {reactionBusy ? <Loader2 size={16} className="wai-spin" /> : <SmilePlus size={18} />}
+        </button>}
+        <button type="button" title="Mais opções da mensagem" aria-label="Mais opções da mensagem" aria-expanded={panel === "menu"}
+          onClick={() => openPanel("menu")}><ChevronDown size={18} /></button>
+      </div>
+      {panel && portalHost && createPortal(<div ref={popover} className="wai-message-popup wai-message-popup-fixed"
+        style={{ top: popupCoordinates?.top ?? 0, left: popupCoordinates?.left ?? 0, visibility: popupCoordinates ? "visible" : "hidden" }}
+        role="dialog" aria-label={panel === "emoji" ? "Reagir à mensagem" : "Ações da mensagem"}>
+        {canReact && <div className="wai-message-quick-reactions" aria-label="Reações rápidas">
+          {QUICK_REACTIONS.map(emoji => <button type="button" key={emoji}
+            className={currentMine === emoji ? "is-current" : undefined} title={currentMine === emoji ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}
+            aria-label={currentMine === emoji ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}
+            disabled={reactionBusy} onClick={() => choose(emoji)}>{emoji}</button>)}
+          <button type="button" title="Mais emojis" aria-label="Mais emojis" aria-expanded={allEmoji}
+            onClick={() => setAllEmoji(value => !value)}><Plus size={19} /></button>
+        </div>}
+        {allEmoji && canReact && <div className="wai-message-all-emoji"><EmojiPicker onPick={choose} /></div>}
+        {panel === "menu" && <div className="wai-message-menu-list">
+          <button type="button" onClick={() => run(onReply)} disabled={!canReact}><Reply size={17} />Responder</button>
+          <button type="button" onClick={() => run(onCopy)} disabled={!message.body}><Copy size={17} />Copiar texto</button>
+          <button type="button" onClick={() => run(onStar)} disabled={!live}><Star size={17} fill={starred ? "currentColor" : "none"} />{starred ? "Remover dos favoritos" : "Favoritar"}</button>
+          <button type="button" onClick={() => run(onSelect)}><CheckSquare size={17} />{selected ? "Desmarcar" : "Selecionar"}</button>
+          <button type="button" onClick={() => run(onInfo)}><Info size={17} />Dados da mensagem</button>
+        </div>}
+      </div>, portalHost)}
     </div>
   </div>;
 }
@@ -760,8 +933,9 @@ function formatBytes(size: number) {
  * Message field: text (Enter sends, Shift+Enter breaks the line), emojis and one file with an
  * optional caption. Official numbers only reply within 24 hours of the customer's last message.
  */
-function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled, onSent }: {
+function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClearReply, onQueued, onSettled, onSent }: {
   conversation: InboxConversation; kind: "qr" | "official"; now: Date; demo: boolean; canReply: boolean;
+  replyTarget: InboxMessageItem | null; onClearReply: () => void;
   onQueued: (item: InboxMessageItem) => void; onSettled: (itemId: string, status: InboxStatus) => void; onSent: () => void;
 }) {
   const [text, setText] = useState("");
@@ -818,6 +992,7 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
     recorder.current.media.stop();
   }
   async function sendVoice(blob: Blob) {
+    if (replyTarget) { setError("Cancele a resposta citada antes de enviar uma gravação."); return; }
     if (blob.size > MAX_REPLY_FILE_BYTES) { setError("A gravação passou de 4 MB. Grave um áudio mais curto."); return; }
     const item: InboxMessageItem = { id: `local-${Date.now()}`, direction: "out", kind: "audio", body: null, mediaName: null, mediaMime: blob.type, author: null, status: demo ? "sent" : "pending", sentAt: new Date().toISOString() };
     onQueued(item);
@@ -857,6 +1032,7 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
   async function send() {
     const body = text.trim();
     if ((!body && !file) || sending) return;
+    if (replyTarget && file) { setError("Para responder a esta mensagem, envie apenas texto. Cancele a resposta antes de anexar um arquivo."); return; }
     if (body.length > MAX_REPLY_TEXT) { setError("A mensagem passou de 4.096 caracteres."); return; }
     const mediaKind = file ? replyMediaKind(file.type, kind, asDocument) : null;
     const item: InboxMessageItem = {
@@ -871,6 +1047,7 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
     try {
       const form = new FormData();
       if (body) form.append("text", body);
+      if (replyTarget && !file) form.append("replyTo", replyTarget.id);
       if (file) form.append("file", file, file.name);
       if (file && asDocument) form.append("asDocument", "1");
       const response = await fetch(`/api/whatsapp/inbox/${conversation.id}/send`, { method: "POST", body: form });
@@ -891,6 +1068,12 @@ function Composer({ conversation, kind, now, demo, canReply, onQueued, onSettled
   const closes = reply.closesAt;
   return <footer className="wai-composer-area">
     {error && <p role="alert" className="wai-composer-error"><AlertCircle size={14} />{error}</p>}
+    {replyTarget && <div className="wai-reply-banner">
+      <Reply size={18} />
+      <span><strong>Respondendo à {replyTarget.direction === "in" ? "mensagem recebida" : "mensagem enviada"}</strong>
+        <small>{replyTarget.body?.slice(0, 110) || kindLabel(replyTarget.kind)}</small></span>
+      <button type="button" className="wai-icon-button" onClick={onClearReply} aria-label="Cancelar resposta"><X size={17} /></button>
+    </div>}
     {file && <div className="wai-attachment">
       <FileText size={18} /><span><strong>{file.name}</strong><small>{asDocument ? "Documento" : "Mídia"} · {formatBytes(file.size)}{text ? " · o texto vai como legenda" : ""}</small></span>
       <button type="button" className="wai-icon-button" onClick={() => setFile(null)} aria-label="Remover arquivo"><X size={16} /></button>

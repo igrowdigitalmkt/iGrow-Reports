@@ -21,6 +21,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   if (!id.success || !form) return Response.json({ error: "Pedido inválido." }, { status: 400, headers });
   const text = String(form.get("text") ?? "").trim();
   const file = form.get("file");
+  const replyParam = form.get("replyTo");
+  const replyId = replyParam == null ? null : z.uuid().safeParse(replyParam);
+  if (replyId && !replyId.success) return Response.json({ error: "A mensagem citada é inválida." }, { status: 400, headers });
+  if (replyId && file instanceof Blob) return Response.json({ error: "Responda à mensagem com texto; anexos citados não estão disponíveis nesta versão." }, { status: 400, headers });
   if (text.length > MAX_REPLY_TEXT) return Response.json({ error: "A mensagem passou de 4.096 caracteres." }, { status: 400, headers });
   if (!text && !(file instanceof Blob)) return Response.json({ error: "Escreva uma mensagem ou escolha um arquivo." }, { status: 400, headers });
   if (file instanceof Blob && (file.size === 0 || file.size > MAX_REPLY_FILE_BYTES)) return Response.json({ error: "O arquivo precisa ter até 4 MB." }, { status: 400, headers });
@@ -29,6 +33,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   if (context.role === "viewer") return Response.json({ error: "Seu perfil só pode consultar as conversas." }, { status: 403, headers });
   const { data: conversation } = await context.supabase.from("whatsapp_conversations").select("*").eq("agency_id", context.agency.id).eq("id", id.data).maybeSingle();
   if (!conversation) return Response.json({ error: "Conversa não encontrada." }, { status: 404, headers });
+  const { data: quoted } = replyId?.success
+    ? await context.supabase.from("whatsapp_messages").select("external_id,direction,body")
+      .eq("agency_id", context.agency.id).eq("conversation_id", conversation.id).eq("id", replyId.data).maybeSingle()
+    : { data: null };
+  if (replyId && (!quoted?.external_id || quoted.external_id.startsWith("igrow-")))
+    return Response.json({ error: "Não é possível responder a essa mensagem antiga." }, { status: 409, headers });
   const service = createSupabaseServiceClient();
   if (!service) return Response.json({ error: "Envio indisponível neste ambiente." }, { status: 503, headers });
 
@@ -51,9 +61,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
         ? { voice: Buffer.from(await (file as Blob).arrayBuffer()).toString("base64") }
         : file instanceof Blob
         ? { base64: Buffer.from(await file.arrayBuffer()).toString("base64"), filename, mime, kind: kind!, caption: text || undefined }
-        : { text }), mediaId: null }
+        : { text, ...(quoted ? { replyTo: { externalId: quoted.external_id, fromMe: quoted.direction === "out", body: quoted.body ?? "Mensagem" } } : {}) }), mediaId: null }
       : await sendOfficialReply(service, { agencyId: context.agency.id, connectionId: conversation.whatsapp_connection_id!, to: conversation.remote_id,
-        content: file instanceof Blob ? { file, filename, mime: voice ? "audio/ogg" : mime, kind: kind!, caption: text || undefined } : { text } });
+        content: file instanceof Blob ? { file, filename, mime: voice ? "audio/ogg" : mime, kind: kind!, caption: text || undefined } : { text }, replyToId: quoted?.external_id });
     // Recorded right away so it shows without waiting for the webhook (same id: no duplicate).
     await recordInboxMessage(service, { agencyId: context.agency.id, connectionId: conversation.whatsapp_connection_id, message: {
       remoteId: conversation.remote_id, isGroup: conversation.is_group, title: null, author: null,

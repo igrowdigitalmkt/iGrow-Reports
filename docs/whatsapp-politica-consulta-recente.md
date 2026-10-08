@@ -60,3 +60,26 @@ O número vinculado por QR Code é uma consulta operacional, não um arquivo per
   destino não podem ser reassociadas com segurança; não se tenta adivinhar.
 - A tela exibe as reações sincronizadas. Enviar uma reação pelo iGrow não está
   incluído nesta etapa de correção.
+
+## Ações nas mensagens do chat
+
+- Passar o mouse sobre a mensagem revela **reagir** e **mais opções**. A lista
+  contextual concentra: responder (com citação na conversa real), copiar o
+  texto, favoritar/desfavoritar no iGrow, selecionar mensagens e dados da
+  mensagem. A estrela isolada sobre o balão foi removida.
+- Reações rápidas: 👍 ❤️ 😂 😮 😢 🙏. O botão + abre o seletor completo de
+  emojis. Selecionar o emoji já usado pela própria conta o remove. A reação é
+  enviada ao WhatsApp (QR Code ou Cloud API, quando a janela de envio estiver
+  válida) e salva imediatamente no iGrow por ID da mensagem original.
+- O selo de reação permanece no fluxo de layout **abaixo** da mensagem, sem
+  sobreposição à hora ou confirmação de leitura, inclusive em telas pequenas.
+  O menu flutua dentro da área visível, sem ser cortado pelo scroll.
+- Ao responder, o campo de envio mostra a mensagem citada. Nesta etapa a
+  citação pela plataforma funciona para respostas de **texto**. Para enviar
+  arquivos ou áudio, cancele primeiro a citação.
+- Seleção múltipla de mensagens permite copiar textos em conjunto e marcar
+  favoritos. Dados da mensagem indicam horário, formato e o estado conhecido
+  de entrega/leitura; não inventam informações ausentes do WhatsApp.
+- Funções destrutivas ou de moderação (apagar para todos, denunciar, fixar em
+  todos os dispositivos, encaminhar mídia) não são oferecidas sem suporte seguro
+  de ponta a ponta.

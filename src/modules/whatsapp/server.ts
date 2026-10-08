@@ -312,13 +312,13 @@ export async function sendAutomationPdfByWhatsApp(service: Service, input: {
 export type FreeFormContent = { text: string } | { file: Blob; filename: string; mime: string; kind: "image" | "video" | "audio" | "document"; caption?: string };
 
 /** Reply from the inbox through an official number (the caller checks the 24-hour window). */
-export async function sendOfficialReply(service: Service, input: { agencyId: string; connectionId: string; to: string; content: FreeFormContent }) {
+export async function sendOfficialReply(service: Service, input: { agencyId: string; connectionId: string; to: string; content: FreeFormContent; replyToId?: string }) {
   const meta = getMetaApiConfig();
   if (!meta) throw new WhatsAppSetupError("A integração do WhatsApp ainda não está configurada no servidor.");
   const connection = await loadConnection(service, input.agencyId, input.connectionId);
   const graph = new WhatsAppGraph({ accessToken: await loadToken(service, connection), apiVersion: meta.apiVersion });
   try {
-    if ("text" in input.content) return { externalId: await graph.sendMessage(connection.phone_number_id, input.to, { type: "text", text: input.content.text }), mediaId: null };
+    if ("text" in input.content) return { externalId: await graph.sendMessage(connection.phone_number_id, input.to, { type: "text", text: input.content.text }, input.replyToId), mediaId: null };
     const { file, filename, mime, kind, caption } = input.content;
     const mediaId = await graph.uploadMedia(connection.phone_number_id, file, filename, mime);
     const externalId = await graph.sendMessage(connection.phone_number_id, input.to, kind === "document" ? { type: "document", mediaId, filename, caption }
@@ -328,6 +328,22 @@ export async function sendOfficialReply(service: Service, input: { agencyId: str
     if (error instanceof WhatsAppApiError && error.code === "131047") throw new WhatsAppSetupError("Passaram mais de 24 horas desde a última mensagem do cliente. Pela API oficial, só uma mensagem modelo retoma a conversa.");
     if (error instanceof WhatsAppApiError && error.code === "190") throw new WhatsAppSetupError("A autorização da Meta para este número venceu. Reconecte o número em Integrações.");
     throw new WhatsAppSetupError(error instanceof WhatsAppApiError ? `O WhatsApp recusou a mensagem: ${error.message.slice(0, 200)}` : "Não foi possível enviar pelo WhatsApp agora.");
+  }
+}
+
+/** Official WhatsApp reaction, bound to the original wamid. */
+export async function sendOfficialReaction(service: Service, input: {
+  agencyId: string; connectionId: string; to: string; targetExternalId: string; emoji: string;
+}) {
+  const meta = getMetaApiConfig();
+  if (!meta) throw new WhatsAppSetupError("O WhatsApp oficial não está configurado.");
+  const connection = await loadConnection(service, input.agencyId, input.connectionId);
+  try {
+    const graph = new WhatsAppGraph({ accessToken: await loadToken(service, connection), apiVersion: meta.apiVersion });
+    await graph.sendReaction(connection.phone_number_id, input.to, input.targetExternalId, input.emoji);
+  } catch (error) {
+    if (error instanceof WhatsAppApiError) throw new WhatsAppSetupError(`O WhatsApp recusou a reação: ${error.message.slice(0, 160)}`);
+    throw new WhatsAppSetupError("Não foi possível reagir pelo WhatsApp oficial.");
   }
 }
 

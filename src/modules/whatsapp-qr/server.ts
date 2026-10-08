@@ -186,8 +186,23 @@ export async function downloadQrMedia(agencyId: string, message: { externalId: s
   return evolution.mediaOfMessage(instanceNameFor(agencyId), { id: message.externalId, remoteJid, fromMe: message.fromMe }, message.ref);
 }
 
+/** A reaction is sent to the original WhatsApp key, not as a new chat message. */
+export async function sendQrReaction(agencyId: string, remoteId: string, key: {
+  externalId: string; fromMe: boolean; participant?: string | null;
+}, emoji: string) {
+  const evolution = client();
+  if (!evolution) throw new EvolutionError("O servidor do WhatsApp não está configurado.");
+  const name = instanceNameFor(agencyId);
+  if (await evolution.state(name) !== "open") throw new EvolutionError("Seu WhatsApp está desconectado.");
+  const remoteJid = remoteId.includes("@") ? remoteId : `${remoteId}@s.whatsapp.net`;
+  await evolution.reactToMessage(name, {
+    remoteJid, id: key.externalId, fromMe: key.fromMe,
+    ...(key.participant ? { participant: key.participant } : {}),
+  }, emoji);
+}
+
 /** Reply from the inbox through the workspace's QR Code session. Returns the message id. */
-export async function sendQrReply(agencyId: string, to: string, content: { text: string } | { voice: string } | { base64: string; filename: string; mime: string; kind: "image" | "video" | "audio" | "document"; caption?: string }) {
+export async function sendQrReply(agencyId: string, to: string, content: { text: string; replyTo?: { externalId: string; fromMe: boolean; body: string } } | { voice: string } | { base64: string; filename: string; mime: string; kind: "image" | "video" | "audio" | "document"; caption?: string }) {
   const evolution = client();
   if (!evolution) throw new EvolutionError("O servidor do WhatsApp ainda não foi configurado.");
   const name = instanceNameFor(agencyId);
@@ -196,7 +211,7 @@ export async function sendQrReply(agencyId: string, to: string, content: { text:
   // turns the private ID into a nonexistent phone number (Evolution HTTP 400).
   const number = to.endsWith("@g.us") || to.endsWith("@lid") ? to : to.replace(/\D/g, "");
   const sent = "text" in content
-    ? await evolution.sendText(name, number, content.text)
+    ? await evolution.sendText(name, number, content.text, content.replyTo ? { id: content.replyTo.externalId, fromMe: content.replyTo.fromMe, remoteJid: number.endsWith("@g.us") || number.endsWith("@lid") ? number : `${number}@s.whatsapp.net`, text: content.replyTo.body } : undefined)
     : "voice" in content ? await evolution.sendVoice(name, number, content.voice)
     : await evolution.sendMedia(name, number, { mediatype: content.kind, mimetype: content.mime, base64: content.base64, fileName: content.filename, caption: content.caption });
   return sent.messageId;

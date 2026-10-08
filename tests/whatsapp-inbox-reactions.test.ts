@@ -39,6 +39,21 @@ describe("WhatsApp reactions", () => {
     expect(parseEvolutionReaction(lid)?.remoteId).toBe("5586988887777");
   });
 
+  it("retains verified group participant JIDs for reacting to the original sender", () => {
+    const payload = {
+      event: "MESSAGES_UPSERT",
+      data: {
+        key: { id: "ORIGINAL_GROUP_MESSAGE", remoteJid: "120363987654321@g.us",
+          participant: "1299898887776@lid", participantAlt: "5586999911111@s.whatsapp.net", fromMe: false },
+        message: { conversation: "Uma mensagem recebida no grupo" },
+      },
+    };
+    expect(parseEvolutionMessage(payload)).toMatchObject({
+      isGroup: true, remoteId: "120363987654321@g.us",
+      externalId: "ORIGINAL_GROUP_MESSAGE", participantJid: "5586999911111@s.whatsapp.net",
+    });
+  });
+
   it("treats removal as an empty update, not an unread chat message", () => {
     const result = parseEvolutionReaction(privateReaction(""));
     expect(result?.emoji).toBe("");
