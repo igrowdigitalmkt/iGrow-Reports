@@ -90,9 +90,11 @@ O número vinculado por QR Code é uma consulta operacional, não um arquivo per
   mídias, menus, informações, reações e navegação entre contas) utiliza os
   mesmos padrões visuais do WhatsApp Web como referência. Apenas a
   navegação externa de iGrow conserva a identidade do produto.
-- Tema escuro: superfícies #111b21 / #202c33, fundo de conversa #0b141a,
-  texto #e9edef, ações #00a884 e saída azul #005cdb conforme as capturas
-  de referência. Tema claro acompanha a estrutura da versão oficial.
+- A paleta de cores é a original do iGrow Reports (a mesma utilizada
+  antes do commit 6178e98), herdada dos tokens de tema do produto:
+  fundos neutros, balões de saída verdes discretos e texto com contraste.
+  O WhatsApp Web serve de referência para disposição, controles,
+  espaçamentos e interação, não para substituir as cores do iGrow.
 - Os horários, vistos e reações nunca podem se sobrepor. As reações
   múltiplas são agrupadas numa única cápsula após o balão com contagem
   total. Emojis rápidos e menu contextual aparecem sem deslocar mensagens.

@@ -361,53 +361,14 @@
   max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain;
 }
 
-/* WhatsApp Web visual system, scoped to this module so iGrow's dashboard stays unchanged.
-   Blue outgoing bubbles match the chat theme in the supplied reference captures. */
+/* Interface follows the WhatsApp layout; colors intentionally retain the
+   original iGrow design system, inherited from the module tokens above.
+   The user preferred the palette before 6178e98. */
 .wai-shell {
-  --wai-rail: #202c33;
-  --wai-panel: #111b21;
-  --wai-chat: #0b141a;
-  --wai-line: #283640;
-  --wai-hover: #202c33;
-  --wai-active: #2a3942;
-  --wai-text: #e9edef;
-  --wai-muted: #8696a0;
-  --wai-search: #202c33;
-  --wai-in: #202c33;
-  --wai-out: #005cdb;
-  --wai-out-text: #fff;
-  --wai-green: #00a884;
-  --wai-green-text: #071a12;
-  --wai-pill-on: #0b372e;
-  --wai-pill-on-text: #d9fdd3;
-  --wai-blue: #53bdeb;
-  --wai-day: #202c33;
-  --wai-doc: #1b2b35;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.35;
   -webkit-font-smoothing: antialiased;
-}
-[data-theme="light"] .wai-shell {
-  --wai-rail: #f0f2f5;
-  --wai-panel: #fff;
-  --wai-chat: #efeae2;
-  --wai-line: #e4e8eb;
-  --wai-hover: #f5f6f6;
-  --wai-active: #f0f2f5;
-  --wai-text: #111b21;
-  --wai-muted: #667781;
-  --wai-search: #f0f2f5;
-  --wai-in: #fff;
-  --wai-out: #d9fdd3;
-  --wai-out-text: #111b21;
-  --wai-green: #00a884;
-  --wai-green-text: #fff;
-  --wai-pill-on: #e7fce3;
-  --wai-pill-on-text: #008069;
-  --wai-blue: #53bdeb;
-  --wai-day: #e2e7ea;
-  --wai-doc: #e7edef;
 }
 .wai-rail { border-color: var(--wai-line); }
 .wai-rail-item.is-active { background: var(--wai-active); }
@@ -426,10 +387,10 @@
 .wai-row { gap: 13px; min-height: 70px; padding: 10px 10px 10px 12px; }
 .wai-row-top strong { font-size: 16px; font-weight: 550; }
 .wai-row-preview { font-size: 13.5px; }
-.wai-unread { background: #00a884; color: #071a12; }
+.wai-unread { background: var(--wai-green); color: var(--wai-green-text); }
 .wai-chat-head { min-height: 64px; padding: 8px 16px; }
 .wai-chat-title strong { font-size: 16px; font-weight: 550; }
-.wai-messages { scrollbar-color: #344149 transparent; scrollbar-width: thin; }
+.wai-messages { scrollbar-color: var(--wai-line) transparent; scrollbar-width: thin; }
 .wai-messages-inner { max-width: 1160px; gap: 2px; padding: 17px clamp(22px, 6%, 80px) 27px; }
 .wai-day span { padding: 7px 12px; font-size: 12px; color: var(--wai-muted); }
 .wai-bubble-stack { max-width: min(67%, 600px); }
@@ -454,8 +415,8 @@
 .wai-message-quick-reactions button { font-size: 23px; }
 .wai-message-quick-reactions button:hover { transform: scale(1.07); }
 .wai-reactions { margin: -3px 5px 4px 0; }
-.wai-reactions > .wai-reactions-group { min-height: 23px; border-color: #243039; background: #1a252d; color: var(--wai-text); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
-[data-theme="light"] .wai-reactions > .wai-reactions-group { background: #fff; border-color: #e9e9e9; }
+.wai-reactions > .wai-reactions-group { min-height: 23px; border-color: var(--wai-line); background: var(--wai-panel); color: var(--wai-text); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+
 .wai-reactions > .wai-reactions-group.is-mine { border-color: var(--wai-blue); }
 
 /* WhatsApp-style chevron inside the bubble and emoji just outside its side. */
@@ -515,12 +476,11 @@
 }
 
 /* Final alignments: WhatsApp Web header/footer and independently positioned hover actions. */
-.wai-chat-head { background: #202c33; }
-.wai-composer-area { background: #202c33; }
-.wai-composer { background: #2a3942; }
-[data-theme="light"] .wai-chat-head,
-[data-theme="light"] .wai-composer-area { background: #f0f2f5; }
-[data-theme="light"] .wai-composer { background: #fff; }
+.wai-chat-head { background: var(--wai-panel); }
+.wai-composer-area { background: var(--wai-chat); }
+.wai-composer { background: var(--wai-panel); }
+
+
 .is-out .wai-message-controls { left: 0; right: auto; }
 .wai-message-controls .wai-message-emoji-trigger { background: transparent; }
 .wai-message-controls .wai-message-emoji-trigger:hover { background: var(--wai-hover); }
