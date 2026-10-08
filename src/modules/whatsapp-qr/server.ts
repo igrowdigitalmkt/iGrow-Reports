@@ -140,7 +140,9 @@ export async function sendQrReply(agencyId: string, to: string, content: { text:
   if (!evolution) throw new EvolutionError("O servidor do WhatsApp ainda não foi configurado.");
   const name = instanceNameFor(agencyId);
   if (await evolution.state(name) !== "open") throw new EvolutionError("Seu WhatsApp (QR Code) está desconectado. Conecte de novo em Integrações.");
-  const number = to.endsWith("@g.us") ? to : to.replace(/\D/g, "");
+  // Baileys v7 can require a LID JID to reply to a private chat. Stripping @lid
+  // turns the private ID into a nonexistent phone number (Evolution HTTP 400).
+  const number = to.endsWith("@g.us") || to.endsWith("@lid") ? to : to.replace(/\D/g, "");
   const sent = "text" in content
     ? await evolution.sendText(name, number, content.text)
     : "voice" in content ? await evolution.sendVoice(name, number, content.voice)

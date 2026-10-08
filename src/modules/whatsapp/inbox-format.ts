@@ -31,14 +31,29 @@ export function dayLabel(iso: string, now = new Date()) {
 export const dayKey = (iso: string) => localDay(new Date(iso));
 
 /** +55 86 99556-0428 (Brazil) or +<digits>; groups and unknown ids are returned as they are. */
+export function isPrivateWhatsAppId(remoteId: string) {
+  return /^\d{8,20}@lid$/.test(remoteId);
+}
+
 export function formatWhatsAppPhone(remoteId: string) {
+  if (isPrivateWhatsAppId(remoteId)) return "Número não compartilhado";
   if (!/^\d{8,15}$/.test(remoteId)) return remoteId;
   const br = remoteId.match(/^55(\d{2})(\d{4,5})(\d{4})$/);
   return br ? `+55 ${br[1]} ${br[2]}-${br[3]}` : `+${remoteId}`;
 }
 
 export function conversationTitle(conversation: { title: string | null; remoteId: string; isGroup: boolean }) {
-  return conversation.title || (conversation.isGroup ? "Grupo" : formatWhatsAppPhone(conversation.remoteId));
+  const title = conversation.title?.trim() ?? "";
+  // Baileys/WhatsApp sometimes returns an internal @lid number as chat.name.
+  // It must never be presented as a person's saved name or phone number.
+  const fakeName = isPrivateWhatsAppId(conversation.remoteId)
+    && (title === conversation.remoteId || /^\d{12,20}$/.test(title));
+  if (title && !fakeName) return title;
+  if (conversation.isGroup) return "Grupo";
+  if (isPrivateWhatsAppId(conversation.remoteId)) {
+    return `Contato do WhatsApp · ${conversation.remoteId.split("@")[0].slice(-4)}`;
+  }
+  return formatWhatsAppPhone(conversation.remoteId);
 }
 
 const KIND_LABELS: Record<string, string> = {

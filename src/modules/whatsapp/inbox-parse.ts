@@ -101,7 +101,9 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
   const content = describeBaileysContent(payload.data?.message);
   if (!content) return null;
   const fromMe = key.fromMe === true || payload.event === "send.message" || payload.event === "SEND_MESSAGE";
-  const pushName = text(payload.data?.pushName, 200);
+  const receivedPushName = text(payload.data?.pushName, 200);
+  // The numeric @lid identity is not the contact's name.
+  const pushName = receivedPushName && !/^\d{12,20}$/.test(receivedPushName) ? receivedPushName : null;
   return {
     remoteId, isGroup, ...content,
     // In a private chat the sender's name names the conversation; in a group it names the author.
