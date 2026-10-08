@@ -1,8 +1,8 @@
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..e107b17 100644
+index 60e857f..084baaa 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-@@ -760,2 +760,12 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -760,2 +760,14 @@ export class BaileysStartupService extends ChannelStartupService {
 -      const chatsToInsert = chats
 -        .filter((chat) => !existingChatIdSet?.has(chat.id))
 +      const chatsForWebhook = chats.map((chat) => ({
@@ -10,25 +10,27 @@ index 60e857f..e107b17 100644
 +        instanceId: this.instanceId,
 +        name: chat.name,
 +        archived: chat.archived,
-+        unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
++        unreadMessages: chat.unreadCount,
 +      }));
 +
-+      this.sendDataWebhook(Events.CHATS_UPSERT, chatsForWebhook);
++      for (let i = 0; i < chatsForWebhook.length; i += 20) {
++        this.sendDataWebhook(Events.CHATS_UPSERT, chatsForWebhook.slice(i, i + 20));
++      }
 +
 +      const chatsToInsert = chatsForWebhook
 +        .filter((chat) => !existingChatIdSet?.has(chat.remoteJid))
-@@ -763,2 +773,2 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -763,2 +775,2 @@ export class BaileysStartupService extends ChannelStartupService {
 -          remoteJid: chat.id,
 -          instanceId: this.instanceId,
 +          remoteJid: chat.remoteJid,
 +          instanceId: chat.instanceId,
-@@ -766 +776 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -766 +778 @@ export class BaileysStartupService extends ChannelStartupService {
 -          unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
 +          unreadMessages: chat.unreadMessages,
-@@ -769,2 +778,0 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -769,2 +780,0 @@ export class BaileysStartupService extends ChannelStartupService {
 -      this.sendDataWebhook(Events.CHATS_UPSERT, chatsToInsert);
 -
-@@ -784,3 +792,6 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -784,3 +794,6 @@ export class BaileysStartupService extends ChannelStartupService {
 -      const chatsRaw = chats.map((chat) => {
 -        return { remoteJid: chat.id, instanceId: this.instanceId };
 -      });
@@ -38,18 +40,20 @@ index 60e857f..e107b17 100644
 +        archived: chat.archived,
 +        unreadMessages: chat.unreadCount,
 +      }));
-@@ -977 +988,9 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -977 +990,11 @@ export class BaileysStartupService extends ChannelStartupService {
 -        const chatsRaw: { remoteJid: string; instanceId: string; name?: string }[] = [];
 +        const chatsForWebhook = chats.map((chat) => ({
 +          remoteJid: chat.id,
 +          instanceId: this.instanceId,
 +          name: chat.name,
 +          archived: chat.archived,
-+          unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
++          unreadMessages: chat.unreadCount,
 +        }));
-+        this.sendDataWebhook(Events.CHATS_SET, chatsForWebhook);
++        for (let i = 0; i < chatsForWebhook.length; i += 20) {
++          this.sendDataWebhook(Events.CHATS_SET, chatsForWebhook.slice(i, i + 20));
++        }
 +
-@@ -983,10 +1002,8 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -983,10 +1006,8 @@ export class BaileysStartupService extends ChannelStartupService {
 -
 -        for (const chat of chats) {
 -          if (chatsRepository?.has(chat.id)) {
@@ -68,7 +72,7 @@ index 60e857f..e107b17 100644
 +            name: chat.name,
 +            unreadMessages: chat.unreadMessages,
 +          }));
-@@ -1018,4 +1035,16 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -1018,4 +1039,16 @@ export class BaileysStartupService extends ChannelStartupService {
 -        for (const m of messages) {
 -          if (!m.message || !m.key || !m.messageTimestamp) {
 -            continue;
@@ -89,7 +93,7 @@ index 60e857f..e107b17 100644
 +          if ((perChat.get(jid) ?? 0) >= 50 || recentHistoryCount >= 300) continue;
 +          perChat.set(jid, (perChat.get(jid) ?? 0) + 1);
 +          recentHistoryCount++;
-@@ -1049,4 +1078,9 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -1049,4 +1082,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        this.sendDataWebhook(Events.MESSAGES_SET, [...messagesRaw], true, undefined, {
 -          isLatest,
 -          progress,
@@ -103,7 +107,7 @@ index 60e857f..e107b17 100644
 +            progress,
 +          });
 +        }
-@@ -3692,13 +3726,13 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3692,13 +3730,13 @@ export class BaileysStartupService extends ChannelStartupService {
 -    const where: any = { key: { remoteJid: number }, instanceId: this.instance.id };
 -
 -    const messages = await this.prismaRepository.message.findMany({
@@ -130,22 +134,22 @@ index 60e857f..e107b17 100644
 +        orderBy: { messageTimestamp: 'desc' },
 +        take: 1,
 +      });
-@@ -3706,4 +3740 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3706,4 +3744 @@ export class BaileysStartupService extends ChannelStartupService {
 -    for (const message of messages) {
 -      if (message.messageTimestamp >= lastMessage.messageTimestamp) {
 -        lastMessage = message;
 -      }
 +      if (messages.length > 0) return messages[0] as unknown as LastMessage;
-@@ -3712 +3743 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3712 +3747 @@ export class BaileysStartupService extends ChannelStartupService {
 -    return lastMessage as unknown as LastMessage;
 +    throw new NotFoundException('Messages not found');
-@@ -3720,4 +3751 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3720,4 +3755 @@ export class BaileysStartupService extends ChannelStartupService {
 -      if (!last_message && number) {
 -        last_message = await this.getLastMessage(number);
 -      } else {
 -        last_message = data.lastMessage;
 +      if (last_message) {
-@@ -3725 +3753,9 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3725 +3757,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        number = last_message?.key?.remoteJid;
 +        number = last_message?.key?.remoteJid ?? number;
 +      } else if (number) {
@@ -156,12 +160,12 @@ index 60e857f..e107b17 100644
 +        } catch {
 +          last_message = undefined;
 +        }
-@@ -3728,3 +3764 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3728,3 +3768 @@ export class BaileysStartupService extends ChannelStartupService {
 -      if (!last_message || Object.keys(last_message).length === 0) {
 -        throw new NotFoundException('Last message not found');
 -      }
 +      if (!number) throw new NotFoundException('Chat not found');
-@@ -3732 +3766,8 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3732 +3770,8 @@ export class BaileysStartupService extends ChannelStartupService {
 -      await this.client.chatModify({ archive: data.archive, lastMessages: [last_message] }, createJid(number));
 +      // iGrow supplies a fully-qualified WhatsApp JID. Calling createJid() again causes
 +      // Evolution's contact lookup to fail on v2.3.7 (Prisma invalid remoteJid argument).
@@ -171,6 +175,6 @@ index 60e857f..e107b17 100644
 +        { archive: data.archive, lastMessages: last_message ? [last_message] : [] },
 +        chatJid,
 +      );
-@@ -3734 +3775 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -3734 +3779 @@ export class BaileysStartupService extends ChannelStartupService {
 -      return { chatId: number, archived: true };
 +      return { chatId: number, archived: data.archive };

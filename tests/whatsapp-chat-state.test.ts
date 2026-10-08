@@ -21,7 +21,7 @@ describe("estado das conversas do WhatsApp QR", () => {
       data: [
         { remoteJid: "5586994037823:5@s.whatsapp.net", name: " Ana ", archived: false },
         { remoteJid: "42@lid", unreadMessages: 3 },
-        { remoteJid: "sem-estado@s.whatsapp.net" },
+        { remoteJid: "sem-estado@s.whatsapp.net", unreadMessages: null },
       ],
     })).toEqual([
       { remoteId: "5586994037823", title: "Ana", archived: false },

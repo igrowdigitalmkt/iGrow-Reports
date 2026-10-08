@@ -25,6 +25,7 @@ function remoteIdOf(value: unknown) {
 }
 
 function finiteUnread(value: unknown) {
+  if (value === null || value === undefined || value === "") return undefined;
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return undefined;
   return Math.min(Math.trunc(number), 100_000);

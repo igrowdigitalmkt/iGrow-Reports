@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeBaileysContent, parseCloudMessages, parseEvolutionMessage } from "@/modules/whatsapp/inbox-parse";
+import { describeBaileysContent, parseCloudMessages, parseEvolutionMessage, normalizeEvolutionMessageStatus } from "@/modules/whatsapp/inbox-parse";
 
 const upsert = (key: Record<string, unknown>, message: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
   ({ event: "messages.upsert", instance: "igrow-a", data: { key: { id: "3EB0A1", ...key }, message, pushName: "Maria Souza", messageTimestamp: 1791370000, ...extra } });
@@ -29,6 +29,18 @@ describe("parseEvolutionMessage", () => {
   it("envio feito pela plataforma (send.message) entra como enviado", () => {
     const message = parseEvolutionMessage({ ...upsert({ remoteJid: "558699990000@s.whatsapp.net" }, { conversation: "Relatório" }), event: "send.message" });
     expect(message?.direction).toBe("out");
+  });
+
+  it("preserva confirmações antigas de leitura enviadas pelo celular", () => {
+    const sent = parseEvolutionMessage(upsert(
+      { remoteJid: "558699990000@s.whatsapp.net", fromMe: true },
+      { conversation: "Mensagem antiga" }, { status: "READ" }
+    ));
+    expect(sent).toMatchObject({ direction: "out", deliveryStatus: "read" });
+    expect(normalizeEvolutionMessageStatus(4)).toBe("read");
+    expect(normalizeEvolutionMessageStatus("DELIVERY_ACK")).toBe("delivered");
+    expect(normalizeEvolutionMessageStatus(3)).toBe("delivered");
+    expect(normalizeEvolutionMessageStatus(null)).toBeNull();
   });
 
   it("ignora status, canais e mensagens técnicas", () => {

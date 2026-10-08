@@ -9,6 +9,7 @@ export type InboxMessage = {
   body: string | null; mediaName: string | null; mediaMime: string | null; sentAt: string;
   // Cloud API media id (the QR Code session finds files by the message id instead).
   mediaId?: string | null;
+  deliveryStatus?: "sent" | "delivered" | "read" | "failed" | null;
   // QR Code session: WhatsApp's encrypted file reference (location and key, no content).
   mediaRef?: MediaRef | null;
 };
@@ -85,6 +86,15 @@ type EvolutionPayload = {
   };
 };
 const EVOLUTION_MESSAGE_EVENTS = new Set(["messages.upsert", "MESSAGES_UPSERT", "send.message", "SEND_MESSAGE"]);
+export function normalizeEvolutionMessageStatus(status: unknown): InboxMessage["deliveryStatus"] {
+  if (status === null || status === undefined) return null;
+  const value = typeof status === "number" ? status : typeof status === "string" ? status.trim().toUpperCase() : "";
+  if (value === "READ" || value === "PLAYED" || value === 4 || value === 5 || value === "4" || value === "5") return "read";
+  if (value === "DELIVERY_ACK" || value === 3 || value === "3") return "delivered";
+  if (value === "ERROR" || value === 0 || value === "0") return "failed";
+  if (value === "SERVER_ACK" || value === "PENDING" || value === 1 || value === 2 || value === "1" || value === "2") return "sent";
+  return null;
+}
 
 /** A message received or sent by the QR Code session (phone, WhatsApp Web or the iGrow), or null. */
 export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMessage | null {
@@ -112,6 +122,7 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
     externalId: key.id.slice(0, 200), direction: fromMe ? "out" : "in",
     sentAt: seconds(payload.data?.messageTimestamp) ?? now.toISOString(),
     mediaRef: baileysMediaRef(payload.data?.message),
+    ...(fromMe && normalizeEvolutionMessageStatus(payload.data?.status) ? { deliveryStatus: normalizeEvolutionMessageStatus(payload.data?.status) } : {}),
   };
 }
 

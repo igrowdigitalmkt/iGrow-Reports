@@ -20,7 +20,7 @@ export async function recordInboxMessage(service: Service, input: {
     p_agency_id: input.agencyId, p_connection_id: input.connectionId, p_remote_id: message.remoteId, p_is_group: message.isGroup,
     p_title: message.title, p_external_id: message.externalId, p_direction: message.direction, p_kind: message.kind,
     p_body: message.body, p_media_name: message.mediaName, p_media_mime: message.mediaMime, p_author: message.author,
-    p_status: message.direction === "out" ? input.status ?? "sent" : null, p_sent_at: message.sentAt,
+    p_status: message.direction === "out" ? input.status ?? message.deliveryStatus ?? "sent" : null, p_sent_at: message.sentAt,
   };
   // Historical direct and group messages do not generate new unread notifications.
   // The separate atomic SQL function preserves the phone's existing unread counters.

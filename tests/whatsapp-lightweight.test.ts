@@ -13,7 +13,7 @@ describe("WhatsApp leve", () => {
     expect(calls[0].body).toMatchObject({ instanceName: "igrow-test", syncFullHistory: false });
   });
 
-  it("inscreve mensagens ao vivo e somente lotes recentes de histórico privado", async () => {
+  it("inscreve eventos de estado e confirmação de leitura, além do histórico recente", async () => {
     const calls: unknown[] = [];
     const client = new EvolutionClient({ url: "https://evo.example.test", key: "key" }, (async (_url, init) => {
       calls.push(JSON.parse(String(init?.body)));
@@ -23,8 +23,8 @@ describe("WhatsApp leve", () => {
     const config = (calls[0] as { webhook: { events: string[] } }).webhook;
     expect(config.events).toContain("MESSAGES_UPSERT");
     expect(config.events).toContain("MESSAGES_SET");
-    expect(config.events).not.toContain("CHATS_SET");
-    expect(config.events).not.toContain("CHATS_UPSERT");
+    expect(config.events).toContain("CHATS_SET");
+    expect(config.events).toContain("CHATS_UPSERT");
     expect(config.events).toContain("CONNECTION_UPDATE");
   });
 });
