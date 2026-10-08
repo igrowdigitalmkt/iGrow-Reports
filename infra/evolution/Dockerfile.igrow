@@ -11,9 +11,6 @@ COPY igrow-chat-state.patch /tmp/igrow-chat-state.patch
 RUN git apply --check --unidiff-zero /tmp/igrow-chat-state.patch && git apply --unidiff-zero /tmp/igrow-chat-state.patch
 
 RUN npm ci --silent
-COPY igrow-baileys-chat-state.patch /tmp/igrow-baileys-chat-state.patch
-RUN git apply --check --unidiff-zero --unsafe-paths /tmp/igrow-baileys-chat-state.patch && \
-    git apply --unidiff-zero --unsafe-paths /tmp/igrow-baileys-chat-state.patch
 RUN cp .env.example .env
 RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
 RUN ./Docker/scripts/generate_database.sh

@@ -10,7 +10,7 @@ export type InboxConversation = {
   id: string; channelKey: string; remoteId: string; isGroup: boolean; title: string | null;
   clientId: string | null; clientName: string | null; favorite: boolean; unread: number;
   lastAt: string | null; preview: string | null; lastDirection: "in" | "out" | null; lastKind: string | null; lastStatus: InboxStatus;
-  lastInboundAt: string | null; archived: boolean;
+  lastInboundAt: string | null; archived: boolean; updatedAt?: string;
 };
 
 export type InboxMessageItem = {
@@ -21,5 +21,5 @@ export type InboxMessageItem = {
 /** Recipient registered for a client, offered when starting a conversation. */
 export type InboxContact = { id: string; name: string; phone: string; clientName: string | null };
 
-export type InboxList = { ready: boolean; conversations: InboxConversation[] };
+export type InboxList = { ready: boolean; conversations: InboxConversation[]; delta?: boolean };
 export type InboxThread = { conversation: InboxConversation | null; messages: InboxMessageItem[] };

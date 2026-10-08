@@ -8,6 +8,7 @@ import { EmojiPicker } from "./emoji-picker";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
+import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
 import "./inbox.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
@@ -39,41 +40,58 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [now, setNow] = useState(() => new Date());
   // Only suppress the badge for the message snapshot that was opened, never for future messages.
   const [readLocally, setReadLocally] = useState<Record<string, OptimisticRead>>({});
+  const [actionError, setActionError] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
 
-  // Conversation list, refreshed every few seconds while the page is visible.
+  // Initial full load, then small deltas every 5 seconds; reconcile deletions every 5 minutes.
+  // Skip inactive tabs and avoid overlapping requests so a slow poll cannot overwrite fresh data.
   useEffect(() => {
     if (demo) return;
     let cancelled = false;
-    const load = () => {
-      if (document.hidden) return;
-      fetch("/api/whatsapp/inbox", { cache: "no-store" }).then(response => response.ok ? response.json() : null).then((body: InboxList | null) => {
-        if (!cancelled && body) {
-          setList(body);
-          setNow(new Date());
-          // Acknowledged reads and new inbound messages must release old local badge overrides.
-          setReadLocally(current => {
-            const byId = new Map(body.conversations.map(item => [item.id, item]));
-            const next = { ...current };
-            let changed = false;
-            const at = Date.now();
-            for (const [id, marker] of Object.entries(current)) {
-              const item = byId.get(id);
-              if ((item && !optimisticReadApplies(item, marker, at)) || (!item && at >= marker.expiresAt)) {
-                delete next[id];
-                changed = true;
-              }
+    let inFlight = false;
+    let since: string | null = null;
+    let lastFull = 0;
+    const load = async (forceFull = false) => {
+      if (document.hidden || inFlight || cancelled) return;
+      const full = forceFull || !since || Date.now() - lastFull >= 300_000;
+      inFlight = true;
+      try {
+        const url = full ? "/api/whatsapp/inbox" : `/api/whatsapp/inbox?since=${encodeURIComponent(since!)}`;
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) return;
+        const body = await response.json() as InboxList;
+        if (cancelled || !body.ready) return;
+        setList(previous => reconcileInboxList(previous, body));
+        since = latestInboxCursor(full ? null : since, body.conversations);
+        if (full) lastFull = Date.now();
+        setNow(new Date());
+        setReadLocally(current => {
+          const byId = new Map(body.conversations.map(item => [item.id, item]));
+          const next = { ...current };
+          let changed = false;
+          const at = Date.now();
+          for (const [id, marker] of Object.entries(current)) {
+            const item = byId.get(id);
+            if ((item && !optimisticReadApplies(item, marker, at)) || (!item && (full || at >= marker.expiresAt))) {
+              delete next[id];
+              changed = true;
             }
-            return changed ? next : current;
-          });
-        }
-      }).catch(() => undefined);
+          }
+          return changed ? next : current;
+        });
+      } catch {
+        // Keep the last good list until the next poll.
+      } finally {
+        inFlight = false;
+      }
     };
-    load();
+    void load(true);
     fetch("/api/whatsapp/qr", { cache: "no-store" }).then(response => response.ok ? response.json() : null)
       .then((status: { state?: string; phone?: string | null } | null) => { if (!cancelled && status?.state === "connected") setQrPhone(status.phone ?? null); }).catch(() => undefined);
-    const timer = setInterval(load, 5000);
-    return () => { cancelled = true; clearInterval(timer); };
+    const timer = setInterval(() => void load(), 5000);
+    const onVisible = () => { if (!document.hidden) void load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, [demo]);
 
   // Open conversation: messages refreshed while it stays open, and marked as read.
@@ -151,12 +169,23 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       setReadLocally(current => ({ ...current, [id]: optimisticReadSnapshot(selected, Date.now()) }));
     }
   }
-  function toggleArchived(item: InboxConversation) {
+  async function toggleArchived(item: InboxConversation) {
     setMenuOpen(false);
     if (demo) return;
+    setActionError("");
     setList(current => current && { ...current, conversations: current.conversations.map(entry => entry.id === item.id ? { ...entry, archived: !item.archived } : entry) });
     if (!item.archived) setOpenId(null);
-    fetch(`/api/whatsapp/inbox/${item.id}`, { method: "POST", body: JSON.stringify({ action: "archive", value: !item.archived }) }).catch(() => undefined);
+    try {
+      const response = await fetch(`/api/whatsapp/inbox/${item.id}`, { method: "POST", body: JSON.stringify({ action: "archive", value: !item.archived }) });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error || "O WhatsApp não confirmou o arquivamento.");
+      }
+    } catch (error) {
+      // Never leave a misleading archived badge after a rejected phone operation.
+      setList(current => current && { ...current, conversations: current.conversations.map(entry => entry.id === item.id ? { ...entry, archived: item.archived } : entry) });
+      setActionError(error instanceof Error ? error.message : "Não foi possível sincronizar o arquivamento.");
+    }
   }
   function toggleFavorite(item: InboxConversation) {
     if (demo) return;
@@ -188,6 +217,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <button type="button" className="wai-icon-button" disabled title="Mais opções · em breve"><MoreVertical size={20} /></button>
         </div>
       </header>
+      {actionError && <p role="alert" className="wai-list-note">{actionError}</p>}
       {picking ? <NewChat contacts={contacts} onPick={startWith} onClose={() => setPicking(false)} /> : showArchived ? <>
       <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setShowArchived(false)} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button><strong>Arquivadas</strong></div>
       <p className="wai-new-note">As conversas arquivadas no celular também aparecem aqui após a sincronização do WhatsApp. Alterações podem levar alguns instantes para atualizar.</p>

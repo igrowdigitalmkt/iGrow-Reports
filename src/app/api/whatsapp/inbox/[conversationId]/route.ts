@@ -29,13 +29,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   // Read and archive also happen on the phone for the QR Code session, like WhatsApp Web.
   if (conversation.channel === "qr" && action.action === "read" && conversation.unread_count > 0) {
     const { data: unread } = await context.supabase.from("whatsapp_messages").select("external_id").eq("agency_id", context.agency.id).eq("conversation_id", id.data)
-      .eq("direction", "in").order("sent_at", { ascending: false }).limit(Math.min(conversation.unread_count, 20));
-    await markQrRead(context.agency.id, conversation.remote_id, (unread ?? []).map(row => row.external_id));
+      .eq("direction", "in").order("sent_at", { ascending: false }).limit(Math.min(conversation.unread_count, 100));
+    try {
+      await markQrRead(context.agency.id, conversation.remote_id, (unread ?? []).map(row => row.external_id));
+    } catch {
+      return Response.json({ error: "Não foi possível sincronizar a leitura com o WhatsApp." }, { status: 502, headers });
+    }
   }
   if (conversation.channel === "qr" && action.action === "archive") {
     const { data: last } = await context.supabase.from("whatsapp_messages").select("external_id,direction,sent_at").eq("agency_id", context.agency.id).eq("conversation_id", id.data)
       .order("sent_at", { ascending: false }).limit(1).maybeSingle();
-    if (last) await archiveQrChat(context.agency.id, conversation.remote_id, { id: last.external_id, fromMe: last.direction === "out", sentAt: last.sent_at }, action.value);
+    try {
+      await archiveQrChat(context.agency.id, conversation.remote_id, last ? { id: last.external_id, fromMe: last.direction === "out", sentAt: last.sent_at } : null, action.value);
+    } catch {
+      return Response.json({ error: "Não foi possível sincronizar o arquivamento com o WhatsApp." }, { status: 502, headers });
+    }
   }
   const { error } = action.action === "read"
     ? await context.supabase.rpc("mark_whatsapp_conversation_read", { p_conversation_id: id.data })

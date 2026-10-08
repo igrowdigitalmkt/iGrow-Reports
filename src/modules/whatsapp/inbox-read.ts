@@ -11,7 +11,7 @@ function toConversation(row: WhatsAppConversationRow, clientNames: Map<string, s
     id: row.id, channelKey: row.channel_key, remoteId: row.remote_id, isGroup: row.is_group, title: row.title,
     clientId: row.client_id, clientName: row.client_id ? clientNames.get(row.client_id) ?? null : null, favorite: row.favorite, unread: row.unread_count,
     lastAt: row.last_message_at, preview: row.last_message_preview, lastDirection: row.last_message_direction, lastKind: row.last_message_kind,
-    lastStatus: row.last_message_status, lastInboundAt: row.last_inbound_at, archived: row.archived ?? false,
+    lastStatus: row.last_message_status, lastInboundAt: row.last_inbound_at, archived: row.archived ?? false, updatedAt: row.updated_at,
   };
 }
 
@@ -43,6 +43,28 @@ export async function loadInbox(supabase: Client, agencyId: string): Promise<Inb
   }
   const names = await clientNames(supabase, agencyId, rows.map(row => row.client_id));
   return { ready: true, conversations: rows.map(row => toConversation(row, names)) };
+}
+
+/**
+ * Lightweight polling: transfer only chats whose state or preview changed since the
+ * last successful sync. Full reconciliation still runs periodically for deletions.
+ */
+export async function loadInboxChanges(supabase: Client, agencyId: string, since: string): Promise<InboxList> {
+  const pageSize = 1000;
+  const rows: WhatsAppConversationRow[] = [];
+  for (let page = 0; page < 10; page++) {
+    const start = page * pageSize;
+    const { data, error } = await supabase.from("whatsapp_conversations").select("*").eq("agency_id", agencyId)
+      .gt("updated_at", since)
+      .order("updated_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(start, start + pageSize - 1);
+    if (error || !data) return { ready: false, conversations: [], delta: true };
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+  const names = await clientNames(supabase, agencyId, rows.map(row => row.client_id));
+  return { ready: true, conversations: rows.map(row => toConversation(row, names)), delta: true };
 }
 
 /** One conversation with its latest messages, oldest first. */

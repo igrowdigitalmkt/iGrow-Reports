@@ -96,20 +96,21 @@ export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> 
 
 const chatJid = (remoteId: string) => remoteId.includes("@") ? remoteId : `${remoteId.replace(/\D/g, "")}@s.whatsapp.net`;
 
-/** Mirrors "read" on the phone for the given received messages (best effort). */
+/** Mirrors "read" on the phone for the given received messages. */
 export async function markQrRead(agencyId: string, remoteId: string, messageIds: string[]) {
   const evolution = client();
   if (!evolution || !messageIds.length) return;
   const remoteJid = chatJid(remoteId);
-  await evolution.markRead(instanceNameFor(agencyId), messageIds.map(id => ({ remoteJid, fromMe: false, id }))).catch(() => undefined);
+  await evolution.markRead(instanceNameFor(agencyId), messageIds.map(id => ({ remoteJid, fromMe: false, id })));
 }
 
-/** Mirrors archiving on the phone (best effort). */
-export async function archiveQrChat(agencyId: string, remoteId: string, last: { id: string; fromMe: boolean; sentAt: string }, archive: boolean) {
+/** Mirrors archiving on the phone. The last message is optional for history-only chats. */
+export async function archiveQrChat(agencyId: string, remoteId: string, last: { id: string; fromMe: boolean; sentAt: string } | null, archive: boolean) {
   const evolution = client();
   if (!evolution) return;
   const remoteJid = chatJid(remoteId);
-  await evolution.archive(instanceNameFor(agencyId), remoteJid, { key: { remoteJid, fromMe: last.fromMe, id: last.id }, messageTimestamp: Math.floor(Date.parse(last.sentAt) / 1000) }, archive).catch(() => undefined);
+  const lastMessage = last ? { key: { remoteJid, fromMe: last.fromMe, id: last.id }, messageTimestamp: Math.floor(Date.parse(last.sentAt) / 1000) } : undefined;
+  await evolution.archive(instanceNameFor(agencyId), remoteJid, lastMessage, archive);
 }
 
 /** Profile photo of a contact or group seen by the QR Code session, fetched on demand (not stored). */

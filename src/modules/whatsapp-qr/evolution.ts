@@ -65,7 +65,7 @@ export class EvolutionClient {
   // Messages, receipts and chat state are forwarded to the iGrow, signed by a header.
   // CHATS_SET backfills state after a WhatsApp history sync; UPDATE/UPSERT keep archive/unread live.
   setWebhook(name: string, url: string, token: string) {
-    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE", "CHATS_SET", "CHATS_UPSERT", "CHATS_UPDATE"] } } });
+    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_SET", "SEND_MESSAGE", "CHATS_SET", "CHATS_UPSERT", "CHATS_UPDATE"] } } });
   }
 
   logout(name: string) {
@@ -92,9 +92,9 @@ export class EvolutionClient {
     await this.request(`/chat/markMessageAsRead/${encodeURIComponent(name)}`, { method: "POST", body: { readMessages: keys } });
   }
 
-  /** Archives or unarchives a chat on WhatsApp (needs its last message). */
-  async archive(name: string, chat: string, lastMessage: { key: { remoteJid: string; fromMe: boolean; id: string }; messageTimestamp: number }, archive: boolean) {
-    await this.request(`/chat/archiveChat/${encodeURIComponent(name)}`, { method: "POST", body: { chat, lastMessage, archive } });
+  /** Archives or unarchives a chat on WhatsApp. */
+  async archive(name: string, chat: string, lastMessage: { key: { remoteJid: string; fromMe: boolean; id: string }; messageTimestamp: number } | undefined, archive: boolean) {
+    await this.request(`/chat/archiveChat/${encodeURIComponent(name)}`, { method: "POST", body: { chat, ...(lastMessage ? { lastMessage } : {}), archive } });
   }
 
   /** Public profile photo URL of a contact or group (null when hidden or absent). */

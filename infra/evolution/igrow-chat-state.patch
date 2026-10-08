@@ -1,20 +1,5 @@
-diff --git a/src/api/controllers/chat.controller.ts b/src/api/controllers/chat.controller.ts
-index 22e90b9..7b51340 100644
---- a/src/api/controllers/chat.controller.ts
-+++ b/src/api/controllers/chat.controller.ts
-@@ -34,6 +34,10 @@ export class ChatController {
-     return await this.waMonitor.waInstances[instanceName].archiveChat(data);
-   }
- 
-+  public async resyncIgrowChatState({ instanceName }: InstanceDto) {
-+    return await this.waMonitor.waInstances[instanceName].resyncIgrowChatState();
-+  }
-+
-   public async markChatUnread({ instanceName }: InstanceDto, data: MarkChatUnreadDto) {
-     return await this.waMonitor.waInstances[instanceName].markChatUnread(data);
-   }
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..955df6d 100644
+index 60e857f..894ea9d 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 @@ -757,17 +757,25 @@ export class BaileysStartupService extends ChannelStartupService {
@@ -106,79 +91,110 @@ index 60e857f..955df6d 100644
  
          if (this.configService.get<Database>('DATABASE').SAVE_DATA.HISTORIC) {
            await this.prismaRepository.chat.createMany({ data: chatsRaw, skipDuplicates: true });
-@@ -3740,6 +3757,59 @@ export class BaileysStartupService extends ChannelStartupService {
-     }
+@@ -1046,10 +1063,18 @@ export class BaileysStartupService extends ChannelStartupService {
+           messagesRaw.push(this.prepareMessage(m));
+         }
+ 
+-        this.sendDataWebhook(Events.MESSAGES_SET, [...messagesRaw], true, undefined, {
+-          isLatest,
+-          progress,
++        // iGrow imports historical messages only from one-to-one conversations.
++        // Never upload old group traffic; send small batches to avoid oversized serverless webhooks.
++        const personalHistory = messagesRaw.filter((item) => {
++          const jid = item?.key?.remoteJid;
++          return typeof jid === 'string' && (jid.endsWith('@s.whatsapp.net') || jid.endsWith('@lid'));
+         });
++        for (let i = 0; i < personalHistory.length; i += 20) {
++          this.sendDataWebhook(Events.MESSAGES_SET, personalHistory.slice(i, i + 20), true, undefined, {
++            isLatest,
++            progress,
++          });
++        }
+ 
+         if (this.configService.get<Database>('DATABASE').SAVE_DATA.HISTORIC) {
+           await this.prismaRepository.message.createMany({ data: messagesRaw, skipDuplicates: true });
+@@ -3689,27 +3714,24 @@ export class BaileysStartupService extends ChannelStartupService {
    }
  
-+  public async resyncIgrowChatState() {
-+    const collections = ['critical_unblock_low', 'regular_high', 'regular_low', 'critical_block', 'regular'] as const;
+   public async getLastMessage(number: string) {
+-    const where: any = { key: { remoteJid: number }, instanceId: this.instance.id };
+-
+-    const messages = await this.prismaRepository.message.findMany({
+-      where,
+-      orderBy: { messageTimestamp: 'desc' },
+-      take: 1,
+-    });
+-
+-    if (messages.length === 0) {
+-      throw new NotFoundException('Messages not found');
+-    }
+-
+-    let lastMessage = messages.pop();
++    // Message.key is JSON in Prisma. Evolution 2.3.7 incorrectly queried it as
++    // { key: { remoteJid } }, which Prisma interprets as an invalid JSON filter.
++    const candidates = [...new Set([number, createJid(number)])];
 +
-+    // One-shot repair for iGrow. Our tiny Baileys patch makes resyncAppState return the decoded
-+    // mutation map; Evolution can then forward archive/read state directly instead of depending
-+    // on Baileys' event buffer, which intentionally suppresses some historical chat updates.
-+    await this.instance.authState.state.keys.set({
-+      'app-state-sync-version': Object.fromEntries(collections.map((name) => [name, null])),
-+    });
-+    const mutations = (await this.client.resyncAppState(collections, false)) as unknown as Record<string, any>;
-+    const states = new Map<string, { remoteJid: string; instanceId: string; archived?: boolean; unreadMessages?: number }>();
-+
-+    for (const mutation of Object.values(mutations ?? {})) {
-+      const action = mutation?.syncAction?.value;
-+      const index = mutation?.index;
-+      const type = Array.isArray(index) ? index[0] : undefined;
-+      const remoteJid = Array.isArray(index) && typeof index[1] === 'string' ? index[1] : null;
-+      if (!remoteJid) continue;
-+
-+      const current = states.get(remoteJid) ?? { remoteJid, instanceId: this.instanceId };
-+      if (action?.archiveChatAction || type === 'archive' || type === 'unarchive') {
-+        current.archived = action?.archiveChatAction ? !!action.archiveChatAction.archived : type === 'archive';
-+      }
-+      if (action?.markChatAsReadAction?.read === true) {
-+        current.unreadMessages = 0;
-+      }
-+      states.set(remoteJid, current);
-+    }
-+
-+    const payload = [...states.values()].filter((state) => state.archived !== undefined || state.unreadMessages !== undefined);
-+    if (payload.length) this.sendDataWebhook(Events.CHATS_UPDATE, payload);
-+
-+    // App-state may contain no historical chat mutations on an already-linked companion. In that
-+    // case ask the primary phone for a controlled full-history sync. Its messaging-history.set event
-+    // is already bridged as CHATS_SET, including archived/unread fields by the iGrow patch.
-+    let historyRequested = false;
-+    if (payload.length === 0) {
-+      const fetchFullHistory = (this.client as any).fetchFullHistory;
-+      if (typeof fetchFullHistory === 'function') {
-+        await fetchFullHistory.call(this.client);
-+        historyRequested = true;
-+      }
-+    }
-+
-+    return {
-+      synced: true,
-+      chats: payload.length,
-+      archived: payload.filter((state) => state.archived === true).length,
-+      read: payload.filter((state) => state.unreadMessages === 0).length,
-+      historyRequested,
-+    };
-+  }
-+
-   public async markChatUnread(data: MarkChatUnreadDto) {
-     try {
-       let last_message = data.lastMessage;
-diff --git a/src/api/routes/chat.router.ts b/src/api/routes/chat.router.ts
-index 158947e..ff7c118 100644
---- a/src/api/routes/chat.router.ts
-+++ b/src/api/routes/chat.router.ts
-@@ -80,6 +80,11 @@ export class ChatRouter extends RouterBroker {
++    for (const remoteJid of candidates) {
++      const messages = await this.prismaRepository.message.findMany({
++        where: {
++          instanceId: this.instance.id,
++          key: { path: ['remoteJid'], equals: remoteJid },
++        },
++        orderBy: { messageTimestamp: 'desc' },
++        take: 1,
++      });
  
-         return res.status(HttpStatus.CREATED).json(response);
-       })
-+      .post(this.routerPath('resyncIgrowChatState'), ...guards, async (req, res) => {
-+        const instance = req.params as unknown as InstanceDto;
-+        const response = await chatController.resyncIgrowChatState(instance);
-+        return res.status(HttpStatus.CREATED).json(response);
-+      })
-       .post(this.routerPath('markChatUnread'), ...guards, async (req, res) => {
-         const response = await this.dataValidate<MarkChatUnreadDto>({
-           request: req,
+-    for (const message of messages) {
+-      if (message.messageTimestamp >= lastMessage.messageTimestamp) {
+-        lastMessage = message;
+-      }
++      if (messages.length > 0) return messages[0] as unknown as LastMessage;
+     }
+ 
+-    return lastMessage as unknown as LastMessage;
++    throw new NotFoundException('Messages not found');
+   }
+ 
+   public async archiveChat(data: ArchiveChatDto) {
+@@ -3717,21 +3739,31 @@ export class BaileysStartupService extends ChannelStartupService {
+       let last_message = data.lastMessage;
+       let number = data.chat;
+ 
+-      if (!last_message && number) {
+-        last_message = await this.getLastMessage(number);
+-      } else {
+-        last_message = data.lastMessage;
++      if (last_message) {
+         last_message.messageTimestamp = last_message?.messageTimestamp ?? Date.now();
+-        number = last_message?.key?.remoteJid;
++        number = last_message?.key?.remoteJid ?? number;
++      } else if (number) {
++        // A history-only chat may not have a locally stored message. Baileys accepts an
++        // archive app-state mutation without messageRange, so the last message is optional.
++        try {
++          last_message = await this.getLastMessage(number);
++        } catch {
++          last_message = undefined;
++        }
+       }
+ 
+-      if (!last_message || Object.keys(last_message).length === 0) {
+-        throw new NotFoundException('Last message not found');
+-      }
++      if (!number) throw new NotFoundException('Chat not found');
+ 
+-      await this.client.chatModify({ archive: data.archive, lastMessages: [last_message] }, createJid(number));
++      // iGrow supplies a fully-qualified WhatsApp JID. Calling createJid() again causes
++      // Evolution's contact lookup to fail on v2.3.7 (Prisma invalid remoteJid argument).
++      // Keep the actual group/phone JID intact for Baileys app-state archive mutations.
++      const chatJid = number.includes('@') ? number : createJid(number);
++      await this.client.chatModify(
++        { archive: data.archive, lastMessages: last_message ? [last_message] : [] },
++        chatJid,
++      );
+ 
+-      return { chatId: number, archived: true };
++      return { chatId: number, archived: data.archive };
+     } catch (error) {
+       throw new InternalServerErrorException({
+         archived: false,

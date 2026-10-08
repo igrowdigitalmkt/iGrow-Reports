@@ -1,12 +1,12 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { parseEvolutionMessage } from "@/modules/whatsapp/inbox-parse";
+import { parseEvolutionMessage, parseEvolutionPersonalHistory } from "@/modules/whatsapp/inbox-parse";
 import { recordInboxMessage, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
 import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
 import { qrGroupSubject, replyFromInstance, validWebhookToken } from "@/modules/whatsapp-qr/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const INSTANCE = /^igrow-([0-9a-f-]{36})$/;
 
@@ -21,6 +21,21 @@ export async function POST(request: Request) {
   const service = createSupabaseServiceClient();
   if (!service) return Response.json({ error: "Indisponível." }, { status: 503 });
   const agencyId = INSTANCE.exec(instance)![1];
+
+  const event = (body as { event?: unknown } | null)?.event;
+  if (event === "messages.set" || event === "MESSAGES_SET") {
+    // Only historical 1:1 messages; a historical batch must not increase the unread counters.
+    const history = parseEvolutionPersonalHistory(body);
+    let imported = 0;
+    for (const message of history) {
+      const row = await recordInboxMessage(service, {
+        agencyId, connectionId: null, message, historical: true,
+      });
+      if (!row) return Response.json({ error: "Falha ao importar histórico pessoal." }, { status: 503 });
+      if (row.inserted) imported++;
+    }
+    return Response.json({ ok: true, imported, received: history.length });
+  }
 
   const receipt = parseMessageReceipt(body);
   if (receipt) {

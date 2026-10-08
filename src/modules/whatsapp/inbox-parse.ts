@@ -113,6 +113,24 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
   };
 }
 
+/**
+ * Initial/relinked WhatsApp history: accept only personal messages, never group history.
+ * Live MESSAGES_UPSERT remains independent so new group messages still arrive normally.
+ */
+export function parseEvolutionPersonalHistory(body: unknown): InboxMessage[] {
+  const payload = body as { event?: unknown; data?: unknown } | null;
+  if (payload?.event !== "messages.set" && payload?.event !== "MESSAGES_SET") return [];
+  if (!Array.isArray(payload.data)) return [];
+  const personal: InboxMessage[] = [];
+  for (const item of payload.data) {
+    const parsed = parseEvolutionMessage({ event: "MESSAGES_UPSERT", data: item });
+    if (parsed && !parsed.isGroup && !parsed.remoteId.endsWith("@broadcast") && !parsed.remoteId.endsWith("@newsletter")) {
+      personal.push(parsed);
+    }
+  }
+  return personal;
+}
+
 type CloudMedia = { id?: string; mime_type?: string };
 type CloudMessage = {
   id?: string; from?: string; to?: string; timestamp?: string; type?: string;

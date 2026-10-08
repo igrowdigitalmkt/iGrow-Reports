@@ -12,6 +12,7 @@ type Service = SupabaseClient<Database>;
  */
 export async function recordInboxMessage(service: Service, input: {
   agencyId: string; connectionId: string | null; message: InboxMessage; status?: "sent" | "delivered" | "read" | "failed" | null;
+  historical?: boolean;
   groupSubject?: (groupId: string) => Promise<string | null>;
 }) {
   const { message } = input;
@@ -21,9 +22,12 @@ export async function recordInboxMessage(service: Service, input: {
     p_body: message.body, p_media_name: message.mediaName, p_media_mime: message.mediaMime, p_author: message.author,
     p_status: message.direction === "out" ? input.status ?? "sent" : null, p_sent_at: message.sentAt,
   };
-  let { data, error } = await service.rpc("record_whatsapp_message", { ...args, p_media_id: message.mediaId ?? null });
-  // Before migration 202610070012 the function has no media id parameter.
-  if (error?.code === "PGRST202") ({ data, error } = await service.rpc("record_whatsapp_message", args));
+  // Historical messages should populate private threads without being counted as new unread
+  // notifications. They use a separate atomic SQL function; live messages keep their behavior.
+  const recordFunction = input.historical ? "record_whatsapp_history_message" : "record_whatsapp_message";
+  let { data, error } = await service.rpc(recordFunction, { ...args, p_media_id: message.mediaId ?? null });
+  // Before migration 202610070012 the live function has no media id parameter.
+  if (!input.historical && error?.code === "PGRST202") ({ data, error } = await service.rpc("record_whatsapp_message", args));
   if (error) {
     if (error.code !== "PGRST202" && error.code !== "42883") console.error("whatsapp-inbox-record", { code: error.code });
     return null;

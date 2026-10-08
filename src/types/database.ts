@@ -372,6 +372,14 @@ export type Database = {
         };
         Returns: { conversation_id: string; inserted: boolean; needs_title: boolean }[];
       };
+      record_whatsapp_history_message: {
+        Args: {
+          p_agency_id: string; p_connection_id: string | null; p_remote_id: string; p_is_group: boolean; p_title: string | null;
+          p_external_id: string; p_direction: "in" | "out"; p_kind: string; p_body: string | null; p_media_name: string | null;
+          p_media_mime: string | null; p_author: string | null; p_status: string | null; p_sent_at: string; p_media_id?: string | null;
+        };
+        Returns: { conversation_id: string; inserted: boolean; needs_title: boolean }[];
+      };
       set_whatsapp_message_media_ref: { Args: { p_agency_id: string; p_external_id: string; p_media_ref: Json }; Returns: undefined };
       update_whatsapp_message_status: { Args: { p_agency_id: string | null; p_external_id: string; p_status: string }; Returns: number };
       set_whatsapp_conversation_title: { Args: { p_conversation_id: string; p_title: string }; Returns: undefined };
