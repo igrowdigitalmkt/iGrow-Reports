@@ -1,11 +1,17 @@
+diff --git a/src/api/controllers/chat.controller.ts b/src/api/controllers/chat.controller.ts
+index 22e90b9..7b51340 100644
+--- a/src/api/controllers/chat.controller.ts
++++ b/src/api/controllers/chat.controller.ts
+@@ -36,0 +37,4 @@ export class ChatController {
++  public async resyncIgrowChatState({ instanceName }: InstanceDto) {
++    return await this.waMonitor.waInstances[instanceName].resyncIgrowChatState();
++  }
++
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..f843cb3 100644
+index 60e857f..06ba1f9 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-@@ -757,17 +757,25 @@ export class BaileysStartupService extends ChannelStartupService {
- 
-       const existingChatIdSet = new Set(existingChatIds.map((chat) => chat.remoteJid));
- 
+@@ -760,2 +760,12 @@ export class BaileysStartupService extends ChannelStartupService {
 -      const chatsToInsert = chats
 -        .filter((chat) => !existingChatIdSet?.has(chat.id))
 +      const chatsForWebhook = chats.map((chat) => ({
@@ -20,25 +26,18 @@ index 60e857f..f843cb3 100644
 +
 +      const chatsToInsert = chatsForWebhook
 +        .filter((chat) => !existingChatIdSet?.has(chat.remoteJid))
-         .map((chat) => ({
+@@ -763,2 +773,2 @@ export class BaileysStartupService extends ChannelStartupService {
 -          remoteJid: chat.id,
 -          instanceId: this.instanceId,
 +          remoteJid: chat.remoteJid,
 +          instanceId: chat.instanceId,
-           name: chat.name,
+@@ -766 +776 @@ export class BaileysStartupService extends ChannelStartupService {
 -          unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
 +          unreadMessages: chat.unreadMessages,
-         }));
- 
+@@ -769,2 +778,0 @@ export class BaileysStartupService extends ChannelStartupService {
 -      this.sendDataWebhook(Events.CHATS_UPSERT, chatsToInsert);
 -
-       if (chatsToInsert.length > 0) {
-         if (this.configService.get<Database>('DATABASE').SAVE_DATA.CHATS)
-           await this.prismaRepository.chat.createMany({ data: chatsToInsert, skipDuplicates: true });
-@@ -781,9 +789,12 @@ export class BaileysStartupService extends ChannelStartupService {
-         }
-       >[],
-     ) => {
+@@ -784,3 +792,6 @@ export class BaileysStartupService extends ChannelStartupService {
 -      const chatsRaw = chats.map((chat) => {
 -        return { remoteJid: chat.id, instanceId: this.instanceId };
 -      });
@@ -48,13 +47,7 @@ index 60e857f..f843cb3 100644
 +        archived: chat.archived,
 +        unreadMessages: chat.unreadCount,
 +      }));
- 
-       this.sendDataWebhook(Events.CHATS_UPDATE, chatsRaw);
- 
-@@ -974,22 +985,28 @@ export class BaileysStartupService extends ChannelStartupService {
-           }
-         }
- 
+@@ -977 +988,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        const chatsRaw: { remoteJid: string; instanceId: string; name?: string }[] = [];
 +        const chatsForWebhook = chats.map((chat) => ({
 +          remoteJid: chat.id,
@@ -65,11 +58,7 @@ index 60e857f..f843cb3 100644
 +        }));
 +        this.sendDataWebhook(Events.CHATS_SET, chatsForWebhook);
 +
-         const chatsRepository = new Set(
-           (await this.prismaRepository.chat.findMany({ where: { instanceId: this.instanceId } })).map(
-             (chat) => chat.remoteJid,
-           ),
-         );
+@@ -983,10 +1002,8 @@ export class BaileysStartupService extends ChannelStartupService {
 -
 -        for (const chat of chats) {
 -          if (chatsRepository?.has(chat.id)) {
@@ -88,6 +77,27 @@ index 60e857f..f843cb3 100644
 +            name: chat.name,
 +            unreadMessages: chat.unreadMessages,
 +          }));
- 
-         if (this.configService.get<Database>('DATABASE').SAVE_DATA.HISTORIC) {
-           await this.prismaRepository.chat.createMany({ data: chatsRaw, skipDuplicates: true });
+@@ -3742,0 +3760,13 @@ export class BaileysStartupService extends ChannelStartupService {
++  public async resyncIgrowChatState() {
++    const collections = ['critical_unblock_low', 'regular_high', 'regular_low', 'critical_block', 'regular'] as const;
++
++    // One-shot repair for iGrow: request fresh app-state snapshots so Baileys re-emits
++    // archive/read mutations that existed before this Evolution bridge preserved them.
++    await this.instance.authState.state.keys.set({
++      'app-state-sync-version': Object.fromEntries(collections.map((name) => [name, null])),
++    });
++    await this.client.resyncAppState(collections, true);
++
++    return { synced: true };
++  }
++
+diff --git a/src/api/routes/chat.router.ts b/src/api/routes/chat.router.ts
+index 158947e..ff7c118 100644
+--- a/src/api/routes/chat.router.ts
++++ b/src/api/routes/chat.router.ts
+@@ -82,0 +83,5 @@ export class ChatRouter extends RouterBroker {
++      .post(this.routerPath('resyncIgrowChatState'), ...guards, async (req, res) => {
++        const instance = req.params as unknown as InstanceDto;
++        const response = await chatController.resyncIgrowChatState(instance);
++        return res.status(HttpStatus.CREATED).json(response);
++      })
