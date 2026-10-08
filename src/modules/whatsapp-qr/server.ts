@@ -61,6 +61,14 @@ export async function startQrConnection(agencyId: string, phone?: string) {
   if (origin && token) await evolution.setWebhook(name, `${origin}/api/webhooks/evolution`, token).catch(() => undefined);
   const result = await evolution.connect(name, number);
   if (number && !result.pairingCode) throw new EvolutionError("O WhatsApp não gerou o código agora. Tente o QR Code ou tente de novo em instantes.");
+  // New session may receive only post-reset events. Existing workspaces without a
+  // reset marker are unaffected by this RPC.
+  const { createSupabaseServiceClient } = await import("@/lib/supabase/service");
+  const service = createSupabaseServiceClient();
+  if (service) {
+    const { error } = await service.rpc("resume_whatsapp_qr_after_reset", { p_agency_id: agencyId });
+    if (error) throw new EvolutionError("Falha ao habilitar o WhatsApp novo; tente novamente.");
+  }
   return { connected: false as const, qr: number ? null : result.qr, pairingCode: number ? result.pairingCode : null };
 }
 
@@ -84,6 +92,23 @@ export async function disconnectQr(agencyId: string) {
   const name = instanceNameFor(agencyId);
   await evolution.logout(name).catch(() => undefined);
   await evolution.remove(name).catch(() => undefined);
+}
+
+/** Strict reset: never delete local messages until the Evolution instance is gone. */
+export async function resetQrSession(agencyId: string) {
+  const evolution = client();
+  if (!evolution) throw new EvolutionError("Servidor do WhatsApp não configurado.");
+  const name = instanceNameFor(agencyId);
+  if (await evolution.state(name) !== null) {
+    // A disconnected device may reject logout; deletion must still succeed.
+    await evolution.logout(name).catch(() => undefined);
+    try {
+      await evolution.remove(name);
+    } catch (error) {
+      if (!(error instanceof EvolutionError && error.status === 404)) throw error;
+    }
+  }
+  if (await evolution.state(name) !== null) throw new EvolutionError("A sessão antiga ainda existe; nada foi apagado.");
 }
 
 export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> {

@@ -42,7 +42,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ mess
       "Content-Type": mime.split(";")[0] || "application/octet-stream",
       "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(name)}`,
       // Private: stays in this browser for a few minutes, never in shared caches.
-      "Cache-Control": "private, max-age=300",
+      "Cache-Control": "private, no-store, max-age=0",
+      "Pragma": "no-cache",
       "X-Content-Type-Options": "nosniff",
     } });
   } catch {

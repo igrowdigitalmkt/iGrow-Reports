@@ -69,6 +69,19 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
     finally { setBusy(false); }
   }
 
+  async function resetWhatsApp() {
+    if (!window.confirm("Apagar todas as conversas e mensagens deste WhatsApp no iGrow e desconectar o aparelho? A operação não pode ser desfeita. Os clientes e relatórios não serão afetados.")) return;
+    setBusy(true); setError("");
+    try {
+      const result = await post({ action: "reset" });
+      setMode({ kind: "idle" });
+      await refreshStatus();
+      window.alert(`WhatsApp reiniciado. ${(result as { removed?: number }).removed ?? 0} conversas apagadas. Agora vincule o celular novamente.`);
+    } catch (resetError) {
+      setError(resetError instanceof Error ? resetError.message : "Falha ao reiniciar o WhatsApp.");
+    } finally { setBusy(false); }
+  }
+
   async function disconnect() {
     if (!window.confirm("Desconectar este WhatsApp do iGrow? Os agendamentos param de enviar até você conectar de novo.")) return;
     setBusy(true); setError("");
@@ -117,6 +130,13 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
       {connected.picture ? <img src={connected.picture} alt="" className="qr-avatar" referrerPolicy="no-referrer" /> : <span className="qr-avatar"><CheckCircle2 size={22} /></span>}
       <div><strong>{connected.name ?? "WhatsApp conectado"}</strong><span>{connected.phone ?? "Número conectado"}</span><small>Os agendamentos ativos já podem enviar por este número.</small></div>
       {canManage && <Button variant="secondary" size="sm" onClick={disconnect} disabled={busy}><LogOut size={14} />Desconectar</Button>}
+    </div>}
+
+    {canManage && status?.configured && mode.kind === "idle" && <div className="qr-actions" style={{ marginTop: 12 }}>
+      <Button variant="ghost" size="sm" onClick={() => void resetWhatsApp()} disabled={busy}>
+        {busy ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+        Apagar histórico e reiniciar WhatsApp
+      </Button>
     </div>}
 
     {status?.configured && !connected && mode.kind === "idle" && <div className="qr-start">

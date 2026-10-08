@@ -23,6 +23,13 @@ export async function POST(request: Request) {
   if (!service) return Response.json({ error: "Indisponível." }, { status: 503 });
   const agencyId = INSTANCE.exec(instance)![1];
 
+  // A reset disables event processing before the old Evolution instance is removed.
+  // The post-reset cutoff also refuses any late webhook from the old session.
+  const { data: guard, error: guardError } = await service.from("whatsapp_qr_reset_guards")
+    .select("blocked,fresh_after").eq("agency_id", agencyId).maybeSingle();
+  if (guardError) return Response.json({ error: "Proteção do WhatsApp indisponível." }, { status: 503 });
+  if (guard?.blocked) return Response.json({ ok: true, ignored: "reset_in_progress" });
+
   const event = (body as { event?: unknown } | null)?.event;
   // The WhatsApp QR connection is for recent inquiries, never an archive.
   // Even if an older Evolution instance emits MESSAGES_SET, do not write its
@@ -68,7 +75,8 @@ export async function POST(request: Request) {
   }
 
   const inbox = parseEvolutionMessage(body);
-  if (inbox && isRecentQrMessage(inbox.sentAt)) {
+  if (inbox && isRecentQrMessage(inbox.sentAt)
+    && (!guard || Date.parse(inbox.sentAt) >= Date.parse(guard.fresh_after))) {
     await recordInboxMessage(service, { agencyId, connectionId: null, message: inbox, groupSubject: groupId => qrGroupSubject(instance, groupId) });
   }
 

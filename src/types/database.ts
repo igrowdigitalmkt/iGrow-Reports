@@ -282,6 +282,7 @@ export type Database = {
       report_automations: Table<ReportAutomationRow, Pick<ReportAutomationRow, "agency_id" | "client_id" | "name" | "message_template"> & Partial<ReportAutomationRow>, Partial<ReportAutomationRow>>;
       report_automation_targets: Table<ReportAutomationTargetRow, Pick<ReportAutomationTargetRow, "agency_id" | "automation_id" | "client_id"> & Partial<ReportAutomationTargetRow>, Partial<ReportAutomationTargetRow>>;
       agency_member_permissions: Table<{ agency_id: string; user_id: string; modules: string[]; updated_at: string }, never, never>;
+      whatsapp_qr_reset_guards: Table<{ agency_id: string; fresh_after: string; blocked: boolean }, never, never>;
       whatsapp_conversations: Table<WhatsAppConversationRow, never, never>;
       whatsapp_messages: Table<WhatsAppMessageRow, never, never>;
       automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
@@ -386,6 +387,9 @@ export type Database = {
       mark_whatsapp_conversation_read: { Args: { p_conversation_id: string }; Returns: undefined };
       mark_whatsapp_read_by_message: { Args: { p_agency_id: string; p_external_id: string }; Returns: number };
       sync_whatsapp_qr_chat_states: { Args: { p_agency_id: string; p_states: Json }; Returns: number };
+      begin_whatsapp_qr_reset: { Args: { p_agency_id: string }; Returns: undefined };
+      clear_whatsapp_qr_history_batch: { Args: { p_agency_id: string; p_batch_size: number }; Returns: number };
+      resume_whatsapp_qr_after_reset: { Args: { p_agency_id: string }; Returns: undefined };
       prune_whatsapp_qr_messages: { Args: { p_batch_size: number }; Returns: number };
       set_whatsapp_conversation_archived: { Args: { p_conversation_id: string; p_archived: boolean }; Returns: undefined };
       set_whatsapp_conversation_favorite: { Args: { p_conversation_id: string; p_favorite: boolean }; Returns: undefined };
