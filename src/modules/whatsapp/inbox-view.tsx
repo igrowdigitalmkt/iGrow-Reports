@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -11,8 +11,10 @@ import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaK
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
 import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
 import { canForwardInboxMessage, canDeleteOwnMessage } from "./message-actions";
+import { CustomListEditor, CustomListManager, CustomListMembership, useCustomLists, type CustomList } from "./custom-lists";
 import "./inbox.css";
 import "./inbox-reference.css";
+import "./custom-lists.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -48,6 +50,11 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [qrPhone, setQrPhone] = useState<string | null>(null);
   const allChannels = useMemo(() => [{ ...QR_CHANNEL, phone: qrPhone }, ...channels], [channels, qrPhone]);
   const [channelKey, setChannelKey] = useState("qr");
+  const customLists = useCustomLists(channelKey, demo);
+  const [customFilterId, setCustomFilterId] = useState<string | null>(null);
+  const [managingLists, setManagingLists] = useState(false);
+  const [editingList, setEditingList] = useState<CustomList | null | undefined>(undefined);
+  const [deletingList, setDeletingList] = useState<CustomList | null>(null);
   const [list, setList] = useState<InboxList | null>(demo ? { ready: true, conversations: demoConversations } : null);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -258,7 +265,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const archivedHere = conversations.filter(item => item.channelKey === channelKey && item.archived);
   const inChannel = conversations.filter(item => item.channelKey === channelKey && item.archived === showArchived);
   const search = query.trim().toLocaleLowerCase("pt-BR");
-  const visible = inChannel.filter(item => (filter === "all" || (filter === "unread" && item.unread > 0) || (filter === "favorites" && item.favorite) || (filter === "groups" && item.isGroup))
+  const visible = inChannel.filter(item => (!customFilterId
+    ? (filter === "all" || (filter === "unread" && item.unread > 0) || (filter === "favorites" && item.favorite) || (filter === "groups" && item.isGroup))
+    : !!customLists.lists.find(list => list.id === customFilterId)?.conversationIds.includes(item.id))
     && (!search || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""} ${item.preview ?? ""}`.toLocaleLowerCase("pt-BR").includes(search)));
   const unreadHere = inChannel.filter(item => item.unread > 0).length;
   const open = conversations.find(item => item.id === openId) ?? null;
@@ -524,6 +533,23 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setSelectedIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
   }
 
+  async function saveCustomList(name: string, color: string, conversationIds: string[]) {
+    const ok = editingList
+      ? await customLists.update(editingList.id, { name, color, conversationIds })
+      : await customLists.create(name,color,conversationIds);
+    if (ok) setEditingList(undefined);
+    return ok;
+  }
+
+  async function moveCustomList(list: CustomList, direction: number) {
+    const ordered = customLists.lists;
+    const index = ordered.findIndex(item => item.id === list.id);
+    const other = ordered[index + direction];
+    if (!other) return;
+    const first = await customLists.update(list.id, { sortOrder: other.sortOrder });
+    if (first) await customLists.update(other.id, { sortOrder: list.sortOrder });
+  }
+
   if (demo && !demoReady) return <div className="wai-shell wai-demo-loading" aria-busy="true"><span>Carregando demonstração de conversas…</span></div>;
 
   return <div className={`wai-shell${openId || draft ? " is-chat-open" : ""}`}>
@@ -532,7 +558,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         const unread = unreadByChannel.get(item.key) ?? 0;
         return <button key={item.key} type="button" className={`wai-rail-item${item.key === channelKey ? " is-active" : ""}`} aria-pressed={item.key === channelKey}
           title={`${item.name}${item.phone ? ` · ${item.phone}` : ""}${item.kind === "official" ? item.coexistence ? " · API com coexistência" : " · API oficial" : " · QR Code"}`}
-          onClick={() => { setChannelKey(item.key); setOpenId(null); setDraft(null); setPicking(false); setShowArchived(false); setStarPanel(false); setSelecting(false); setSelectedIds([]); setListMenuOpen(false); setDetailsOpen(false); setChatSearchOpen(false); setChatSearchQuery(""); setFilter("all"); }}>
+          onClick={() => { setChannelKey(item.key); setCustomFilterId(null); setManagingLists(false); setEditingList(undefined); setOpenId(null); setDraft(null); setPicking(false); setShowArchived(false); setStarPanel(false); setSelecting(false); setSelectedIds([]); setListMenuOpen(false); setDetailsOpen(false); setChatSearchOpen(false); setChatSearchQuery(""); setFilter("all"); }}>
           {item.kind === "qr" ? <QrCode size={21} /> : /\p{L}/u.test(item.name)
             ? <span className="wai-rail-initials" style={{ background: colorFor(item.key) }}>{initialsOf(item.name)}</span>
             : <span className="wai-rail-initials is-icon" style={{ background: colorFor(item.key) }}><BadgeCheck size={17} /></span>}
@@ -560,12 +586,16 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         </div>
       </header>
       {actionError && <p role="alert" className="wai-list-note">{actionError}</p>}
+      {customLists.error && <div className="wai-custom-list-error" role="alert"><span>{customLists.error}</span><button type="button" onClick={customLists.clearError} aria-label="Fechar aviso"><X size={16} /></button></div>}
       {selecting && !picking && !starPanel && <div className="wai-selection-bar">
         <span>{bulkBusy ? `Sincronizando ${bulkProgress.completed}/${bulkProgress.total}` : `${selectedIds.length} selecionada(s)`}</span>
         <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => void markSelectedRead(selectedIds)}><CheckCheck size={16} />Marcar como lidas</button>
         <button type="button" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); }} aria-label="Cancelar seleção"><X size={18} /></button>
       </div>}
-      {picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={choose} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
+      {managingLists ? <CustomListManager lists={customLists.lists} busy={customLists.busy}
+        onBack={() => setManagingLists(false)} onCreate={() => setEditingList(null)}
+        onEdit={setEditingList} onRemove={setDeletingList} onMove={(item,delta) => void moveCustomList(item,delta)} />
+      : picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={choose} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
         <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setStarPanel(false)} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Mensagens favoritas</strong></div>
         <p className="wai-new-note">Favoritos privados nesta plataforma, preservados enquanto as mensagens estiverem disponíveis no iGrow.</p>
         <div className="wai-rows">
@@ -580,13 +610,19 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       <div className="wai-rows">
         {!inChannel.length && <p className="wai-list-note">Nenhuma conversa arquivada.</p>}
         {inChannel.map(item => <ConversationChoice key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} selecting={selecting}
-          selected={selectedIds.includes(item.id)} onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
+          selected={selectedIds.includes(item.id)} labels={customLists.lists.filter(list => list.conversationIds.includes(item.id))}
+          onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
       </> : <>
       <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar ou começar uma nova conversa" aria-label="Pesquisar conversas" /></label>
       <div className="wai-filters" role="group" aria-label="Filtrar conversas">
         {([["all", "Tudo"], ["unread", unreadHere ? `Não lidas ${unreadHere}` : "Não lidas"], ["favorites", "Favoritas"], ...(channel.kind === "qr" ? [["groups", "Grupos"]] : [])] as Array<[Filter, string]>).map(([key, label]) =>
-          <button key={key} type="button" aria-pressed={filter === key} className={filter === key ? "is-active" : undefined} onClick={() => setFilter(key)}>{label}</button>)}
+          <button key={key} type="button" aria-pressed={filter === key} className={filter === key ? "is-active" : undefined} onClick={() => { setFilter(key); setCustomFilterId(null); }}>{label}</button>)}
+        {customLists.lists.map(list => <button type="button" key={list.id} className={customFilterId === list.id ? "is-active" : undefined}
+          aria-pressed={customFilterId === list.id} onClick={() => setCustomFilterId(list.id)}>
+          <span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
+        <button type="button" className="wai-list-add-filter" onClick={() => setEditingList(null)} title="Criar nova lista"><Plus size={18} /></button>
+        <button type="button" className="wai-list-manage-filter" onClick={() => { setManagingLists(true); setPicking(false); setStarPanel(false); }} title="Gerenciar listas"><ListFilter size={18} /></button>
       </div>
       <div className="wai-rows">
         {archivedHere.length > 0 && <button type="button" className="wai-archived-row" onClick={() => { setShowArchived(true); setFilter("all"); }}>
@@ -594,9 +630,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         </button>}
         {!list && <p className="wai-list-note">Carregando conversas…</p>}
         {list && !list.ready && <p className="wai-list-note">A caixa de entrada precisa da atualização do banco de dados. Assim que ela for aplicada, as conversas passam a aparecer aqui.</p>}
-        {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
+        {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : customFilterId ? "Nenhuma conversa nesta lista." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
         {visible.map(item => <ConversationChoice key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} selecting={selecting}
-          selected={selectedIds.includes(item.id)} onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
+          selected={selectedIds.includes(item.id)} labels={customLists.lists.filter(list => list.conversationIds.includes(item.id))}
+          onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
       </>}
     </section>
@@ -629,6 +666,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}><Info size={18} />{open.isGroup ? "Informações do grupo" : "Dados do contato"}</button>
                 <button type="button" role="menuitem" onClick={() => toggleArchived(open)}><Archive size={18} />{open.archived ? "Desarquivar conversa" : "Arquivar conversa"}</button>
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); toggleFavorite(open); }}><Star size={18} />{open.favorite ? "Remover das favoritas" : "Adicionar às favoritas"}</button>
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}><ListFilter size={18} />Adicionar à lista</button>
               </div>}
             </div>
           </div>
@@ -764,9 +802,25 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             </button>)}
           </div>
         </aside>}
-        {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo} onClose={() => setDetailsOpen(false)} />}
+        {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo}
+          lists={customLists.lists} listsBusy={customLists.busy}
+          onToggleList={(list,member) => void customLists.setMember(list.id,open.id,member)}
+          onClose={() => setDetailsOpen(false)} />}
       </>}
     </section>
+    {editingList !== undefined && <CustomListEditor key={editingList?.id ?? "new-list"} list={editingList}
+      conversations={conversations.filter(item => item.channelKey === channelKey)} busy={customLists.busy || demo} error={customLists.error}
+      onClose={() => setEditingList(undefined)} onSave={saveCustomList} />}
+    {deletingList && <div className="wai-list-dialog-backdrop" role="presentation" onClick={() => setDeletingList(null)}>
+      <section className="wai-list-delete-dialog" role="dialog" aria-modal="true" aria-label="Apagar lista" onClick={event => event.stopPropagation()}>
+        <strong>Apagar lista “{deletingList.name}”?</strong><p>As conversas não serão apagadas. Apenas esta lista personalizada será removida.</p>
+        {customLists.error && <p role="alert" className="wai-list-editor-error">{customLists.error}</p>}
+        <footer><button type="button" disabled={customLists.busy} onClick={() => setDeletingList(null)}>Cancelar</button>
+          <button type="button" className="is-danger" disabled={customLists.busy} onClick={() => void customLists.remove(deletingList.id).then(ok => {
+            if (ok) { setDeletingList(null); if (customFilterId === deletingList.id) setCustomFilterId(null); }
+          })}>Apagar lista</button></footer>
+      </section>
+    </div>}
   </div>;
 }
 
@@ -793,17 +847,17 @@ function Ticks({ status }: { status: InboxStatus }) {
 
 const KIND_ICONS: Record<string, typeof ImageIcon> = { image: ImageIcon, video: Video, audio: Mic, document: FileText, sticker: Sticker, location: MapPin, contact: Contact };
 
-function ConversationChoice({ item, active, now, photo, selecting, selected, onOpen, onSelect }: {
-  item: InboxConversation; active: boolean; now: Date; photo: boolean; selecting: boolean; selected: boolean;
+function ConversationChoice({ item, active, now, photo, selecting, selected, labels = [], onOpen, onSelect }: {
+  item: InboxConversation; active: boolean; now: Date; photo: boolean; selecting: boolean; selected: boolean; labels?: CustomList[];
   onOpen: () => void; onSelect: () => void;
 }) {
   return <div className={`wai-select-row${selected ? " is-selected" : ""}`}>
     {selecting && <input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Selecionar ${conversationTitle(item)}`} />}
-    <ConversationRow item={item} active={active} now={now} photo={photo} onOpen={onOpen} />
+    <ConversationRow item={item} active={active} now={now} photo={photo} labels={labels} onOpen={onOpen} />
   </div>;
 }
 
-function ConversationRow({ item, active, now, photo, onOpen }: { item: InboxConversation; active: boolean; now: Date; photo: boolean; onOpen: () => void }) {
+function ConversationRow({ item, active, now, photo, labels, onOpen }: { item: InboxConversation; active: boolean; now: Date; photo: boolean; labels: CustomList[]; onOpen: () => void }) {
   const Icon = item.lastKind ? KIND_ICONS[item.lastKind] : undefined;
   const preview = item.preview || kindLabel(item.lastKind);
   return <button type="button" className={`wai-row${active ? " is-active" : ""}`} onClick={onOpen}>
@@ -820,6 +874,10 @@ function ConversationRow({ item, active, now, photo, onOpen }: { item: InboxConv
         {item.unread > 0 && <span className="wai-unread">{item.unread}</span>}
       </span>
       {item.clientName && <span className="wai-row-client">{item.clientName}</span>}
+      {!!labels.length && <span className="wai-row-list-labels" aria-label={labels.map(item => item.name).join(", ")}>
+        {labels.slice(0,3).map(label => <span key={label.id} title={label.name} style={{ background: label.color }} />)}
+        {labels.length > 3 && <small>+{labels.length - 3}</small>}
+      </span>}
     </span>
   </button>;
 }
@@ -1390,8 +1448,9 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, onClose }: {
-  item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean; onClose: () => void;
+function ContactDetails({ item, data, loading, demo, lists, listsBusy, onToggleList, onClose }: {
+  item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean;
+  lists: CustomList[]; listsBusy: boolean; onToggleList: (list: CustomList,member: boolean) => void; onClose: () => void;
 }) {
   const name = conversationTitle(item);
   const media = data?.media ?? [];
@@ -1422,6 +1481,9 @@ function ContactDetails({ item, data, loading, demo, onClose }: {
         </div>)}
         {group.members != null && group.members > group.participants.length && <p className="wai-details-muted">Exibindo até {group.participants.length} participantes.</p>}
       </div>}
+      <div className="wai-details-section"><h4>Listas personalizadas</h4>
+        <CustomListMembership lists={lists} conversationId={item.id} busy={listsBusy || demo} onToggle={onToggleList} />
+      </div>
       <div className="wai-details-section">
         <h4>Mídia, links e documentos</h4>
         {loading && <p className="wai-details-muted">Carregando informações…</p>}
