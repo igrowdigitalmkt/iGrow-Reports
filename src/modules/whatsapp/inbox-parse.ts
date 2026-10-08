@@ -124,7 +124,12 @@ export function parseEvolutionPersonalHistory(body: unknown): InboxMessage[] {
   if (payload?.event !== "messages.set" && payload?.event !== "MESSAGES_SET") return [];
   if (!Array.isArray(payload.data)) return [];
   const personal: InboxMessage[] = [];
+  // Evolution sends at most 20 messages per batch. Refuse oversized or malformed
+  // historical payloads before performing any database work.
+  if (payload.data.length > 20) return [];
   for (const item of payload.data) {
+    const stamp = (item as { messageTimestamp?: unknown } | null)?.messageTimestamp;
+    if (stamp === undefined || stamp === null || !Number.isFinite(Number(stamp))) continue;
     const parsed = parseEvolutionMessage({ event: "MESSAGES_UPSERT", data: item });
     if (parsed && !parsed.isGroup && !parsed.remoteId.endsWith("@broadcast") && !parsed.remoteId.endsWith("@newsletter")) {
       personal.push(parsed);

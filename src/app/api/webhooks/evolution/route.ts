@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { parseEvolutionMessage } from "@/modules/whatsapp/inbox-parse";
+import { parseEvolutionMessage, parseEvolutionPersonalHistory } from "@/modules/whatsapp/inbox-parse";
 import { isRecentQrMessage } from "@/modules/whatsapp/recent-policy";
 import { recordInboxMessage, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
@@ -18,7 +18,7 @@ const INSTANCE = /^igrow-([0-9a-f-]{36})$/;
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const instance = (body as { instance?: unknown } | null)?.instance;
-  if (typeof instance !== "string" || !INSTANCE.test(instance) || !validWebhookToken(instance, request.headers.get("x-igrow-token"))) {
+  if (typeof instance !== "string" || !INSTANCE.test(instance)) {
     return Response.json({ error: "Acesso negado." }, { status: 401 });
   }
   const service = createSupabaseServiceClient();
@@ -30,6 +30,10 @@ export async function POST(request: Request) {
   const { data: guard, error: guardError } = await service.from("whatsapp_qr_reset_guards")
     .select("blocked,fresh_after").eq("agency_id", agencyId).maybeSingle();
   if (guardError) return Response.json({ error: "Proteção do WhatsApp indisponível." }, { status: 503 });
+  const signature = request.headers.get("x-igrow-token");
+  const scoped = !!guard && validWebhookToken(instance, signature, guard.fresh_after);
+  const legacy = validWebhookToken(instance, signature);
+  if (!scoped && !legacy) return Response.json({ error: "Acesso negado." }, { status: 401 });
   if (guard?.blocked) return Response.json({ ok: true, ignored: "reset_in_progress" });
 
   if (isConfirmedQrLogout(body)) {
@@ -43,11 +47,21 @@ export async function POST(request: Request) {
   }
 
   const event = (body as { event?: unknown } | null)?.event;
-  // The WhatsApp QR connection is for recent inquiries, never an archive.
-  // Even if an older Evolution instance emits MESSAGES_SET, do not write its
-  // historical messages to Supabase or start a mass import.
+  // Import only the recent one-to-one bootstrap from this exact pairing. Old
+  // instances have legacy signatures and cannot replay their history here.
   if (event === "messages.set" || event === "MESSAGES_SET") {
-    return Response.json({ ok: true, ignored: "history_disabled" });
+    const age = guard ? Date.now() - Date.parse(guard.fresh_after) : Infinity;
+    if (!scoped || !Number.isFinite(age) || age < 0 || age > 30 * 60_000)
+      return Response.json({ ok: true, ignored: "history_not_authorized" });
+    const personal = parseEvolutionPersonalHistory(body).filter(message => isRecentQrMessage(message.sentAt));
+    let imported = 0;
+    for (let start = 0; start < personal.length; start += 4) {
+      const batch = await Promise.all(personal.slice(start, start + 4).map(message =>
+        recordInboxMessage(service, { agencyId, connectionId: null, message, historical: true })
+      ));
+      imported += batch.filter(result => result?.inserted === true).length;
+    }
+    return Response.json({ ok: true, imported, received: personal.length });
   }
 
   const receipt = parseMessageReceipt(body);

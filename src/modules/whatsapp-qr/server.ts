@@ -13,13 +13,13 @@ export type QrStatus =
   | { configured: true; state: "connected"; phone: string | null; name: string | null; picture: string | null };
 
 /** Per-session signature of the webhook, derived from the server key: no extra secret to manage. */
-export function webhookToken(instance: string) {
+export function webhookToken(instance: string, sessionEpoch?: string) {
   const config = evolutionConfig();
-  return config ? createHmac("sha256", config.key).update(`webhook:${instance}`).digest("hex") : null;
+  return config ? createHmac("sha256", config.key).update(sessionEpoch ? `webhook:${instance}:${sessionEpoch}` : `webhook:${instance}`).digest("hex") : null;
 }
 
-export function validWebhookToken(instance: string, received: string | null) {
-  const expected = webhookToken(instance);
+export function validWebhookToken(instance: string, received: string | null, sessionEpoch?: string) {
+  const expected = webhookToken(instance, sessionEpoch);
   if (!expected || !received || received.length !== expected.length) return false;
   return timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
@@ -65,18 +65,24 @@ export async function startQrConnection(agencyId: string, phone?: string) {
     await evolution.create(name, number);
   }
   const origin = appOrigin();
-  const token = webhookToken(name);
-  if (origin && token) await evolution.setWebhook(name, `${origin}/api/webhooks/evolution`, token).catch(() => undefined);
-  const result = await evolution.connect(name, number);
-  if (number && !result.pairingCode) throw new EvolutionError("O WhatsApp não gerou o código agora. Tente o QR Code ou tente de novo em instantes.");
-  // New session may receive only post-reset events. Existing workspaces without a
-  // reset marker are unaffected by this RPC.
+  // Fresh sessions sign webhooks with the reset timestamp, preventing delayed
+  // history from a previously linked phone from leaking into the new inbox.
   const { createSupabaseServiceClient } = await import("@/lib/supabase/service");
   const service = createSupabaseServiceClient();
-  if (service) {
+  if (!service) throw new EvolutionError("Banco indisponível para vincular o WhatsApp.");
+  const { data: guard, error: guardError } = await service.from("whatsapp_qr_reset_guards")
+    .select("fresh_after").eq("agency_id", agencyId).maybeSingle();
+  if (guardError) throw new EvolutionError("Não foi possível proteger a nova sessão.");
+  const token = webhookToken(name, guard?.fresh_after);
+  if (!origin || !token) throw new EvolutionError("Webhook do WhatsApp não configurado.");
+  await evolution.setWebhook(name, `${origin}/api/webhooks/evolution`, token);
+  // Resume before starting QR pairing: history can arrive immediately after the scan.
+  if (guard) {
     const { error } = await service.rpc("resume_whatsapp_qr_after_reset", { p_agency_id: agencyId });
     if (error) throw new EvolutionError("Falha ao habilitar o WhatsApp novo; tente novamente.");
   }
+  const result = await evolution.connect(name, number);
+  if (number && !result.pairingCode) throw new EvolutionError("O WhatsApp não gerou o código agora. Tente o QR Code ou tente de novo em instantes.");
   return { connected: false as const, qr: number ? null : result.qr, pairingCode: number ? result.pairingCode : null };
 }
 

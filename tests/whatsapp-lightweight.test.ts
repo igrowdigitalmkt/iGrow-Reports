@@ -13,7 +13,7 @@ describe("WhatsApp leve", () => {
     expect(calls[0].body).toMatchObject({ instanceName: "igrow-test", syncFullHistory: false });
   });
 
-  it("inscreve apenas eventos ao vivo e não habilita importação histórica", async () => {
+  it("inscreve mensagens ao vivo e somente lotes recentes de histórico privado", async () => {
     const calls: unknown[] = [];
     const client = new EvolutionClient({ url: "https://evo.example.test", key: "key" }, (async (_url, init) => {
       calls.push(JSON.parse(String(init?.body)));
@@ -22,7 +22,7 @@ describe("WhatsApp leve", () => {
     await client.setWebhook("igrow-test", "https://app.example.test/api/webhooks/evolution", "signature");
     const config = (calls[0] as { webhook: { events: string[] } }).webhook;
     expect(config.events).toContain("MESSAGES_UPSERT");
-    expect(config.events).not.toContain("MESSAGES_SET");
+    expect(config.events).toContain("MESSAGES_SET");
     expect(config.events).not.toContain("CHATS_SET");
     expect(config.events).not.toContain("CHATS_UPSERT");
     expect(config.events).toContain("CONNECTION_UPDATE");

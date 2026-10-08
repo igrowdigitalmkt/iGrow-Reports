@@ -1,11 +1,8 @@
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..894ea9d 100644
+index 60e857f..37cff57 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-@@ -757,17 +757,25 @@ export class BaileysStartupService extends ChannelStartupService {
- 
-       const existingChatIdSet = new Set(existingChatIds.map((chat) => chat.remoteJid));
- 
+@@ -760,2 +760,12 @@ export class BaileysStartupService extends ChannelStartupService {
 -      const chatsToInsert = chats
 -        .filter((chat) => !existingChatIdSet?.has(chat.id))
 +      const chatsForWebhook = chats.map((chat) => ({
@@ -20,25 +17,18 @@ index 60e857f..894ea9d 100644
 +
 +      const chatsToInsert = chatsForWebhook
 +        .filter((chat) => !existingChatIdSet?.has(chat.remoteJid))
-         .map((chat) => ({
+@@ -763,2 +773,2 @@ export class BaileysStartupService extends ChannelStartupService {
 -          remoteJid: chat.id,
 -          instanceId: this.instanceId,
 +          remoteJid: chat.remoteJid,
 +          instanceId: chat.instanceId,
-           name: chat.name,
+@@ -766 +776 @@ export class BaileysStartupService extends ChannelStartupService {
 -          unreadMessages: chat.unreadCount !== undefined ? chat.unreadCount : 0,
 +          unreadMessages: chat.unreadMessages,
-         }));
- 
+@@ -769,2 +778,0 @@ export class BaileysStartupService extends ChannelStartupService {
 -      this.sendDataWebhook(Events.CHATS_UPSERT, chatsToInsert);
 -
-       if (chatsToInsert.length > 0) {
-         if (this.configService.get<Database>('DATABASE').SAVE_DATA.CHATS)
-           await this.prismaRepository.chat.createMany({ data: chatsToInsert, skipDuplicates: true });
-@@ -781,9 +789,12 @@ export class BaileysStartupService extends ChannelStartupService {
-         }
-       >[],
-     ) => {
+@@ -784,3 +792,6 @@ export class BaileysStartupService extends ChannelStartupService {
 -      const chatsRaw = chats.map((chat) => {
 -        return { remoteJid: chat.id, instanceId: this.instanceId };
 -      });
@@ -48,13 +38,7 @@ index 60e857f..894ea9d 100644
 +        archived: chat.archived,
 +        unreadMessages: chat.unreadCount,
 +      }));
- 
-       this.sendDataWebhook(Events.CHATS_UPDATE, chatsRaw);
- 
-@@ -974,22 +985,28 @@ export class BaileysStartupService extends ChannelStartupService {
-           }
-         }
- 
+@@ -977 +988,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        const chatsRaw: { remoteJid: string; instanceId: string; name?: string }[] = [];
 +        const chatsForWebhook = chats.map((chat) => ({
 +          remoteJid: chat.id,
@@ -65,11 +49,7 @@ index 60e857f..894ea9d 100644
 +        }));
 +        this.sendDataWebhook(Events.CHATS_SET, chatsForWebhook);
 +
-         const chatsRepository = new Set(
-           (await this.prismaRepository.chat.findMany({ where: { instanceId: this.instanceId } })).map(
-             (chat) => chat.remoteJid,
-           ),
-         );
+@@ -983,10 +1002,8 @@ export class BaileysStartupService extends ChannelStartupService {
 -
 -        for (const chat of chats) {
 -          if (chatsRepository?.has(chat.id)) {
@@ -88,35 +68,42 @@ index 60e857f..894ea9d 100644
 +            name: chat.name,
 +            unreadMessages: chat.unreadMessages,
 +          }));
- 
-         if (this.configService.get<Database>('DATABASE').SAVE_DATA.HISTORIC) {
-           await this.prismaRepository.chat.createMany({ data: chatsRaw, skipDuplicates: true });
-@@ -1046,10 +1063,18 @@ export class BaileysStartupService extends ChannelStartupService {
-           messagesRaw.push(this.prepareMessage(m));
-         }
- 
+@@ -1018,4 +1035,16 @@ export class BaileysStartupService extends ChannelStartupService {
+-        for (const m of messages) {
+-          if (!m.message || !m.key || !m.messageTimestamp) {
+-            continue;
+-          }
++        // History is an optional, bounded operational snapshot. Filter *before*
++        // prepareMessage (and before emitting webhooks), keeping the VPS light.
++        const recentCutoffSeconds = Math.floor(Date.now() / 1000) - 7 * 86400;
++        const perChat = new Map<string, number>();
++        let recentPersonalCount = 0;
++        const newestFirst = [...messages].sort((a, b) =>
++          Number(b.messageTimestamp ?? 0) - Number(a.messageTimestamp ?? 0));
++        for (const m of newestFirst) {
++          if (!m.message || !m.key || !m.messageTimestamp) continue;
++          const jid = m.key.remoteJid;
++          if (typeof jid !== 'string' || (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@lid'))) continue;
++          const ts = Number(m.messageTimestamp);
++          if (!Number.isFinite(ts) || ts < recentCutoffSeconds || ts > Math.floor(Date.now() / 1000) + 86400) continue;
++          if ((perChat.get(jid) ?? 0) >= 50 || recentPersonalCount >= 300) continue;
++          perChat.set(jid, (perChat.get(jid) ?? 0) + 1);
++          recentPersonalCount++;
+@@ -1049,4 +1078,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        this.sendDataWebhook(Events.MESSAGES_SET, [...messagesRaw], true, undefined, {
 -          isLatest,
 -          progress,
-+        // iGrow imports historical messages only from one-to-one conversations.
-+        // Never upload old group traffic; send small batches to avoid oversized serverless webhooks.
-+        const personalHistory = messagesRaw.filter((item) => {
-+          const jid = item?.key?.remoteJid;
-+          return typeof jid === 'string' && (jid.endsWith('@s.whatsapp.net') || jid.endsWith('@lid'));
-         });
+-        });
++        // Only recent private messages reached prepareMessage (max 300/event,
++        // max 50/chat). Emit bounded webhooks instead of one enormous request.
++        const personalHistory = messagesRaw;
 +        for (let i = 0; i < personalHistory.length; i += 20) {
 +          this.sendDataWebhook(Events.MESSAGES_SET, personalHistory.slice(i, i + 20), true, undefined, {
 +            isLatest,
 +            progress,
 +          });
 +        }
- 
-         if (this.configService.get<Database>('DATABASE').SAVE_DATA.HISTORIC) {
-           await this.prismaRepository.message.createMany({ data: messagesRaw, skipDuplicates: true });
-@@ -3689,27 +3714,24 @@ export class BaileysStartupService extends ChannelStartupService {
-   }
- 
-   public async getLastMessage(number: string) {
+@@ -3692,13 +3726,13 @@ export class BaileysStartupService extends ChannelStartupService {
 -    const where: any = { key: { remoteJid: number }, instanceId: this.instance.id };
 -
 -    const messages = await this.prismaRepository.message.findMany({
@@ -143,29 +130,22 @@ index 60e857f..894ea9d 100644
 +        orderBy: { messageTimestamp: 'desc' },
 +        take: 1,
 +      });
- 
+@@ -3706,4 +3740 @@ export class BaileysStartupService extends ChannelStartupService {
 -    for (const message of messages) {
 -      if (message.messageTimestamp >= lastMessage.messageTimestamp) {
 -        lastMessage = message;
 -      }
 +      if (messages.length > 0) return messages[0] as unknown as LastMessage;
-     }
- 
+@@ -3712 +3743 @@ export class BaileysStartupService extends ChannelStartupService {
 -    return lastMessage as unknown as LastMessage;
 +    throw new NotFoundException('Messages not found');
-   }
- 
-   public async archiveChat(data: ArchiveChatDto) {
-@@ -3717,21 +3739,31 @@ export class BaileysStartupService extends ChannelStartupService {
-       let last_message = data.lastMessage;
-       let number = data.chat;
- 
+@@ -3720,4 +3751 @@ export class BaileysStartupService extends ChannelStartupService {
 -      if (!last_message && number) {
 -        last_message = await this.getLastMessage(number);
 -      } else {
 -        last_message = data.lastMessage;
 +      if (last_message) {
-         last_message.messageTimestamp = last_message?.messageTimestamp ?? Date.now();
+@@ -3725 +3753,9 @@ export class BaileysStartupService extends ChannelStartupService {
 -        number = last_message?.key?.remoteJid;
 +        number = last_message?.key?.remoteJid ?? number;
 +      } else if (number) {
@@ -176,13 +156,12 @@ index 60e857f..894ea9d 100644
 +        } catch {
 +          last_message = undefined;
 +        }
-       }
- 
+@@ -3728,3 +3764 @@ export class BaileysStartupService extends ChannelStartupService {
 -      if (!last_message || Object.keys(last_message).length === 0) {
 -        throw new NotFoundException('Last message not found');
 -      }
 +      if (!number) throw new NotFoundException('Chat not found');
- 
+@@ -3732 +3766,8 @@ export class BaileysStartupService extends ChannelStartupService {
 -      await this.client.chatModify({ archive: data.archive, lastMessages: [last_message] }, createJid(number));
 +      // iGrow supplies a fully-qualified WhatsApp JID. Calling createJid() again causes
 +      // Evolution's contact lookup to fail on v2.3.7 (Prisma invalid remoteJid argument).
@@ -192,9 +171,6 @@ index 60e857f..894ea9d 100644
 +        { archive: data.archive, lastMessages: last_message ? [last_message] : [] },
 +        chatJid,
 +      );
- 
+@@ -3734 +3775 @@ export class BaileysStartupService extends ChannelStartupService {
 -      return { chatId: number, archived: true };
 +      return { chatId: number, archived: data.archive };
-     } catch (error) {
-       throw new InternalServerErrorException({
-         archived: false,
