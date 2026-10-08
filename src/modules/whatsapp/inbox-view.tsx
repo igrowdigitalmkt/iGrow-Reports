@@ -800,7 +800,11 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             </button>)}
           </div>
         </aside>}
-        {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo} onClose={() => setDetailsOpen(false)} />}
+        {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo}
+          onClose={() => setDetailsOpen(false)}
+          onFavorite={() => toggleFavorite(open)}
+          onSearch={() => { setDetailsOpen(false); setChatSearchOpen(true); setChatSearchQuery(""); }}
+          onStars={() => { setDetailsOpen(false); setStarPanel(true); void refreshStars().catch(() => setActionError("Não foi possível carregar os favoritos.")); }} />}
       </>}
     </section>
   </div>;
@@ -1459,8 +1463,9 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, onClose }: {
+function ContactDetails({ item, data, loading, demo, onClose, onFavorite, onSearch, onStars }: {
   item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean; onClose: () => void;
+  onFavorite: () => void; onSearch: () => void; onStars: () => void;
 }) {
   const name = conversationTitle(item);
   const media = data?.media ?? [];
@@ -1476,6 +1481,12 @@ function ContactDetails({ item, data, loading, demo, onClose }: {
         <h3>{name}</h3>
         {!item.isGroup && <p>{formatWhatsAppPhone(item.remoteId)}</p>}
         {item.clientName && <span className="wai-details-chip">Cliente: {item.clientName}</span>}
+        <div className="wai-details-shortcuts">
+          <button type="button" onClick={onSearch} aria-label="Pesquisar nesta conversa"><Search size={22}/><span>Pesquisar</span></button>
+          <button type="button" onClick={onFavorite} aria-label={item.favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}>
+            <Star size={22} fill={item.favorite ? "currentColor" : "none"} /><span>{item.favorite ? "Desfavoritar" : "Favoritar"}</span>
+          </button>
+        </div>
       </div>
       {item.isGroup && <div className="wai-details-section">
         <h4>Sobre o grupo</h4>
@@ -1492,7 +1503,7 @@ function ContactDetails({ item, data, loading, demo, onClose }: {
         {group.members != null && group.members > group.participants.length && <p className="wai-details-muted">Exibindo até {group.participants.length} participantes.</p>}
       </div>}
       <div className="wai-details-section">
-        <h4>Mídia, links e documentos</h4>
+        <h4><ImageIcon size={21}/> Mídia, links e docs <small>{media.length || ""}</small></h4>
         {loading && <p className="wai-details-muted">Carregando informações…</p>}
         {!loading && !media.length && <p className="wai-details-muted">Nenhum arquivo recente disponível.</p>}
         {media.map(file => {
@@ -1504,6 +1515,11 @@ function ContactDetails({ item, data, loading, demo, onClose }: {
           </a>;
         })}
         <p className="wai-details-muted">Até 30 arquivos recentes. Os arquivos são buscados somente ao abrir.</p>
+      </div>
+      <div className="wai-details-section wai-details-shortlinks">
+        <button type="button" onClick={onStars}><Star size={21}/> Mensagens favoritas</button>
+        <button type="button" onClick={onFavorite}><Star size={21} fill={item.favorite ? "currentColor" : "none"}/>
+          {item.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</button>
       </div>
     </div>
   </aside>;
