@@ -421,7 +421,7 @@ function DeferredVideo({ src }: { src: string }) {
         {state === "loading" ? <Loader2 size={18} className="wai-spin" /> : <Video size={18} />}
         {state === "loading" ? "Carregando…" : state === "error" ? "Tentar carregar vídeo" : "Visualizar vídeo"}
       </button>}
-    <a className="wai-media-save" href={`${downloadSrc}?baixar`}>Baixar vídeo</a>
+    <a className="wai-media-save" href={`${src}?baixar`}>Baixar vídeo</a>
   </div>;
 }
 
@@ -434,7 +434,7 @@ function PhotoViewer({ src, downloadSrc, onClose }: { src: string; downloadSrc: 
   }, [onClose]);
   return <div className="wai-viewer" role="dialog" aria-modal="true" aria-label="Foto" onClick={onClose}>
     <div className="wai-viewer-bar" onClick={event => event.stopPropagation()}>
-      <a className="wai-icon-button" href={`${src}?baixar`} aria-label="Baixar foto" title="Baixar"><Download size={20} /></a>
+      <a className="wai-icon-button" href={`${downloadSrc}?baixar`} aria-label="Baixar foto" title="Baixar"><Download size={20} /></a>
       <button type="button" className="wai-icon-button" onClick={onClose} aria-label="Fechar" title="Fechar"><X size={22} /></button>
     </div>
     {/* eslint-disable-next-line @next/next/no-img-element -- private file streamed from WhatsApp */}
