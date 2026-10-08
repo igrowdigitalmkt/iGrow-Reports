@@ -7,6 +7,7 @@ import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMes
 import { EmojiPicker } from "./emoji-picker";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
+import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
 import "./inbox.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
@@ -36,7 +37,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [openId, setOpenId] = useState<string | null>(null);
   const [thread, setThread] = useState<{ id: string; messages: InboxMessageItem[] } | null>(null);
   const [now, setNow] = useState(() => new Date());
-  const [readLocally, setReadLocally] = useState<string[]>([]);
+  // Only suppress the badge for the message snapshot that was opened, never for future messages.
+  const [readLocally, setReadLocally] = useState<Record<string, OptimisticRead>>({});
   const bottom = useRef<HTMLDivElement>(null);
 
   // Conversation list, refreshed every few seconds while the page is visible.
@@ -46,7 +48,25 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     const load = () => {
       if (document.hidden) return;
       fetch("/api/whatsapp/inbox", { cache: "no-store" }).then(response => response.ok ? response.json() : null).then((body: InboxList | null) => {
-        if (!cancelled && body) { setList(body); setNow(new Date()); }
+        if (!cancelled && body) {
+          setList(body);
+          setNow(new Date());
+          // Acknowledged reads and new inbound messages must release old local badge overrides.
+          setReadLocally(current => {
+            const byId = new Map(body.conversations.map(item => [item.id, item]));
+            const next = { ...current };
+            let changed = false;
+            const at = Date.now();
+            for (const [id, marker] of Object.entries(current)) {
+              const item = byId.get(id);
+              if ((item && !optimisticReadApplies(item, marker, at)) || (!item && at >= marker.expiresAt)) {
+                delete next[id];
+                changed = true;
+              }
+            }
+            return changed ? next : current;
+          });
+        }
       }).catch(() => undefined);
     };
     load();
@@ -95,7 +115,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       }).catch(() => undefined);
   }
 
-  const conversations = (list?.conversations ?? []).map(item => readLocally.includes(item.id) ? { ...item, unread: 0 } : item);
+  const conversations = (list?.conversations ?? []).map(item =>
+    optimisticReadApplies(item, readLocally[item.id], now.getTime()) ? { ...item, unread: 0 } : item);
   // Archived conversations stay out of the counters, as in WhatsApp.
   const unreadByChannel = new Map<string, number>();
   for (const item of conversations) if (item.unread && !item.archived) unreadByChannel.set(item.channelKey, (unreadByChannel.get(item.channelKey) ?? 0) + 1);
@@ -125,7 +146,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setDraft(null);
     setMenuOpen(false);
     setOpenId(id);
-    setReadLocally(current => current.includes(id) ? current : [...current, id]);
+    const selected = list?.conversations.find(item => item.id === id);
+    if (!demo && selected?.unread) {
+      setReadLocally(current => ({ ...current, [id]: optimisticReadSnapshot(selected, Date.now()) }));
+    }
   }
   function toggleArchived(item: InboxConversation) {
     setMenuOpen(false);
