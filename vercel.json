@@ -6,6 +6,10 @@
     {
       "path": "/api/cron/meta-daily",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/whatsapp-retention",
+      "schedule": "30 7 * * *"
     }
   ]
 }

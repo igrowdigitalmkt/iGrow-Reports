@@ -386,6 +386,7 @@ export type Database = {
       mark_whatsapp_conversation_read: { Args: { p_conversation_id: string }; Returns: undefined };
       mark_whatsapp_read_by_message: { Args: { p_agency_id: string; p_external_id: string }; Returns: number };
       sync_whatsapp_qr_chat_states: { Args: { p_agency_id: string; p_states: Json }; Returns: number };
+      prune_whatsapp_qr_messages: { Args: { p_batch_size: number }; Returns: number };
       set_whatsapp_conversation_archived: { Args: { p_conversation_id: string; p_archived: boolean }; Returns: undefined };
       set_whatsapp_conversation_favorite: { Args: { p_conversation_id: string; p_favorite: boolean }; Returns: undefined };
       service_client_analytics: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };

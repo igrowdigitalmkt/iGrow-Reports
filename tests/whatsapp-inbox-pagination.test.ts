@@ -11,6 +11,7 @@ function fakeInbox(rows: number, archivedIndices: number[]) {
   const dataset = Array.from({ length: rows }, (_, i) => ({
     id: `conversation-${i}`,
     agency_id: "agency-1",
+    channel: "qr",
     channel_key: "qr",
     remote_id: `group-${i}@g.us`,
     is_group: true,
@@ -19,7 +20,7 @@ function fakeInbox(rows: number, archivedIndices: number[]) {
     favorite: false,
     archived: archived.has(i),
     unread_count: 0,
-    last_message_at: null,
+    last_message_at: new Date().toISOString(),
     last_message_preview: null,
     last_message_direction: null,
     last_message_kind: null,

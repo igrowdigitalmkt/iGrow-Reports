@@ -53,8 +53,8 @@ export class EvolutionClient {
   }
 
   create(name: string, number?: string) {
-    // Required before first linking: WhatsApp only sends the initial full history during bootstrap.
-    return this.request(`/instance/create`, { method: "POST", body: { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: false, syncFullHistory: true, ...(number ? { number } : {}) } });
+    // WhatsApp is a recent-conversation inbox, not a historical archive. Never request full history.
+    return this.request(`/instance/create`, { method: "POST", body: { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: false, syncFullHistory: false, ...(number ? { number } : {}) } });
   }
 
   async connect(name: string, number?: string) {
@@ -63,9 +63,9 @@ export class EvolutionClient {
   }
 
   // Messages, receipts and chat state are forwarded to the iGrow, signed by a header.
-  // CHATS_SET backfills state after a WhatsApp history sync; UPDATE/UPSERT keep archive/unread live.
+  // Only live UPDATE/UPSERT chat states are needed for archive/unread sync.
   setWebhook(name: string, url: string, token: string) {
-    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE", "CHATS_SET", "CHATS_UPSERT", "CHATS_UPDATE"] } } });
+    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE", "CHATS_UPSERT", "CHATS_UPDATE"] } } });
   }
 
   logout(name: string) {

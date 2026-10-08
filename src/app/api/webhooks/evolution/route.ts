@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { parseEvolutionMessage, parseEvolutionPersonalHistory } from "@/modules/whatsapp/inbox-parse";
+import { parseEvolutionMessage } from "@/modules/whatsapp/inbox-parse";
+import { isRecentQrMessage } from "@/modules/whatsapp/recent-policy";
 import { recordInboxMessage, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
 import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
@@ -23,18 +24,11 @@ export async function POST(request: Request) {
   const agencyId = INSTANCE.exec(instance)![1];
 
   const event = (body as { event?: unknown } | null)?.event;
+  // The WhatsApp QR connection is for recent inquiries, never an archive.
+  // Even if an older Evolution instance emits MESSAGES_SET, do not write its
+  // historical messages to Supabase or start a mass import.
   if (event === "messages.set" || event === "MESSAGES_SET") {
-    // Only historical 1:1 messages; a historical batch must not increase the unread counters.
-    const history = parseEvolutionPersonalHistory(body);
-    let imported = 0;
-    for (const message of history) {
-      const row = await recordInboxMessage(service, {
-        agencyId, connectionId: null, message, historical: true,
-      });
-      if (!row) return Response.json({ error: "Falha ao importar histórico pessoal." }, { status: 503 });
-      if (row.inserted) imported++;
-    }
-    return Response.json({ ok: true, imported, received: history.length });
+    return Response.json({ ok: true, ignored: "history_disabled" });
   }
 
   const receipt = parseMessageReceipt(body);
@@ -74,7 +68,9 @@ export async function POST(request: Request) {
   }
 
   const inbox = parseEvolutionMessage(body);
-  if (inbox) await recordInboxMessage(service, { agencyId, connectionId: null, message: inbox, groupSubject: groupId => qrGroupSubject(instance, groupId) });
+  if (inbox && isRecentQrMessage(inbox.sentAt)) {
+    await recordInboxMessage(service, { agencyId, connectionId: null, message: inbox, groupSubject: groupId => qrGroupSubject(instance, groupId) });
+  }
 
   const message = parseIncomingMessage(body);
   if (!message || !isOptOutText(message.text)) return Response.json({ ok: true });

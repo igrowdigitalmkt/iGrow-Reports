@@ -43,7 +43,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [actionError, setActionError] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
 
-  // Initial full load, then small deltas every 5 seconds; reconcile deletions every 5 minutes.
+  // Recent monitoring only: deltas every 10 seconds; reconcile deletions every 10 minutes.
   // Skip inactive tabs and avoid overlapping requests so a slow poll cannot overwrite fresh data.
   useEffect(() => {
     if (demo) return;
@@ -53,7 +53,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     let lastFull = 0;
     const load = async (forceFull = false) => {
       if (document.hidden || inFlight || cancelled) return;
-      const full = forceFull || !since || Date.now() - lastFull >= 300_000;
+      const full = forceFull || !since || Date.now() - lastFull >= 600_000;
       inFlight = true;
       try {
         const url = full ? "/api/whatsapp/inbox" : `/api/whatsapp/inbox?since=${encodeURIComponent(since!)}`;
@@ -88,7 +88,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     void load(true);
     fetch("/api/whatsapp/qr", { cache: "no-store" }).then(response => response.ok ? response.json() : null)
       .then((status: { state?: string; phone?: string | null } | null) => { if (!cancelled && status?.state === "connected") setQrPhone(status.phone ?? null); }).catch(() => undefined);
-    const timer = setInterval(() => void load(), 5000);
+    const timer = setInterval(() => void load(), 10_000);
     const onVisible = () => { if (!document.hidden) void load(); };
     document.addEventListener("visibilitychange", onVisible);
     return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
@@ -108,7 +108,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         }).catch(() => undefined);
     };
     load();
-    const timer = setInterval(load, 4000);
+    const timer = setInterval(load, 8000);
     return () => { cancelled = true; clearInterval(timer); };
   }, [openId, demo]);
 
