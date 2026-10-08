@@ -85,7 +85,7 @@ export async function loadInboxChanges(supabase: Client, agencyId: string, since
 export async function loadThread(supabase: Client, agencyId: string, conversationId: string, userId?: string): Promise<InboxThread> {
   const [{ data: row }, { data: messages }] = await Promise.all([
     supabase.from("whatsapp_conversations").select("*").eq("agency_id", agencyId).eq("id", conversationId).maybeSingle(),
-    supabase.from("whatsapp_messages").select("id,direction,kind,body,media_name,media_mime,author,status,sent_at,revoked_at,external_id").eq("agency_id", agencyId)
+    supabase.from("whatsapp_messages").select("id,direction,kind,body,media_name,media_mime,author,status,sent_at,revoked_at,external_id,quoted_external_id,quoted_preview").eq("agency_id", agencyId)
       .eq("conversation_id", conversationId).neq("kind", "reaction").order("sent_at", { ascending: false }).limit(50),
   ]);
   if (!row) return { conversation: null, messages: [] };
@@ -94,6 +94,7 @@ export async function loadThread(supabase: Client, agencyId: string, conversatio
     Date.parse(message.sent_at) >= Date.now() - WHATSAPP_QR_RECENT_DAYS * 86_400_000
   ) : (messages ?? []));
   const messageIds = retained.map(message => message.id);
+  const sourceByExternal = new Map(retained.map(message => [message.external_id, message]));
   const { data: personalRows } = userId && messageIds.length
     ? await supabase.from("whatsapp_message_user_actions").select("message_id,pinned_at,hidden_at")
       .eq("agency_id", agencyId).eq("user_id",userId).in("message_id", messageIds)
@@ -121,6 +122,15 @@ export async function loadThread(supabase: Client, agencyId: string, conversatio
       author: message.author, status: message.status, sentAt: message.sent_at,
       reactions: message.revoked_at ? [] : groupReactions(byTarget.get(message.id) ?? []),
       pinned: pinnedIds.has(message.id), revoked: !!message.revoked_at,
+      quote: message.quoted_external_id ? (() => {
+        const target = sourceByExternal.get(message.quoted_external_id);
+        return {
+          externalId: message.quoted_external_id,
+          preview: target?.revoked_at ? "Mensagem apagada" : target?.body ?? message.quoted_preview ?? "Mensagem",
+          author: target ? (target.direction === "out" ? "Você" : target.author || row.title || "Contato") : "Mensagem",
+          fromMe: target ? target.direction === "out" : null,
+        };
+      })() : null,
       canRevokeForEveryone: canRevokeForEveryone({
         direction: message.direction, revoked: !!message.revoked_at,
         externalId: message.external_id, sentAt: message.sent_at, channel: row.channel,
