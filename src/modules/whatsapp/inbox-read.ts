@@ -5,6 +5,7 @@ import type { Database, WhatsAppConversationRow } from "@/types/database";
 import type { InboxConversation, InboxList, InboxThread } from "./inbox-types";
 import { WHATSAPP_QR_RECENT_DAYS } from "./recent-policy";
 import { groupReactions } from "./inbox-reactions";
+import { canRevokeForEveryone } from "./message-actions";
 
 type Client = SupabaseClient<Database>;
 
@@ -84,7 +85,7 @@ export async function loadInboxChanges(supabase: Client, agencyId: string, since
 export async function loadThread(supabase: Client, agencyId: string, conversationId: string, userId?: string): Promise<InboxThread> {
   const [{ data: row }, { data: messages }] = await Promise.all([
     supabase.from("whatsapp_conversations").select("*").eq("agency_id", agencyId).eq("id", conversationId).maybeSingle(),
-    supabase.from("whatsapp_messages").select("id,direction,kind,body,media_name,media_mime,author,status,sent_at").eq("agency_id", agencyId)
+    supabase.from("whatsapp_messages").select("id,direction,kind,body,media_name,media_mime,author,status,sent_at,revoked_at,external_id").eq("agency_id", agencyId)
       .eq("conversation_id", conversationId).neq("kind", "reaction").order("sent_at", { ascending: false }).limit(50),
   ]);
   if (!row) return { conversation: null, messages: [] };
@@ -113,9 +114,17 @@ export async function loadThread(supabase: Client, agencyId: string, conversatio
   return {
     conversation: toConversation(row, names),
     messages: retained.reverse().filter(message => !hiddenIds.has(message.id)).map(message => ({
-      id: message.id, direction: message.direction, kind: message.kind, body: message.body, mediaName: message.media_name,
-      mediaMime: message.media_mime, author: message.author, status: message.status, sentAt: message.sent_at,
-      reactions: groupReactions(byTarget.get(message.id) ?? []), pinned: pinnedIds.has(message.id),
+      id: message.id, direction: message.direction, kind: message.revoked_at ? "text" : message.kind,
+      body: message.revoked_at ? "Mensagem apagada" : message.body,
+      mediaName: message.revoked_at ? null : message.media_name,
+      mediaMime: message.revoked_at ? null : message.media_mime,
+      author: message.author, status: message.status, sentAt: message.sent_at,
+      reactions: message.revoked_at ? [] : groupReactions(byTarget.get(message.id) ?? []),
+      pinned: pinnedIds.has(message.id), revoked: !!message.revoked_at,
+      canRevokeForEveryone: canRevokeForEveryone({
+        direction: message.direction, revoked: !!message.revoked_at,
+        externalId: message.external_id, sentAt: message.sent_at, channel: row.channel,
+      }),
     })),
   };
 }

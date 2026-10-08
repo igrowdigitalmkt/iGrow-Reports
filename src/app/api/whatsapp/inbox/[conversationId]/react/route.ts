@@ -33,10 +33,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
     .eq("agency_id", context.agency.id).eq("id", id.data).maybeSingle();
   if (chatError || !conversation) return Response.json({ error: "Conversa não encontrada." }, { status: 404, headers });
   const { data: original, error: messageError } = await context.supabase.from("whatsapp_messages")
-    .select("external_id,direction,sent_at,participant_jid").eq("agency_id", context.agency.id)
+    .select("external_id,direction,sent_at,participant_jid,revoked_at").eq("agency_id", context.agency.id)
     .eq("conversation_id", conversation.id).eq("id", body.data.messageId).maybeSingle();
   if (messageError || !original?.external_id || original.external_id.startsWith("igrow-"))
     return Response.json({ error: "Esta mensagem não tem identificação válida para reação." }, { status: 409, headers });
+  if (original.revoked_at) return Response.json({ error: "Mensagem já apagada." }, { status: 409, headers });
   if (conversation.channel === "qr" && Date.parse(original.sent_at) < Date.now() - WHATSAPP_QR_RECENT_DAYS * 86_400_000)
     return Response.json({ error: "A mensagem saiu da janela recente de consulta." }, { status: 409, headers });
   if (conversation.channel === "official" && !replyWindow("official", conversation.last_inbound_at, new Date()).open)

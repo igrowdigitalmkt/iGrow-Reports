@@ -140,6 +140,20 @@ export class EvolutionClient {
     });
   }
 
+  /** WhatsApp revocation command. Only our own sent-message keys are accepted
+   * by the caller; this is not deletion of a chat or an incoming message. */
+  async revokeSentMessage(name: string, remoteJid: string, id: string) {
+    const result = await this.request<{ key?: { id?: string }; message?: unknown }>(
+      `/chat/deleteMessageForEveryone/${encodeURIComponent(name)}`, {
+        method: "DELETE", timeoutMs: 30_000,
+        body: { id, remoteJid, fromMe: true },
+      });
+    // Evolution's HTTP response means a request was accepted by the linked
+    // WhatsApp session, not a read receipt or proof every phone removed it.
+    if (!result || typeof result !== "object")
+      throw new EvolutionError("O WhatsApp não confirmou a solicitação de exclusão.");
+  }
+
   /** Voice message (the server converts the recording to WhatsApp's voice format). */
   async sendVoice(name: string, number: string, base64: string) {
     const result = await this.request<{ key?: { id?: string } }>(`/message/sendWhatsAppAudio/${encodeURIComponent(name)}`, { method: "POST", timeoutMs: 60_000, body: { number, audio: base64, encoding: true } });

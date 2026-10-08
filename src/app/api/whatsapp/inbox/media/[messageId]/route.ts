@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ mess
   if (!id.success) return new Response("Arquivo inválido.", { status: 400 });
   const context = await requireAgencyContext();
   const { data: message } = await context.supabase.from("whatsapp_messages").select("*").eq("agency_id", context.agency.id).eq("id", id.data).maybeSingle();
-  if (!message || !MEDIA_KINDS.has(message.kind)) return new Response("Arquivo não encontrado.", { status: 404 });
+  if (!message || message.revoked_at || !MEDIA_KINDS.has(message.kind)) return new Response("Arquivo não encontrado.", { status: 404 });
   const { data: conversation } = await context.supabase.from("whatsapp_conversations").select("*").eq("agency_id", context.agency.id).eq("id", message.conversation_id).maybeSingle();
   if (!conversation) return new Response("Arquivo não encontrado.", { status: 404 });
   const service = createSupabaseServiceClient();

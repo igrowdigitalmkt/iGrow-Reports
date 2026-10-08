@@ -18,6 +18,8 @@ export type InboxMessageItem = {
   author: string | null; status: InboxStatus; sentAt: string;
   reactions?: Array<{ emoji: string; count: number; mine: boolean }>;
   pinned?: boolean;
+  revoked?: boolean;
+  canRevokeForEveryone?: boolean;
 };
 
 /** Recipient registered for a client, offered when starting a conversation. */

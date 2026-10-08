@@ -201,6 +201,17 @@ export async function sendQrReaction(agencyId: string, remoteId: string, key: {
   }, emoji);
 }
 
+/** Revoke one original sent message from every chat participant on WhatsApp.
+ * Restricted at the HTTP action route by the message owner, timestamp and chat. */
+export async function revokeQrSentMessage(agencyId: string, remoteId: string, externalId: string) {
+  const evolution = client();
+  if (!evolution) throw new EvolutionError("O servidor do WhatsApp não está configurado.");
+  const name = instanceNameFor(agencyId);
+  if (await evolution.state(name) !== "open") throw new EvolutionError("WhatsApp desconectado. Reconecte antes de apagar para todos.");
+  const remoteJid = chatJid(remoteId);
+  await evolution.revokeSentMessage(name, remoteJid, externalId);
+}
+
 /** Reply from the inbox through the workspace's QR Code session. Returns the message id. */
 export async function sendQrReply(agencyId: string, to: string, content: { text: string; replyTo?: { externalId: string; fromMe: boolean; body: string } } | { voice: string } | { base64: string; filename: string; mime: string; kind: "image" | "video" | "audio" | "document"; caption?: string }) {
   const evolution = client();

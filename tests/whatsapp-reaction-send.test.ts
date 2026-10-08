@@ -42,3 +42,24 @@ describe("outbound WhatsApp reactions", () => {
     }
   });
 });
+
+describe("deleting WhatsApp messages for everyone", () => {
+  it("sends a DELETE command using the original sent message ID and fromMe=true", async () => {
+    const requests: Array<{ url: string; method?: string; body: Record<string, unknown> }> = [];
+    const fetcher = (async (url: string, init?: RequestInit) => {
+      requests.push({ url: String(url), method: init?.method, body: JSON.parse(String(init?.body)) });
+      return new Response('{"key":{"id":"ORIGINAL_ID"}}', { status: 201, headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+    const client = new EvolutionClient({ url: "https://bridge.example.test", key: "test-key" }, fetcher);
+    await client.revokeSentMessage("igrow-test", "12036300001@g.us", "ORIGINAL_ID");
+    expect(requests).toEqual([{
+      url: "https://bridge.example.test/chat/deleteMessageForEveryone/igrow-test", method: "DELETE",
+      body: { id: "ORIGINAL_ID", remoteJid: "12036300001@g.us", fromMe: true },
+    }]);
+  });
+  it("rejects WhatsApp server refusals rather than showing deletion as successful", async () => {
+    const fetcher = (async () => new Response('{"error":"denied"}', { status: 400 })) as typeof fetch;
+    const client = new EvolutionClient({ url: "https://bridge.example.test", key: "test-key" }, fetcher);
+    await expect(client.revokeSentMessage("igrow-test", "551188887777@s.whatsapp.net", "id")).rejects.toThrow();
+  });
+});

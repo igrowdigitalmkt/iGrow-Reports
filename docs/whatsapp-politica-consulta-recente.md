@@ -123,3 +123,32 @@ O número vinculado por QR Code é uma consulta operacional, não um arquivo per
   atual **no iGrow**. Não exclui registros compartilhados nem envia uma
   exclusão destrutiva para o celular. Ações de outros usuários são independentes.
 - Mensagens ocultas deixam de aparecer também na lista de favoritos pessoal.
+
+## Exclusão de mensagens enviadas — regras obrigatórias
+
+- **Jamais apagar uma conversa** nem oferecer exclusão de mensagens recebidas,
+  inclusive em grupos. A API valida `direction = out` para qualquer exclusão,
+  mesmo que o navegador tente forçar uma solicitação para mensagens recebidas.
+- Mensagens já marcadas como apagadas não podem ser apagadas novamente.
+  Seleção mista (recebidas e enviadas) desativa a opção Apagar.
+- **Apagar somente no iGrow:** oculta a mensagem enviada apenas para o usuário
+  atual na plataforma, sem alterar registros das demais pessoas ou do WhatsApp.
+  Esta opção tem alcance explícito e não deve ser chamada de sincronização.
+- **Apagar para todos:** disponível exclusivamente no WhatsApp conectado por
+  QR Code, para mensagens enviadas com ID real de WhatsApp, dentro da janela
+  conservadora de 48 horas e em lotes de até dez. Após a confirmação do usuário,
+  envia um comando de revogação via Evolution API à sessão WhatsApp e grava uma
+  marcação compartilhada `revoked_at`. O iGrow passa a exibir "Mensagem apagada",
+  oculta mídia revogada e não permite reagir/encaminhar a esse conteúdo.
+  O resultado do servidor significa que a solicitação foi aceita; não prova
+  entrega ou remoção em todos os dispositivos. A ação não é reversível.
+- **Números da Cloud API oficial**: a modalidade "apagar para todos" não é
+  oferecida por falta de endpoint de revogação equivalente. Não simular a
+  operação localmente como se tivesse ocorrido no WhatsApp.
+- **Apagar para mim em todos os dispositivos:** não oferecer até existir
+  integração de sincronização efetivamente validada. O servidor Evolution
+  atual não expõe essa função e a implementação Baileys `chatModify` tem
+  falhas conhecidas de confirmação sem alteração real do WhatsApp.
+- Em qualquer falha ao revogar múltiplas mensagens, informar quantas já
+  foram processadas e reconciliar a tela com o banco. Nunca remover uma
+  mensagem da plataforma antes de confirmação do servidor WhatsApp.

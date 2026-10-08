@@ -10,7 +10,7 @@ import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
 import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
-import { canForwardInboxMessage } from "./message-actions";
+import { canForwardInboxMessage, canDeleteOwnMessage } from "./message-actions";
 import "./inbox.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
@@ -383,21 +383,34 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setSelectedMessageIds(new Set());
   }
 
-  async function performLocalMessageAction(action: "pin" | "unpin" | "hide", ids: string[]) {
+  async function performLocalMessageAction(action: "pin" | "unpin" | "hide" | "revoke", ids: string[]) {
     if (!openId || !ids.length || messageActionBusy) return;
     if (demo) { setActionError("Ações de organização não são salvas na demonstração."); return; }
+    const deleting = action === "hide" || action === "revoke";
+    if (deleting && (messages ?? []).filter(message => ids.includes(message.id)).some(message =>
+      !canDeleteOwnMessage(message) || message.id.startsWith("local-"))) {
+      setActionError("Só é permitido apagar mensagens enviadas pelo seu número.");
+      return;
+    }
     setMessageActionBusy(true); setActionError("");
     try {
       const response = await fetch(`/api/whatsapp/inbox/${openId}/messages/actions`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, messageIds: ids }),
       });
-      const result = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) throw new Error(result?.error || "Não foi possível concluir a ação.");
+      const result = await response.json().catch(() => null) as { error?: string; completed?: number; requested?: number } | null;
+      if (!response.ok) throw new Error(
+        `${result?.completed ? `${result.completed} mensagem(ns) já processada(s). ` : ""}${result?.error || "Não foi possível concluir a ação."}`);
       setDeleteIds([]);
       setSelectedMessageIds(new Set());
       reload(openId);
     } catch (error) {
+      if (action === "revoke") {
+        // A batch may have completed partially on WhatsApp. Reconcile all
+        // visible messages to prevent re-sending a revocation of the same key.
+        reload(openId);
+        setDeleteIds([]); setSelectedMessageIds(new Set());
+      }
       setActionError(error instanceof Error ? error.message : "Falha ao atualizar a mensagem.");
     } finally { setMessageActionBusy(false); }
   }
@@ -406,7 +419,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     if (!ids.length) return;
     if (demo) { setActionError("O encaminhamento não está disponível na demonstração."); return; }
     const selected = (messages ?? []).filter(item => ids.includes(item.id));
-    if (selected.some(item => !canForwardInboxMessage(item))) {
+    if (selected.some(item => item.revoked || !canForwardInboxMessage(item))) {
       setActionError("Este tipo de mensagem não pode ser encaminhado pelo iGrow."); return;
     }
     if (selected.length > 10) { setActionError("Encaminhe até 10 mensagens por vez."); return; }
@@ -644,7 +657,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                   onStar={() => void toggleMessageStar(message)}
                   onForward={() => startForward([message.id])}
                   onPin={() => void performLocalMessageAction(message.pinned ? "unpin" : "pin", [message.id])}
-                  onDelete={() => setDeleteIds([message.id])}
+                  onDelete={() => {
+                    if (!canDeleteOwnMessage(message) || message.id.startsWith("local-")) return;
+                    setActionError(""); setDeleteIds([message.id]);
+                  }}
                   onView={(displaySrc, downloadSrc) => setViewer({ displaySrc, downloadSrc })} />
               </Fragment>;
             })}
@@ -658,7 +674,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <button type="button" onClick={() => void favoriteSelectedMessages()} aria-label="Favoritar mensagens" title="Favoritar"><Star size={20} /></button>
           <button type="button" onClick={() => startForward([...selectedMessageIds])} aria-label="Encaminhar mensagens" title="Encaminhar"><Forward size={20} /></button>
           <button type="button" disabled={messageActionBusy} onClick={() => void performLocalMessageAction("pin", [...selectedMessageIds])} aria-label="Fixar mensagens" title="Fixar no iGrow"><Pin size={20} /></button>
-          <button type="button" onClick={() => setDeleteIds([...selectedMessageIds])} aria-label="Apagar mensagens" title="Apagar"><Trash2 size={20} /></button>
+          <button type="button" disabled={!(messages ?? []).filter(message => selectedMessageIds.has(message.id)).every(message =>
+            canDeleteOwnMessage(message) && !message.id.startsWith("local-"))}
+            onClick={() => { setActionError(""); setDeleteIds([...selectedMessageIds]); }}
+            aria-label="Apagar mensagens" title="Só mensagens enviadas podem ser apagadas"><Trash2 size={20} /></button>
         </div> : <Composer key={open.id} conversation={open} kind={channel.kind} now={now} demo={demo} canReply={canReply}
           replyTarget={replyTarget} onClearReply={() => setReplyTarget(null)}
           onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { setReplyTarget(null); if (!demo) reload(open.id); }} />}
@@ -666,13 +685,21 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <section className="wai-message-info" role="dialog" aria-modal="true" aria-label="Apagar mensagens" onClick={event => event.stopPropagation()}>
             <header><strong>Apagar {deleteIds.length} {deleteIds.length === 1 ? "mensagem" : "mensagens"}?</strong>
               <button type="button" className="wai-icon-button" onClick={() => setDeleteIds([])} aria-label="Cancelar"><X size={19} /></button></header>
-            <p>A mensagem será ocultada <strong>somente para você no iGrow</strong>. Ela continuará no WhatsApp do celular e na visualização de outras pessoas.</p>
+            <p>Esta ação só pode ser realizada em mensagens <strong>enviadas pelo seu número</strong>. Escolha onde deseja apagar:</p>
             {actionError && <p role="alert" className="wai-composer-error"><AlertCircle size={15} />{actionError}</p>}
-            <div className="wai-confirm-actions">
-              <button type="button" onClick={() => setDeleteIds([])}>Cancelar</button>
-              <button type="button" className="is-danger" disabled={messageActionBusy}
-                onClick={() => void performLocalMessageAction("hide", deleteIds)}>Apagar para mim no iGrow</button>
+            <div className="wai-delete-choices">
+              <button type="button" disabled={messageActionBusy} onClick={() => void performLocalMessageAction("hide", deleteIds)}>
+                <Trash2 size={18}/><span><strong>Apagar somente no iGrow</strong><small>Oculta para você aqui, mas mantém no WhatsApp e para os demais usuários.</small></span>
+              </button>
+              {(messages ?? []).filter(message => deleteIds.includes(message.id)).every(message => message.canRevokeForEveryone) &&
+                deleteIds.length <= 10 && <button type="button" className="is-danger" disabled={messageActionBusy}
+                  onClick={() => void performLocalMessageAction("revoke", deleteIds)}>
+                  <Trash2 size={18}/><span><strong>Apagar para todos</strong><small>Envia a exclusão ao WhatsApp e marca como apagada no iGrow para todos. Não pode ser desfeita.</small></span>
+                </button>}
             </div>
+            {(messages ?? []).filter(message => deleteIds.includes(message.id)).some(message => !message.canRevokeForEveryone) &&
+              <p className="wai-delete-note">“Apagar para todos” só é oferecido no QR Code para mensagens com ID válido enviadas há menos de dois dias. A API oficial não permite essa operação.</p>}
+            <div className="wai-confirm-actions"><button type="button" onClick={() => setDeleteIds([])}>Cancelar</button></div>
           </section>
         </div>}
         {!!forwardIds.length && <div className="wai-message-info-backdrop" role="presentation" onClick={() => { if (!forwardBusy) setForwardIds([]); }}>
@@ -1036,7 +1063,7 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
         {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
         {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
-        {message.body && message.kind !== "contact" && message.kind !== "location" && <p className="wai-text"><WhatsAppText text={message.body} />{meta}</p>}
+        {message.body && message.kind !== "contact" && message.kind !== "location" && <p className={`wai-text${message.revoked ? " is-revoked" : ""}`}><WhatsAppText text={message.body} />{meta}</p>}
         {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
       </div>
       {message.pinned && <span className="wai-message-pinned-indicator" title="Fixada no iGrow"><Pin size={12} />Fixada</span>}
@@ -1051,7 +1078,7 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         </span>
       </div>}
       <div className="wai-message-controls">
-        {canReact && <button type="button" className="wai-message-emoji-trigger" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
+        {canReact && !message.revoked && <button type="button" className="wai-message-emoji-trigger" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
           disabled={reactionBusy} onClick={() => openPanel("emoji")}>
           {reactionBusy ? <Loader2 size={16} className="wai-spin" /> : <SmilePlus size={18} />}
         </button>}
@@ -1072,13 +1099,13 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         {allEmoji && canReact && <div className="wai-message-all-emoji"><EmojiPicker onPick={choose} /></div>}
         {panel === "menu" && !allEmoji && <div className="wai-message-menu-list">
           <button type="button" onClick={() => run(onInfo)}><Info size={17} />Dados da mensagem</button>
-          <button type="button" onClick={() => run(onReply)} disabled={!canReact}><Reply size={17} />Responder</button>
+          <button type="button" onClick={() => run(onReply)} disabled={!canReact || message.revoked}><Reply size={17} />Responder</button>
           <button type="button" onClick={() => run(onCopy)} disabled={!message.body}><Copy size={17} />Copiar</button>
-          <button type="button" onClick={() => run(onForward)} disabled={!live}><Forward size={17} />Encaminhar</button>
+          <button type="button" onClick={() => run(onForward)} disabled={!live || message.revoked}><Forward size={17} />Encaminhar</button>
           <button type="button" onClick={() => run(onPin)} disabled={!live}>{message.pinned ? <PinOff size={17} /> : <Pin size={17} />}{message.pinned ? "Desafixar" : "Fixar"}</button>
-          <button type="button" onClick={() => run(onStar)} disabled={!live}><Star size={17} fill={starred ? "currentColor" : "none"} />{starred ? "Remover dos favoritos" : "Favoritar"}</button>
+          <button type="button" onClick={() => run(onStar)} disabled={!live || message.revoked}><Star size={17} fill={starred ? "currentColor" : "none"} />{starred ? "Remover dos favoritos" : "Favoritar"}</button>
           <button type="button" onClick={() => run(onSelect)}><CheckSquare size={17} />{selected ? "Desmarcar" : "Selecionar"}</button>
-          <button type="button" onClick={() => run(onDelete)} disabled={!live} className="is-danger"><Trash2 size={17} />Apagar</button>
+          {canDeleteOwnMessage(message) && <button type="button" onClick={() => run(onDelete)} disabled={!live} className="is-danger"><Trash2 size={17} />Apagar</button>}
         </div>}
       </div>, portalHost)}
     </div>

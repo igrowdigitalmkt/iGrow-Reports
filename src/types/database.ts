@@ -230,6 +230,7 @@ export type WhatsAppMessageRow = {
   // Added by migration 202610070013.
   media_ref?: Json | null;
   participant_jid?: string | null;
+  revoked_at?: string | null;
 };
 export type AutomationMessageRow = {
   id: string; agency_id: string; run_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null;
@@ -285,8 +286,8 @@ export type Database = {
       agency_member_permissions: Table<{ agency_id: string; user_id: string; modules: string[]; updated_at: string }, never, never>;
       whatsapp_qr_reset_guards: Table<{ agency_id: string; fresh_after: string; blocked: boolean }, never, never>;
       whatsapp_qr_peer_links: Table<{ agency_id: string; lid: string; phone: string; session_epoch: string; created_at: string }, never, never>;
-      whatsapp_conversations: Table<WhatsAppConversationRow, never, never>;
-      whatsapp_messages: Table<WhatsAppMessageRow, never, { participant_jid?: string | null }>;
+      whatsapp_conversations: Table<WhatsAppConversationRow, never, { last_message_preview?: string | null; updated_at?: string }>;
+      whatsapp_messages: Table<WhatsAppMessageRow, never, { participant_jid?: string | null; revoked_at?: string | null; body?: string | null; media_ref?: Json | null; media_id?: string | null; media_name?: string | null; media_mime?: string | null }>;
       whatsapp_message_reactions: Table<{ agency_id: string; message_id: string; reactor_id: string; emoji: string | null; event_at: string; updated_at: string }, never, never>;
       whatsapp_message_user_actions: Table<{ agency_id: string; user_id: string; message_id: string; pinned_at: string | null; hidden_at: string | null; updated_at: string }, { agency_id: string; user_id: string; message_id: string; pinned_at?: string | null; hidden_at?: string | null }, { pinned_at?: string | null; hidden_at?: string | null; updated_at?: string }>;
       whatsapp_message_stars: Table<{ agency_id: string; user_id: string; message_id: string; created_at: string }, { agency_id: string; user_id: string; message_id: string; created_at?: string }, never>;
