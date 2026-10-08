@@ -84,15 +84,15 @@ export async function loadThread(supabase: Client, agencyId: string, conversatio
   const [{ data: row }, { data: messages }] = await Promise.all([
     supabase.from("whatsapp_conversations").select("*").eq("agency_id", agencyId).eq("id", conversationId).maybeSingle(),
     supabase.from("whatsapp_messages").select("id,direction,kind,body,media_name,media_mime,author,status,sent_at").eq("agency_id", agencyId)
-      .eq("conversation_id", conversationId)
-      .gte("sent_at", new Date(Date.now() - WHATSAPP_QR_RECENT_DAYS * 86_400_000).toISOString())
-      .order("sent_at", { ascending: false }).limit(50),
+      .eq("conversation_id", conversationId).order("sent_at", { ascending: false }).limit(50),
   ]);
   if (!row) return { conversation: null, messages: [] };
   const names = await clientNames(supabase, agencyId, [row.client_id]);
   return {
     conversation: toConversation(row, names),
-    messages: (messages ?? []).reverse().map(message => ({
+    messages: (row.channel === "qr" ? (messages ?? []).filter(message =>
+      Date.parse(message.sent_at) >= Date.now() - WHATSAPP_QR_RECENT_DAYS * 86_400_000
+    ) : (messages ?? [])).reverse().map(message => ({
       id: message.id, direction: message.direction, kind: message.kind, body: message.body, mediaName: message.media_name,
       mediaMime: message.media_mime, author: message.author, status: message.status, sentAt: message.sent_at,
     })),

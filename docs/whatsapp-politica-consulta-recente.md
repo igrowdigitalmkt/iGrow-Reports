@@ -1,0 +1,21 @@
+# WhatsApp do iGrow — integração de apoio
+
+O número vinculado por QR Code é uma consulta operacional, não um arquivo permanente.
+
+- Desconectar: remove a sessão do servidor Evolution e elimina automaticamente
+  as conversas e mensagens daquela sessão armazenadas no iGrow.
+- Não existe botão independente para apagar o histórico.
+- Desconexão remota definitiva: status de revogação 401/403 vindo do WhatsApp
+  bloqueia novas mensagens e inicia uma limpeza gradual.
+- Instância inexistente (404) também é tratada como sessão encerrada.
+- Oscilações temporárias de internet não destroem o histórico.
+- Nova vinculação: não aceita registros de outro número/sessão.
+- O iGrow **não importa mensagens anteriores à vinculação**. O histórico
+  integral continua no celular. Ao vincular, só entram novas mensagens.
+- Janela operacional do QR: 7 dias; até 50 mensagens por conversa na tela.
+  Retenção diária elimina mensagens antigas e conversas inativas em lotes
+  limitados; números de API oficial não são afetados.
+- Fotos, vídeos e áudio: carga apenas mediante clique, com visualização
+  temporária de até dois minutos. Arquivos salvos pelo usuário não são
+  excluídos automaticamente do seu computador.
+- Nunca apagar nem alterar os dados da conta WhatsApp no celular.
