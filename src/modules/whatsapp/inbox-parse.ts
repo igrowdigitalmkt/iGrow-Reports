@@ -14,6 +14,8 @@ export type InboxMessage = {
   deliveryStatus?: "sent" | "delivered" | "read" | "failed" | null;
   // QR Code session: WhatsApp's encrypted file reference (location and key, no content).
   mediaRef?: MediaRef | null;
+  /** Reply context sent by WhatsApp; never a separate chat message. */
+  quote?: { externalId: string; preview: string | null } | null;
 };
 
 export type MediaRef = { type: string; data: Record<string, unknown> };
@@ -79,6 +81,25 @@ export function describeBaileysContent(message: BaileysContent | undefined): Pic
   return known.length ? { kind: "other", body: null, mediaName: null, mediaMime: null } : null;
 }
 
+/** Extract the quoted message ID from Baileys without copying original media. */
+export function baileysQuotedMessage(message: BaileysContent | undefined): InboxMessage["quote"] {
+  if (!message) return null;
+  const inner = message.ephemeralMessage?.message ?? message.viewOnceMessage?.message ??
+    message.viewOnceMessageV2?.message ?? message.documentWithCaptionMessage?.message;
+  if (inner) return baileysQuotedMessage(inner);
+  const candidate = [
+    message.extendedTextMessage, message.imageMessage, message.videoMessage,
+    message.audioMessage, message.documentMessage, message.stickerMessage, message,
+  ].map(value => value && typeof value === "object" && "contextInfo" in value
+    ? (value.contextInfo as Record<string, unknown>) : null)
+    .find(context => typeof context?.stanzaId === "string" && !!context.stanzaId);
+  const id = candidate?.stanzaId;
+  if (typeof id !== "string" || id.length > 200 || !id.trim()) return null;
+  const quoted = candidate?.quotedMessage && typeof candidate.quotedMessage === "object"
+    ? describeBaileysContent(candidate.quotedMessage as BaileysContent) : null;
+  return { externalId: id, preview: quoted?.body?.slice(0, 500) ?? quoted?.mediaName?.slice(0, 500) ?? null };
+}
+
 const jidDigits = (jid: string | undefined) => jid?.endsWith("@s.whatsapp.net") ? jid.split("@")[0]!.split(":")[0]!.replace(/\D/g, "") : null;
 
 type EvolutionPayload = {
@@ -113,6 +134,7 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
   if (remoteId.length < 3 || remoteId.length > 120) return null;
   const content = describeBaileysContent(payload.data?.message);
   if (!content) return null;
+  const quote = baileysQuotedMessage(payload.data?.message);
   const fromMe = key.fromMe === true || payload.event === "send.message" || payload.event === "SEND_MESSAGE";
   const receivedPushName = text(payload.data?.pushName, 200);
   // The numeric @lid identity is not the contact's name.
@@ -127,6 +149,7 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
     externalId: key.id.slice(0, 200), direction: fromMe ? "out" : "in",
     sentAt: seconds(payload.data?.messageTimestamp) ?? now.toISOString(),
     mediaRef: baileysMediaRef(payload.data?.message),
+    ...(quote ? { quote } : {}),
     ...(fromMe && normalizeEvolutionMessageStatus(payload.data?.status) ? { deliveryStatus: normalizeEvolutionMessageStatus(payload.data?.status) } : {}),
   };
 }
@@ -161,6 +184,7 @@ type CloudMessage = {
   audio?: CloudMedia; voice?: CloudMedia; document?: CloudMedia & { caption?: string; filename?: string };
   sticker?: CloudMedia; location?: { name?: string; address?: string }; contacts?: Array<{ name?: { formatted_name?: string } }>;
   reaction?: { emoji?: string }; button?: { text?: string }; interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } };
+  context?: { id?: string };
 };
 
 function describeCloudMessage(message: CloudMessage): Pick<InboxMessage, "kind" | "body" | "mediaName" | "mediaMime"> | null {
@@ -209,6 +233,7 @@ export function parseCloudMessages(payload: unknown, now = new Date()): CloudInb
           phoneNumberId, remoteId: remote, isGroup: false, ...content, mediaId: text(media?.id, 200),
           title: direction === "in" ? names.get(message.from) ?? null : null, author: null,
           externalId: message.id.slice(0, 200), direction, sentAt: seconds(message.timestamp) ?? now.toISOString(),
+          ...(message.context?.id ? { quote: { externalId: message.context.id.slice(0, 200), preview: null } } : {}),
         });
       };
       for (const message of value.messages ?? []) add(message, "in");

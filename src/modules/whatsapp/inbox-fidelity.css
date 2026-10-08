@@ -1,0 +1,309 @@
+/**
+ * Visual pass informed by 29 screenshots of the official WhatsApp Web
+ * supplied by the user (desktop viewport 1649 × 928).
+ * This file intentionally touches only .wai-* (iGrow's embedded WhatsApp).
+ * The reference screenshots are a layout specification, not the proprietary
+ * source code of WhatsApp. No original private images/fonts are bundled.
+ */
+.wai-shell {
+  --wai-rail: #202121;
+  --wai-panel: #161717;
+  --wai-chat: #0b0b0b;
+  --wai-line: #303333;
+  --wai-hover: #242625;
+  --wai-active: #303232;
+  --wai-text: #f5f6f6;
+  --wai-muted: #abb1b4;
+  --wai-search: #2b2d2d;
+  --wai-in: #242626;
+  --wai-out: #135c46;
+  --wai-out-text: #f5f6f6;
+  --wai-green: #25d366;
+  --wai-green-text: #082a1b;
+  --wai-pill-on: #303232;
+  --wai-pill-on-text: #f8f8f8;
+  --wai-day: #252727;
+  --wai-blue: #53bdeb;
+  --wai-ref-rail-width: 70px;
+  --wai-ref-inbox-width: clamp(355px, 31.3%, 495px);
+  grid-template-columns: var(--wai-ref-rail-width) minmax(0, var(--wai-ref-inbox-width)) minmax(0, 1fr);
+  font-family: Arial, Roboto, "Helvetica Neue", sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  background: #161717;
+}
+.wai-rail { min-width:70px; width:70px; padding: 0 6px 13px; gap: 5px; background: #202121; border-color:#303333; }
+.wai-rail-item { min-width:44px; min-height:44px; width:44px; height:44px; border-radius:50%; }
+.wai-rail-item:first-child { margin-top:11px; }
+.wai-rail-item.is-active { background:#353838; color:#fafafa; }
+.wai-rail-badge { top:-6px; right:-6px; background:#25d366; color:#082c1b; border-color:#202121; }
+.wai-rail-initials { width:40px; height:40px; }
+.wai-list { background:#161717; border-color:#303333; }
+.wai-list-head {
+  height:69px; min-height:69px; padding:0 22px; align-items:center;
+}
+.wai-list-head h2 { font-size:22px; line-height:1.2; font-weight:700; letter-spacing:-.5px; }
+.wai-list-head small { display:none; }
+.wai-list-head .wai-head-actions { gap:12px; align-items:center; }
+.wai-list-head .wai-head-actions > .wai-icon-button {
+  min-width:42px; min-height:42px; width:42px; height:42px;
+  background:#fafafa; border-radius:50%; color:#111;
+}
+.wai-list-head .wai-head-actions > .wai-icon-button:hover:not(:disabled) { background:#e4e4e4; color:#111; }
+.wai-list-head .wai-head-actions > .wai-icon-button svg { width:22px; height:22px; }
+.wai-list-head .wai-head-menu > .wai-icon-button { width:39px; height:39px; color:#e1e1e1; }
+.wai-list-head .wai-head-menu > .wai-icon-button[aria-expanded="true"] { background:#303333; }
+.wai-search {
+  height:42px; min-height:42px; margin:0 21px 8px; padding:0 15px;
+  background:#2b2d2d; border:1px solid transparent; border-radius:24px; gap:13px;
+}
+.wai-search:focus-within { border-color:#eef2ef; box-shadow:none; }
+.wai-search input { font-size:14px; color:#f4f4f4; }
+.wai-search input::placeholder { color:#b4b9bb; opacity:1; }
+.wai-filters { gap:8px; padding:0 21px 12px; min-height:45px; flex-wrap:nowrap; }
+.wai-filters button {
+  height:35px; min-height:35px; padding:6px 13px; border-radius:20px;
+  border:1px solid #343737; color:#d2d5d7; background:transparent;
+  font-size:14px; font-weight:500; flex-shrink:0;
+}
+.wai-filters button.is-active { background:#282a2a; border-color:#353838; color:#f6f6f6; }
+.wai-filters button:hover:not(.is-active) { background:#282a2a; }
+.wai-rows { padding:0 5px 12px 10px; scrollbar-color:#414545 transparent; scrollbar-width:thin; }
+.wai-row { min-height:82px; padding:12px 13px; border-radius:11px; gap:14px; }
+.wai-row .wai-avatar { width:52px !important; min-width:52px; height:52px !important; }
+.wai-row-main { gap:5px; }
+.wai-row-top strong { font-size:16px; line-height:21px; font-weight:500; letter-spacing:-.15px; }
+.wai-row-top time { font-size:12px; color:#acb1b4; }
+.wai-row-preview { font-size:14px; color:#aab0b3; line-height:20px; }
+.wai-row-client { display:none; }
+.wai-row:hover { background:#242626; }
+.wai-row.is-active { background:#303232; }
+.wai-row-star { color:#969f9c; }
+.wai-archived-row { border-radius:0; padding:12px 14px; }
+.wai-archived-row span { font-size:15px; }
+.wai-unread { min-width:20px; height:20px; background:#25d366; color:#082a1b; }
+.wai-chat { background:#0b0b0b; }
+.wai-chat-head {
+  height:69px; min-height:69px; padding:0 18px; gap:12px;
+  background:#171818; border-bottom:1px solid #242626;
+}
+.wai-chat-head .wai-contact-trigger { min-width:0; gap:12px; }
+.wai-chat-head .wai-contact-trigger .wai-avatar { width:42px !important; height:42px !important; }
+.wai-chat-title { min-width:0; }
+.wai-chat-title strong { font-size:16px; font-weight:600; line-height:20px; }
+.wai-chat-title small { display:none; }
+.wai-chat-head .wai-head-actions { gap:10px; }
+.wai-chat-head .wai-head-actions .wai-icon-button { width:41px; height:41px; color:#f0f0f0; }
+.wai-chat-head .wai-head-actions .wai-icon-button:hover { background:#303232; }
+.wai-messages {
+  background-color:#0b0b0b;
+  background-image:none;
+  scrollbar-width:thin; scrollbar-color:#444 transparent;
+}
+.wai-messages-inner { width:100%; max-width:none; padding:10px clamp(28px,4vw,62px) 18px; margin:0; gap:2px; }
+.wai-day { margin:10px 0 15px; }
+.wai-day span { border-radius:8px; background:#262828; color:#d0d3d4; }
+.wai-bubble-row { padding:1px 0; }
+.wai-bubble-stack { max-width:min(78%,570px); }
+.wai-bubble-stack .wai-bubble {
+  min-width:62px; max-width:100%;
+  padding:6px 9px 7px; border-radius:8px;
+  box-shadow:none; line-height:1.35;
+}
+.wai-bubble.has-tail { margin-top:2px; }
+.is-in .wai-bubble { background:#242626; color:#f6f6f6; }
+.is-out .wai-bubble { background:#135c46; color:#f6f6f6; }
+.wai-text { font-size:14px; line-height:20px; }
+.wai-meta { color:#a9c4bb; font-size:11px; }
+.wai-meta-row .wai-meta { margin:2px 0 0; }
+.wai-reactions { margin:-1px 5px 6px 0; }
+.wai-reactions > .wai-reactions-group {
+  padding:1px 7px; min-height:22px; border:0; border-radius:17px;
+  background:#292b2b; color:#f4f4f4; box-shadow:none;
+}
+.wai-reactions > .wai-reactions-group.is-mine { border:0; background:#292b2b; }
+.wai-message-pinned-indicator { font-size:11px; color:#c3c6c7; }
+.wai-chat.has-side-panel > .wai-chat-head,
+.wai-chat.has-side-panel > .wai-messages,
+.wai-chat.has-side-panel > .wai-composer-area,
+.wai-chat.has-side-panel > .wai-message-selection-bar { margin-right: min(420px, 42%); }
+.wai-chat.has-side-panel > .wai-chat-head { padding-right:10px; }
+.wai-chat.has-side-panel .wai-chat-head .wai-head-actions { gap:3px; }
+.wai-chat .wai-details, .wai-chat .wai-chat-search-panel {
+  position:absolute; inset:0 0 0 auto; width:min(420px,42%);
+  box-shadow:none; border-left:1px solid #323434; background:#171818;
+}
+.wai-details-head, .wai-chat-search-head { height:69px; min-height:69px; padding:0 18px; border-color:#242626; gap:15px; }
+.wai-details-head strong, .wai-chat-search-head strong { font-size:16px; font-weight:600; }
+.wai-details-identity { padding:28px 16px 25px; gap:5px; }
+.wai-details-identity .wai-avatar { width:130px !important; height:130px !important; }
+.wai-details-identity h3 { font-size:25px; line-height:30px; font-weight:400; margin:12px 0 0; }
+.wai-details-identity p { font-size:16px; }
+.wai-details-section { padding:20px; border-color:#383a3a; }
+.wai-details-section h4 { font-weight:500; font-size:15px; }
+.wai-details-muted { color:#aeb3b4; }
+.wai-chat-search-panel .wai-search { height:45px; border-color:#c8cbcc; background:transparent; }
+.wai-chat-search-results button { border:0; min-height:75px; }
+.wai-composer-area { padding:10px 12px 12px; min-height:69px; background:#0b0b0b; }
+.wai-composer {
+  min-height:56px; align-items:center; padding:3px 10px; gap:9px;
+  background:#242626; border-radius:32px; box-shadow:none;
+}
+.wai-composer textarea {
+  min-height:42px; max-height:150px; padding:11px 8px;
+  border-radius:0; background:transparent; color:#f5f5f5; font-size:14px;
+}
+.wai-composer .wai-icon-button { width:37px; height:37px; color:#f0f2f2; }
+.wai-composer .wai-icon-button:hover { background:#363939; }
+.wai-reply-banner { margin:0 5px; padding:9px; background:#242626; border-left:0; border-radius:12px 12px 4px 4px; }
+.wai-reply-banner > span { border-left:4px solid #ff2e63; padding-left:10px; }
+.wai-reply-banner strong { color:#20d16f; }
+.wai-list-menu, .wai-chat-menu, .wai-attach-menu, .wai-message-popup { background:#171818; border:1px solid #323434; box-shadow:0 9px 28px #0008; }
+.wai-list-menu button, .wai-chat-menu button { font-size:14px; }
+.wai-message-menu-list button { font-size:14px; min-height:39px; }
+.wai-message-quick-reactions { background:#1d1f1f; }
+.wai-message-popup { border-radius:17px; }
+.wai-message-selection-bar { height:66px; min-height:66px; background:#1c1e1e; border-top:1px solid #303333; }
+.wai-message-selection-bar > span { font-size:14px; }
+.wai-bubble-row.is-selected { background:#1c1e1e; }
+.wai-select-message-check input:checked { accent-color:#25d366; }
+.wai-selection-bar { min-height:56px; padding:8px 14px; background:#202121; border-color:#333; }
+.wai-selection-bar > span { font-size:15px; font-weight:500; color:#f8f8f8; }
+.wai-new-head { min-height:69px; padding:10px 22px; gap:15px; }
+.wai-new-head strong { font-weight:600; font-size:16px; }
+.wai-new .wai-search { border:1px solid #c9cccc; background:#171818; border-radius:24px; margin:0 20px 15px; }
+.wai-new-title { color:#aeb3b5; padding:20px 22px 8px; font-weight:500; font-size:13px; }
+.wai-new-note { padding:0 6px; color:#a9afb0; font-size:13px; }
+.wai-new .wai-row { min-height:70px; padding:10px 20px; border-radius:0; }
+.wai-new .wai-row .wai-avatar { width:50px !important; height:50px !important; }
+.wai-empty { background:#202121; }
+.wai-empty h3 { font-size:24px; font-weight:500; }
+.wai-empty p { font-size:14px; }
+/* Narrow workspaces remain functional, rather than silently hiding text. */
+@media (max-width:1120px) {
+  .wai-shell { --wai-ref-rail-width:62px; --wai-ref-inbox-width:clamp(300px,39%,450px); }
+  .wai-rail { min-width:62px; width:62px; }
+  .wai-list-head { padding:0 13px; }
+  .wai-search { margin-inline:12px; }
+  .wai-filters { padding-inline:12px; }
+  .wai-rows { padding-left:5px; }
+  .wai-messages-inner { padding-inline:20px; }
+  .wai-chat.has-side-panel > .wai-chat-head,
+  .wai-chat.has-side-panel > .wai-messages,
+  .wai-chat.has-side-panel > .wai-composer-area,
+  .wai-chat.has-side-panel > .wai-message-selection-bar { margin-right:min(350px,43%); }
+  .wai-chat .wai-details, .wai-chat .wai-chat-search-panel { width:min(350px,43%); }
+}
+@media (max-width:760px) {
+  .wai-shell { --wai-ref-rail-width:55px; grid-template-columns:55px minmax(0,1fr); }
+  .wai-rail { width:55px; min-width:55px; }
+  .wai-list-head { height:65px; min-height:65px; padding:0 13px; }
+  .wai-list-head h2 { font-size:20px; }
+  .wai-rows { padding:0 5px 12px; }
+  .wai-row { min-height:78px; }
+  .wai-chat-head { height:63px; min-height:63px; padding:0 10px; }
+  .wai-chat .wai-details, .wai-chat .wai-chat-search-panel { width:100%; }
+  .wai-chat.has-side-panel > .wai-chat-head,
+  .wai-chat.has-side-panel > .wai-messages,
+  .wai-chat.has-side-panel > .wai-composer-area,
+  .wai-chat.has-side-panel > .wai-message-selection-bar { margin-right:0; }
+  .wai-composer-area { padding:9px 7px; min-height:64px; }
+  .wai-composer { min-height:48px; }
+  .wai-messages-inner { padding:16px; }
+  .wai-bubble-stack { max-width:89%; }
+}
+
+/* 14–16: New conversation and number dialer. */
+.wai-new .wai-new-dialer-toggle { margin-left:auto; width:36px; height:36px; color:#f1f2f2; }
+.wai-new-quick { display:grid; margin:0 7px 6px; }
+.wai-new-quick button { display:flex; align-items:center; gap:18px; min-height:69px; padding:8px 18px; border:0; background:transparent; color:var(--wai-text); text-align:left; cursor:pointer; font-size:15px; }
+.wai-new-quick button:hover { background:var(--wai-hover); }
+.wai-new-quick-icon { display:grid; place-items:center; width:48px; height:48px; border-radius:50%; background:#f7f7f7; color:#101111; }
+.wai-dialer { display:flex; flex:1; flex-direction:column; align-items:center; min-height:0; padding:6px 20px 25px; overflow:auto; scrollbar-width:thin; }
+.wai-dialer > input { width:100%; height:45px; flex:none; padding:0 13px; background:transparent; border:2px solid #e5e7e7; border-radius:13px; color:#fff; outline:none; font-size:16px; }
+.wai-dialer > input:focus { border-color:#fff; }
+.wai-dialer > p { margin:26px 0 31px; font-size:14px; color:#aeb5b7; text-align:center; }
+.wai-dialpad { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-self:stretch; row-gap:1px; }
+.wai-dialpad button { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:1px; min-height:86px; background:transparent; border:0; border-radius:13px; color:#f5f6f6; font-size:24px; cursor:pointer; }
+.wai-dialpad button:hover { background:#2a2d2c; }
+.wai-dialpad small { display:block; min-height:17px; color:#afb4b6; font-size:13px; }
+.wai-dialer-submit { margin-top:18px; padding:12px 25px; border:0; border-radius:24px; background:#fafafa; color:#101112; font-weight:600; cursor:pointer; }
+.wai-dialer-submit:disabled { opacity:.32; cursor:not-allowed; }
+
+/* 04–05: actual selection header and dropdown (no fake delete actions). */
+.wai-selection-bar { z-index:11; min-height:56px; height:56px; }
+.wai-selection-bar > button:first-child { display:grid; place-items:center; padding:4px; width:39px; height:39px; border-radius:50%; background:transparent; }
+.wai-selection-bar > button:first-child:hover { background:#353838; }
+.wai-selection-bar > span { flex:1; font-size:15px; }
+.wai-selection-bar .wai-head-menu { position:relative; }
+.wai-selection-bar .wai-head-menu > button { display:grid; place-items:center; border:0; border-radius:50%; width:42px; height:42px; background:transparent; color:#f5f5f5; cursor:pointer; }
+.wai-selection-bar .wai-head-menu > button[aria-expanded="true"] { background:#353838; }
+.wai-bulk-menu { position:absolute; z-index:60; left:auto; top:calc(100% + 6px); right:-14px; bottom:auto; width:265px; padding:7px; }
+
+/* 20–24: a contact/search panel takes part of chat width, not an overlay.
+   Header, message scrollbar and composer remain inside the reduced chat column. */
+.wai-chat-search-panel { box-shadow:none; }
+.wai-chat.has-side-panel .wai-messages-inner { padding-left:clamp(16px,4vw,60px); padding-right:clamp(16px,4vw,60px); }
+.wai-details-scroll { scrollbar-color:#454747 transparent; scrollbar-width:thin; }
+.wai-details-head { border-bottom:0; }
+.wai-details-section .wai-details-file { padding:10px 0; }
+.wai-chat-search-results { scrollbar-color:#454747 transparent; }
+
+/* 29: deletion confirmation is small and centered, like the reference.
+   "Apagar no iGrow" remains accurately labeled: local hide is not phone sync. */
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-message-info {
+  width:min(355px,calc(100vw - 25px)); max-height:min(90vh,530px);
+  border:1px solid #393c3c; border-radius:30px; padding:20px 16px;
+  background:#202222; color:#f5f5f5; box-shadow:0 20px 70px #000a;
+}
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-message-info > header {
+  justify-content:center; border:0; margin-bottom:5px; padding:0 4px;
+}
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-message-info > header strong {
+  font-size:21px; font-weight:500; text-align:center; line-height:1.3;
+}
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-message-info > header button { display:none; }
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-message-info > p:not(.wai-composer-error) {
+  font-size:11px; color:#abb2b2; text-align:center; margin:8px 0;
+}
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-delete-choices { gap:8px; margin:14px 0 0; }
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-delete-choices button {
+  justify-content:center; min-height:43px; padding:8px 14px; border-radius:25px;
+  background:transparent; border:1px solid #383b3b; color:#28d783; text-align:center;
+}
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-delete-choices button.is-danger {
+  color:#ff899e; border-color:#383b3b;
+}
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-delete-choices button span { display:flex; align-items:center; gap:4px; }
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-delete-choices button svg { display:none; }
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-delete-choices button strong { font-size:14px; }
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-delete-choices button small { display:none; }
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-confirm-actions { justify-content:center; margin-top:4px; }
+.wai-message-info-backdrop:has(.wai-delete-choices) .wai-confirm-actions button { padding:9px 24px; border:0; background:transparent; color:#29d882; }
+/* 28: forwarding dialog uses a single recipient choice, until the multi-send
+   API workflow is completed. Do not mimic checkboxes that send prematurely. */
+.wai-forward-dialog { width:min(470px,calc(100vw - 24px)); border-radius:17px; background:#171818; }
+.wai-forward-dialog .wai-forward-destinations button { min-height:66px; }
+.wai-forward-dialog .wai-search { background:transparent; border:2px solid #f1f3f2; }
+/* Reference view is full screen; preserve iGrow's own navigation outside .wai-shell. */
+
+/* 20–21: functional contact shortcuts, avoiding misleading call buttons. */
+.wai-details-shortcuts { display:flex; justify-content:center; gap:14px; width:100%; margin-top:17px; }
+.wai-details-shortcuts button { display:flex; flex-direction:column; align-items:center; gap:7px; min-width:86px; border:0; background:transparent; color:#f0f2f1; font-size:12px; cursor:pointer; }
+.wai-details-shortcuts svg { box-sizing:content-box; width:22px; height:22px; padding:13px; border-radius:50%; background:#303232; }
+.wai-details-shortcuts button:hover svg { background:#454949; }
+.wai-details-section h4:has(svg) { display:flex; align-items:center; gap:16px; }
+.wai-details-section h4 > small { margin-left:auto; font-size:14px; color:#adb3b5; font-weight:400; }
+.wai-details-shortlinks { padding:8px 12px; }
+.wai-details-shortlinks > button { display:flex; gap:18px; align-items:center; min-height:56px; padding:0 12px; border:0; border-radius:9px; color:#f4f6f5; text-align:left; background:transparent; cursor:pointer; font-size:15px; }
+.wai-details-shortlinks > button:hover { background:#2b2d2d; }
+.wai-details-shortlinks > button svg { color:#b0b6b8; }
+
+/* Quoted replies (screens 17 and 20): nested in the original message bubble. */
+.wai-reply-in-bubble { display:flex; flex-direction:column; gap:4px; min-width:160px; max-width:100%; margin:0 0 4px; padding:8px 11px; border-left:4px solid var(--wai-quote-accent,#a38dff); border-radius:6px; background:rgba(0,0,0,.20); }
+.wai-reply-in-bubble > strong { display:block; color:var(--wai-quote-accent,#a38dff); font-size:13px; font-weight:600; line-height:17px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wai-reply-in-bubble > span { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:#bac4bf; font-size:13px; line-height:17px; overflow-wrap:anywhere; }
+.wai-reply-banner { position:relative; }
+.wai-reply-banner > span { display:flex; flex-direction:column; align-items:flex-start; padding:8px 12px; min-width:0; border-left:4px solid #f33068; gap:3px; background:rgba(0,0,0,.16); border-radius:7px; }
+.wai-reply-banner > span > strong { color:#28d76f; font-size:13px; }
+.wai-reply-banner > span > small { color:#c4cbca; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }

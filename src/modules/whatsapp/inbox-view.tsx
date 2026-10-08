@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, Phone, Delete } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -13,6 +13,7 @@ import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
 import { canForwardInboxMessage, canDeleteOwnMessage } from "./message-actions";
 import "./inbox.css";
 import "./inbox-reference.css";
+import "./inbox-fidelity.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -34,6 +35,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ completed: 0, total: 0 });
   const [starPanel, setStarPanel] = useState(false);
   const [stars, setStars] = useState<StarredItem[]>([]);
@@ -476,6 +478,33 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     } finally { setForwardBusy(false); }
   }
 
+  async function bulkArchiveSelected() {
+    if (!selectedIds.length || bulkBusy) return;
+    const ids = [...selectedIds]; setBulkBusy(true); setBulkProgress({ completed: 0, total: ids.length }); setActionError("");
+    let completed = 0;
+    const failures: string[] = [];
+    for (const id of ids) {
+      const item = list?.conversations.find(entry => entry.id === id);
+      if (!item) { failures.push(id); continue; }
+      if (demo) { failures.push(id); continue; }
+      try {
+        const response = await fetch(`/api/whatsapp/inbox/${id}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "archive", value: true }),
+        });
+        if (!response.ok) throw new Error("WhatsApp não confirmou");
+        setList(previous => previous && ({ ...previous, conversations: previous.conversations.map(entry =>
+          entry.id === id ? { ...entry, archived: true } : entry) }));
+        completed++;
+      } catch { failures.push(id); }
+      setBulkProgress({ completed: completed + failures.length, total: ids.length });
+    }
+    setSelectedIds(failures);
+    if (!failures.length) setSelecting(false);
+    else setActionError(`${failures.length} conversa(s) não foram arquivadas pelo WhatsApp; continuam selecionadas.`);
+    setBulkBusy(false);
+  }
+
   async function markSelectedRead(ids: string[]) {
     if (!ids.length || bulkBusy) return;
     setListMenuOpen(false); setBulkBusy(true); setBulkProgress({ completed: 0, total: ids.length }); setActionError("");
@@ -561,9 +590,16 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       </header>
       {actionError && <p role="alert" className="wai-list-note">{actionError}</p>}
       {selecting && !picking && !starPanel && <div className="wai-selection-bar">
-        <span>{bulkBusy ? `Sincronizando ${bulkProgress.completed}/${bulkProgress.total}` : `${selectedIds.length} selecionada(s)`}</span>
-        <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => void markSelectedRead(selectedIds)}><CheckCheck size={16} />Marcar como lidas</button>
-        <button type="button" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); }} aria-label="Cancelar seleção"><X size={18} /></button>
+        <button type="button" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); }} aria-label="Cancelar seleção"><X size={23} /></button>
+        <span>{bulkBusy ? `Sincronizando ${bulkProgress.completed}/${bulkProgress.total}` : `Selecionadas: ${selectedIds.length}`}</span>
+        <div className="wai-head-menu">
+          <button type="button" className="wai-icon-button" aria-label="Ações das conversas selecionadas" aria-expanded={bulkMenuOpen}
+            disabled={bulkBusy || !selectedIds.length} onClick={() => setBulkMenuOpen(value => !value)}><MoreVertical size={21}/></button>
+          {bulkMenuOpen && <div className="wai-attach-menu wai-list-menu wai-bulk-menu" role="menu">
+            <button type="button" role="menuitem" onClick={() => { setBulkMenuOpen(false); void markSelectedRead(selectedIds); }}><CheckCheck size={18}/>Marcar como lidas</button>
+            <button type="button" role="menuitem" onClick={() => { setBulkMenuOpen(false); void bulkArchiveSelected(); }}><Archive size={18}/>Arquivar conversas</button>
+          </div>}
+        </div>
       </div>}
       {picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={choose} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
         <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setStarPanel(false)} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Mensagens favoritas</strong></div>
@@ -602,12 +638,12 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     </section>
 
     {viewer && <PhotoViewer src={viewer.displaySrc} downloadSrc={viewer.downloadSrc} onClose={() => setViewer(null)} />}
-    <section className={`wai-chat${draft ? " has-draft" : ""}${selectedMessageIds.size ? " is-selecting-messages" : ""}`} aria-label="Conversa">
+    <section className={`wai-chat${draft ? " has-draft" : ""}${selectedMessageIds.size ? " is-selecting-messages" : ""}${detailsOpen || chatSearchOpen ? " has-side-panel" : ""}`} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
         <h3>WhatsApp na iGrow</h3>
         <p>Escolha uma conversa para ver as mensagens. As respostas dos seus clientes aos relatórios aparecem aqui, junto com o que foi enviado por cada número.</p>
-        <span className="wai-empty-lock"><Lock size={13} />Visível só para a equipe com acesso ao WhatsApp</span>
+        <span className="wai-empty-lock"><Lock size={13} />Mensagens disponíveis somente para usuários autorizados do iGrow.</span>
       </div> : <>
         <header className="wai-chat-head">
           <button type="button" className="wai-icon-button wai-back" onClick={() => { setOpenId(null); setDetailsOpen(false); }} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button>
@@ -764,7 +800,11 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             </button>)}
           </div>
         </aside>}
-        {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo} onClose={() => setDetailsOpen(false)} />}
+        {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo}
+          onClose={() => setDetailsOpen(false)}
+          onFavorite={() => toggleFavorite(open)}
+          onSearch={() => { setDetailsOpen(false); setChatSearchOpen(true); setChatSearchQuery(""); }}
+          onStars={() => { setDetailsOpen(false); setStarPanel(true); void refreshStars().catch(() => setActionError("Não foi possível carregar os favoritos.")); }} />}
       </>}
     </section>
   </div>;
@@ -1111,6 +1151,11 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
         {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
         {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
+        {message.quote && !message.revoked && <div className="wai-reply-in-bubble"
+          style={{ "--wai-quote-accent": message.quote.fromMe === true ? "#25d366" : "#a38dff" } as React.CSSProperties}>
+          <strong>{message.quote.author}</strong>
+          <span>{message.quote.preview}</span>
+        </div>}
         {message.body && message.kind !== "contact" && message.kind !== "location" && <p className={`wai-text${message.revoked ? " is-revoked" : ""}`}><WhatsAppText text={message.body} />{meta}</p>}
         {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
       </div>
@@ -1304,8 +1349,7 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
   return <footer className="wai-composer-area">
     {error && <p role="alert" className="wai-composer-error"><AlertCircle size={14} />{error}</p>}
     {replyTarget && <div className="wai-reply-banner">
-      <Reply size={18} />
-      <span><strong>Respondendo à {replyTarget.direction === "in" ? "mensagem recebida" : "mensagem enviada"}</strong>
+      <span><strong>{replyTarget.direction === "out" ? "Você" : replyTarget.author || conversationTitle(conversation)}</strong>
         <small>{replyTarget.body?.slice(0, 110) || kindLabel(replyTarget.kind)}</small></span>
       <button type="button" className="wai-icon-button" onClick={onClearReply} aria-label="Cancelar resposta"><X size={17} /></button>
     </div>}
@@ -1350,48 +1394,82 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
   contacts: InboxContact[]; conversations: InboxConversation[]; onExisting: (id: string) => void;
   onPick: (contact: { phone: string; name: string | null; clientName: string | null }) => void; onClose: () => void;
 }) {
+  const [mode, setMode] = useState<"contacts" | "phone">("contacts");
   const [query, setQuery] = useState("");
+  const [number, setNumber] = useState("");
   const search = query.trim().toLocaleLowerCase("pt-BR");
   const digits = query.replace(/\D/g, "");
   const shown = contacts.filter(contact => !search || `${contact.name} ${contact.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search) || (digits.length >= 3 && contact.phone.replace(/\D/g, "").includes(digits)));
   const typed = digits.length >= 10 ? (digits.length <= 11 ? `55${digits}` : digits) : null;
   const recent = conversations.filter(item => !search ||
     `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search)
-    || (digits.length >= 3 && item.remoteId.replace(/\D/g, "").includes(digits))).slice(0, search ? 60 : 20);
-  // A saved recipient already visible as a recent conversation should not
-  // appear twice in the contact picker (DDD+last 8 handles Brazil's ninth digit).
+    || (digits.length >= 3 && item.remoteId.replace(/\D/g, "").includes(digits))).slice(0, search ? 60 : 30);
   const recentPhones = new Set(recent.filter(item => !item.remoteId.endsWith("@lid")).map(item => phoneKey(item.remoteId)));
   const recipients = shown.filter(contact => !recentPhones.has(phoneKey(contact.phone)));
+  const phoneDigits = number.replace(/\D/g, "");
+  const validNumber = phoneDigits.length >= 10 && phoneDigits.length <= 13;
+  const callNumber = () => {
+    if (!validNumber) return;
+    onPick({ phone: phoneDigits.length <= 11 ? `55${phoneDigits}` : phoneDigits, name: null, clientName: null });
+  };
   return <div className="wai-new">
-    <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={onClose} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Nova conversa</strong></div>
-    <label className="wai-search"><Search size={17} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar nome ou digitar número com DDD" aria-label="Pesquisar contato ou número" /></label>
-    <p className="wai-new-note">Pelo QR Code, mande mensagem só para quem conhece seu número: mensagens para desconhecidos aumentam o risco de bloqueio.</p>
-    <div className="wai-rows">
-      {typed && <button type="button" className="wai-row" onClick={() => onPick({ phone: typed, name: null, clientName: null })}>
-        <span className="wai-avatar is-icon" style={{ width: 49, height: 49 }}><Contact size={24} /></span>
-        <span className="wai-row-main"><span className="wai-row-top"><strong>Conversar com {formatWhatsAppPhone(typed)}</strong></span><span className="wai-row-client">Número digitado</span></span>
-      </button>}
-      {recent.length > 0 && <p className="wai-new-title">Conversas recentes deste WhatsApp</p>}
-      {recent.map(item => <button type="button" key={item.id} className="wai-row" onClick={() => onExisting(item.id)}>
-        <Avatar item={item} size={49} photo={false} />
-        <span className="wai-row-main"><span className="wai-row-top"><strong>{conversationTitle(item)}</strong></span>
-          <span className="wai-row-preview"><span>{formatWhatsAppPhone(item.remoteId)}</span></span>
-          {item.clientName && <span className="wai-row-client">{item.clientName}</span>}
-        </span>
-      </button>)}
-      {recipients.length > 0 && <p className="wai-new-title">Destinatários dos clientes</p>}
-      {recipients.map(contact => <button key={contact.id} type="button" className="wai-row" onClick={() => onPick({ phone: contact.phone.replace(/\D/g, ""), name: contact.name, clientName: contact.clientName })}>
-        <span className="wai-avatar" style={{ width: 49, height: 49, background: colorFor(contact.name) }}>{initialsOf(contact.name)}</span>
-        <span className="wai-row-main"><span className="wai-row-top"><strong>{contact.name}</strong></span><span className="wai-row-preview"><span>{formatWhatsAppPhone(contact.phone.replace(/\D/g, ""))}</span></span>{contact.clientName && <span className="wai-row-client">{contact.clientName}</span>}</span>
-      </button>)}
-      {!recipients.length && !typed && !recent.length && <p className="wai-list-note">{search ? "Nenhum contato encontrado. Digite um número com DDD para iniciar uma nova conversa." : "Pesquise as conversas recentes, os destinatários dos clientes ou digite um número com DDD."}</p>}
+    <div className="wai-new-head">
+      <button type="button" className="wai-icon-button" onClick={() => mode === "phone" ? setMode("contacts") : onClose()} aria-label="Voltar"><ArrowLeft size={22} /></button>
+      <strong>{mode === "phone" ? "Telefone" : "Nova conversa"}</strong>
+      {mode === "contacts" && <button type="button" className="wai-icon-button wai-new-dialer-toggle"
+        onClick={() => setMode("phone")} title="Iniciar pelo número de telefone" aria-label="Abrir teclado numérico"><Phone size={21} /></button>}
     </div>
+    {mode === "phone" ? <div className="wai-dialer">
+      <input autoFocus type="tel" inputMode="tel" value={number} maxLength={21}
+        placeholder="Telefone" aria-label="Telefone"
+        onChange={event => setNumber(event.target.value.replace(/[^\d+()\s-]/g, ""))}
+        onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); callNumber(); } }} />
+      <p>Insira um número de telefone para iniciar uma conversa</p>
+      <div className="wai-dialpad" role="group" aria-label="Teclado numérico">
+        {[
+          ["1", ""], ["2", "ABC"], ["3", "DEF"], ["4", "GHI"], ["5", "JKL"], ["6", "MNO"],
+          ["7", "PQRS"], ["8", "TUV"], ["9", "WXYZ"], ["+", ""], ["0", ""], ["del", ""],
+        ].map(([digit, letters]) =>
+          <button type="button" key={digit} onClick={() => setNumber(value => digit === "del" ? value.slice(0,-1) : value + digit)}
+            aria-label={digit === "del" ? "Apagar último dígito" : `Digitar ${digit}`}>
+            {digit === "del" ? <Delete size={20} /> : <span>{digit}</span>}
+            {!!letters && <small>{letters}</small>}
+          </button>)}
+      </div>
+      <button type="button" className="wai-dialer-submit" disabled={!validNumber} onClick={callNumber}>Iniciar conversa</button>
+    </div> : <>
+      <label className="wai-search"><Search size={18} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)}
+        placeholder="Pesquisar nome, número ou @nomedeusuário" aria-label="Pesquisar contato ou número" /></label>
+      <div className="wai-new-quick">
+        <button type="button" onClick={() => setMode("phone")}><span className="wai-new-quick-icon"><Phone size={22} /></span>Iniciar por telefone</button>
+      </div>
+      <div className="wai-rows">
+        {typed && <button type="button" className="wai-row" onClick={() => onPick({ phone: typed, name: null, clientName: null })}>
+          <span className="wai-avatar is-icon" style={{ width: 49, height: 49 }}><Phone size={24} /></span>
+          <span className="wai-row-main"><span className="wai-row-top"><strong>Conversar com {formatWhatsAppPhone(typed)}</strong></span></span>
+        </button>}
+        {recent.length > 0 && <p className="wai-new-title">Conversas recentes</p>}
+        {recent.map(item => <button type="button" key={item.id} className="wai-row" onClick={() => onExisting(item.id)}>
+          <Avatar item={item} size={49} photo={false} />
+          <span className="wai-row-main"><span className="wai-row-top"><strong>{conversationTitle(item)}</strong></span>
+            <span className="wai-row-preview"><span>{formatWhatsAppPhone(item.remoteId)}</span></span></span>
+        </button>)}
+        {recipients.length > 0 && <p className="wai-new-title">Destinatários dos clientes</p>}
+        {recipients.map(contact => <button key={contact.id} type="button" className="wai-row" onClick={() => onPick({ phone: contact.phone.replace(/\D/g, ""), name: contact.name, clientName: contact.clientName })}>
+          <span className="wai-avatar" style={{ width: 49, height: 49, background: colorFor(contact.name) }}>{initialsOf(contact.name)}</span>
+          <span className="wai-row-main"><span className="wai-row-top"><strong>{contact.name}</strong></span>
+            <span className="wai-row-preview"><span>{formatWhatsAppPhone(contact.phone.replace(/\D/g, ""))}</span></span></span>
+        </button>)}
+        {!recipients.length && !typed && !recent.length && <p className="wai-list-note">Nenhum contato encontrado. Digite um número com DDD para iniciar a conversa.</p>}
+      </div>
+    </>}
   </div>;
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, onClose }: {
+function ContactDetails({ item, data, loading, demo, onClose, onFavorite, onSearch, onStars }: {
   item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean; onClose: () => void;
+  onFavorite: () => void; onSearch: () => void; onStars: () => void;
 }) {
   const name = conversationTitle(item);
   const media = data?.media ?? [];
@@ -1407,6 +1485,12 @@ function ContactDetails({ item, data, loading, demo, onClose }: {
         <h3>{name}</h3>
         {!item.isGroup && <p>{formatWhatsAppPhone(item.remoteId)}</p>}
         {item.clientName && <span className="wai-details-chip">Cliente: {item.clientName}</span>}
+        <div className="wai-details-shortcuts">
+          <button type="button" onClick={onSearch} aria-label="Pesquisar nesta conversa"><Search size={22}/><span>Pesquisar</span></button>
+          <button type="button" onClick={onFavorite} aria-label={item.favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}>
+            <Star size={22} fill={item.favorite ? "currentColor" : "none"} /><span>{item.favorite ? "Desfavoritar" : "Favoritar"}</span>
+          </button>
+        </div>
       </div>
       {item.isGroup && <div className="wai-details-section">
         <h4>Sobre o grupo</h4>
@@ -1423,7 +1507,7 @@ function ContactDetails({ item, data, loading, demo, onClose }: {
         {group.members != null && group.members > group.participants.length && <p className="wai-details-muted">Exibindo até {group.participants.length} participantes.</p>}
       </div>}
       <div className="wai-details-section">
-        <h4>Mídia, links e documentos</h4>
+        <h4><ImageIcon size={21}/> Mídia, links e docs <small>{media.length || ""}</small></h4>
         {loading && <p className="wai-details-muted">Carregando informações…</p>}
         {!loading && !media.length && <p className="wai-details-muted">Nenhum arquivo recente disponível.</p>}
         {media.map(file => {
@@ -1435,6 +1519,11 @@ function ContactDetails({ item, data, loading, demo, onClose }: {
           </a>;
         })}
         <p className="wai-details-muted">Até 30 arquivos recentes. Os arquivos são buscados somente ao abrir.</p>
+      </div>
+      <div className="wai-details-section wai-details-shortlinks">
+        <button type="button" onClick={onStars}><Star size={21}/> Mensagens favoritas</button>
+        <button type="button" onClick={onFavorite}><Star size={21} fill={item.favorite ? "currentColor" : "none"}/>
+          {item.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</button>
       </div>
     </div>
   </aside>;
