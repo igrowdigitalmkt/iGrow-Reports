@@ -8,7 +8,7 @@ index 22e90b9..7b51340 100644
 +  }
 +
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..06ba1f9 100644
+index 60e857f..5c1f029 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 @@ -760,2 +760,12 @@ export class BaileysStartupService extends ChannelStartupService {
@@ -86,7 +86,7 @@ index 60e857f..06ba1f9 100644
 +    await this.instance.authState.state.keys.set({
 +      'app-state-sync-version': Object.fromEntries(collections.map((name) => [name, null])),
 +    });
-+    await this.client.resyncAppState(collections, true);
++    await this.client.resyncAppState(collections, false);
 +
 +    return { synced: true };
 +  }
