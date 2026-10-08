@@ -11,9 +11,9 @@ O número vinculado por QR Code é uma consulta operacional, não um arquivo per
 - Oscilações temporárias de internet não destroem o histórico.
 - Nova vinculação: não aceita registros de outro número/sessão.
 - Em uma **nova vinculação por QR/código**, o iGrow importa o histórico recente
-  de conversas privadas que o WhatsApp disponibilizar na sincronização inicial,
-  limitado a 7 dias, até 50 mensagens por conversa e no máximo 300 por bloco
-  recebido da Evolution. Mensagens de grupos anteriores à vinculação não entram.
+  de conversas privadas **e grupos** que o WhatsApp disponibilizar na
+  sincronização inicial, limitado a 7 dias, até 50 mensagens por conversa e
+  no máximo 300 mensagens por lote de sincronização da Evolution.
 - A janela de importação fica aberta por 30 minutos após a nova vinculação;
   cada sessão tem assinatura exclusiva, impedindo reutilização de histórico
   de uma vinculação anterior. A importação não marca conversas como não lidas.

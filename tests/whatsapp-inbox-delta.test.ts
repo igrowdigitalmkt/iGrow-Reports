@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { InboxConversation, InboxList } from "@/modules/whatsapp/inbox-types";
 import { latestInboxCursor, reconcileInboxList } from "@/modules/whatsapp/inbox-merge";
-import { parseEvolutionPersonalHistory } from "@/modules/whatsapp/inbox-parse";
+import { parseEvolutionRecentHistory } from "@/modules/whatsapp/inbox-parse";
 
 const old: InboxConversation = {
   id:"old", channelKey:"qr", remoteId:"5586999000000", isGroup:false, title:"Pessoa",
@@ -30,17 +30,17 @@ describe("WhatsApp delta polling", () => {
   });
 });
 
-describe("private conversation history", () => {
-  it("imports only one-to-one messages, including sent messages, ignoring group history", () => {
+describe("recent private and group history", () => {
+  it("imports private and group messages, including sent messages", () => {
     const data = [
       {key:{remoteJid:"5586999000000@s.whatsapp.net", id:"personal-1", fromMe:false}, message:{conversation:"Oi"}, messageTimestamp:1791420000},
       {key:{remoteJid:"120363150097840207@g.us", id:"group-1"}, message:{conversation:"Grupo"}, messageTimestamp:1791420001},
       {key:{remoteJid:"5586999000000@s.whatsapp.net", id:"personal-2", fromMe:true}, message:{conversation:"Resposta"}, messageTimestamp:1791420002},
     ];
-    const result = parseEvolutionPersonalHistory({event:"MESSAGES_SET",data});
-    expect(result.map(row=>row.externalId)).toEqual(["personal-1","personal-2"]);
-    expect(result.map(row=>row.direction)).toEqual(["in","out"]);
-    expect(result.every(row=>!row.isGroup)).toBe(true);
-    expect(parseEvolutionPersonalHistory({event:"MESSAGES_UPSERT",data})).toEqual([]);
+    const result = parseEvolutionRecentHistory({event:"MESSAGES_SET",data});
+    expect(result.map(row=>row.externalId)).toEqual(["personal-1","group-1","personal-2"]);
+    expect(result.map(row=>row.direction)).toEqual(["in","in","out"]);
+    expect(result.map(row=>row.isGroup)).toEqual([false,true,false]);
+    expect(parseEvolutionRecentHistory({event:"MESSAGES_UPSERT",data})).toEqual([]);
   });
 });

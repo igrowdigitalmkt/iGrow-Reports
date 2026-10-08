@@ -77,8 +77,8 @@ export class EvolutionClient {
   }
 
   /** Subject of one group (names the conversation in the inbox). */
-  async groupSubject(name: string, groupJid: string) {
-    const result = await this.request<{ subject?: string }>(`/group/findGroupInfos/${encodeURIComponent(name)}?groupJid=${encodeURIComponent(groupJid)}`, { timeoutMs: 15_000 });
+  async groupSubject(name: string, groupJid: string, timeoutMs = 15_000) {
+    const result = await this.request<{ subject?: string }>(`/group/findGroupInfos/${encodeURIComponent(name)}?groupJid=${encodeURIComponent(groupJid)}`, { timeoutMs });
     return result?.subject?.trim() || null;
   }
 

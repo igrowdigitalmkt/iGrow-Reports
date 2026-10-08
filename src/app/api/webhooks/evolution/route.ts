@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { parseEvolutionMessage, parseEvolutionPersonalHistory } from "@/modules/whatsapp/inbox-parse";
+import { parseEvolutionMessage, parseEvolutionRecentHistory } from "@/modules/whatsapp/inbox-parse";
 import { isRecentQrMessage } from "@/modules/whatsapp/recent-policy";
 import { recordInboxMessage, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
@@ -47,21 +47,31 @@ export async function POST(request: Request) {
   }
 
   const event = (body as { event?: unknown } | null)?.event;
-  // Import only the recent one-to-one bootstrap from this exact pairing. Old
+  // Import the recent private + group bootstrap from this exact pairing. Old
   // instances have legacy signatures and cannot replay their history here.
   if (event === "messages.set" || event === "MESSAGES_SET") {
     const age = guard ? Date.now() - Date.parse(guard.fresh_after) : Infinity;
     if (!scoped || !Number.isFinite(age) || age < 0 || age > 30 * 60_000)
       return Response.json({ ok: true, ignored: "history_not_authorized" });
-    const personal = parseEvolutionPersonalHistory(body).filter(message => isRecentQrMessage(message.sentAt));
+    const history = parseEvolutionRecentHistory(body).filter(message => isRecentQrMessage(message.sentAt));
+    // Keep group-name lookups bounded and cache repeated groups within the webhook.
+    const groupTitles = new Map<string, Promise<string | null>>();
+    const resolveGroup = (groupId: string) => {
+      let pending = groupTitles.get(groupId);
+      if (!pending) {
+        pending = qrGroupSubject(instance, groupId, 2500);
+        groupTitles.set(groupId, pending);
+      }
+      return pending;
+    };
     let imported = 0;
-    for (let start = 0; start < personal.length; start += 4) {
-      const batch = await Promise.all(personal.slice(start, start + 4).map(message =>
-        recordInboxMessage(service, { agencyId, connectionId: null, message, historical: true })
+    for (let start = 0; start < history.length; start += 4) {
+      const batch = await Promise.all(history.slice(start, start + 4).map(message =>
+        recordInboxMessage(service, { agencyId, connectionId: null, message, historical: true, groupSubject: resolveGroup })
       ));
       imported += batch.filter(result => result?.inserted === true).length;
     }
-    return Response.json({ ok: true, imported, received: personal.length });
+    return Response.json({ ok: true, imported, received: history.length });
   }
 
   const receipt = parseMessageReceipt(body);

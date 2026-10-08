@@ -22,8 +22,8 @@ export async function recordInboxMessage(service: Service, input: {
     p_body: message.body, p_media_name: message.mediaName, p_media_mime: message.mediaMime, p_author: message.author,
     p_status: message.direction === "out" ? input.status ?? "sent" : null, p_sent_at: message.sentAt,
   };
-  // Historical messages should populate private threads without being counted as new unread
-  // notifications. They use a separate atomic SQL function; live messages keep their behavior.
+  // Historical direct and group messages do not generate new unread notifications.
+  // The separate atomic SQL function preserves the phone's existing unread counters.
   const recordFunction = input.historical ? "record_whatsapp_history_message" : "record_whatsapp_message";
   let { data, error } = await service.rpc(recordFunction, { ...args, p_media_id: message.mediaId ?? null });
   // Before migration 202610070012 the live function has no media id parameter.

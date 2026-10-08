@@ -116,14 +116,14 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
 }
 
 /**
- * Initial/relinked WhatsApp history: accept only personal messages, never group history.
- * Live MESSAGES_UPSERT remains independent so new group messages still arrive normally.
+ * Initial/relinked WhatsApp history: accept recent private and group messages.
+ * Live MESSAGES_UPSERT remains independent from historical imports.
  */
-export function parseEvolutionPersonalHistory(body: unknown): InboxMessage[] {
+export function parseEvolutionRecentHistory(body: unknown): InboxMessage[] {
   const payload = body as { event?: unknown; data?: unknown } | null;
   if (payload?.event !== "messages.set" && payload?.event !== "MESSAGES_SET") return [];
   if (!Array.isArray(payload.data)) return [];
-  const personal: InboxMessage[] = [];
+  const history: InboxMessage[] = [];
   // Evolution sends at most 20 messages per batch. Refuse oversized or malformed
   // historical payloads before performing any database work.
   if (payload.data.length > 20) return [];
@@ -131,11 +131,11 @@ export function parseEvolutionPersonalHistory(body: unknown): InboxMessage[] {
     const stamp = (item as { messageTimestamp?: unknown } | null)?.messageTimestamp;
     if (stamp === undefined || stamp === null || !Number.isFinite(Number(stamp))) continue;
     const parsed = parseEvolutionMessage({ event: "MESSAGES_UPSERT", data: item });
-    if (parsed && !parsed.isGroup && !parsed.remoteId.endsWith("@broadcast") && !parsed.remoteId.endsWith("@newsletter")) {
-      personal.push(parsed);
+    if (parsed && !parsed.remoteId.endsWith("@broadcast") && !parsed.remoteId.endsWith("@newsletter")) {
+      history.push(parsed);
     }
   }
-  return personal;
+  return history;
 }
 
 type CloudMedia = { id?: string; mime_type?: string };

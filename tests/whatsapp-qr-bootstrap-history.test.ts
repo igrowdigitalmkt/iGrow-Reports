@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
-import { parseEvolutionPersonalHistory } from "@/modules/whatsapp/inbox-parse";
+import { parseEvolutionRecentHistory } from "@/modules/whatsapp/inbox-parse";
 import { isRecentQrMessage } from "@/modules/whatsapp/recent-policy";
 import { validWebhookToken, webhookToken } from "@/modules/whatsapp-qr/server";
 
@@ -33,8 +33,8 @@ describe("histórico recente importado ao vincular QR", () => {
     }
   });
 
-  it("considera apenas mensagens privadas e janela dos últimos 7 dias", () => {
-    const parsed = parseEvolutionPersonalHistory({
+  it("considera mensagens privadas e grupos na janela dos últimos 7 dias", () => {
+    const parsed = parseEvolutionRecentHistory({
       event: "MESSAGES_SET",
       data: [
         message("2026-10-07T08:00:00Z", "5586999991234@s.whatsapp.net", "recent"),
@@ -43,14 +43,15 @@ describe("histórico recente importado ao vincular QR", () => {
         message("2026-10-07T08:00:00Z", "1234567890@lid", "lid"),
       ],
     });
-    expect(parsed.map(m => m.externalId)).toEqual(["recent", "old", "lid"]);
-    expect(parsed.filter(m => isRecentQrMessage(m.sentAt, now)).map(m => m.externalId)).toEqual(["recent", "lid"]);
+    expect(parsed.map(m => m.externalId)).toEqual(["recent", "group", "old", "lid"]);
+    expect(parsed.filter(m => isRecentQrMessage(m.sentAt, now)).map(m => m.externalId)).toEqual(["recent", "group", "lid"]);
+    expect(parsed.find(m => m.externalId === "group")).toMatchObject({ isGroup: true, remoteId: "120363000000001@g.us" });
   });
 
   it("não importa evento diferente, sem horário nem lotes excessivos", () => {
     const valid = message("2026-10-07T08:00:00Z");
-    expect(parseEvolutionPersonalHistory({ event: "MESSAGES_UPSERT", data: [valid] })).toEqual([]);
-    expect(parseEvolutionPersonalHistory({ event: "MESSAGES_SET", data: [{ ...valid, messageTimestamp: null }] })).toEqual([]);
-    expect(parseEvolutionPersonalHistory({ event: "MESSAGES_SET", data: Array.from({ length: 21 }, (_, i) => message("2026-10-07T08:00:00Z", undefined, String(i))) })).toEqual([]);
+    expect(parseEvolutionRecentHistory({ event: "MESSAGES_UPSERT", data: [valid] })).toEqual([]);
+    expect(parseEvolutionRecentHistory({ event: "MESSAGES_SET", data: [{ ...valid, messageTimestamp: null }] })).toEqual([]);
+    expect(parseEvolutionRecentHistory({ event: "MESSAGES_SET", data: Array.from({ length: 21 }, (_, i) => message("2026-10-07T08:00:00Z", undefined, String(i))) })).toEqual([]);
   });
 });

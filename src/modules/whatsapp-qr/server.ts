@@ -94,10 +94,10 @@ export async function replyFromInstance(instance: string, phone: string, text: s
 }
 
 /** Group name for the inbox; null when the session cannot tell. */
-export async function qrGroupSubject(instance: string, groupJid: string) {
+export async function qrGroupSubject(instance: string, groupJid: string, timeoutMs = 15_000) {
   const evolution = client();
   if (!evolution) return null;
-  return evolution.groupSubject(instance, groupJid).catch(() => null);
+  return evolution.groupSubject(instance, groupJid, timeoutMs).catch(() => null);
 }
 
 /** Strict reset: never delete local messages until the Evolution instance is gone. */
