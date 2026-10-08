@@ -13,6 +13,7 @@ import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
 import { canForwardInboxMessage, canDeleteOwnMessage } from "./message-actions";
 import "./inbox.css";
 import "./inbox-reference.css";
+import "./inbox-fidelity.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -34,6 +35,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ completed: 0, total: 0 });
   const [starPanel, setStarPanel] = useState(false);
   const [stars, setStars] = useState<StarredItem[]>([]);
@@ -476,6 +478,33 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     } finally { setForwardBusy(false); }
   }
 
+  async function bulkArchiveSelected() {
+    if (!selectedIds.length || bulkBusy) return;
+    const ids = [...selectedIds]; setBulkBusy(true); setBulkProgress({ completed: 0, total: ids.length }); setActionError("");
+    let completed = 0;
+    const failures: string[] = [];
+    for (const id of ids) {
+      const item = list?.conversations.find(entry => entry.id === id);
+      if (!item) { failures.push(id); continue; }
+      if (demo) { failures.push(id); continue; }
+      try {
+        const response = await fetch(`/api/whatsapp/inbox/${id}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "archive", value: true }),
+        });
+        if (!response.ok) throw new Error("WhatsApp não confirmou");
+        setList(previous => previous && ({ ...previous, conversations: previous.conversations.map(entry =>
+          entry.id === id ? { ...entry, archived: true } : entry) }));
+        completed++;
+      } catch { failures.push(id); }
+      setBulkProgress({ completed: completed + failures.length, total: ids.length });
+    }
+    setSelectedIds(failures);
+    if (!failures.length) setSelecting(false);
+    else setActionError(`${failures.length} conversa(s) não foram arquivadas pelo WhatsApp; continuam selecionadas.`);
+    setBulkBusy(false);
+  }
+
   async function markSelectedRead(ids: string[]) {
     if (!ids.length || bulkBusy) return;
     setListMenuOpen(false); setBulkBusy(true); setBulkProgress({ completed: 0, total: ids.length }); setActionError("");
@@ -561,10 +590,17 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       </header>
       {actionError && <p role="alert" className="wai-list-note">{actionError}</p>}
       {selecting && !picking && !starPanel && <div className="wai-selection-bar">
-        <span>{bulkBusy ? `Sincronizando ${bulkProgress.completed}/${bulkProgress.total}` : `${selectedIds.length} selecionada(s)`}</span>
-        <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => void markSelectedRead(selectedIds)}><CheckCheck size={16} />Marcar como lidas</button>
-        <button type="button" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); }} aria-label="Cancelar seleção"><X size={18} /></button>
-      </div>}
+        <button type="button" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); }} aria-label="Cancelar seleção"><X size={23} /></button>
+        <span>{bulkBusy ? `Sincronizando ${bulkProgress.completed}/${bulkProgress.total}` : `Selecionadas: ${selectedIds.length}`}</span>
+        <div className="wai-head-menu">
+          <button type="button" className="wai-icon-button" aria-label="Ações das conversas selecionadas" aria-expanded={bulkMenuOpen}
+            disabled={bulkBusy || !selectedIds.length} onClick={() => setBulkMenuOpen(value => !value)}><MoreVertical size={21}/></button>
+          {bulkMenuOpen && <div className="wai-attach-menu wai-list-menu wai-bulk-menu" role="menu">
+            <button type="button" role="menuitem" onClick={() => { setBulkMenuOpen(false); void markSelectedRead(selectedIds); }}><CheckCheck size={18}/>Marcar como lidas</button>
+            <button type="button" role="menuitem" onClick={() => { setBulkMenuOpen(false); void bulkArchiveSelected(); }}><Archive size={18}/>Arquivar conversas</button>
+          </div>}
+        </div>
+      </div>
       {picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={choose} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
         <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setStarPanel(false)} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Mensagens favoritas</strong></div>
         <p className="wai-new-note">Favoritos privados nesta plataforma, preservados enquanto as mensagens estiverem disponíveis no iGrow.</p>
@@ -602,12 +638,12 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     </section>
 
     {viewer && <PhotoViewer src={viewer.displaySrc} downloadSrc={viewer.downloadSrc} onClose={() => setViewer(null)} />}
-    <section className={`wai-chat${draft ? " has-draft" : ""}${selectedMessageIds.size ? " is-selecting-messages" : ""}`} aria-label="Conversa">
+    <section className={`wai-chat${draft ? " has-draft" : ""}${selectedMessageIds.size ? " is-selecting-messages" : ""}${detailsOpen || chatSearchOpen ? " has-side-panel" : ""}`} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
         <h3>WhatsApp na iGrow</h3>
         <p>Escolha uma conversa para ver as mensagens. As respostas dos seus clientes aos relatórios aparecem aqui, junto com o que foi enviado por cada número.</p>
-        <span className="wai-empty-lock"><Lock size={13} />Visível só para a equipe com acesso ao WhatsApp</span>
+        <span className="wai-empty-lock"><Lock size={13} />Mensagens disponíveis somente para usuários autorizados do iGrow.</span>
       </div> : <>
         <header className="wai-chat-head">
           <button type="button" className="wai-icon-button wai-back" onClick={() => { setOpenId(null); setDetailsOpen(false); }} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button>
