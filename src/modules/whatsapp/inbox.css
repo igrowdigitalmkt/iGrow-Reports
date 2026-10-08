@@ -310,9 +310,10 @@
 .wai-bubble-row.has-reactions { margin-bottom: 4px; }
 .wai-reactions { position: relative; display: flex; align-items: center; flex-wrap: wrap; align-self: flex-end; justify-content: flex-end; gap: 4px; z-index: 2; max-width: 100%; margin: -2px 4px 5px 0; }
 /* Unlike an absolute badge, this occupies document-flow space and never hides the time/ticks. */
-.wai-reactions span { display: inline-flex; align-items: center; gap: 3px; min-height: 23px; padding: 1px 7px; border: 1px solid var(--wai-line); border-radius: 999px; background: var(--wai-panel); font-size: 15px; white-space: nowrap; box-shadow: 0 2px 5px color-mix(in srgb, #000 10%, transparent); }
-.wai-reactions span.is-mine { border-color: var(--wai-blue); }
-.wai-reactions small { color: var(--wai-muted); font-size: 11px; }
+.wai-reactions > .wai-reactions-group { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 23px; padding: 2px 7px; border: 1px solid var(--wai-line); border-radius: 999px; background: var(--wai-panel); font-size: 15px; line-height: 1; white-space: nowrap; box-shadow: 0 2px 5px color-mix(in srgb, #000 10%, transparent); }
+.wai-reactions > .wai-reactions-group.is-mine { border-color: var(--wai-blue); }
+.wai-reactions .wai-reaction-emoji { display: inline-block; line-height: 1.1; font-weight: 400; }
+.wai-reactions small { margin-left: 3px; color: var(--wai-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .wai-bubble-stack:has(.wai-message-popup) { z-index: 30; }
 .wai-message-controls { position: absolute; top: 1px; right: -68px; display: flex; gap: 1px; padding: 1px; border-radius: 10px; background: var(--wai-chat); opacity: 0; transform: translateY(2px); pointer-events: none; transition: opacity .12s, transform .12s; }
 .is-out .wai-message-controls { left: -68px; right: auto; }
@@ -359,3 +360,172 @@
   position: fixed; right: auto; bottom: auto; z-index: 400;
   max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain;
 }
+
+/* WhatsApp Web visual system, scoped to this module so iGrow's dashboard stays unchanged.
+   Blue outgoing bubbles match the chat theme in the supplied reference captures. */
+.wai-shell {
+  --wai-rail: #202c33;
+  --wai-panel: #111b21;
+  --wai-chat: #0b141a;
+  --wai-line: #283640;
+  --wai-hover: #202c33;
+  --wai-active: #2a3942;
+  --wai-text: #e9edef;
+  --wai-muted: #8696a0;
+  --wai-search: #202c33;
+  --wai-in: #202c33;
+  --wai-out: #005cdb;
+  --wai-out-text: #fff;
+  --wai-green: #00a884;
+  --wai-green-text: #071a12;
+  --wai-pill-on: #0b372e;
+  --wai-pill-on-text: #d9fdd3;
+  --wai-blue: #53bdeb;
+  --wai-day: #202c33;
+  --wai-doc: #1b2b35;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+[data-theme="light"] .wai-shell {
+  --wai-rail: #f0f2f5;
+  --wai-panel: #fff;
+  --wai-chat: #efeae2;
+  --wai-line: #e4e8eb;
+  --wai-hover: #f5f6f6;
+  --wai-active: #f0f2f5;
+  --wai-text: #111b21;
+  --wai-muted: #667781;
+  --wai-search: #f0f2f5;
+  --wai-in: #fff;
+  --wai-out: #d9fdd3;
+  --wai-out-text: #111b21;
+  --wai-green: #00a884;
+  --wai-green-text: #fff;
+  --wai-pill-on: #e7fce3;
+  --wai-pill-on-text: #008069;
+  --wai-blue: #53bdeb;
+  --wai-day: #e2e7ea;
+  --wai-doc: #e7edef;
+}
+.wai-rail { border-color: var(--wai-line); }
+.wai-rail-item.is-active { background: var(--wai-active); }
+.wai-list-head { min-height: 73px; padding: 15px 18px 10px 20px; }
+.wai-list-head h2 { font-size: 22px; letter-spacing: -.03em; font-weight: 650; }
+.wai-list-head small { font-size: 12px; line-height: 1.3; }
+.wai-list-head .wai-icon-button { width: 36px; height: 36px; color: var(--wai-muted); }
+.wai-icon-button:focus-visible, .wai-message-controls button:focus-visible, .wai-row:focus-visible, .wai-message-menu-list button:focus-visible {
+  outline: 2px solid var(--wai-green);
+  outline-offset: 2px;
+}
+.wai-search { height: 39px; border-radius: 9px; }
+.wai-search:focus-within { box-shadow: 0 0 0 1px var(--wai-green); }
+.wai-filters { padding-block: 11px 9px; gap: 7px; }
+.wai-filters button { height: 32px; font-size: 13.5px; }
+.wai-row { gap: 13px; min-height: 70px; padding: 10px 10px 10px 12px; }
+.wai-row-top strong { font-size: 16px; font-weight: 550; }
+.wai-row-preview { font-size: 13.5px; }
+.wai-unread { background: #00a884; color: #071a12; }
+.wai-chat-head { min-height: 64px; padding: 8px 16px; }
+.wai-chat-title strong { font-size: 16px; font-weight: 550; }
+.wai-messages { scrollbar-color: #344149 transparent; scrollbar-width: thin; }
+.wai-messages-inner { max-width: 1160px; gap: 2px; padding: 17px clamp(22px, 6%, 80px) 27px; }
+.wai-day span { padding: 7px 12px; font-size: 12px; color: var(--wai-muted); }
+.wai-bubble-stack { max-width: min(67%, 600px); }
+.wai-bubble-stack .wai-bubble {
+  min-width: 64px;
+  max-width: 100%;
+  padding: 6px 8px 7px;
+  border-radius: 7px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.12);
+}
+.wai-text { line-height: 1.38; font-size: 14.25px; letter-spacing: 0; }
+.wai-meta { font-size: 10.5px; gap: 2px; font-variant-numeric: tabular-nums; }
+.wai-bubble.has-tail { margin-top: 6px; }
+.wai-composer-area { padding: 7px 15px 12px; background: var(--wai-chat); }
+.wai-composer { min-height: 48px; align-items: center; padding: 3px 7px; border-radius: 8px; background: var(--wai-panel); box-shadow: none; }
+.wai-composer textarea { min-height: 37px; padding: 8px 9px; }
+.wai-reply-banner { border-radius: 8px; }
+.wai-send { width: 39px; height: 39px; }
+.wai-attach-menu, .wai-message-popup { background: var(--wai-panel); border-color: var(--wai-line); }
+.wai-message-popup { border-radius: 12px; padding: 7px; box-shadow: 0 9px 30px rgba(0,0,0,.36); }
+.wai-message-menu-list button { min-height: 39px; font-size: 14px; }
+.wai-message-quick-reactions button { font-size: 23px; }
+.wai-message-quick-reactions button:hover { transform: scale(1.07); }
+.wai-reactions { margin: -3px 5px 4px 0; }
+.wai-reactions > .wai-reactions-group { min-height: 23px; border-color: #243039; background: #1a252d; color: var(--wai-text); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+[data-theme="light"] .wai-reactions > .wai-reactions-group { background: #fff; border-color: #e9e9e9; }
+.wai-reactions > .wai-reactions-group.is-mine { border-color: var(--wai-blue); }
+
+/* WhatsApp-style chevron inside the bubble and emoji just outside its side. */
+.wai-message-controls {
+  position: absolute;
+  inset: 0;
+  height: 0;
+  width: 100%;
+  display: block;
+  padding: 0;
+  background: transparent;
+  transform: none;
+  opacity: 1;
+  pointer-events: none;
+}
+.wai-message-controls button {
+  position: absolute;
+  top: 2px;
+  width: 30px;
+  height: 29px;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 7px;
+  transition: opacity .12s ease, background .12s ease;
+}
+.wai-message-controls .wai-message-emoji-trigger { right: -36px; }
+.is-out .wai-message-controls .wai-message-emoji-trigger { right: auto; left: -36px; }
+.wai-message-controls .wai-message-dropdown-trigger {
+  right: 1px;
+  width: 26px;
+  background: linear-gradient(90deg, transparent, var(--wai-in) 42%);
+  color: var(--wai-muted);
+}
+.is-out .wai-message-controls .wai-message-dropdown-trigger {
+  background: linear-gradient(90deg, transparent, var(--wai-out) 42%);
+  color: var(--wai-out-text);
+}
+.wai-bubble-stack:hover .wai-message-controls button,
+.wai-bubble-stack:focus-within .wai-message-controls button,
+.wai-message-controls button[aria-expanded="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.wai-message-controls button:hover, .wai-message-controls button[aria-expanded="true"] {
+  background: var(--wai-hover);
+}
+.wai-message-controls .wai-message-emoji-trigger { background: var(--wai-chat); }
+.wai-bubble-row.is-in .wai-reactions { align-self: flex-end; }
+.wai-message-popup.wai-message-popup-fixed { background: var(--wai-panel); }
+/* Keep sufficient space on narrow screens; avoid clipping emoji trigger. */
+@media (max-width: 760px) {
+  .wai-bubble-stack { max-width: 85%; }
+  .wai-list-head { min-height: 65px; }
+  .wai-message-controls .wai-message-emoji-trigger { right: -34px; }
+  .is-out .wai-message-controls .wai-message-emoji-trigger { right: auto; left: -34px; }
+  .wai-message-controls button { opacity: .75; pointer-events: auto; }
+}
+
+/* Final alignments: WhatsApp Web header/footer and independently positioned hover actions. */
+.wai-chat-head { background: #202c33; }
+.wai-composer-area { background: #202c33; }
+.wai-composer { background: #2a3942; }
+[data-theme="light"] .wai-chat-head,
+[data-theme="light"] .wai-composer-area { background: #f0f2f5; }
+[data-theme="light"] .wai-composer { background: #fff; }
+.is-out .wai-message-controls { left: 0; right: auto; }
+.wai-message-controls .wai-message-emoji-trigger { background: transparent; }
+.wai-message-controls .wai-message-emoji-trigger:hover { background: var(--wai-hover); }
+.wai-message-controls button[aria-expanded="true"] { opacity: 1; pointer-events: auto; }
+
+/* Grouped WhatsApp reactions remain neutral regardless of who reacted. */
+.wai-reactions > .wai-reactions-group.is-mine { border-color: var(--wai-line); }
+.wai-demo-loading { display: flex; justify-content: center; align-items: center; color: var(--wai-muted); font-size: 14px; }

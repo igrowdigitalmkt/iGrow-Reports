@@ -51,7 +51,17 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [thread, setThread] = useState<{ id: string; messages: InboxMessageItem[] } | null>(null);
-  const [now, setNow] = useState(() => new Date());
+  const [demoReady, setDemoReady] = useState(false);
+  // Keep the server/client first frame identical (demo timestamps are relative
+  // to when the sample is imported). Reveal it after the first browser paint.
+  const [now, setNow] = useState(() => new Date(0));
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setNow(new Date());
+      setDemoReady(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
   // Only suppress the badge for the message snapshot that was opened, never for future messages.
   const [readLocally, setReadLocally] = useState<Record<string, OptimisticRead>>({});
   const [actionError, setActionError] = useState("");
@@ -414,6 +424,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   function toggleSelected(id: string) {
     setSelectedIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
   }
+
+  if (demo && !demoReady) return <div className="wai-shell wai-demo-loading" aria-busy="true"><span>Carregando demonstração de conversas…</span></div>;
 
   return <div className={`wai-shell${openId || draft ? " is-chat-open" : ""}`}>
     <nav className="wai-rail" aria-label="Números de WhatsApp">
@@ -887,18 +899,21 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
       </div>
       {/* Badge in the document flow AFTER the bubble: never covers timestamp or checkmarks. */}
-      {!!message.reactions?.length && <div className="wai-reactions" aria-label="Reações nesta mensagem">
-        {message.reactions.map(item => <span key={item.emoji} className={item.mine ? "is-mine" : undefined}
-          title={`${item.count} reação(ões) com ${item.emoji}`}>
-          {item.emoji}{item.count > 1 && <small>{item.count}</small>}
-        </span>)}
+      {!!message.reactions?.length && <div className="wai-reactions">
+        <span className={`wai-reactions-group${message.reactions.some(item => item.mine) ? " is-mine" : ""}`}
+          title={message.reactions.map(item => `${item.emoji}: ${item.count} ${item.count === 1 ? "reação" : "reações"}${item.mine ? " (inclui você)" : ""}`).join(" · ")}
+          aria-label={`Reações nesta mensagem: ${message.reactions.map(item => `${item.emoji} ${item.count}`).join(", ")}`}>
+          {message.reactions.slice(0, 3).map(item => <span key={item.emoji} className="wai-reaction-emoji" aria-hidden="true">{item.emoji}</span>)}
+          {message.reactions.reduce((sum, item) => sum + item.count, 0) > 1 &&
+            <small>{message.reactions.reduce((sum, item) => sum + item.count, 0)}</small>}
+        </span>
       </div>}
       <div className="wai-message-controls">
-        {canReact && <button type="button" title="Reagir à mensagem" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
+        {canReact && <button type="button" className="wai-message-emoji-trigger" title="Reagir à mensagem" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
           disabled={reactionBusy} onClick={() => openPanel("emoji")}>
           {reactionBusy ? <Loader2 size={16} className="wai-spin" /> : <SmilePlus size={18} />}
         </button>}
-        <button type="button" title="Mais opções da mensagem" aria-label="Mais opções da mensagem" aria-expanded={panel === "menu"}
+        <button type="button" className="wai-message-dropdown-trigger" title="Mais opções da mensagem" aria-label="Mais opções da mensagem" aria-expanded={panel === "menu"}
           onClick={() => openPanel("menu")}><ChevronDown size={18} /></button>
       </div>
       {panel && portalHost && createPortal(<div ref={popover} className="wai-message-popup wai-message-popup-fixed"
@@ -913,7 +928,7 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
             onClick={() => setAllEmoji(value => !value)}><Plus size={19} /></button>
         </div>}
         {allEmoji && canReact && <div className="wai-message-all-emoji"><EmojiPicker onPick={choose} /></div>}
-        {panel === "menu" && <div className="wai-message-menu-list">
+        {panel === "menu" && !allEmoji && <div className="wai-message-menu-list">
           <button type="button" onClick={() => run(onReply)} disabled={!canReact}><Reply size={17} />Responder</button>
           <button type="button" onClick={() => run(onCopy)} disabled={!message.body}><Copy size={17} />Copiar texto</button>
           <button type="button" onClick={() => run(onStar)} disabled={!live}><Star size={17} fill={starred ? "currentColor" : "none"} />{starred ? "Remover dos favoritos" : "Favoritar"}</button>

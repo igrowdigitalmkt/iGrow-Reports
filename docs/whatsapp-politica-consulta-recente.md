@@ -83,3 +83,22 @@ O número vinculado por QR Code é uma consulta operacional, não um arquivo per
 - Funções destrutivas ou de moderação (apagar para todos, denunciar, fixar em
   todos os dispositivos, encaminhar mídia) não são oferecidas sem suporte seguro
   de ponta a ponta.
+
+## Padrão de interface — referência WhatsApp Web
+
+- Todo o módulo de conversas (lista, mensagens, barra de composição,
+  mídias, menus, informações, reações e navegação entre contas) utiliza os
+  mesmos padrões visuais do WhatsApp Web como referência. Apenas a
+  navegação externa de iGrow conserva a identidade do produto.
+- Tema escuro: superfícies #111b21 / #202c33, fundo de conversa #0b141a,
+  texto #e9edef, ações #00a884 e saída azul #005cdb conforme as capturas
+  de referência. Tema claro acompanha a estrutura da versão oficial.
+- Os horários, vistos e reações nunca podem se sobrepor. As reações
+  múltiplas são agrupadas numa única cápsula após o balão com contagem
+  total. Emojis rápidos e menu contextual aparecem sem deslocar mensagens.
+- A seta do menu deve ficar no próprio balão e o botão de emoji ao lado.
+  Menus se reposicionam para caber na área visível, inclusive em telas
+  pequenas, sem ficar presos ao recorte de rolagem da conversa.
+- Alterações futuras devem reutilizar os mesmos tokens CSS `--wai-*`,
+  espaçamentos, estados hover/focus, superfícies e componentes; não
+  introduzir estilos genéricos do dashboard no módulo do WhatsApp.
