@@ -53,7 +53,8 @@ export class EvolutionClient {
   }
 
   create(name: string, number?: string) {
-    return this.request(`/instance/create`, { method: "POST", body: { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: false, ...(number ? { number } : {}) } });
+    // Required before first linking: WhatsApp only sends the initial full history during bootstrap.
+    return this.request(`/instance/create`, { method: "POST", body: { instanceName: name, integration: "WHATSAPP-BAILEYS", qrcode: false, syncFullHistory: true, ...(number ? { number } : {}) } });
   }
 
   async connect(name: string, number?: string) {

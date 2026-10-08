@@ -43,13 +43,16 @@ export async function POST(request: Request) {
   // Authoritative chat state from Baileys: archive/unarchive and unread count, including initial sync.
   const chatStates = parseQrChatStates(body);
   if (chatStates.length) {
-    // App-state archive mutations usually carry only the group JID. Resolve the subject once so
-    // a historical archived group does not appear in the inbox as an opaque WhatsApp identifier.
-    for (const state of chatStates) {
-      if (!state.title && state.remoteId.endsWith("@g.us")) {
-        const subject = await qrGroupSubject(instance, state.remoteId);
-        if (subject) state.title = subject;
-      }
+    // Initial history can contain hundreds of groups. Never block the archive-state write on
+    // serial group-info requests: Vercel's webhook deadline would otherwise discard the batch.
+    // Small live updates can still resolve a missing group title in parallel.
+    if (chatStates.length <= 2) {
+      await Promise.all(chatStates.map(async state => {
+        if (!state.title && state.remoteId.endsWith("@g.us")) {
+          const subject = await qrGroupSubject(instance, state.remoteId);
+          if (subject) state.title = subject;
+        }
+      }));
     }
     await syncQrChatStates(service, agencyId, chatStates);
     return Response.json({ ok: true, chats: chatStates.length });
