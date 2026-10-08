@@ -288,6 +288,7 @@ export type Database = {
       whatsapp_conversations: Table<WhatsAppConversationRow, never, never>;
       whatsapp_messages: Table<WhatsAppMessageRow, never, { participant_jid?: string | null }>;
       whatsapp_message_reactions: Table<{ agency_id: string; message_id: string; reactor_id: string; emoji: string | null; event_at: string; updated_at: string }, never, never>;
+      whatsapp_message_user_actions: Table<{ agency_id: string; user_id: string; message_id: string; pinned_at: string | null; hidden_at: string | null; updated_at: string }, { agency_id: string; user_id: string; message_id: string; pinned_at?: string | null; hidden_at?: string | null }, { pinned_at?: string | null; hidden_at?: string | null; updated_at?: string }>;
       whatsapp_message_stars: Table<{ agency_id: string; user_id: string; message_id: string; created_at: string }, { agency_id: string; user_id: string; message_id: string; created_at?: string }, never>;
       automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;

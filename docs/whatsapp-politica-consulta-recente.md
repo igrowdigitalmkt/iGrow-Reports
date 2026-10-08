@@ -104,3 +104,22 @@ O número vinculado por QR Code é uma consulta operacional, não um arquivo per
 - Alterações futuras devem reutilizar os mesmos tokens CSS `--wai-*`,
   espaçamentos, estados hover/focus, superfícies e componentes; não
   introduzir estilos genéricos do dashboard no módulo do WhatsApp.
+
+## Menu de mensagem completo (revisão)
+
+- Removido o atributo HTML `title` da seta do balão, evitando o tooltip
+  nativo que encobria o controle. A descrição acessível permanece em `aria-label`.
+- Ordem do menu: dados da mensagem, responder, copiar, encaminhar, fixar,
+  favoritar, selecionar e apagar. Reações rápidas permanecem no topo.
+- **Selecionar** abre checkboxes em todas as mensagens e substitui o compositor
+  pela barra inferior de ações (copiar, favoritar, encaminhar, fixar e apagar).
+- **Encaminhar** abre seletor de destinatário do mesmo número vinculado e só
+  envia após escolher uma conversa. Encaminha o conteúdo como nova mensagem;
+  não simula a marcação nativa `encaminhada`. Textos e mídias permitidas pela
+  API de envio (até 4 MB) são aceitos, com confirmação de conclusão.
+- **Fixar** funciona no iGrow por usuário, até três mensagens por conversa.
+  Não altera as mensagens fixadas no WhatsApp do celular.
+- **Apagar** abre confirmação e oculta as mensagens apenas para o usuário
+  atual **no iGrow**. Não exclui registros compartilhados nem envia uma
+  exclusão destrutiva para o celular. Ações de outros usuários são independentes.
+- Mensagens ocultas deixam de aparecer também na lista de favoritos pessoal.

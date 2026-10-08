@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ con
   const id = z.uuid().safeParse((await params).conversationId);
   if (!id.success) return Response.json({ error: "Conversa inválida." }, { status: 400, headers });
   const context = await requireAgencyContext();
-  return Response.json(await loadThread(context.supabase, context.agency.id, id.data), { headers });
+  return Response.json(await loadThread(context.supabase, context.agency.id, id.data, context.user.id), { headers });
 }
 
 // Marks the conversation as read or toggles the favorite (database functions check access).

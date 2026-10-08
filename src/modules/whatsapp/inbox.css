@@ -489,3 +489,58 @@
 /* Grouped WhatsApp reactions remain neutral regardless of who reacted. */
 .wai-reactions > .wai-reactions-group.is-mine { border-color: var(--wai-line); }
 .wai-demo-loading { display: flex; justify-content: center; align-items: center; color: var(--wai-muted); font-size: 14px; }
+
+/* WhatsApp Web message selection: checkboxes on the left of each row and a
+   bottom action strip, replacing the composer while selection is active. */
+.wai-chat.is-selecting-messages .wai-messages-inner { padding-left: clamp(43px, 6%, 80px); }
+.wai-bubble-row.is-selection-mode { position: relative; min-height: 36px; }
+.wai-bubble-row.is-selection-mode.is-selected::before { content: ""; position: absolute; inset: -2px calc(-1 * clamp(22px, 6vw, 80px)); z-index: 0; background: color-mix(in srgb, var(--wai-text) 7%, transparent); pointer-events: none; }
+.wai-bubble-row.is-selection-mode .wai-bubble-stack { z-index: 1; }
+.wai-select-message-check { position: absolute; left: -36px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; display: grid; place-items: center; z-index: 4; cursor: pointer; }
+.wai-select-message-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--wai-green); cursor: pointer; }
+.wai-message-selection-bar { display: flex; align-items: center; gap: 6px; min-height: 57px; padding: 9px 15px; border-top: 1px solid var(--wai-line); border-bottom: none; background: var(--wai-panel); }
+.wai-message-selection-bar > span { flex: 1; color: var(--wai-text); font-size: 14px; font-weight: 500; }
+.wai-message-selection-bar > button { display: grid; place-items: center; width: 39px; height: 39px; min-width: 39px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--wai-muted); cursor: pointer; }
+.wai-message-selection-bar > button:first-child { margin-right: 7px; }
+.wai-message-selection-bar > button:hover { background: var(--wai-hover); color: var(--wai-text); }
+.wai-message-selection-bar > button:disabled { opacity: .35; cursor: not-allowed; }
+.wai-message-pinned-indicator { display: inline-flex; align-items: center; gap: 4px; align-self: flex-end; padding: 2px 5px; color: var(--wai-muted); font-size: 10px; }
+.wai-pinned-banner { display: flex; align-items: center; gap: 9px; min-height: 45px; padding: 7px 15px; border-bottom: 1px solid var(--wai-line); background: var(--wai-panel); }
+.wai-pinned-banner > svg { flex-shrink: 0; color: var(--wai-green); }
+.wai-pinned-banner > span { display: grid; flex: 1; min-width: 0; gap: 2px; }
+.wai-pinned-banner strong { font-size: 12px; font-weight: 650; }
+.wai-pinned-banner small { overflow: hidden; color: var(--wai-muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.wai-pinned-banner > button { flex-shrink: 0; padding: 5px 9px; border: 0; border-radius: 7px; background: var(--wai-hover); color: var(--wai-text); font-size: 11px; cursor: pointer; }
+.wai-message-menu-list button.is-danger { color: var(--bad); }
+.wai-confirm-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.wai-confirm-actions button { padding: 10px 13px; border: 1px solid var(--wai-line); border-radius: 8px; background: var(--wai-hover); color: var(--wai-text); cursor: pointer; }
+.wai-confirm-actions button.is-danger { border-color: transparent; background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+.wai-forward-dialog { display: flex; flex-direction: column; width: min(460px, 100%); max-height: min(75dvh, 600px); min-height: 245px; }
+.wai-forward-dialog > p { font-size: 13px; line-height: 1.45; }
+.wai-forward-dialog .wai-search { flex-shrink: 0; }
+.wai-forward-destinations { display: grid; align-content: start; flex: 1; min-height: 95px; margin-top: 8px; overflow-y: auto; }
+.wai-forward-destinations button { display: flex; align-items: center; width: 100%; gap: 11px; padding: 8px 7px; border: 0; border-radius: 8px; background: transparent; color: var(--wai-text); text-align: left; cursor: pointer; }
+.wai-forward-destinations button:hover { background: var(--wai-hover); }
+.wai-forward-destinations button > span:not(.wai-avatar) { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.wai-forward-destinations button strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+.wai-forward-destinations button small { color: var(--wai-muted); font-size: 11px; }
+.wai-forward-destinations button > svg { color: var(--wai-green); flex-shrink: 0; }
+@media (max-width: 760px) {
+  .wai-chat.is-selecting-messages .wai-messages-inner { padding-left: 41px; }
+  .wai-select-message-check { left: -30px; }
+  .wai-message-selection-bar { padding-inline: 7px; gap: 0; }
+  .wai-message-selection-bar > button { width: 34px; min-width: 34px; }
+  .wai-message-selection-bar > span { font-size: 12px; }
+}
+
+/* In selection mode, tapping anywhere on the bubble toggles its checkbox;
+   reaction/context controls remain inactive to prevent accidental sends. */
+.wai-bubble-row.is-selection-mode .wai-message-controls { display: none; }
+.wai-bubble-row.is-selection-mode .wai-bubble-stack { cursor: pointer; }
+.wai-bubble-row.is-selection-mode .wai-bubble-stack button,
+.wai-bubble-row.is-selection-mode .wai-bubble-stack a { pointer-events: none; }
+
+.wai-chat-action-error { display: flex; align-items: flex-start; gap: 9px; margin: 0; padding: 9px 14px; border-bottom: 1px solid var(--wai-line); background: var(--bad-bg); color: var(--bad); font-size: 12.5px; }
+.wai-chat-action-error > svg { flex-shrink: 0; }
+.wai-chat-action-error > span { flex: 1; }
+.wai-chat-action-error button { flex-shrink: 0; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }

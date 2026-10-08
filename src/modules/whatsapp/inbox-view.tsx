@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -10,6 +10,7 @@ import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
 import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
+import { canForwardInboxMessage } from "./message-actions";
 import "./inbox.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
@@ -68,6 +69,11 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [replyTarget, setReplyTarget] = useState<InboxMessageItem | null>(null);
   const [messageInfo, setMessageInfo] = useState<InboxMessageItem | null>(null);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [forwardIds, setForwardIds] = useState<string[]>([]);
+  const [forwardQuery, setForwardQuery] = useState("");
+  const [forwardBusy, setForwardBusy] = useState(false);
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
+  const [messageActionBusy, setMessageActionBusy] = useState(false);
   const [reactingId, setReactingId] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -270,7 +276,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setMenuOpen(false);
     setListMenuOpen(false);
     setDetailsOpen(false); setDetails(null);
-    setReplyTarget(null); setMessageInfo(null); setSelectedMessageIds(new Set());
+    setReplyTarget(null); setMessageInfo(null); setSelectedMessageIds(new Set()); setForwardIds([]); setDeleteIds([]);
     setOpenId(id);
     const selected = list?.conversations.find(item => item.id === id);
     if (!demo && selected?.unread) {
@@ -375,6 +381,80 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     const selected = (messages ?? []).filter(message => selectedMessageIds.has(message.id) && !starredIds.has(message.id));
     for (const message of selected) await toggleMessageStar(message);
     setSelectedMessageIds(new Set());
+  }
+
+  async function performLocalMessageAction(action: "pin" | "unpin" | "hide", ids: string[]) {
+    if (!openId || !ids.length || messageActionBusy) return;
+    if (demo) { setActionError("Ações de organização não são salvas na demonstração."); return; }
+    setMessageActionBusy(true); setActionError("");
+    try {
+      const response = await fetch(`/api/whatsapp/inbox/${openId}/messages/actions`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, messageIds: ids }),
+      });
+      const result = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error || "Não foi possível concluir a ação.");
+      setDeleteIds([]);
+      setSelectedMessageIds(new Set());
+      reload(openId);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Falha ao atualizar a mensagem.");
+    } finally { setMessageActionBusy(false); }
+  }
+
+  function startForward(ids: string[]) {
+    if (!ids.length) return;
+    if (demo) { setActionError("O encaminhamento não está disponível na demonstração."); return; }
+    const selected = (messages ?? []).filter(item => ids.includes(item.id));
+    if (selected.some(item => !canForwardInboxMessage(item))) {
+      setActionError("Este tipo de mensagem não pode ser encaminhado pelo iGrow."); return;
+    }
+    if (selected.length > 10) { setActionError("Encaminhe até 10 mensagens por vez."); return; }
+    setActionError("");
+    setForwardIds(selected.map(item => item.id)); setForwardQuery("");
+  }
+
+  async function forwardMessages(targetId: string) {
+    if (!open || !forwardIds.length || forwardBusy || demo) return;
+    const target = list?.conversations.find(item => item.id === targetId && item.channelKey === open.channelKey);
+    if (!target) { setActionError("Escolha um destinatário do mesmo número conectado."); return; }
+    if (channel.kind === "official" && !replyWindow("official", target.lastInboundAt, new Date()).open) {
+      setActionError("A janela de 24 horas deste destinatário está encerrada."); return;
+    }
+    const batch = (messages ?? []).filter(item => forwardIds.includes(item.id));
+    setForwardBusy(true); setActionError("");
+    try {
+      // Each forward is an explicit new outgoing message; the original is never
+      // altered. Media is fetched only after the user confirms a destination.
+      const prepared: FormData[] = [];
+      for (const item of batch) {
+        const form = new FormData();
+        if (item.body) form.append("text", item.body);
+        if (["image","video","audio","document"].includes(item.kind)) {
+          const response = await fetch(`/api/whatsapp/inbox/media/${item.id}`, { cache: "no-store" });
+          if (!response.ok) throw new Error("Não foi possível recuperar a mídia selecionada.");
+          const blob = await response.blob();
+          if (!blob.size || blob.size > MAX_REPLY_FILE_BYTES ||
+            !replyMediaKind(blob.type, channel.kind, item.kind === "document"))
+            throw new Error("Um dos arquivos não pode ser encaminhado (formato ou limite de 4 MB).");
+          form.append("file", new File([blob], item.mediaName || `arquivo-${item.id}`, { type: blob.type }));
+          if (item.kind === "document") form.append("asDocument", "1");
+        } else if (!item.body) throw new Error("Mensagem sem conteúdo encaminhável.");
+        prepared.push(form);
+      }
+      // Avoid flooding WhatsApp. Confirmation is only shown after all sends.
+      let count = 0;
+      for (const form of prepared) {
+        const response = await fetch(`/api/whatsapp/inbox/${targetId}/send`, { method: "POST", body: form });
+        const result = await response.json().catch(() => null) as { error?: string } | null;
+        if (!response.ok) throw new Error(`${count} de ${prepared.length} enviadas. ${result?.error || "O envio foi recusado."}`);
+        count++;
+      }
+      setForwardIds([]); setSelectedMessageIds(new Set());
+      if (targetId === openId) reload(openId);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Não foi possível encaminhar.");
+    } finally { setForwardBusy(false); }
   }
 
   async function markSelectedRead(ids: string[]) {
@@ -503,7 +583,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     </section>
 
     {viewer && <PhotoViewer src={viewer.displaySrc} downloadSrc={viewer.downloadSrc} onClose={() => setViewer(null)} />}
-    <section className={`wai-chat${draft ? " has-draft" : ""}`} aria-label="Conversa">
+    <section className={`wai-chat${draft ? " has-draft" : ""}${selectedMessageIds.size ? " is-selecting-messages" : ""}`} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
         <h3>WhatsApp na iGrow</h3>
@@ -530,11 +610,18 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             </div>
           </div>
         </header>
-        {!!selectedMessageIds.size && <div className="wai-message-selection-bar" role="toolbar" aria-label="Mensagens selecionadas">
-          <span>{selectedMessageIds.size} mensagem(ns) selecionada(s)</span>
-          <button type="button" onClick={() => void copySelectedMessages()}><Copy size={15} />Copiar textos</button>
-          <button type="button" onClick={() => void favoriteSelectedMessages()}><Star size={15} />Favoritar</button>
-          <button type="button" onClick={() => setSelectedMessageIds(new Set())} title="Cancelar seleção"><X size={17} /></button>
+        {actionError && !forwardIds.length && !deleteIds.length && <div className="wai-chat-action-error" role="alert">
+          <AlertCircle size={16} /><span>{actionError}</span>
+          <button type="button" onClick={() => setActionError("")} aria-label="Fechar aviso"><X size={17} /></button>
+        </div>}
+        {!!messages?.some(message => message.pinned) && !selectedMessageIds.size && <div className="wai-pinned-banner" aria-label="Mensagens fixadas no iGrow">
+          <Pin size={16} />
+          <span><strong>Fixadas no iGrow</strong><small>{messages.filter(item => item.pinned).map(item => item.body?.slice(0, 35) || kindLabel(item.kind)).join(" · ")}</small></span>
+          {messages.filter(item => item.pinned).slice(0, 3).map(item =>
+            <button key={item.id} type="button" title={item.body?.slice(0, 45) || kindLabel(item.kind)}
+              onClick={() => document.getElementById(`wai-msg-${item.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+              {clockTime(item.sentAt)}
+            </button>)}
         </div>}
         <div className="wai-messages">
           <div className="wai-messages-inner">
@@ -547,7 +634,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                 {newDay && <p className="wai-day"><span>{dayLabel(message.sentAt, now)}</span></p>}
                 <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped}
                   live={!demo && !message.id.startsWith("local-")} canReact={canReply && reactingId === null} reactionBusy={reactingId === message.id}
-                  selected={selectedMessageIds.has(message.id)}
+                  selected={selectedMessageIds.has(message.id)} selectMode={selectedMessageIds.size > 0}
                   starred={starredIds.has(message.id)}
                   onReply={() => { setReplyTarget(message); setSelectedMessageIds(new Set()); }}
                   onReact={emoji => void reactTo(message, emoji)}
@@ -555,15 +642,61 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                   onInfo={() => setMessageInfo(message)}
                   onSelect={() => toggleSelectedMessage(message.id)}
                   onStar={() => void toggleMessageStar(message)}
+                  onForward={() => startForward([message.id])}
+                  onPin={() => void performLocalMessageAction(message.pinned ? "unpin" : "pin", [message.id])}
+                  onDelete={() => setDeleteIds([message.id])}
                   onView={(displaySrc, downloadSrc) => setViewer({ displaySrc, downloadSrc })} />
               </Fragment>;
             })}
             <div ref={bottom} />
           </div>
         </div>
-        <Composer key={open.id} conversation={open} kind={channel.kind} now={now} demo={demo} canReply={canReply}
+        {!!selectedMessageIds.size ? <div className="wai-message-selection-bar" role="toolbar" aria-label="Mensagens selecionadas">
+          <button type="button" onClick={() => setSelectedMessageIds(new Set())} aria-label="Cancelar seleção"><X size={21} /></button>
+          <span>{selectedMessageIds.size} {selectedMessageIds.size === 1 ? "selecionada" : "selecionadas"}</span>
+          <button type="button" onClick={() => void copySelectedMessages()} aria-label="Copiar mensagens" title="Copiar"><Copy size={20} /></button>
+          <button type="button" onClick={() => void favoriteSelectedMessages()} aria-label="Favoritar mensagens" title="Favoritar"><Star size={20} /></button>
+          <button type="button" onClick={() => startForward([...selectedMessageIds])} aria-label="Encaminhar mensagens" title="Encaminhar"><Forward size={20} /></button>
+          <button type="button" disabled={messageActionBusy} onClick={() => void performLocalMessageAction("pin", [...selectedMessageIds])} aria-label="Fixar mensagens" title="Fixar no iGrow"><Pin size={20} /></button>
+          <button type="button" onClick={() => setDeleteIds([...selectedMessageIds])} aria-label="Apagar mensagens" title="Apagar"><Trash2 size={20} /></button>
+        </div> : <Composer key={open.id} conversation={open} kind={channel.kind} now={now} demo={demo} canReply={canReply}
           replyTarget={replyTarget} onClearReply={() => setReplyTarget(null)}
-          onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { setReplyTarget(null); if (!demo) reload(open.id); }} />
+          onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { setReplyTarget(null); if (!demo) reload(open.id); }} />}
+        {!!deleteIds.length && <div className="wai-message-info-backdrop" role="presentation" onClick={() => setDeleteIds([])}>
+          <section className="wai-message-info" role="dialog" aria-modal="true" aria-label="Apagar mensagens" onClick={event => event.stopPropagation()}>
+            <header><strong>Apagar {deleteIds.length} {deleteIds.length === 1 ? "mensagem" : "mensagens"}?</strong>
+              <button type="button" className="wai-icon-button" onClick={() => setDeleteIds([])} aria-label="Cancelar"><X size={19} /></button></header>
+            <p>A mensagem será ocultada <strong>somente para você no iGrow</strong>. Ela continuará no WhatsApp do celular e na visualização de outras pessoas.</p>
+            {actionError && <p role="alert" className="wai-composer-error"><AlertCircle size={15} />{actionError}</p>}
+            <div className="wai-confirm-actions">
+              <button type="button" onClick={() => setDeleteIds([])}>Cancelar</button>
+              <button type="button" className="is-danger" disabled={messageActionBusy}
+                onClick={() => void performLocalMessageAction("hide", deleteIds)}>Apagar para mim no iGrow</button>
+            </div>
+          </section>
+        </div>}
+        {!!forwardIds.length && <div className="wai-message-info-backdrop" role="presentation" onClick={() => { if (!forwardBusy) setForwardIds([]); }}>
+          <section className="wai-message-info wai-forward-dialog" role="dialog" aria-modal="true" aria-label="Encaminhar mensagens"
+            onClick={event => event.stopPropagation()}>
+            <header><strong>Encaminhar {forwardIds.length} {forwardIds.length === 1 ? "mensagem" : "mensagens"}</strong>
+              <button type="button" className="wai-icon-button" disabled={forwardBusy} onClick={() => setForwardIds([])} aria-label="Fechar"><X size={20} /></button></header>
+            <p>Selecione a conversa que receberá uma cópia da mensagem. O WhatsApp fará o envio pelo número conectado.</p>
+            <label className="wai-search"><Search size={16} /><input autoFocus value={forwardQuery} onChange={event => setForwardQuery(event.target.value)}
+              placeholder="Buscar conversa para encaminhar" aria-label="Buscar destinatário" /></label>
+            <div className="wai-forward-destinations">
+              {(list?.conversations ?? []).filter(item => item.channelKey === open.channelKey &&
+                (!forwardQuery || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(forwardQuery.toLocaleLowerCase("pt-BR"))))
+                .slice(0, 80).map(item =>
+                  <button type="button" key={item.id} disabled={forwardBusy}
+                    onClick={() => void forwardMessages(item.id)}>
+                    <Avatar item={item} size={35} photo={false} />
+                    <span><strong>{conversationTitle(item)}</strong><small>{formatWhatsAppPhone(item.remoteId)}</small></span>
+                    <SendHorizontal size={16} /></button>)}
+            </div>
+            {actionError && <p role="alert" className="wai-composer-error"><AlertCircle size={15} />{actionError}</p>}
+            {forwardBusy && <p role="status">Enviando mensagens…</p>}
+          </section>
+        </div>}
         {messageInfo && <div className="wai-message-info-backdrop" role="presentation" onClick={() => setMessageInfo(null)}>
           <section className="wai-message-info" role="dialog" aria-modal="true" aria-label="Dados da mensagem" onClick={event => event.stopPropagation()}>
             <header><strong>Dados da mensagem</strong><button type="button" className="wai-icon-button" onClick={() => setMessageInfo(null)} aria-label="Fechar"><X size={20} /></button></header>
@@ -810,12 +943,13 @@ function AudioPlayer({ src, out }: { src: string; out: boolean }) {
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"] as const;
 
 /** WhatsApp-like message actions: emoji on hover and dropdown for contextual actions. */
-function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selected, starred,
-  onStar, onReact, onCopy, onReply, onSelect, onInfo, onView }: {
+function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selected, selectMode, starred,
+  onStar, onReact, onCopy, onReply, onSelect, onInfo, onForward, onPin, onDelete, onView }: {
   message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean;
-  canReact: boolean; reactionBusy: boolean; selected: boolean; starred: boolean;
+  canReact: boolean; reactionBusy: boolean; selected: boolean; selectMode: boolean; starred: boolean;
   onStar: () => void; onReact: (emoji: string) => void; onCopy: () => void;
   onReply: () => void; onSelect: () => void; onInfo: () => void;
+  onForward: () => void; onPin: () => void; onDelete: () => void;
   onView: (displaySrc: string, downloadSrc: string) => void;
 }) {
   const out = message.direction === "out";
@@ -877,7 +1011,14 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
   const shownLive = live && (message.kind === "image" || message.kind === "sticker" || message.kind === "video" || message.kind === "audio");
   const Icon = shownLive ? undefined : KIND_ICONS[message.kind];
 
-  return <div className={`wai-bubble-row ${out ? "is-out" : "is-in"}${message.reactions?.length ? " has-reactions" : ""}${selected ? " is-selected" : ""}`}>
+  return <div className={`wai-bubble-row ${out ? "is-out" : "is-in"}${message.reactions?.length ? " has-reactions" : ""}${selected ? " is-selected" : ""}${selectMode ? " is-selection-mode" : ""}`}
+    onClickCapture={selectMode ? event => {
+      if ((event.target as HTMLElement).closest("label, input")) return;
+      event.preventDefault(); event.stopPropagation(); onSelect();
+    } : undefined}>
+    {selectMode && <label className="wai-select-message-check" aria-label="Selecionar mensagem">
+      <input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Selecionar mensagem das ${clockTime(message.sentAt)}`} />
+    </label>}
     <div className="wai-bubble-stack" ref={wrapper}>
       <div className={`wai-bubble${tail ? " has-tail" : ""}`} id={`wai-msg-${message.id}`}>
         {showAuthor && message.author && <span className="wai-author" style={{ color: colorFor(message.author) }}>{message.author}</span>}
@@ -898,6 +1039,7 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         {message.body && message.kind !== "contact" && message.kind !== "location" && <p className="wai-text"><WhatsAppText text={message.body} />{meta}</p>}
         {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
       </div>
+      {message.pinned && <span className="wai-message-pinned-indicator" title="Fixada no iGrow"><Pin size={12} />Fixada</span>}
       {/* Badge in the document flow AFTER the bubble: never covers timestamp or checkmarks. */}
       {!!message.reactions?.length && <div className="wai-reactions">
         <span className={`wai-reactions-group${message.reactions.some(item => item.mine) ? " is-mine" : ""}`}
@@ -909,11 +1051,11 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         </span>
       </div>}
       <div className="wai-message-controls">
-        {canReact && <button type="button" className="wai-message-emoji-trigger" title="Reagir à mensagem" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
+        {canReact && <button type="button" className="wai-message-emoji-trigger" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
           disabled={reactionBusy} onClick={() => openPanel("emoji")}>
           {reactionBusy ? <Loader2 size={16} className="wai-spin" /> : <SmilePlus size={18} />}
         </button>}
-        <button type="button" className="wai-message-dropdown-trigger" title="Mais opções da mensagem" aria-label="Mais opções da mensagem" aria-expanded={panel === "menu"}
+        <button type="button" className="wai-message-dropdown-trigger" aria-label="Mais opções da mensagem" aria-expanded={panel === "menu"}
           onClick={() => openPanel("menu")}><ChevronDown size={18} /></button>
       </div>
       {panel && portalHost && createPortal(<div ref={popover} className="wai-message-popup wai-message-popup-fixed"
@@ -929,11 +1071,14 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         </div>}
         {allEmoji && canReact && <div className="wai-message-all-emoji"><EmojiPicker onPick={choose} /></div>}
         {panel === "menu" && !allEmoji && <div className="wai-message-menu-list">
+          <button type="button" onClick={() => run(onInfo)}><Info size={17} />Dados da mensagem</button>
           <button type="button" onClick={() => run(onReply)} disabled={!canReact}><Reply size={17} />Responder</button>
-          <button type="button" onClick={() => run(onCopy)} disabled={!message.body}><Copy size={17} />Copiar texto</button>
+          <button type="button" onClick={() => run(onCopy)} disabled={!message.body}><Copy size={17} />Copiar</button>
+          <button type="button" onClick={() => run(onForward)} disabled={!live}><Forward size={17} />Encaminhar</button>
+          <button type="button" onClick={() => run(onPin)} disabled={!live}>{message.pinned ? <PinOff size={17} /> : <Pin size={17} />}{message.pinned ? "Desafixar" : "Fixar"}</button>
           <button type="button" onClick={() => run(onStar)} disabled={!live}><Star size={17} fill={starred ? "currentColor" : "none"} />{starred ? "Remover dos favoritos" : "Favoritar"}</button>
           <button type="button" onClick={() => run(onSelect)}><CheckSquare size={17} />{selected ? "Desmarcar" : "Selecionar"}</button>
-          <button type="button" onClick={() => run(onInfo)}><Info size={17} />Dados da mensagem</button>
+          <button type="button" onClick={() => run(onDelete)} disabled={!live} className="is-danger"><Trash2 size={17} />Apagar</button>
         </div>}
       </div>, portalHost)}
     </div>
