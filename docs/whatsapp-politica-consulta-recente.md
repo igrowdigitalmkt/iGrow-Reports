@@ -44,3 +44,19 @@ O número vinculado por QR Code é uma consulta operacional, não um arquivo per
   automaticamente quando a respectiva mensagem sai do histórico.
 - Criar comunidades, grupos e editar contatos do telefone não fazem parte do
   módulo de apoio.
+
+## Reações às mensagens
+
+- Reações de WhatsApp QR e números da API oficial são aplicadas como estado da
+  **mensagem original**, sem nova linha de conversa, notificação de não lida ou
+  alteração da prévia da conversa.
+- Vários participantes podem reagir com o mesmo emoji; exibe contagem agregada.
+  Uma pessoa pode substituir ou remover sua reação, inclusive quando a alteração
+  chega fora de ordem.
+- Apenas mensagens ainda disponíveis no histórico operacional recebem reações.
+  Dados de reações são removidos automaticamente quando a mensagem original
+  é excluída pelo limite de retenção ou desvinculação.
+- Reações que foram importadas anteriormente sem referência à mensagem de
+  destino não podem ser reassociadas com segurança; não se tenta adivinhar.
+- A tela exibe as reações sincronizadas. Enviar uma reação pelo iGrow não está
+  incluído nesta etapa de correção.

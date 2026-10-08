@@ -286,6 +286,7 @@ export type Database = {
       whatsapp_qr_peer_links: Table<{ agency_id: string; lid: string; phone: string; session_epoch: string; created_at: string }, never, never>;
       whatsapp_conversations: Table<WhatsAppConversationRow, never, never>;
       whatsapp_messages: Table<WhatsAppMessageRow, never, never>;
+      whatsapp_message_reactions: Table<{ agency_id: string; message_id: string; reactor_id: string; emoji: string | null; event_at: string; updated_at: string }, never, never>;
       whatsapp_message_stars: Table<{ agency_id: string; user_id: string; message_id: string; created_at: string }, { agency_id: string; user_id: string; message_id: string; created_at?: string }, never>;
       automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
@@ -390,6 +391,7 @@ export type Database = {
       mark_whatsapp_read_by_message: { Args: { p_agency_id: string; p_external_id: string }; Returns: number };
       sync_whatsapp_qr_chat_states: { Args: { p_agency_id: string; p_states: Json }; Returns: number };
       bind_whatsapp_qr_peer_links: { Args: { p_agency_id: string; p_pairs: Json }; Returns: number };
+      record_whatsapp_message_reaction: { Args: { p_agency_id: string; p_connection_id: string | null; p_remote_id: string; p_target_external_id: string; p_reactor_id: string; p_emoji: string; p_at: string }; Returns: boolean };
       begin_whatsapp_qr_reset: { Args: { p_agency_id: string }; Returns: undefined };
       clear_whatsapp_qr_history_batch: { Args: { p_agency_id: string; p_batch_size: number }; Returns: number };
       resume_whatsapp_qr_after_reset: { Args: { p_agency_id: string }; Returns: undefined };

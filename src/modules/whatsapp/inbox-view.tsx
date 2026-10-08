@@ -722,7 +722,7 @@ function Bubble({ message, tail, showAuthor, live, starred, onStar, onView }: {
   const src = `/api/whatsapp/inbox/media/${message.id}`;
   const shownLive = live && (message.kind === "image" || message.kind === "sticker" || message.kind === "video" || message.kind === "audio");
   const Icon = shownLive ? undefined : KIND_ICONS[message.kind];
-  return <div className={`wai-bubble-row ${out ? "is-out" : "is-in"}`}>
+  return <div className={`wai-bubble-row ${out ? "is-out" : "is-in"}${message.reactions?.length ? " has-reactions" : ""}`}>
     <div className={`wai-bubble${tail ? " has-tail" : ""}${message.kind === "reaction" ? " is-reaction" : ""}`} id={`wai-msg-${message.id}`}>
       {live && <button type="button" className={`wai-bubble-star${starred ? " is-starred" : ""}`} aria-pressed={starred} title={starred ? "Remover mensagem dos favoritos" : "Favoritar mensagem"} onClick={onStar}><Star size={15} fill={starred ? "currentColor" : "none"} /></button>}
       {showAuthor && message.author && <span className="wai-author" style={{ color: colorFor(message.author) }}>{message.author}</span>}
@@ -742,6 +742,12 @@ function Bubble({ message, tail, showAuthor, live, starred, onStar, onView }: {
       {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
       {message.body && message.kind !== "contact" && message.kind !== "location" && <p className="wai-text"><WhatsAppText text={message.body} />{meta}</p>}
       {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
+      {!!message.reactions?.length && <div className="wai-reactions" aria-label="Reações nesta mensagem">
+        {message.reactions.map(item => <span key={item.emoji} className={item.mine ? "is-mine" : undefined}
+          title={`${item.count} reação(ões) com ${item.emoji}`}>
+          {item.emoji}{item.count > 1 && <small>{item.count}</small>}
+        </span>)}
+      </div>}
     </div>
   </div>;
 }

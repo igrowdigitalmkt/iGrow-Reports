@@ -65,7 +65,8 @@ export function describeBaileysContent(message: BaileysContent | undefined): Pic
   if (message.stickerMessage) return { kind: "sticker", body: null, mediaName: null, mediaMime: null };
   if (message.locationMessage || message.liveLocationMessage) return { kind: "location", body: text(message.locationMessage?.name) ?? text(message.locationMessage?.address), mediaName: null, mediaMime: null };
   if (message.contactMessage || message.contactsArrayMessage) return { kind: "contact", body: text(message.contactMessage?.displayName) ?? text(message.contactsArrayMessage?.displayName), mediaName: null, mediaMime: null };
-  if (message.reactionMessage) return text(message.reactionMessage.text) ? { kind: "reaction", body: text(message.reactionMessage.text), mediaName: null, mediaMime: null } : null;
+  // Reactions are linked to their target, never a new chat bubble.
+  if (message.reactionMessage) return null;
   const answer = text(message.buttonsResponseMessage?.selectedDisplayText) ?? text(message.listResponseMessage?.title);
   if (answer) return { kind: "text", body: answer, mediaName: null, mediaMime: null };
   const poll = text(message.pollCreationMessage?.name) ?? text(message.pollCreationMessageV3?.name);
@@ -168,7 +169,7 @@ function describeCloudMessage(message: CloudMessage): Pick<InboxMessage, "kind" 
     case "sticker": return { kind: "sticker", body: null, mediaName: null, mediaMime: null };
     case "location": return { kind: "location", body: text(message.location?.name) ?? text(message.location?.address), mediaName: null, mediaMime: null };
     case "contacts": return { kind: "contact", body: text(message.contacts?.[0]?.name?.formatted_name), mediaName: null, mediaMime: null };
-    case "reaction": return text(message.reaction?.emoji) ? { kind: "reaction", body: text(message.reaction?.emoji), mediaName: null, mediaMime: null } : null;
+    case "reaction": return null;
     case "button": return { kind: "text", body: text(message.button?.text), mediaName: null, mediaMime: null };
     case "interactive": return { kind: "text", body: text(message.interactive?.button_reply?.title) ?? text(message.interactive?.list_reply?.title), mediaName: null, mediaMime: null };
     case "unsupported": case "system": case undefined: return null;

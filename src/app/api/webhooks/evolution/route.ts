@@ -1,7 +1,8 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { parseEvolutionMessage, parseEvolutionRecentHistory } from "@/modules/whatsapp/inbox-parse";
+import { parseEvolutionReaction } from "@/modules/whatsapp/inbox-reactions";
 import { isRecentQrMessage } from "@/modules/whatsapp/recent-policy";
-import { recordInboxMessage, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
+import { recordInboxMessage, recordInboxReaction, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
 import { bindQrPeerLinks, canonicalQrPeers, qrPeerLinks } from "@/modules/whatsapp-qr/peer-identity";
 import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
@@ -83,6 +84,23 @@ export async function POST(request: Request) {
       imported += batch.filter(result => result?.inserted === true).length;
     }
     return Response.json({ ok: true, imported, received: history.length });
+  }
+
+  // Reactions are mutations of existing messages, never separate messages.
+  // Keep the conversation unread count, last message and automation flow intact.
+  const reaction = parseEvolutionReaction(body);
+  if (reaction) {
+    if (isRecentQrMessage(reaction.at) && (!guard || Date.parse(reaction.at) >= Date.parse(guard.fresh_after))) {
+      const peers = await canonicalQrPeers(service, agencyId, guard?.fresh_after, [reaction.remoteId]);
+      reaction.remoteId = peers.get(reaction.remoteId) ?? reaction.remoteId;
+      try {
+        const applied = await recordInboxReaction(service, { agencyId, connectionId: null, reaction });
+        return Response.json({ ok: true, reaction: applied ? "updated" : "target_not_in_recent_inbox" });
+      } catch {
+        return Response.json({ error: "Não foi possível salvar a reação." }, { status: 503 });
+      }
+    }
+    return Response.json({ ok: true, ignored: "reaction_outside_recent_window" });
   }
 
   const receipt = parseMessageReceipt(body);

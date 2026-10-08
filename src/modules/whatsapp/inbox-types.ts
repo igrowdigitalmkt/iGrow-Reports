@@ -16,6 +16,7 @@ export type InboxConversation = {
 export type InboxMessageItem = {
   id: string; direction: "in" | "out"; kind: string; body: string | null; mediaName: string | null; mediaMime: string | null;
   author: string | null; status: InboxStatus; sentAt: string;
+  reactions?: Array<{ emoji: string; count: number; mine: boolean }>;
 };
 
 /** Recipient registered for a client, offered when starting a conversation. */

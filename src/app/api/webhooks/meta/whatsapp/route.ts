@@ -1,7 +1,8 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { parseStatusEvents, validWebhookSignature } from "@/modules/whatsapp/webhook";
 import { parseCloudMessages } from "@/modules/whatsapp/inbox-parse";
-import { recordInboxMessage, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
+import { parseCloudReactions } from "@/modules/whatsapp/inbox-reactions";
+import { recordInboxMessage, recordInboxReaction, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { whatsAppAppSecret } from "@/modules/whatsapp/server";
 import { isOptOutText } from "@/modules/whatsapp-qr/opt-out";
 import type { Json } from "@/types/database";
@@ -52,6 +53,21 @@ export async function POST(request: Request) {
     await recordInboxMessage(service, { agencyId: number.agencyId, connectionId: number.id, message });
     if (message.direction === "in" && message.kind === "text" && message.body && isOptOutText(message.body)) {
       await service.rpc("service_recipient_opt_out", { p_agency_id: number.agencyId, p_phone: `+${message.remoteId}`, p_source: "Resposta de descadastro no WhatsApp (API oficial)" });
+    }
+  }
+  // Cloud API reactions (including WhatsApp Business coexistence echoes) also
+  // modify their original message, not the conversation preview/unread badge.
+  for (const reaction of parseCloudReactions(payload)) {
+    if (!numbers.has(reaction.phoneNumberId)) {
+      const { data } = await service.from("whatsapp_connections").select("id,agency_id").eq("phone_number_id", reaction.phoneNumberId).maybeSingle();
+      numbers.set(reaction.phoneNumberId, data ? { id: data.id ?? null, agencyId: data.agency_id } : null);
+    }
+    const number = numbers.get(reaction.phoneNumberId);
+    if (!number?.id) continue;
+    try {
+      await recordInboxReaction(service, { agencyId: number.agencyId, connectionId: number.id, reaction });
+    } catch {
+      return new Response("Retry", { status: 503 });
     }
   }
   return new Response("OK", { status: 200 });

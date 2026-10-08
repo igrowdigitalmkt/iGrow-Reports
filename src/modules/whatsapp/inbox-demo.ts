@@ -34,7 +34,7 @@ export const demoInboxThreads: Record<string, InboxMessageItem[]> = {
     message("m3", "in", 60 * 24 * 2, "Olá! Bom dia, Silvio. Tudo bem?!\n\nVocê consegue me enviar as logos em png da Crescer? A que eu tenho é de print e às vezes não tem uma qualidade boa."),
     message("m4", "out", 60 * 24 * 2 - 2, null, { kind: "audio" }),
     message("m5", "in", 60 * 24 * 2 - 3, "Show! Tá bom, vou ficar no aguardo 😌🙏"),
-    message("m6", "in", 36, "Oiê! Bom dia!!!!\nNão esqueceeee 🙏"),
+    message("m6", "in", 36, "Oiê! Bom dia!!!!\nNão esqueceeee 🙏", { reactions: [{ emoji: "❤️", count: 2, mine: true }, { emoji: "👍", count: 1, mine: false }] }),
   ],
   d2: [
     message("g1", "out", 60 * 3, "Bom dia, pessoal! Segue o *resumo da semana* do Colégio Crescer:\n\n💰 *Investimento:* R$ 727,43\n👀 *Alcance:* 50.836 pessoas\n🎯 *Resultados:* 14 cadastros concluídos\n\n_Para não receber mais estas mensagens, responda PARAR._"),

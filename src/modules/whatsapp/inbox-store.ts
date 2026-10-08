@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/types/database";
 import type { InboxMessage } from "./inbox-parse";
+import type { InboxReactionEvent } from "./inbox-reactions";
 
 type Service = SupabaseClient<Database>;
 
@@ -41,6 +42,23 @@ export async function recordInboxMessage(service: Service, input: {
     if (subject) await service.rpc("set_whatsapp_conversation_title", { p_conversation_id: row.conversation_id, p_title: subject });
   }
   return row ?? null;
+}
+
+/** Apply one reaction to its original saved message, without altering unread/preview. */
+export async function recordInboxReaction(service: Service, input: {
+  agencyId: string; connectionId: string | null; reaction: InboxReactionEvent;
+}): Promise<boolean> {
+  const { agencyId, connectionId, reaction } = input;
+  const { data, error } = await service.rpc("record_whatsapp_message_reaction", {
+    p_agency_id: agencyId, p_connection_id: connectionId, p_remote_id: reaction.remoteId,
+    p_target_external_id: reaction.targetExternalId, p_reactor_id: reaction.reactorId,
+    p_emoji: reaction.emoji, p_at: reaction.at,
+  });
+  if (error) {
+    console.error("whatsapp-reaction-record", { code: error.code });
+    throw new Error("Falha ao salvar reação do WhatsApp.");
+  }
+  return data === true;
 }
 
 /** Delivery/read of a message sent by the number (no-op before migration 202610070011). */

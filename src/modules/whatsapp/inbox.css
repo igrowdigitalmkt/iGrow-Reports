@@ -305,3 +305,10 @@
 .wai-details-file strong { font-weight: 500; overflow-wrap: anywhere; }
 .wai-details-file small { color: var(--wai-muted); font-size: 12px; }
 @media (max-width: 760px) { .wai-details { width: 100%; } }
+
+/* Emoji reactions belong to the message bubble. They do not add another chat line. */
+.wai-bubble-row.has-reactions { margin-bottom: 21px; }
+.wai-reactions { position: absolute; z-index: 2; bottom: -15px; right: 8px; display: flex; flex-wrap: wrap; gap: 3px; max-width: min(100%, 300px); }
+.wai-reactions span { display: inline-flex; align-items: center; gap: 3px; min-height: 23px; padding: 1px 6px; border: 1px solid var(--wai-line); border-radius: 999px; background: var(--wai-panel); font-size: 15px; box-shadow: 0 2px 4px color-mix(in srgb, #000 9%, transparent); }
+.wai-reactions span.is-mine { border-color: var(--wai-blue); }
+.wai-reactions small { color: var(--wai-muted); font-size: 11px; }
