@@ -166,7 +166,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       </header>
       {picking ? <NewChat contacts={contacts} onPick={startWith} onClose={() => setPicking(false)} /> : showArchived ? <>
       <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setShowArchived(false)} aria-label="Voltar para as conversas"><ArrowLeft size={20} /></button><strong>Arquivadas</strong></div>
-      <p className="wai-new-note">As conversas arquivadas aqui também ficam arquivadas no celular. As arquivadas só pelo celular não aparecem nesta lista, porque o WhatsApp não avisa esse arquivamento à plataforma.</p>
+      <p className="wai-new-note">As conversas arquivadas no celular também aparecem aqui após a sincronização do WhatsApp. Alterações podem levar alguns instantes para atualizar.</p>
       <div className="wai-rows">
         {!inChannel.length && <p className="wai-list-note">Nenhuma conversa arquivada.</p>}
         {inChannel.map(item => <ConversationRow key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} onOpen={() => choose(item.id)} />)}

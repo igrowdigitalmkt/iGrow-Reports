@@ -22,13 +22,27 @@ async function clientNames(supabase: Client, agencyId: string, ids: Array<string
   return new Map((data ?? []).map(client => [client.id, client.name]));
 }
 
-/** Most recent conversations of every number, under the member's own access rules (RLS). */
+/**
+ * Load every conversation, including old archived chats with no recent message.
+ * PostgREST applies a server-side page limit (typically 1,000); using one .limit(400)
+ * silently hid older archived chats after the first full WhatsApp history sync.
+ */
 export async function loadInbox(supabase: Client, agencyId: string): Promise<InboxList> {
-  const { data, error } = await supabase.from("whatsapp_conversations").select("*").eq("agency_id", agencyId)
-    .order("last_message_at", { ascending: false, nullsFirst: false }).limit(400);
-  if (error || !data) return { ready: false, conversations: [] };
-  const names = await clientNames(supabase, agencyId, data.map(row => row.client_id));
-  return { ready: true, conversations: data.map(row => toConversation(row, names)) };
+  const pageSize = 1000;
+  const maxPages = 10;
+  const rows: WhatsAppConversationRow[] = [];
+  for (let page = 0; page < maxPages; page++) {
+    const start = page * pageSize;
+    const { data, error } = await supabase.from("whatsapp_conversations").select("*").eq("agency_id", agencyId)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: false })
+      .range(start, start + pageSize - 1);
+    if (error || !data) return { ready: false, conversations: [] };
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+  const names = await clientNames(supabase, agencyId, rows.map(row => row.client_id));
+  return { ready: true, conversations: rows.map(row => toConversation(row, names)) };
 }
 
 /** One conversation with its latest messages, oldest first. */
