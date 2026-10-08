@@ -44,6 +44,16 @@ export async function recordInboxMessage(service: Service, input: {
       .eq("external_id", message.externalId).is("participant_jid", null);
     if (identityError) console.error("whatsapp-group-participant", { code: identityError.code });
   }
+  // Reply text is stored only on the source message, within this agency/chat.
+  // The original WhatsApp message ID is never treated as a new bubble.
+  if (row?.conversation_id && message.quote?.externalId) {
+    const { error: quoteError } = await service.from("whatsapp_messages").update({
+      quoted_external_id: message.quote.externalId,
+      quoted_preview: message.quote.preview,
+    }).eq("agency_id", input.agencyId).eq("conversation_id", row.conversation_id)
+      .eq("external_id", message.externalId);
+    if (quoteError) console.error("whatsapp-message-quote", { code: quoteError.code });
+  }
   // QR Code files are fetched later by their reference (no-op before migration 202610070013).
   if (message.mediaRef) await service.rpc("set_whatsapp_message_media_ref", { p_agency_id: input.agencyId, p_external_id: message.externalId, p_media_ref: message.mediaRef as unknown as Json }).then(() => undefined, () => undefined);
   // A group seen for the first time gets its name from the session.
