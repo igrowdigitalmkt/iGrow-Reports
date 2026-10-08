@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { MessageSender } from "@/modules/automations/sender";
 import { EvolutionClient, EvolutionError, evolutionConfig, type EvolutionGroup } from "./evolution";
 import { formatJidPhone, instanceNameFor, normalizePairingPhone } from "./format";
+import { blockQrInbox, clearBlockedQrInbox, clearOrphanedQrInbox } from "./session-lifecycle";
 
 export type QrStatus =
   | { configured: false }
@@ -37,6 +38,7 @@ export async function getQrStatus(agencyId: string): Promise<QrStatus> {
   if (!evolution) return { configured: false };
   const name = instanceNameFor(agencyId);
   const state = await evolution.state(name);
+  if (state === null) await clearOrphanedQrInbox(agencyId);
   if (state === "open") {
     const instance = await evolution.instance(name);
     return { configured: true, state: "connected", phone: formatJidPhone(instance?.ownerJid ?? null), name: instance?.profileName ?? null, picture: instance?.profilePicUrl ?? null };
@@ -53,9 +55,15 @@ export async function startQrConnection(agencyId: string, phone?: string) {
   if (phone && !number) throw new EvolutionError("Informe o número com DDD, por exemplo (86) 99999-9999.");
   const state = await evolution.state(name);
   if (state === "open") return { connected: true as const };
-  // A pairing code is only issued to a fresh session created with the number.
-  if (state !== null && number) { await evolution.remove(name).catch(() => undefined); }
-  if (state === null || number) await evolution.create(name, number);
+  // A fresh pairing, including replacing a closed session, never reuses old
+  // customer messages. The 30-second refresh of an in-progress QR is harmless.
+  const fresh = state === null || state === "close" || (state === "connecting" && !!number);
+  if (fresh) {
+    await blockQrInbox(agencyId);
+    if (state !== null) await resetQrSession(agencyId);
+    await clearBlockedQrInbox(agencyId);
+    await evolution.create(name, number);
+  }
   const origin = appOrigin();
   const token = webhookToken(name);
   if (origin && token) await evolution.setWebhook(name, `${origin}/api/webhooks/evolution`, token).catch(() => undefined);
@@ -84,14 +92,6 @@ export async function qrGroupSubject(instance: string, groupJid: string) {
   const evolution = client();
   if (!evolution) return null;
   return evolution.groupSubject(instance, groupJid).catch(() => null);
-}
-
-export async function disconnectQr(agencyId: string) {
-  const evolution = client();
-  if (!evolution) return;
-  const name = instanceNameFor(agencyId);
-  await evolution.logout(name).catch(() => undefined);
-  await evolution.remove(name).catch(() => undefined);
 }
 
 /** Strict reset: never delete local messages until the Evolution instance is gone. */

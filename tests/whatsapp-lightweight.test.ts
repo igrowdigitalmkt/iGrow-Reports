@@ -24,5 +24,7 @@ describe("WhatsApp leve", () => {
     expect(config.events).toContain("MESSAGES_UPSERT");
     expect(config.events).not.toContain("MESSAGES_SET");
     expect(config.events).not.toContain("CHATS_SET");
+    expect(config.events).not.toContain("CHATS_UPSERT");
+    expect(config.events).toContain("CONNECTION_UPDATE");
   });
 });

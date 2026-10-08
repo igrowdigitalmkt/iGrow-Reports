@@ -8,6 +8,7 @@ describe("Proteção contra importação histórica via upsert", () => {
   });
   it("recusa mensagens antigas do replay e datas inválidas", () => {
     expect(isRecentQrMessage("2026-01-01T00:00:00Z", now)).toBe(false);
+    expect(isRecentQrMessage("2026-09-30T00:00:00Z", now)).toBe(false);
     expect(isRecentQrMessage("invalid", now)).toBe(false);
     expect(isRecentQrMessage("2026-10-12T03:00:00Z", now)).toBe(false);
   });

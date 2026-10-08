@@ -69,21 +69,8 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
     finally { setBusy(false); }
   }
 
-  async function resetWhatsApp() {
-    if (!window.confirm("Apagar todas as conversas e mensagens deste WhatsApp no iGrow e desconectar o aparelho? A operação não pode ser desfeita. Os clientes e relatórios não serão afetados.")) return;
-    setBusy(true); setError("");
-    try {
-      const result = await post({ action: "reset" });
-      setMode({ kind: "idle" });
-      await refreshStatus();
-      window.alert(`WhatsApp reiniciado. ${(result as { removed?: number }).removed ?? 0} conversas apagadas. Agora vincule o celular novamente.`);
-    } catch (resetError) {
-      setError(resetError instanceof Error ? resetError.message : "Falha ao reiniciar o WhatsApp.");
-    } finally { setBusy(false); }
-  }
-
   async function disconnect() {
-    if (!window.confirm("Desconectar este WhatsApp do iGrow? Os agendamentos param de enviar até você conectar de novo.")) return;
+    if (!window.confirm("Desconectar o WhatsApp? As conversas desta conexão serão apagadas do iGrow e os envios agendados ficarão suspensos até uma nova vinculação.")) return;
     setBusy(true); setError("");
     try { await post({ action: "disconnect" }); setMode({ kind: "idle" }); await refreshStatus(); }
     catch (disconnectError) { setError(disconnectError instanceof Error ? disconnectError.message : "Não foi possível desconectar."); }
@@ -115,7 +102,7 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
       <span className={`qr-logo${connected ? " is-on" : ""}`}><Smartphone size={18} /></span>
       <div>
         <h2>Seu WhatsApp</h2>
-        <p>As mensagens saem do seu próprio número, com o seu nome e a sua foto. Funciona como o WhatsApp Web.</p>
+        <p>Envie relatórios pelo seu número e acompanhe respostas recentes. Ao desconectar, as mensagens desta sessão saem do iGrow.</p>
       </div>
       {status === null ? <span className="badge neutral"><Loader2 size={12} className="spin" />Verificando</span>
         : connected ? <span className="badge green"><span className="status-dot" />Conectado</span>
@@ -130,13 +117,6 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
       {connected.picture ? <img src={connected.picture} alt="" className="qr-avatar" referrerPolicy="no-referrer" /> : <span className="qr-avatar"><CheckCircle2 size={22} /></span>}
       <div><strong>{connected.name ?? "WhatsApp conectado"}</strong><span>{connected.phone ?? "Número conectado"}</span><small>Os agendamentos ativos já podem enviar por este número.</small></div>
       {canManage && <Button variant="secondary" size="sm" onClick={disconnect} disabled={busy}><LogOut size={14} />Desconectar</Button>}
-    </div>}
-
-    {canManage && status?.configured && mode.kind === "idle" && <div className="qr-actions" style={{ marginTop: 12 }}>
-      <Button variant="ghost" size="sm" onClick={() => void resetWhatsApp()} disabled={busy}>
-        {busy ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
-        Apagar histórico e reiniciar WhatsApp
-      </Button>
     </div>}
 
     {status?.configured && !connected && mode.kind === "idle" && <div className="qr-start">

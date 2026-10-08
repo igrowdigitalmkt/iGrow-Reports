@@ -6,7 +6,7 @@ export const maxDuration = 30;
 
 /**
  * Conservative maintenance: at most 4 batches of 250 rows.
- * QR messages older than 60 days in read, non-favorite chats are eligible.
+ * QR messages and idle conversations older than 7 days are eligible.
  * Disabled until an encrypted baseline backup has been verified.
  */
 export async function GET(request: Request) {

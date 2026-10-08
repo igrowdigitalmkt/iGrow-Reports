@@ -11,10 +11,10 @@ describe("Inbox de consulta recente", () => {
     expect(inRecentWhatsAppInbox({ ...base, last_message_at: "2026-10-07T20:00:00Z" }, now)).toBe(true);
   });
 
-  it("preserva não lidas, favoritas, arquivadas e conversas oficiais", () => {
-    expect(inRecentWhatsAppInbox({ ...base, unread_count: 2 }, now)).toBe(true);
-    expect(inRecentWhatsAppInbox({ ...base, favorite: true }, now)).toBe(true);
-    expect(inRecentWhatsAppInbox({ ...base, archived: true }, now)).toBe(true);
+  it("limita até conversas antigas não lidas, favoritas e arquivadas, sem afetar a API oficial", () => {
+    expect(inRecentWhatsAppInbox({ ...base, unread_count: 2 }, now)).toBe(false);
+    expect(inRecentWhatsAppInbox({ ...base, favorite: true }, now)).toBe(false);
+    expect(inRecentWhatsAppInbox({ ...base, archived: true }, now)).toBe(false);
     expect(inRecentWhatsAppInbox({ ...base, channel: "official" }, now)).toBe(true);
   });
 });

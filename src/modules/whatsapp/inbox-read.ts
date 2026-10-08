@@ -11,7 +11,7 @@ type Client = SupabaseClient<Database>;
 export function inRecentWhatsAppInbox(row: Pick<WhatsAppConversationRow,
   "channel" | "last_message_at" | "unread_count" | "favorite" | "archived"
 >, now = Date.now()) {
-  if (row.channel !== "qr" || row.unread_count > 0 || row.favorite || row.archived) return true;
+  if (row.channel !== "qr") return true;
   const timestamp = row.last_message_at ? Date.parse(row.last_message_at) : NaN;
   return Number.isFinite(timestamp) && timestamp >= now - WHATSAPP_QR_RECENT_DAYS * 86_400_000;
 }
@@ -84,7 +84,9 @@ export async function loadThread(supabase: Client, agencyId: string, conversatio
   const [{ data: row }, { data: messages }] = await Promise.all([
     supabase.from("whatsapp_conversations").select("*").eq("agency_id", agencyId).eq("id", conversationId).maybeSingle(),
     supabase.from("whatsapp_messages").select("id,direction,kind,body,media_name,media_mime,author,status,sent_at").eq("agency_id", agencyId)
-      .eq("conversation_id", conversationId).order("sent_at", { ascending: false }).limit(80),
+      .eq("conversation_id", conversationId)
+      .gte("sent_at", new Date(Date.now() - WHATSAPP_QR_RECENT_DAYS * 86_400_000).toISOString())
+      .order("sent_at", { ascending: false }).limit(50),
   ]);
   if (!row) return { conversation: null, messages: [] };
   const names = await clientNames(supabase, agencyId, [row.client_id]);

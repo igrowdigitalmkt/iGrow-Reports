@@ -5,6 +5,8 @@ import { recordInboxMessage, syncQrChatStates, updateInboxStatus } from "@/modul
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
 import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
 import { qrGroupSubject, replyFromInstance, validWebhookToken } from "@/modules/whatsapp-qr/server";
+import { clearQrInboxForLostSession } from "@/modules/whatsapp-qr/session-lifecycle";
+import { isConfirmedQrLogout } from "@/modules/whatsapp-qr/connection-state";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,6 +31,16 @@ export async function POST(request: Request) {
     .select("blocked,fresh_after").eq("agency_id", agencyId).maybeSingle();
   if (guardError) return Response.json({ error: "Proteção do WhatsApp indisponível." }, { status: 503 });
   if (guard?.blocked) return Response.json({ ok: true, ignored: "reset_in_progress" });
+
+  if (isConfirmedQrLogout(body)) {
+    try {
+      const removed = await clearQrInboxForLostSession(agencyId);
+      return Response.json({ ok: true, detached: true, removed });
+    } catch (error) {
+      console.error("whatsapp-qr-logout-cleanup-failed", { message: error instanceof Error ? error.message : "unknown" });
+      return Response.json({ error: "Limpeza pendente." }, { status: 503 });
+    }
+  }
 
   const event = (body as { event?: unknown } | null)?.event;
   // The WhatsApp QR connection is for recent inquiries, never an archive.
