@@ -1,0 +1,250 @@
+/*
+ * Screenshot-calibrated WhatsApp UI.
+ * Reference: 1920x1080 images from October 8, 2026.
+ * Only affects .wai-shell and its descendants; app data/actions remain the same.
+ */
+.wai-shell {
+  --wai-rail: #1d1f1f;
+  --wai-panel: #161717;
+  --wai-chat: #0a0a0a;
+  --wai-line: #323535;
+  --wai-hover: #262828;
+  --wai-active: #2e2f2f;
+  --wai-text: #f4f5f5;
+  --wai-muted: #9da3a5;
+  --wai-search: #2e2f2f;
+  --wai-in: #242626;
+  --wai-out: #13533d;
+  --wai-out-text: #f5f8f6;
+  --wai-green: #25d366;
+  --wai-green-text: #052f19;
+  --wai-pill-on: #282a2a;
+  --wai-pill-on-text: #f7f8f8;
+  --wai-day: #242626;
+  --wai-doc: #26302c;
+  --wai-blue: #53bdeb;
+  --wai-ref-rail-width: 80px;
+  --wai-ref-inbox-width: clamp(370px, 30vw, 575px);
+  position: fixed;
+  z-index: 180;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-columns: var(--wai-ref-rail-width) minmax(0,var(--wai-ref-inbox-width)) minmax(0,1fr);
+  border: none;
+  border-radius: 0;
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  font-size: 15px;
+  color-scheme: dark;
+  background: var(--wai-panel);
+}
+.wai-shell .wai-rail {
+  min-width: var(--wai-ref-rail-width);
+  padding: 12px 0 14px;
+  gap: 9px;
+  background: #1d1f1f;
+  border-right: 1px solid #333636;
+}
+.wai-rail-top { display: flex; flex-direction: column; align-items: center; gap: 9px; width: 100%; }
+.wai-rail-bottom { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; margin-top:auto; }
+.wai-rail-separator { width: 49px; height: 1px; background:#363939; margin: 3px auto 7px; }
+.wai-shell .wai-rail-item,
+.wai-shell .wai-rail-shortcut,
+.wai-shell .wai-rail-exit {
+  position: relative;
+  flex: 0 0 48px;
+  display: flex; align-items: center; justify-content:center;
+  width: 49px; min-width:49px; height:48px; min-height:48px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: #9ea4a5;
+  cursor:pointer;
+}
+.wai-shell .wai-rail-shortcut:hover,
+.wai-shell .wai-rail-exit:hover,
+.wai-shell .wai-rail-item:hover { background:#343636; color:#f5f6f6; }
+.wai-shell .wai-rail-shortcut.is-active,
+.wai-shell .wai-rail-item.is-active { background:#343636; color:#f7f8f8; }
+.wai-shell .wai-rail-shortcut.is-active::before {content:'';position:absolute;top:12px;bottom:12px;left:-15px;width:3px;border-radius:5px;background:#25d366}
+.wai-shell .wai-rail-item { border-radius:50%; }
+.wai-shell .wai-rail-initials { width: 40px; height:40px; color:#fff; }
+.wai-shell .wai-rail-badge { top:-4px;right:-2px;min-width:21px;height:21px;font-size:12px;line-height:16px;background:#25d366;color:#052e18;border-color:#1d1f1f; }
+.wai-rail-exit { text-decoration:none; }
+.wai-rail-mobile-back {display:none;}
+.wai-shell .wai-list { background:#161717; border-color:#343636; }
+.wai-shell .wai-list-head { min-height: 80px; height:80px; flex-shrink:0; padding:14px 24px 10px 26px; gap:12px; }
+.wai-shell .wai-list-head h2 { font-size:26px;line-height:30px;font-weight:700;letter-spacing:-.5px; }
+.wai-shell .wai-list-head small {display:none;}
+.wai-shell .wai-list-head .wai-head-actions {gap:16px;}
+.wai-shell .wai-list-head .wai-head-actions > .wai-icon-button {
+  width: 51px; height:51px; min-width:51px; min-height:51px;
+  background:#fafafa;color:#171717;border-radius:50%;
+}
+.wai-shell .wai-list-head .wai-head-actions > .wai-icon-button:hover {background:#e4e4e4;color:#161616}
+.wai-shell .wai-list-head .wai-head-actions > .wai-icon-button:disabled {background:#474949;color:#949999}
+.wai-shell .wai-search { height:50px; min-height:50px; margin: 2px 23px 0 26px; padding:0 19px; gap:17px; border-radius:30px; background:#2e2f2f; }
+.wai-shell .wai-search input {font-size:16px;}
+.wai-shell .wai-search input::placeholder{color:#acb0b0;}
+.wai-shell .wai-search:focus-within{box-shadow:0 0 0 1px #3a4440}
+.wai-shell .wai-filters {padding: 11px 26px 18px; gap:9px; min-height: 69px; align-items:center;}
+.wai-shell .wai-filters button {
+  flex-shrink:0; height:40px;min-height:40px;padding:0 15px;
+  border:1px solid #343737;border-radius:22px;
+  background:transparent;color:#b2b9b9;font-size:16px;font-weight:500;
+}
+.wai-shell .wai-filters button:hover{background:#282a2a;}
+.wai-shell .wai-filters button.is-active {background:#2a2b2b;border-color:#424444;color:#fafafa;}
+.wai-shell .wai-filters .wai-list-add-filter,
+.wai-shell .wai-filters .wai-list-manage-filter{min-width:40px;padding:0 10px}
+.wai-shell .wai-rows { padding:0 24px 12px 14px;overflow-x:hidden;background:#161717;scrollbar-width:thin;scrollbar-color:#515555 transparent;}
+.wai-shell .wai-row {min-height:91px;padding:12px 15px;gap:18px;border-radius:13px;}
+.wai-shell .wai-row.is-active{background:#2e2f2f;}
+.wai-shell .wai-row:hover:not(.is-active){background:#242626;}
+.wai-shell .wai-row .wai-avatar {width:60px!important;height:60px!important;min-width:60px!important;}
+.wai-shell .wai-row-top strong {font-size:18px;line-height:22px;font-weight:500;}
+.wai-shell .wai-row-top time {font-size:13px;font-weight:400;}
+.wai-shell .wai-row-preview {font-size:15px;line-height:20px;}
+.wai-shell .wai-row-main {gap:5px;}
+.wai-shell .wai-row-client {display:none;}
+.wai-shell .wai-row-list-labels {height:5px;}
+.wai-shell .wai-row .wai-tick {height:16px;}
+.wai-shell .wai-unread {min-width:20px;min-height:20px;height:20px;padding:2px 6px;line-height:16px;font-size:12px;background:#25d366;color:#073918;}
+.wai-shell .wai-archived-row {border-radius:0;min-height:54px;}
+.wai-shell .wai-chat {background:#0a0a0a;}
+.wai-shell .wai-chat-head {
+  height:80px;min-height:80px;flex-shrink:0;padding:0 22px;gap:13px;
+  background:#161717;border-bottom:1px solid #252727;
+}
+.wai-shell .wai-chat-head .wai-head-actions {gap:19px;}
+.wai-shell .wai-chat-head .wai-icon-button {width:38px;height:38px;color:#bfc3c3;}
+.wai-shell .wai-chat-title strong {font-size:17px;font-weight:600;}
+.wai-shell .wai-chat-title small {font-size:12px;color:#a4aaab;}
+.wai-shell .wai-messages {background:#0a0a0a none;scrollbar-color:#505555 transparent;scrollbar-width:thin;}
+.wai-shell .wai-messages-inner {width:100%;max-width:none;margin:0;padding:22px 30px 24px clamp(35px,4.2vw,80px);gap:4px;}
+.wai-shell .wai-day {margin:4px 0 18px;}
+.wai-shell .wai-day span {background:#252828;color:#d9dddd;padding:7px 13px;font-size:12px;border-radius:8px;}
+.wai-shell .wai-bubble-row {padding:2px 0;}
+.wai-shell .wai-bubble-stack {max-width:min(68%,600px);}
+.wai-shell .wai-bubble-stack .wai-bubble {min-width:65px;max-width:100%;padding:8px 10px 7px;border-radius:9px;box-shadow:0 1px 1px #0004;line-height:1.36;}
+.wai-shell .wai-bubble {background:#242626;}
+.wai-shell .wai-bubble-row.is-in .wai-bubble {background:#242626;color:#f2f2f2;}
+.wai-shell .wai-bubble-row.is-out .wai-bubble {background:#13533d;color:#fafafa;}
+.wai-shell .wai-bubble.has-tail{margin-top:3px;}
+.wai-shell .wai-text {font-size:16px;line-height:1.36;letter-spacing:0;}
+.wai-shell .wai-meta {font-size:11px;gap:3px;color:#bacac6;}
+.wai-shell .wai-meta-row .wai-meta {margin:4px 0 -2px;}
+.wai-shell .wai-reactions>.wai-reactions-group {background:#292b2b;border-color:#303838;}
+.wai-shell .wai-message-popup,.wai-shell .wai-chat-menu,.wai-shell .wai-list-menu,.wai-shell .wai-attach-menu {background:#272a2a;border-color:#3b3f3f;}
+.wai-shell .wai-message-menu-list button:hover,.wai-shell .wai-attach-menu button:hover {background:#393c3c;}
+.wai-shell .wai-composer-area {min-height:80px;padding:8px 15px;background:#0a0a0a !important;border:0;}
+.wai-shell .wai-composer {display:flex;align-items:center;min-height:64px;padding:0 14px;gap:13px;border-radius:32px;background:#242626 !important;box-shadow:none;}
+.wai-shell .wai-composer textarea {min-height:42px;max-height:150px;padding:11px 8px;background:transparent !important;border-radius:0;font-size:16px;line-height:20px;}
+.wai-shell .wai-composer textarea::placeholder {color:#a8adad;}
+.wai-shell .wai-send {width:39px;height:39px;border-radius:50%;}
+.wai-shell .wai-message-selection-bar {min-height:80px;height:80px;padding:0 25px;background:#1b1e1e;}
+.wai-shell .wai-empty {background:#1d1f1f;text-align:center;}
+.wai-shell .wai-empty-icon {width:135px;height:105px;border:0;border-radius:16px;background:#111c19;color:#25d366;}
+.wai-shell .wai-empty h3 {font-size:24px;font-weight:500;}
+.wai-shell .wai-empty p {font-size:15px;color:#afb5b5;}
+.wai-shell .wai-empty-lock{color:#b4b9b9;}
+.wai-shell .wai-details,.wai-shell .wai-chat-search-panel{background:#161717;}
+.wai-shell .wai-list-dialog-backdrop {z-index:1000;}
+/* Full-screen inset is preserved even when embedded in a demo layout. */
+.workspace:has(.wai-shell) .wai-shell {height:100dvh;min-height:0;}
+@media(max-width:1150px){
+  .wai-shell {--wai-ref-rail-width:68px;--wai-ref-inbox-width:clamp(345px,34vw,480px);}
+  .wai-shell .wai-list-head{padding-inline:18px;}
+  .wai-shell .wai-search {margin-inline:18px;}
+  .wai-shell .wai-filters{padding-inline:18px;}
+  .wai-shell .wai-row{gap:12px;padding-inline:10px;}
+}
+@media(max-width:760px){
+  .wai-shell { --wai-ref-rail-width:58px;grid-template-columns:var(--wai-ref-rail-width) minmax(0,1fr); }
+  .wai-shell .wai-rail-item,.wai-shell .wai-rail-shortcut,.wai-shell .wai-rail-exit{width:44px;min-width:44px;min-height:44px;height:44px;flex-basis:44px;}
+  .wai-shell .wai-rail {min-width:58px;}
+  .wai-shell .wai-list-head{height:65px;min-height:65px;padding:8px 13px;}
+  .wai-shell .wai-list-head h2{font-size:23px;}
+  .wai-shell .wai-list-head .wai-head-actions>.wai-icon-button{width:42px;height:42px;min-width:42px;min-height:42px;}
+  .wai-shell .wai-search{height:44px;min-height:44px;margin:2px 12px 0;}
+  .wai-shell .wai-filters{padding:9px 12px 11px;min-height:55px;}
+  .wai-shell .wai-filters button{height:35px;min-height:35px;font-size:13px;padding-inline:12px;}
+  .wai-shell .wai-rows{padding-inline:6px;}
+  .wai-shell .wai-row{min-height:76px;padding:8px;gap:10px;}
+  .wai-shell .wai-row .wai-avatar{width:49px!important;height:49px!important;min-width:49px!important;}
+  .wai-shell .wai-row-top strong{font-size:15px;}
+  .wai-shell .wai-row-preview{font-size:13px;}
+  .wai-shell.is-chat-open {grid-template-columns:minmax(0,1fr);}
+  .wai-shell.is-chat-open .wai-chat{display:flex;}
+  .wai-shell .wai-chat-head{min-height:64px;height:64px;padding:0 10px;gap:6px;}
+  .wai-shell .wai-chat-head .wai-head-actions{gap:0;}
+  .wai-shell .wai-messages-inner{padding:16px 18px;}
+  .wai-shell .wai-bubble-stack{max-width:86%;}
+  .wai-shell .wai-text{font-size:14px;}
+  .wai-shell .wai-composer-area{padding:6px;min-height:69px;}
+  .wai-shell .wai-composer{min-height:55px;padding:0 7px;gap:4px;}
+  .wai-shell .wai-composer textarea{font-size:15px;}
+  .wai-shell .wai-message-selection-bar{min-height:67px;height:67px;padding-inline:7px;}
+}
+
+.wai-shell .wai-chat-lists{position:relative;flex-shrink:0;}
+.wai-shell .wai-chat-lists-trigger{
+  display:flex;align-items:center;gap:9px;min-height:44px;padding:0 16px;
+  border:1px solid #333636;border-radius:23px;background:transparent;
+  color:#f0f1f1;font-size:15px;font-weight:500;white-space:nowrap;cursor:pointer;
+}
+.wai-shell .wai-chat-lists-trigger:hover,.wai-shell .wai-chat-lists-trigger[aria-expanded="true"]{background:#262828;}
+.wai-shell .wai-chat-lists-popover{position:absolute;z-index:55;top:calc(100% + 8px);right:0;min-width:265px;max-width:min(330px,92vw);padding:12px 8px;border:1px solid #414747;border-radius:10px;background:#242727;color:#f0f1f1;box-shadow:0 12px 28px #0009;}
+.wai-shell .wai-chat-lists-popover>strong{display:block;margin:5px 10px 8px;font-size:14px;font-weight:500;}
+.wai-shell .wai-chat-lists-popover .wai-list-membership label{padding:7px 10px;}
+.wai-shell .wai-chat-lists-new{display:flex;align-items:center;gap:11px;width:100%;min-height:43px;padding:8px 12px;border:0;border-top:1px solid #454949;background:transparent;color:#25d366;text-align:left;font:inherit;cursor:pointer;}
+.wai-shell .wai-chat-lists-new:hover{background:#353a37;}
+@media(max-width:950px){.wai-shell .wai-chat-lists-trigger span{display:none}.wai-shell .wai-chat-lists-trigger{gap:0;width:42px;min-height:42px;padding:0;justify-content:center}.wai-shell .wai-chat-lists-trigger svg:last-child{display:none}}
+
+/* Delete-message confirmation matches the compact screenshot dialog. */
+.wai-shell .wai-delete-dialog{
+  width:min(375px,100%);padding:25px 20px 20px;
+  border:1px solid #3c4040;border-radius:34px;background:#1d1f1f;
+  box-shadow:0 10px 42px #0009;
+}
+.wai-shell .wai-delete-dialog>header{justify-content:center;margin:5px 12px 27px;}
+.wai-shell .wai-delete-dialog>header strong{max-width:260px;text-align:center;font-size:24px;font-weight:500;line-height:1.36;}
+.wai-shell .wai-delete-dialog .wai-delete-choices{display:grid;gap:10px;margin:0;}
+.wai-shell .wai-delete-dialog .wai-delete-choices>button{
+  display:flex;justify-content:center;align-items:center;min-height:50px;
+  padding:11px 14px;border:1px solid #363a3a;border-radius:27px;
+  background:transparent;color:#25d366;text-align:center;
+}
+.wai-shell .wai-delete-dialog .wai-delete-choices>button:hover{background:#292c2c;border-color:#515555;}
+.wai-shell .wai-delete-dialog .wai-delete-choices>button.is-danger{color:#ed9aaf;}
+.wai-shell .wai-delete-dialog .wai-delete-choices strong{font-size:16px;font-weight:600;}
+.wai-shell .wai-delete-dialog .wai-delete-local-note{margin:12px 0 0;text-align:center;font-size:11px;line-height:1.4;color:#aeb9b9;}
+.wai-shell .wai-delete-dialog .wai-delete-note{margin:7px 3px 0;text-align:center;font-size:10px;line-height:1.35;color:#9ca7a7;}
+.wai-shell .wai-delete-dialog .wai-confirm-actions{display:block;margin:4px 0 0;}
+.wai-shell .wai-delete-dialog .wai-confirm-actions button{
+  width:100%;min-height:47px;padding:9px 12px;border:0;
+  background:transparent;color:#25d366;text-align:center;font-size:16px;
+}
+.wai-shell .wai-delete-dialog .wai-confirm-actions button:hover{background:#282b2b;}
+
+.wai-shell .wai-chat-list-colors{display:inline-flex;gap:0;flex-shrink:0}.wai-shell .wai-chat-list-colors>span{width:14px;height:14px;border-radius:50%;border:1px solid #252828}.wai-shell .wai-chat-list-colors>span+span{margin-left:-4px}
+
+/* Official reference side panel rhythm. */
+.wai-shell .wai-details{width:min(405px,100%);background:#161717;box-shadow:none;border-left:1px solid #303333}
+.wai-shell .wai-details-head{min-height:80px;padding:0 23px;gap:17px;background:#222424;border-bottom:1px solid #343737;font-size:17px}
+.wai-shell .wai-details-head strong{font-weight:500}
+.wai-shell .wai-details-identity{padding:35px 22px 25px}
+.wai-shell .wai-details-identity h3{font-size:23px;font-weight:500}
+.wai-shell .wai-details-section{padding:19px 23px;border-top:9px solid #101212;gap:12px}
+.wai-shell .wai-details-section h4{font-size:15px;font-weight:500}
+.wai-shell .wai-chat-search-panel{width:min(405px,100%);background:#161717;box-shadow:none;border-left:1px solid #343737}
+.wai-shell .wai-chat-search-head{min-height:80px;padding:0 23px;gap:16px;background:#222424}
+.wai-shell .wai-chat-search-head strong{font-size:17px}
+.wai-shell .wai-chat-search-results button{min-height:80px;padding:17px 25px}
+.wai-shell .wai-forward-dialog{width:min(485px,100%);max-height:min(78dvh,690px);border-radius:19px;background:#232626}
+.wai-shell .wai-forward-dialog>header strong{font-size:19px;font-weight:500}
+.wai-shell .wai-forward-destinations button{min-height:57px;border-radius:9px}
+@media(max-width:760px){.wai-shell .wai-details,.wai-shell .wai-chat-search-panel{width:100%}.wai-shell .wai-details-head,.wai-shell .wai-chat-search-head{min-height:64px}}

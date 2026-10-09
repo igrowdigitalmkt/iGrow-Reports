@@ -15,6 +15,7 @@ import { CustomListEditor, CustomListManager, CustomListMembership, useCustomLis
 import "./inbox.css";
 import "./inbox-reference.css";
 import "./custom-lists.css";
+import "./inbox-fidelity.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -77,6 +78,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [replyTarget, setReplyTarget] = useState<InboxMessageItem | null>(null);
   const [messageInfo, setMessageInfo] = useState<InboxMessageItem | null>(null);
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [chatListsOpen, setChatListsOpen] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const [forwardIds, setForwardIds] = useState<string[]>([]);
@@ -290,7 +292,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setDraft(null);
     setMenuOpen(false);
     setListMenuOpen(false);
-    setDetailsOpen(false); setDetails(null);
+    setDetailsOpen(false); setDetails(null); setChatListsOpen(false);
     setReplyTarget(null); setMessageInfo(null); setSelectedMessageIds(new Set()); setForwardIds([]); setDeleteIds([]); setChatSearchOpen(false); setChatSearchQuery("");
     setOpenId(id);
     const selected = list?.conversations.find(item => item.id === id);
@@ -553,7 +555,22 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   if (demo && !demoReady) return <div className="wai-shell wai-demo-loading" aria-busy="true"><span>Carregando demonstração de conversas…</span></div>;
 
   return <div className={`wai-shell${openId || draft ? " is-chat-open" : ""}`}>
-    <nav className="wai-rail" aria-label="Números de WhatsApp">
+    <nav className="wai-rail" aria-label="Navegação WhatsApp">
+      <div className="wai-rail-top">
+        <button type="button" className={`wai-rail-shortcut${!starPanel && !showArchived && !managingLists ? " is-active" : ""}`}
+          title="Conversas" aria-label="Conversas"
+          onClick={() => { setStarPanel(false); setShowArchived(false); setManagingLists(false); setPicking(false); setSelecting(false); setCustomFilterId(null); }}>
+          <MessageSquareText size={24} />
+          {!!unreadHere && <span className="wai-rail-badge">{unreadHere > 99 ? "99+" : unreadHere}</span>}
+        </button>
+        <button type="button" className={`wai-rail-shortcut${showArchived ? " is-active" : ""}`} title="Arquivadas" aria-label="Conversas arquivadas"
+          onClick={() => { setShowArchived(true); setStarPanel(false); setManagingLists(false); setPicking(false); setCustomFilterId(null); }}><Archive size={23} /></button>
+        <button type="button" className={`wai-rail-shortcut${starPanel ? " is-active" : ""}`} title="Mensagens favoritas" aria-label="Mensagens favoritas"
+          onClick={() => { setStarPanel(true); setShowArchived(false); setManagingLists(false); setPicking(false); if (!demo) void refreshStars().catch(() => setActionError("Não foi possível carregar as favoritas.")); }}><BookmarkCheck size={23} /></button>
+        <button type="button" className={`wai-rail-shortcut${managingLists ? " is-active" : ""}`} title="Listas personalizadas" aria-label="Listas personalizadas"
+          onClick={() => { setManagingLists(true); setShowArchived(false); setStarPanel(false); setPicking(false); }}><ListFilter size={23} /></button>
+      </div>
+      <div className="wai-rail-bottom"><div className="wai-rail-separator" aria-hidden="true" />
       {allChannels.map(item => {
         const unread = unreadByChannel.get(item.key) ?? 0;
         return <button key={item.key} type="button" className={`wai-rail-item${item.key === channelKey ? " is-active" : ""}`} aria-pressed={item.key === channelKey}
@@ -565,6 +582,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           {unread > 0 && <span className="wai-rail-badge">{unread > 99 ? "99+" : unread}</span>}
         </button>;
       })}
+        <a className="wai-rail-exit" href={demo ? "/demo" : "/dashboard"} title="Voltar ao iGrow Reports" aria-label="Voltar ao iGrow Reports"><ArrowLeft size={23} /></a>
+      </div>
     </nav>
 
     <section className="wai-list" aria-label="Conversas">
@@ -655,6 +674,25 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               <small>{[open.isGroup ? "Grupo" : open.title ? formatWhatsAppPhone(open.remoteId) : null, open.clientName ? `Cliente: ${open.clientName}` : null].filter(Boolean).join(" · ") || channel.name}</small></span>
           </button>
           <div className="wai-head-actions">
+            <div className="wai-chat-lists">
+              <button type="button" className="wai-chat-lists-trigger" aria-label="Adicionar conversa à lista"
+                aria-expanded={chatListsOpen} onClick={() => setChatListsOpen(value => !value)}>
+                {customLists.lists.some(item => item.conversationIds.includes(open.id))
+                  ? <span className="wai-chat-list-colors">{customLists.lists.filter(item => item.conversationIds.includes(open.id)).slice(0,2)
+                    .map(item => <span key={item.id} style={{ backgroundColor: item.color }} />)}</span>
+                  : <ListFilter size={18} />}
+                <span>{customLists.lists.filter(item => item.conversationIds.includes(open.id)).length
+                  ? `${customLists.lists.filter(item => item.conversationIds.includes(open.id)).length} selecionadas`
+                  : "Adicionar à lista"}</span><ChevronDown size={16} />
+              </button>
+              {chatListsOpen && <div className="wai-chat-lists-popover">
+                <strong>Adicionar à lista</strong>
+                <CustomListMembership lists={customLists.lists} conversationId={open.id} busy={customLists.busy || demo}
+                  onToggle={(list,member) => void customLists.setMember(list.id,open.id,member)} />
+                {customLists.error && <p className="wai-list-membership-empty" role="alert">{customLists.error}</p>}
+                <button type="button" className="wai-chat-lists-new" onClick={() => { setChatListsOpen(false); setEditingList(null); }}><Plus size={16} />Criar nova lista</button>
+              </div>}
+            </div>
             <button type="button" className="wai-icon-button" aria-label="Pesquisar na conversa" title="Pesquisar na conversa"
               aria-expanded={chatSearchOpen} onClick={() => { setChatSearchOpen(value => !value); setChatSearchQuery(""); }}>
               <Search size={24} />
@@ -730,21 +768,19 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           replyTarget={replyTarget} onClearReply={() => setReplyTarget(null)}
           onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { setReplyTarget(null); if (!demo) reload(open.id); }} />}
         {!!deleteIds.length && <div className="wai-message-info-backdrop" role="presentation" onClick={() => setDeleteIds([])}>
-          <section className="wai-message-info" role="dialog" aria-modal="true" aria-label="Apagar mensagens" onClick={event => event.stopPropagation()}>
-            <header><strong>Apagar {deleteIds.length} {deleteIds.length === 1 ? "mensagem" : "mensagens"}?</strong>
-              <button type="button" className="wai-icon-button" onClick={() => setDeleteIds([])} aria-label="Cancelar"><X size={19} /></button></header>
-            <p>Esta ação só pode ser realizada em mensagens <strong>enviadas pelo seu número</strong>. Escolha onde deseja apagar:</p>
+          <section className="wai-message-info wai-delete-dialog" role="dialog" aria-modal="true" aria-label="Apagar mensagens" onClick={event => event.stopPropagation()}>
+            <header><strong>{deleteIds.length === 1 ? "Deseja apagar a mensagem?" : `Deseja apagar ${deleteIds.length} mensagens?`}</strong></header>
             {actionError && <p role="alert" className="wai-composer-error"><AlertCircle size={15} />{actionError}</p>}
             <div className="wai-delete-choices">
-              <button type="button" disabled={messageActionBusy} onClick={() => void performLocalMessageAction("hide", deleteIds)}>
-                <Trash2 size={18}/><span><strong>Apagar somente no iGrow</strong><small>Oculta para você aqui, mas mantém no WhatsApp e para os demais usuários.</small></span>
-              </button>
               {(messages ?? []).filter(message => deleteIds.includes(message.id)).every(message => message.canRevokeForEveryone) &&
                 deleteIds.length <= 10 && <button type="button" className="is-danger" disabled={messageActionBusy}
-                  onClick={() => void performLocalMessageAction("revoke", deleteIds)}>
-                  <Trash2 size={18}/><span><strong>Apagar para todos</strong><small>Envia a exclusão ao WhatsApp e marca como apagada no iGrow para todos. Não pode ser desfeita.</small></span>
+                  title="Solicita exclusão no WhatsApp; só confirma se a integração aceitar." onClick={() => void performLocalMessageAction("revoke", deleteIds)}>
+                  <span><strong>Apagar para todos</strong></span>
                 </button>}
+              <button type="button" disabled={messageActionBusy} title="Remove apenas do iGrow; não apaga no WhatsApp."
+                onClick={() => void performLocalMessageAction("hide", deleteIds)}><span><strong>Apagar para mim</strong></span></button>
             </div>
+            <p className="wai-delete-local-note">“Apagar para mim” remove apenas desta plataforma.</p>
             {(messages ?? []).filter(message => deleteIds.includes(message.id)).some(message => !message.canRevokeForEveryone) &&
               <p className="wai-delete-note">“Apagar para todos” só é oferecido no QR Code para mensagens com ID válido enviadas há menos de dois dias. A API oficial não permite essa operação.</p>}
             <div className="wai-confirm-actions"><button type="button" onClick={() => setDeleteIds([])}>Cancelar</button></div>
