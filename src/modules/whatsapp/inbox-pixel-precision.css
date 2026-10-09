@@ -97,3 +97,102 @@
 .wai-shell .wai-composer {
   background: #242626 !important;
 }
+
+/*
+ * Official WhatsApp Web uses Roboto Variable (verified against the live
+ * web.whatsapp.com computed body font on 2026-10-09). Self-hosted from
+ * @fontsource-variable/roboto rather than relying on an external font CDN.
+ */
+.wai-shell {
+  font-family: "Roboto Variable", Roboto, "Helvetica Neue", Helvetica, sans-serif;
+  font-optical-sizing: auto;
+  font-synthesis: none;
+  font-feature-settings: "kern" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.wai-shell :is(button, input, select, textarea, [contenteditable="true"]) {
+  font-family: inherit;
+}
+.wai-shell .wai-list-head h2 {
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -.45px;
+}
+.wai-shell .wai-row-top strong {
+  font-weight: 500;
+  letter-spacing: -.1px;
+}
+.wai-shell .wai-row-preview {
+  font-weight: 400;
+  line-height: 20px;
+}
+.wai-shell .wai-chat-title strong {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.wai-shell .wai-chat-title small {
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+}
+/* WhatsApp's dark-mode group fallback: distinct from unsaved contacts. */
+.wai-shell .wai-avatar.is-group {
+  background-color: #321523;
+  color: #e63e66;
+}
+.wai-shell .wai-avatar.is-group svg {
+  stroke-width: 2.5;
+  fill: currentColor;
+}
+/* The supplied WhatsApp screenshot has larger message glyphs and more
+   generous line metrics than the Arial version of the iGrow inbox. */
+.wai-shell .wai-text {
+  font-size: 18.4px;
+  line-height: 1.18;
+  font-weight: 400;
+  letter-spacing: -.10px;
+}
+.wai-shell .wai-bubble-stack .wai-bubble {
+  padding: 8px 10px 8px;
+  line-height: 1.18;
+}
+.wai-shell .wai-day span {
+  font-size: 13px;
+  font-weight: 500;
+}
+.wai-shell .wai-meta {
+  font-size: 12px;
+  font-weight: 400;
+}
+/* The official reference uses a comfortable 16px composition placeholder. */
+.wai-shell .wai-composer textarea {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 21px;
+}
+@media (max-width: 760px) {
+  .wai-shell .wai-text { font-size: 15px; }
+  .wai-shell .wai-chat-title small { font-size: 12px; }
+}
+
+/* The official chat timeline leaves approximately 77px between the last bubble/tail
+   and the physical screen edge; the previous iGrow CSS left only ~24px. */
+.wai-shell .wai-messages-inner {
+  padding-right: 77px;
+}
+/* WhatsApp renders group participant context below the conversation name. */
+.wai-shell .wai-chat-head .wai-chat-title.is-group small {
+  display: block;
+  font-size: 13px;
+  line-height: 19px;
+  margin-top: 0;
+  color: #a4aaa8;
+}
+.wai-shell .wai-chat-head .wai-chat-title:not(.is-group) small {
+  display: none;
+}
+@media (max-width: 760px) {
+  .wai-shell .wai-messages-inner { padding-right: 18px; }
+}

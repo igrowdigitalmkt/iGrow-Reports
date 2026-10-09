@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
 import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
@@ -246,6 +247,15 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const loaded = demo ? openId ? demoThreads[openId] ?? [] : [] : thread?.id === openId ? thread.messages : null;
   const pending = openId ? outbox[openId] ?? [] : [];
   const messages = loaded ? [...loaded, ...pending] : pending.length ? pending : null;
+  // WhatsApp displays group participants beneath the title. Only use actual
+  // authors found in the recent, connected conversation (never fake names).
+  const recentGroupAuthors = [...new Set((messages ?? [])
+    .filter(message => message.direction === "in" && message.author && !message.author.includes("@"))
+    .map(message => message.author!.trim()))].filter(Boolean).slice(0, 2);
+  const groupSubtitle = [
+    ...recentGroupAuthors,
+    ...((messages ?? []).some(message => message.direction === "out") ? ["Você"] : []),
+  ].join(", ") || "Grupo";
   const searchTerms = chatSearchQuery.trim().toLocaleLowerCase("pt-BR");
   const chatSearchResults = !searchTerms ? [] : (messages ?? []).filter(message =>
     !message.revoked && (message.body ?? "").toLocaleLowerCase("pt-BR").includes(searchTerms));
@@ -733,8 +743,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <button type="button" className="wai-contact-trigger" title={open.isGroup ? "Informações do grupo" : "Dados do contato"}
             onClick={() => { setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}>
             <Avatar key={open.id} item={open} size={40} photo={!demo} />
-            <span className="wai-chat-title"><strong>{conversationTitle(open)}</strong>
-              <small>{[open.isGroup ? "Grupo" : open.title ? formatWhatsAppPhone(open.remoteId) : null, open.clientName ? `Cliente: ${open.clientName}` : null].filter(Boolean).join(" · ") || channel.name}</small></span>
+            <span className={`wai-chat-title${open.isGroup ? " is-group" : ""}`}><strong>{conversationTitle(open)}</strong>
+              <small>{open.isGroup ? groupSubtitle : open.title ? formatWhatsAppPhone(open.remoteId) : channel.name}</small></span>
           </button>
           <div className="wai-head-actions">
             <div className="wai-chat-lists">
@@ -936,7 +946,7 @@ function Avatar({ item, size, photo }: { item: InboxConversation; size: number; 
   const title = conversationTitle(item);
   const style = { width: size, height: size };
   const fallback = item.isGroup ? <UsersRound size={size * .5} /> : !item.title ? <Contact size={size * .5} /> : initialsOf(title);
-  return <span className={`wai-avatar${item.isGroup || !item.title ? " is-icon" : ""}`} style={item.isGroup || !item.title ? style : { ...style, background: colorFor(title) }}>
+  return <span className={`wai-avatar${item.isGroup || !item.title ? " is-icon" : ""}${item.isGroup ? " is-group" : ""}`} style={item.isGroup || !item.title ? style : { ...style, background: colorFor(title) }}>
     {fallback}
     {photo && item.channelKey === "qr" && !failed && /* eslint-disable-next-line @next/next/no-img-element -- private photo streamed from WhatsApp */
       <img src={`/api/whatsapp/inbox/avatar/${item.id}`} alt="" loading="lazy" onError={() => setFailed(true)} />}
