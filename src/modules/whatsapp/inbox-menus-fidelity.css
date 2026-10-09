@@ -1,0 +1,98 @@
+/* Screenshot alignment block 2: top controls, select mode, lists dropdown, forwarding. */
+.wai-shell .wai-list-head .wai-head-actions { gap:16px; }
+.wai-shell .wai-list-head .wai-head-menu {order:1;}
+.wai-shell .wai-list-head .wai-head-actions>.wai-icon-button {order:2;}
+.wai-shell .wai-list-menu {
+  top:47px;right:-2px;left:auto;bottom:auto;z-index:100;
+  width:277px;min-width:277px;padding:5px 7px;border-radius:17px;
+  background:#181a1a;border:1px solid #333637;box-shadow:0 7px 27px #0008;
+}
+.wai-shell .wai-list-menu button{min-height:45px;padding:9px 10px;gap:15px;font-size:15px;border-radius:6px;color:#eee;}
+.wai-shell .wai-list-menu button:disabled{opacity:1;color:#b4b7b7;cursor:not-allowed;}
+.wai-shell .wai-list-menu button:disabled:hover{background:transparent;}
+.wai-shell .wai-menu-divider {height:1px;background:#353939;margin:5px 6px;}
+.wai-shell .wai-filters:has(.wai-filter-dropdown){position:relative;z-index:26;overflow:visible;}
+.wai-shell .wai-filter-dropdown-anchor{position:relative;display:flex;flex-shrink:0;align-items:center;}
+.wai-shell .wai-filter-dropdown-anchor>.wai-list-add-filter{min-width:42px;padding:0 10px;}
+.wai-shell .wai-filter-dropdown{position:absolute;z-index:60;top:47px;left:-25px;display:grid;min-width:214px;max-width:300px;padding:10px 8px;border:1px solid #373939;border-radius:16px;background:#171919;box-shadow:0 14px 35px #0009;}
+.wai-shell .wai-filter-dropdown button{display:flex;justify-content:flex-start;align-items:center;gap:17px;width:100%;height:42px;min-height:42px;padding:6px 11px;border:0;border-radius:7px;background:transparent;color:#eee;text-align:left;font-size:14px;white-space:nowrap;cursor:pointer;}
+.wai-shell .wai-filter-dropdown button:hover{background:#303333;}
+.wai-shell .wai-filter-dropdown .wai-list-dot{width:11px;height:11px;min-width:11px;}
+.wai-shell .wai-filter-dropdown-divider{height:1px;background:#353839;margin:6px 8px;}
+.wai-shell .wai-selection-bar{
+  position:relative;z-index:24;flex:0 0 57px;min-height:57px;height:57px;
+  display:flex;align-items:center;gap:20px;margin:0;padding:0 23px;
+  border:0;border-block:1px solid #313434;background:#1b1e1e;
+}
+.wai-shell .wai-selection-bar>span{flex:1;color:#fbfbfb;font-size:16px;font-weight:500;}
+.wai-shell .wai-selection-exit {display:grid;place-items:center;flex-shrink:0;width:35px;height:39px;background:transparent;border:0;border-radius:50%;color:#fafafa;cursor:pointer;}
+.wai-shell .wai-selection-exit:hover,.wai-shell .wai-selection-bar .wai-icon-button:hover{background:#353838;}
+.wai-shell .wai-selection-bar .wai-head-menu{position:relative;}
+.wai-shell .wai-selection-bar .wai-head-menu>.wai-icon-button{width:42px;height:42px;}
+.wai-shell .wai-bulk-menu{top:42px;right:-220px;left:auto;bottom:auto;min-width:307px;z-index:100;padding:8px 9px;border-radius:16px;background:#171919;}
+.wai-shell .wai-bulk-menu>button{min-height:45px;font-size:15px;}
+.wai-shell .wai-bulk-menu>button:disabled{opacity:1;color:#a9acac;}
+.wai-shell .wai-select-row{align-items:center;gap:3px;padding-left:14px;}
+.wai-shell .wai-select-row>input{width:21px;height:21px;margin:0 13px 0 8px;accent-color:#fff;}
+.wai-shell .wai-select-row .wai-row{padding-left:12px;}
+.wai-shell .wai-select-row.is-selected{background:transparent;}
+.wai-shell .wai-select-row.is-selected .wai-row{background:transparent;}
+.wai-shell .wai-chat-head .wai-contact-trigger{gap:13px;}
+.wai-shell .wai-chat-head .wai-contact-trigger .wai-avatar{flex:0 0 48px;width:48px!important;height:48px!important;}
+.wai-shell .wai-chat-head .wai-chat-title strong{font-size:17px;font-weight:600;}
+.wai-shell .wai-chat-head .wai-chat-title small{display:none;}
+.wai-shell .wai-chat-head .wai-head-actions{gap:25px;}
+.wai-shell .wai-chat-head .wai-chat-lists-trigger{min-width:215px;min-height:47px;justify-content:center;border-radius:30px;gap:10px;font-size:15px;}
+.wai-shell .wai-chat-head .wai-call-action{color:#e0e4e4;}
+.wai-shell .wai-chat-head .wai-call-action:hover{color:white;}
+.wai-shell .wai-chat-head .wai-chat-lists-popover{width:345px;min-width:345px;padding:10px 9px;border-radius:17px;background:#1f2121;z-index:60;}
+.wai-shell .wai-chat-head .wai-chat-lists-popover>.wai-list-membership{margin:0;}
+.wai-shell .wai-chat-head .wai-chat-lists-popover>.wai-list-membership label{min-height:51px;padding:8px 12px;}
+.wai-shell .wai-chat-head .wai-list-dot{width:14px;height:14px;}
+.wai-shell .wai-composer-area{min-height:80px;padding:0 15px 14px;background:#0a0a0a!important;}
+.wai-shell .wai-composer{min-height:65px;padding:0 15px;gap:12px;border-radius:36px;background:#242626!important;}
+.wai-shell .wai-chat-search-panel,.wai-shell .wai-details{width:min(575px,100%);background:#161717;}
+.wai-shell .wai-chat-search-head,.wai-shell .wai-details-head{height:79px;min-height:79px;padding:0 22px;background:#161717;border-bottom-color:#292b2b;}
+.wai-shell .wai-chat-search-panel .wai-search {height:55px;min-height:55px;margin:0 18px 13px;border:2px solid #ededed;background:transparent;}
+.wai-shell .wai-chat-search-results button{height:auto;min-height:85px;padding:14px 29px;border:0;}
+.wai-shell .wai-chat-search-results button strong{color:#25d366;}
+.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-chat-head,.wai-shell .wai-chat:has(.wai-details) .wai-chat-head,
+.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-messages,.wai-shell .wai-chat:has(.wai-details) .wai-messages,
+.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-composer-area,.wai-shell .wai-chat:has(.wai-details) .wai-composer-area {margin-right:min(575px,47%);}
+.wai-shell .wai-forward-backdrop {position:fixed;z-index:1400;inset:0;display:block;background:#0009;}
+.wai-shell .wai-forward-dialog {
+  position:absolute;top:6vh;left:calc(var(--wai-ref-rail-width) + var(--wai-ref-inbox-width) + 30px);
+  display:flex;flex-direction:column;width:545px;max-width:calc(100vw - 40px);height:min(89dvh,950px);max-height:none;
+  overflow:hidden;padding:0;background:#171919;border:0;border-radius:22px;
+  color:#fafafa;box-shadow:0 14px 35px #0009;
+}
+.wai-shell .wai-forward-dialog>header{display:flex;flex-shrink:0;justify-content:flex-start;gap:17px;height:68px;min-height:68px;padding:0 22px;margin:0;border:0;}
+.wai-shell .wai-forward-dialog>header strong{font-size:18px;font-weight:600;}
+.wai-shell .wai-forward-dialog>header .wai-icon-button{width:34px;height:36px;}
+.wai-shell .wai-forward-search{display:flex;align-items:center;gap:15px;flex-shrink:0;height:55px;min-height:55px;margin:0 22px 10px;padding:0 22px;border:2px solid #f1f1f1;border-radius:30px;color:#b5bcbc;}
+.wai-shell .wai-forward-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:16px;}
+.wai-shell .wai-forward-search input::placeholder{color:#aeb5b4;}
+.wai-shell .wai-forward-destinations{flex:1;min-height:0;max-height:none;overflow-y:auto;padding:0 13px 70px;scrollbar-width:thin;scrollbar-color:#454949 transparent;}
+.wai-shell .wai-forward-destinations h4{margin:25px 16px 20px;color:#a6acab;font-size:15px;font-weight:500;}
+.wai-shell .wai-forward-choice{display:flex;align-items:center;gap:22px;min-height:89px;padding:7px 17px;border-radius:12px;cursor:pointer;}
+.wai-shell .wai-forward-choice:hover,.wai-shell .wai-forward-choice:has(input:checked){background:#303333;}
+.wai-shell .wai-forward-choice input{flex-shrink:0;appearance:none;width:21px;height:21px;border:2px solid #737a78;border-radius:5px;cursor:pointer;}
+.wai-shell .wai-forward-choice input:checked{background:#25d366;border-color:#25d366;}
+.wai-shell .wai-forward-choice input:checked::before{content:'✓';display:block;text-align:center;line-height:17px;color:#063119;font-size:15px;}
+.wai-shell .wai-forward-choice>span:last-child{display:grid;gap:5px;min-width:0;}
+.wai-shell .wai-forward-choice strong{font-size:16px;font-weight:500;}
+.wai-shell .wai-forward-choice small{font-size:15px;color:#aeb4b1;}
+.wai-shell .wai-forward-confirm{position:absolute;right:35px;bottom:36px;width:73px;height:73px;display:grid;place-items:center;border:0;border-radius:50%;background:#fff;color:#121313;cursor:pointer;}
+.wai-shell .wai-forward-confirm:hover{background:#e6e6e6;}
+.wai-shell .wai-forward-confirm:disabled{opacity:.35;cursor:not-allowed;}
+.wai-shell .wai-forward-status{position:absolute;bottom:14px;left:25px;width:65%;font-size:12px;color:#bec5c2;}
+@media(max-width:1100px){.wai-shell .wai-forward-dialog{left:max(17px,calc(50vw - 270px));}.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-chat-head,.wai-shell .wai-chat:has(.wai-details) .wai-chat-head,.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-messages,.wai-shell .wai-chat:has(.wai-details) .wai-messages,.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-composer-area,.wai-shell .wai-chat:has(.wai-details) .wai-composer-area{margin-right:50%;}}
+@media(max-width:760px){.wai-shell .wai-forward-dialog{left:12px;top:3vh;width:calc(100vw - 24px);height:94dvh;}.wai-shell .wai-chat-head .wai-head-actions{gap:0;}.wai-shell .wai-chat-head .wai-call-action{display:none;}.wai-shell .wai-selection-bar{padding:0 10px;}.wai-shell .wai-filters:has(.wai-filter-dropdown){overflow:visible;}.wai-shell .wai-bulk-menu{right:0;}.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-chat-head,.wai-shell .wai-chat:has(.wai-details) .wai-chat-head,.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-messages,.wai-shell .wai-chat:has(.wai-details) .wai-messages,.wai-shell .wai-chat:has(.wai-chat-search-panel) .wai-composer-area,.wai-shell .wai-chat:has(.wai-details) .wai-composer-area{margin-right:0;}}
+
+/* Selection highlight includes the checkbox gutter exactly as on the reference. */
+.wai-shell .wai-select-row{padding-left:0;}
+.wai-shell .wai-select-row>input{margin:0 12px 0 15px;}
+.wai-shell .wai-select-row:has(.wai-row.is-active){background:#2e2f2f;}
+.wai-shell .wai-select-row .wai-row.is-active{background:transparent;}
+.wai-shell .wai-select-row:hover:not(:has(.wai-row.is-active)){background:#252727;}
+.wai-shell .wai-selection-bar .wai-bulk-menu>button{display:flex;justify-content:flex-start;gap:18px;min-height:47px;padding:8px 10px;}

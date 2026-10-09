@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -17,6 +17,7 @@ import "./inbox-reference.css";
 import "./custom-lists.css";
 import "./inbox-fidelity.css";
 import "./inbox-screens.css";
+import "./inbox-menus-fidelity.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -35,9 +36,11 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [showArchived, setShowArchived] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [listMenuOpen, setListMenuOpen] = useState(false);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ completed: 0, total: 0 });
   const [starPanel, setStarPanel] = useState(false);
   const [stars, setStars] = useState<StarredItem[]>([]);
@@ -83,6 +86,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const [forwardIds, setForwardIds] = useState<string[]>([]);
+  const [forwardTargets, setForwardTargets] = useState<string[]>([]);
   const [forwardQuery, setForwardQuery] = useState("");
   const [forwardBusy, setForwardBusy] = useState(false);
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
@@ -294,7 +298,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setMenuOpen(false);
     setListMenuOpen(false);
     setDetailsOpen(false); setDetails(null); setChatListsOpen(false);
-    setReplyTarget(null); setMessageInfo(null); setSelectedMessageIds(new Set()); setForwardIds([]); setDeleteIds([]); setChatSearchOpen(false); setChatSearchQuery("");
+    setReplyTarget(null); setMessageInfo(null); setSelectedMessageIds(new Set()); setForwardIds([]); setForwardTargets([]); setDeleteIds([]); setChatSearchOpen(false); setChatSearchQuery("");
     setOpenId(id);
     const selected = list?.conversations.find(item => item.id === id);
     if (!demo && selected?.unread) {
@@ -435,28 +439,30 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
 
   function startForward(ids: string[]) {
     if (!ids.length) return;
-    if (demo) { setActionError("O encaminhamento não está disponível na demonstração."); return; }
+    // The demo may preview the forwarding dialog, but sending remains disabled.
     const selected = (messages ?? []).filter(item => ids.includes(item.id));
     if (selected.some(item => item.revoked || !canForwardInboxMessage(item))) {
       setActionError("Este tipo de mensagem não pode ser encaminhado pelo iGrow."); return;
     }
     if (selected.length > 10) { setActionError("Encaminhe até 10 mensagens por vez."); return; }
     setActionError("");
-    setForwardIds(selected.map(item => item.id)); setForwardQuery("");
+    setForwardIds(selected.map(item => item.id)); setForwardTargets([]); setForwardQuery("");
   }
 
-  async function forwardMessages(targetId: string) {
-    if (!open || !forwardIds.length || forwardBusy || demo) return;
-    const target = list?.conversations.find(item => item.id === targetId && item.channelKey === open.channelKey);
-    if (!target) { setActionError("Escolha um destinatário do mesmo número conectado."); return; }
-    if (channel.kind === "official" && !replyWindow("official", target.lastInboundAt, new Date()).open) {
-      setActionError("A janela de 24 horas deste destinatário está encerrada."); return;
+  async function forwardMessages(targetIds: string[]) {
+    if (!open || !forwardIds.length || !targetIds.length || forwardBusy || demo) return;
+    if (targetIds.length > 10) { setActionError("Selecione no máximo 10 conversas por encaminhamento."); return; }
+    const targets = targetIds.map(id => list?.conversations.find(item => item.id === id && item.channelKey === open.channelKey));
+    if (targets.some(item => !item)) { setActionError("Escolha apenas destinatários do mesmo número conectado."); return; }
+    if (channel.kind === "official" && targets.some(item => item && !replyWindow("official", item.lastInboundAt, new Date()).open)) {
+      setActionError("Um dos destinatários está fora da janela de atendimento de 24 horas."); return;
     }
     const batch = (messages ?? []).filter(item => forwardIds.includes(item.id));
+    let confirmed = 0;
     setForwardBusy(true); setActionError("");
     try {
-      // Each forward is an explicit new outgoing message; the original is never
-      // altered. Media is fetched only after the user confirms a destination.
+      // Prepare once; send sequentially to each explicitly selected recipient.
+      // This does not alter the source message or simulate server confirmations.
       const prepared: FormData[] = [];
       for (const item of batch) {
         const form = new FormData();
@@ -473,18 +479,19 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         } else if (!item.body) throw new Error("Mensagem sem conteúdo encaminhável.");
         prepared.push(form);
       }
-      // Avoid flooding WhatsApp. Confirmation is only shown after all sends.
-      let count = 0;
-      for (const form of prepared) {
+      const total = prepared.length * targetIds.length;
+      for (const targetId of targetIds) for (const form of prepared) {
         const response = await fetch(`/api/whatsapp/inbox/${targetId}/send`, { method: "POST", body: form });
         const result = await response.json().catch(() => null) as { error?: string } | null;
-        if (!response.ok) throw new Error(`${count} de ${prepared.length} enviadas. ${result?.error || "O envio foi recusado."}`);
-        count++;
+        if (!response.ok) throw new Error(`${confirmed} de ${total} envios confirmados. ${result?.error || "O WhatsApp recusou o próximo envio."}`);
+        confirmed++;
       }
-      setForwardIds([]); setSelectedMessageIds(new Set());
-      if (targetId === openId) reload(openId);
+      setForwardIds([]); setForwardTargets([]); setSelectedMessageIds(new Set());
+      if (openId && targetIds.includes(openId)) reload(openId);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Não foi possível encaminhar.");
+      if (confirmed) { setForwardIds([]); setForwardTargets([]); setSelectedMessageIds(new Set()); }
+      setActionError((error instanceof Error ? error.message : "Não foi possível encaminhar.") +
+        (confirmed ? " O encaminhamento parcial foi encerrado para evitar envios duplicados. Confira as conversas antes de tentar novamente." : ""));
     } finally { setForwardBusy(false); }
   }
 
@@ -597,20 +604,42 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             <button type="button" className="wai-icon-button" aria-label="Opções de conversas" aria-expanded={listMenuOpen}
               onClick={() => setListMenuOpen(value => !value)}><MoreVertical size={20} /></button>
             {listMenuOpen && <div className="wai-attach-menu wai-chat-menu wai-list-menu" role="menu">
-              <button type="button" role="menuitem" onClick={() => { setListMenuOpen(false); setStarPanel(true); setPicking(false); setSelecting(false); void refreshStars().catch(() => setActionError("Não foi possível carregar as favoritas.")); }}><BookmarkCheck size={18} />Mensagens favoritas</button>
-              <button type="button" role="menuitem" onClick={() => { setListMenuOpen(false); setSelecting(true); setStarPanel(false); setPicking(false); setShowArchived(false); }}><CheckSquare size={18} />Selecionar conversas</button>
+              <button type="button" role="menuitem" disabled title="Ferramentas comerciais precisam da integração do WhatsApp Business"><Archive size={18}/>Ferramentas comerciais</button>
+              <button type="button" role="menuitem" disabled title="Criação de grupos indisponível na conexão atual"><UsersRound size={18}/>Novo grupo</button>
+              <button type="button" role="menuitem" disabled title="Disponível no gerenciador da Meta"><Megaphone size={18}/>Anunciar</button>
+              <button type="button" role="menuitem" disabled title="Transmissão comercial indisponível"><MessageSquareText size={18}/>Transmissão comercial</button>
+              <button type="button" role="menuitem" disabled title="Catálogo administrado pelo WhatsApp Business"><FileText size={18}/>Catálogo</button>
+              <button type="button" role="menuitem" disabled title="Cobranças precisam de integração de pagamentos"><BadgeCheck size={18}/>Cobranças</button>
+              <button type="button" role="menuitem" disabled title="Respostas rápidas ainda não disponíveis"><SendHorizontal size={18}/>Respostas rápidas</button>
+              <button type="button" role="menuitem" onClick={() => { setListMenuOpen(false); setStarPanel(true); setPicking(false); setSelecting(false); if (!demo) void refreshStars().catch(() => setActionError("Não foi possível carregar as favoritas.")); }}><BookmarkCheck size={18}/>Mensagens favoritas</button>
+              <button type="button" role="menuitem" onClick={() => { setListMenuOpen(false); setSelecting(true); setStarPanel(false); setPicking(false); setShowArchived(false); }}><CheckSquare size={18}/>Selecionar conversas</button>
+              <button type="button" role="menuitem" onClick={() => { setListMenuOpen(false); setManagingLists(true); setPicking(false); }}><ListFilter size={18}/>Listas</button>
               <button type="button" role="menuitem" disabled={bulkBusy || !inChannel.some(item => item.unread > 0)}
-                onClick={() => void markSelectedRead(inChannel.filter(item => item.unread > 0).map(item => item.id))}><CheckCheck size={18} />Marcar todas como lidas</button>
+                onClick={() => void markSelectedRead(inChannel.filter(item => item.unread > 0).map(item => item.id))}><CheckCheck size={18}/>Marcar todas como lidas</button>
+              <div className="wai-menu-divider"/>
+              <button type="button" role="menuitem" disabled title="Bloqueio do aplicativo não está disponível"><Lock size={18}/>Bloqueio do app</button>
+              <button type="button" role="menuitem" disabled title="Gerencie a conexão pela página de Integrações"><ArrowLeft size={18}/>Desconectar</button>
             </div>}
           </div>
         </div>
       </header>}
       {actionError && <p role="alert" className="wai-list-note">{actionError}</p>}
       {customLists.error && <div className="wai-custom-list-error" role="alert"><span>{customLists.error}</span><button type="button" onClick={customLists.clearError} aria-label="Fechar aviso"><X size={16} /></button></div>}
-      {selecting && !picking && !starPanel && <div className="wai-selection-bar">
-        <span>{bulkBusy ? `Sincronizando ${bulkProgress.completed}/${bulkProgress.total}` : `${selectedIds.length} selecionada(s)`}</span>
-        <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => void markSelectedRead(selectedIds)}><CheckCheck size={16} />Marcar como lidas</button>
-        <button type="button" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); }} aria-label="Cancelar seleção"><X size={18} /></button>
+      {selecting && !picking && !starPanel && <div className="wai-selection-bar" role="toolbar" aria-label="Selecionar conversas">
+        <button type="button" className="wai-selection-exit" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); setBulkMenuOpen(false); }} aria-label="Cancelar seleção"><X size={21} /></button>
+        <span>{bulkBusy ? `Sincronizando ${bulkProgress.completed}/${bulkProgress.total}` : `Selecionadas: ${selectedIds.length}`}</span>
+        <div className="wai-head-menu">
+          <button type="button" className="wai-icon-button" aria-label="Opções das conversas selecionadas" aria-expanded={bulkMenuOpen}
+            onClick={() => setBulkMenuOpen(value => !value)}><MoreVertical size={20}/></button>
+          {bulkMenuOpen && <div className="wai-attach-menu wai-chat-menu wai-bulk-menu" role="menu">
+            <button type="button" role="menuitem" disabled={bulkBusy || !selectedIds.length}
+              onClick={() => { setBulkMenuOpen(false); void markSelectedRead(selectedIds); }}><CheckCheck size={19}/>Marcar como lidas</button>
+            <button type="button" role="menuitem" disabled title="Silenciar precisa de suporte confirmado da conexão"><Mic size={19}/>Silenciar notificações</button>
+            <button type="button" role="menuitem" disabled title="Operação em lote ainda indisponível"><Archive size={19}/>Arquivar conversas</button>
+            <div className="wai-menu-divider"/>
+            <button type="button" role="menuitem" disabled title="O WhatsApp não confirmou exclusão em lote"><Trash2 size={19}/>Limpar conversas selecionadas</button>
+          </div>}
+        </div>
       </div>}
       {editingList !== undefined ? <CustomListEditor key={editingList?.id ?? "new-list"} list={editingList}
         conversations={conversations.filter(item => item.channelKey === channelKey)} busy={customLists.busy || demo} error={customLists.error}
@@ -637,16 +666,29 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
       </> : <>
-      <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar ou começar uma nova conversa" aria-label="Pesquisar conversas" /></label>
-      <div className="wai-filters" role="group" aria-label="Filtrar conversas">
+      {!selecting && <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar ou começar uma nova conversa" aria-label="Pesquisar conversas" /></label>}
+      {!selecting && <div className="wai-filters" role="group" aria-label="Filtrar conversas">
         {([["all", "Tudo"], ["unread", unreadHere ? `Não lidas ${unreadHere}` : "Não lidas"], ["favorites", "Favoritas"], ...(channel.kind === "qr" ? [["groups", "Grupos"]] : [])] as Array<[Filter, string]>).map(([key, label]) =>
           <button key={key} type="button" aria-pressed={filter === key} className={filter === key ? "is-active" : undefined} onClick={() => { setFilter(key); setCustomFilterId(null); }}>{label}</button>)}
-        {customLists.lists.map(list => <button type="button" key={list.id} className={customFilterId === list.id ? "is-active" : undefined}
-          aria-pressed={customFilterId === list.id} onClick={() => setCustomFilterId(list.id)}>
-          <span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
-        <button type="button" className="wai-list-add-filter" onClick={() => setEditingList(null)} title="Criar nova lista"><Plus size={18} /></button>
-        <button type="button" className="wai-list-manage-filter" onClick={() => { setManagingLists(true); setPicking(false); setStarPanel(false); }} title="Gerenciar listas"><ListFilter size={18} /></button>
-      </div>
+        {customFilterId && customLists.lists.filter(list => list.id === customFilterId).map(list =>
+          <button type="button" key={list.id} className="is-active" onClick={() => setCustomFilterId(null)}>
+            <span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
+        <div className="wai-filter-dropdown-anchor">
+          <button type="button" className="wai-list-add-filter" aria-expanded={filterMenuOpen}
+            onClick={() => { if (!customLists.lists.length) setEditingList(null); else setFilterMenuOpen(value => !value); }}
+            title={customLists.lists.length ? "Outras listas" : "Criar nova lista"}>
+            {customLists.lists.length ? <ChevronDown size={17} /> : <Plus size={18} />}
+          </button>
+          {filterMenuOpen && <div className="wai-filter-dropdown" role="menu">
+            {customLists.lists.map(list => <button key={list.id} type="button" role="menuitem" onClick={() => {
+              setFilterMenuOpen(false); setCustomFilterId(list.id); setFilter("all");
+            }}><span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
+            <div className="wai-filter-dropdown-divider" />
+            <button type="button" role="menuitem" onClick={() => { setFilterMenuOpen(false); setEditingList(null); }}><Plus size={17} />Nova lista</button>
+            <button type="button" role="menuitem" onClick={() => { setFilterMenuOpen(false); setManagingLists(true); }}><ListFilter size={17} />Gerenciar listas</button>
+          </div>}
+        </div>
+      </div>}
       <div className="wai-rows">
         {archivedHere.length > 0 && <button type="button" className="wai-archived-row" onClick={() => { setShowArchived(true); setFilter("all"); }}>
           <Archive size={20} /><span>Arquivadas</span>{archivedHere.some(item => item.unread) && <small>{archivedHere.filter(item => item.unread).length}</small>}
@@ -684,7 +726,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                 {customLists.lists.some(item => item.conversationIds.includes(open.id))
                   ? <span className="wai-chat-list-colors">{customLists.lists.filter(item => item.conversationIds.includes(open.id)).slice(0,2)
                     .map(item => <span key={item.id} style={{ backgroundColor: item.color }} />)}</span>
-                  : <ListFilter size={18} />}
+                  : <Contact size={18} />}
                 <span>{customLists.lists.filter(item => item.conversationIds.includes(open.id)).length
                   ? `${customLists.lists.filter(item => item.conversationIds.includes(open.id)).length} selecionadas`
                   : "Adicionar à lista"}</span><ChevronDown size={16} />
@@ -697,11 +739,14 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                 <button type="button" className="wai-chat-lists-new" onClick={() => { setChatListsOpen(false); setEditingList(null); }}><Plus size={16} />Criar nova lista</button>
               </div>}
             </div>
+            <button type="button" className="wai-icon-button wai-call-action" aria-label="Chamada de vídeo" title="As chamadas são realizadas no WhatsApp"
+              onClick={() => setActionError("Chamadas de vídeo devem ser iniciadas no WhatsApp. Esta tela é uma ferramenta de apoio e não faz ligações.")}><Video size={23}/></button>
+            <button type="button" className="wai-icon-button wai-call-action" aria-label="Chamada de voz" title="As chamadas são realizadas no WhatsApp"
+              onClick={() => setActionError("Chamadas de voz devem ser iniciadas no WhatsApp. Esta tela é uma ferramenta de apoio e não faz ligações.")}><Phone size={23}/></button>
             <button type="button" className="wai-icon-button" aria-label="Pesquisar na conversa" title="Pesquisar na conversa"
               aria-expanded={chatSearchOpen} onClick={() => { setChatSearchOpen(value => !value); setChatSearchQuery(""); }}>
               <Search size={24} />
             </button>
-            <button type="button" className={`wai-icon-button${open.favorite ? " is-on" : ""}`} onClick={() => toggleFavorite(open)} aria-pressed={open.favorite} title={open.favorite ? "Remover das favoritas" : "Favoritar"}><Star size={19} /></button>
             <div className="wai-head-menu">
               <button type="button" className={`wai-icon-button${menuOpen ? " is-on" : ""}`} onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-label="Mais opções"><MoreVertical size={20} /></button>
               {menuOpen && <div className="wai-attach-menu wai-chat-menu" role="menu">
@@ -790,26 +835,33 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             <div className="wai-confirm-actions"><button type="button" onClick={() => setDeleteIds([])}>Cancelar</button></div>
           </section>
         </div>}
-        {!!forwardIds.length && <div className="wai-message-info-backdrop" role="presentation" onClick={() => { if (!forwardBusy) setForwardIds([]); }}>
-          <section className="wai-message-info wai-forward-dialog" role="dialog" aria-modal="true" aria-label="Encaminhar mensagens"
+        {!!forwardIds.length && <div className="wai-message-info-backdrop wai-forward-backdrop" role="presentation" onClick={() => { if (!forwardBusy) { setForwardIds([]); setForwardTargets([]); } }}>
+          <section className="wai-message-info wai-forward-dialog" role="dialog" aria-modal="true" aria-label="Encaminhar mensagens para"
             onClick={event => event.stopPropagation()}>
-            <header><strong>Encaminhar {forwardIds.length} {forwardIds.length === 1 ? "mensagem" : "mensagens"}</strong>
-              <button type="button" className="wai-icon-button" disabled={forwardBusy} onClick={() => setForwardIds([])} aria-label="Fechar"><X size={20} /></button></header>
-            <p>Selecione a conversa que receberá uma cópia da mensagem. O WhatsApp fará o envio pelo número conectado.</p>
-            <label className="wai-search"><Search size={16} /><input autoFocus value={forwardQuery} onChange={event => setForwardQuery(event.target.value)}
-              placeholder="Buscar conversa para encaminhar" aria-label="Buscar destinatário" /></label>
+            <header><button type="button" className="wai-icon-button" disabled={forwardBusy} onClick={() => { setForwardIds([]); setForwardTargets([]); }} aria-label="Fechar"><X size={22} /></button>
+              <strong>Encaminhar mensagens para</strong></header>
+            <label className="wai-forward-search"><Search size={20} /><input autoFocus value={forwardQuery} onChange={event => setForwardQuery(event.target.value)}
+              placeholder="Pesquisar nome, número ou @nomedeusuário" aria-label="Buscar destinatário" /></label>
             <div className="wai-forward-destinations">
+              <h4>Conversas recentes</h4>
               {(list?.conversations ?? []).filter(item => item.channelKey === open.channelKey &&
                 (!forwardQuery || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(forwardQuery.toLocaleLowerCase("pt-BR"))))
                 .slice(0, 80).map(item =>
-                  <button type="button" key={item.id} disabled={forwardBusy}
-                    onClick={() => void forwardMessages(item.id)}>
-                    <Avatar item={item} size={35} photo={false} />
-                    <span><strong>{conversationTitle(item)}</strong><small>{formatWhatsAppPhone(item.remoteId)}</small></span>
-                    <SendHorizontal size={16} /></button>)}
+                  <label className="wai-forward-choice" key={item.id}>
+                    <input type="checkbox" disabled={forwardBusy} checked={forwardTargets.includes(item.id)}
+                      onChange={() => setForwardTargets(previous => previous.includes(item.id)
+                        ? previous.filter(value => value !== item.id) : previous.length < 10 ? [...previous,item.id] : previous)} />
+                    <Avatar item={item} size={58} photo={!demo} />
+                    <span><strong>{conversationTitle(item)}</strong><small>{item.isGroup ? "Grupo" : formatWhatsAppPhone(item.remoteId)}</small></span>
+                  </label>)}
             </div>
             {actionError && <p role="alert" className="wai-composer-error"><AlertCircle size={15} />{actionError}</p>}
-            {forwardBusy && <p role="status">Enviando mensagens…</p>}
+            {forwardBusy && <p className="wai-forward-status" role="status">Enviando mensagens. Aguarde a confirmação do WhatsApp…</p>}
+            <button type="button" className="wai-forward-confirm" aria-label="Encaminhar para as conversas selecionadas"
+              title={demo ? "A demonstração não envia mensagens" : "Encaminhar para as conversas selecionadas"}
+              disabled={!forwardTargets.length || forwardBusy || demo} onClick={() => void forwardMessages(forwardTargets)}>
+              {forwardBusy ? <Loader2 size={23} className="wai-spin" /> : <Check size={25} />}
+            </button>
           </section>
         </div>}
         {messageInfo && <div className="wai-message-info-backdrop" role="presentation" onClick={() => setMessageInfo(null)}>
