@@ -1,0 +1,174 @@
+/* Block 3: screenshot-faithful 80px WhatsApp icon rail.
+ * Connected phone accounts remain accessible through the profile switcher.
+ * No simulated provider functionality is introduced. */
+.wai-shell .wai-rail {
+  overflow: visible;
+  gap: 0;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  background: #1c1e1e;
+  border-right: 1px solid #323535;
+}
+.wai-shell .wai-rail-top,
+.wai-shell .wai-rail-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 7px;
+}
+.wai-shell .wai-rail-bottom { margin-top: auto; gap: 7px; position: relative; }
+.wai-shell .wai-rail-top .wai-rail-shortcut,
+.wai-shell .wai-rail-bottom .wai-rail-shortcut,
+.wai-shell .wai-rail-bottom .wai-rail-exit {
+  flex: 0 0 48px;
+  width: 49px;
+  height: 48px;
+  min-height: 48px;
+  min-width: 49px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  text-decoration: none;
+  color: #999fa0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.wai-shell .wai-rail-shortcut.is-active,
+.wai-shell .wai-rail-shortcut.is-active:hover {
+  background: #353737;
+  color: #f3f5f5;
+}
+.wai-shell .wai-rail-shortcut.is-active::before {
+  display: none;
+}
+.wai-shell .wai-rail-shortcut:hover,
+.wai-shell .wai-rail-exit:hover {
+  background: #343737;
+  color: #fafafa;
+}
+.wai-shell .wai-rail-top .wai-rail-separator {
+  display: block;
+  width: 49px;
+  height: 1px;
+  min-height: 1px;
+  background: #373939;
+  margin: 8px 0 9px;
+  flex: 0 0 1px;
+}
+.wai-shell .wai-rail-account {
+  position: relative;
+  display: grid;
+  flex: 0 0 49px;
+  place-items: center;
+  width: 49px;
+  height: 49px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  color: #f3f4f4;
+}
+.wai-shell .wai-rail-account:hover,
+.wai-shell .wai-rail-account[aria-expanded="true"] {
+  background: #383b3b;
+}
+.wai-shell .wai-account-switcher {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 50px;
+  width: 100%;
+}
+.wai-shell .wai-account-mark {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  height: 40px;
+  width: 40px;
+  border-radius: 50%;
+  background: #070a10;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -.5px;
+  color: #ededed;
+  overflow: hidden;
+}
+.wai-shell .wai-account-switcher > .wai-rail-account > .wai-rail-badge {
+  display: none;
+}
+.wai-shell .wai-account-menu {
+  position: absolute;
+  z-index: 2000;
+  left: 66px;
+  bottom: 0;
+  display: grid;
+  width: 327px;
+  max-width: calc(100vw - 95px);
+  gap: 2px;
+  padding: 12px 8px;
+  border: 1px solid #383c3c;
+  border-radius: 16px;
+  background: #1c1f1f;
+  box-shadow: 0 15px 45px #000a;
+}
+.wai-shell .wai-account-menu > strong {
+  padding: 6px 12px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #bbc2c0;
+}
+.wai-shell .wai-account-menu > button,
+.wai-shell .wai-account-menu > a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #f0f0f0;
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.wai-shell .wai-account-menu > button:hover,
+.wai-shell .wai-account-menu > button.is-active,
+.wai-shell .wai-account-menu > a:hover {
+  background: #303434;
+}
+.wai-shell .wai-account-menu > button > span:nth-child(2) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wai-shell .wai-account-menu > button > span:nth-child(2) small {
+  color: #a8b0ae;
+  font-size: 12px;
+}
+.wai-shell .wai-account-menu > a {
+  min-height: 45px;
+  margin-top: 6px;
+  border-top: 1px solid #353939;
+  border-radius: 0;
+  color: #c7cfcc;
+}
+@media(max-width:760px) {
+  .wai-shell .wai-rail { min-width: 58px; }
+  .wai-shell .wai-rail-top,
+  .wai-shell .wai-rail-bottom { gap: 5px; }
+  .wai-shell .wai-rail-top .wai-rail-shortcut,
+  .wai-shell .wai-rail-bottom .wai-rail-shortcut,
+  .wai-shell .wai-rail-bottom .wai-rail-exit { width: 43px; height: 43px; min-height: 43px; min-width: 43px; flex-basis:43px; }
+  .wai-shell .wai-account-menu { left: 57px; }
+}
+/* Only selecting mode shades the entire checkbox gutter; ordinary chats stay rounded. */
+.wai-shell .wai-select-row:not(:has(> input[type="checkbox"])):has(.wai-row.is-active) {background:transparent;}
+.wai-shell .wai-select-row:not(:has(> input[type="checkbox"])) .wai-row.is-active {background:#2e2f2f;border-radius:13px;}
+.wai-shell .wai-select-row:not(:has(> input[type="checkbox"])) .wai-row:hover:not(.is-active){border-radius:13px;}

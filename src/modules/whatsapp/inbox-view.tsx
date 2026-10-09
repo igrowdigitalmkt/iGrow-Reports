@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, QrCode, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -18,6 +18,7 @@ import "./custom-lists.css";
 import "./inbox-fidelity.css";
 import "./inbox-screens.css";
 import "./inbox-menus-fidelity.css";
+import "./inbox-rail-fidelity.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -37,6 +38,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [menuOpen, setMenuOpen] = useState(false);
   const [listMenuOpen, setListMenuOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -568,29 +570,44 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         <button type="button" className={`wai-rail-shortcut${!starPanel && !showArchived && !managingLists ? " is-active" : ""}`}
           title="Conversas" aria-label="Conversas"
           onClick={() => { setStarPanel(false); setShowArchived(false); setManagingLists(false); setPicking(false); setSelecting(false); setCustomFilterId(null); }}>
-          <MessageSquareText size={24} />
+          <MessageSquareText size={23} />
           {!!unreadHere && <span className="wai-rail-badge">{unreadHere > 99 ? "99+" : unreadHere}</span>}
         </button>
-        <button type="button" className={`wai-rail-shortcut${showArchived ? " is-active" : ""}`} title="Arquivadas" aria-label="Conversas arquivadas"
-          onClick={() => { setShowArchived(true); setStarPanel(false); setManagingLists(false); setPicking(false); setCustomFilterId(null); }}><Archive size={23} /></button>
-        <button type="button" className={`wai-rail-shortcut${starPanel ? " is-active" : ""}`} title="Mensagens favoritas" aria-label="Mensagens favoritas"
-          onClick={() => { setStarPanel(true); setShowArchived(false); setManagingLists(false); setPicking(false); if (!demo) void refreshStars().catch(() => setActionError("Não foi possível carregar as favoritas.")); }}><BookmarkCheck size={23} /></button>
-        <button type="button" className={`wai-rail-shortcut${managingLists ? " is-active" : ""}`} title="Listas personalizadas" aria-label="Listas personalizadas"
-          onClick={() => { setManagingLists(true); setShowArchived(false); setStarPanel(false); setPicking(false); }}><ListFilter size={23} /></button>
+        <button type="button" className="wai-rail-shortcut" title="Ligações: consulte pelo WhatsApp" aria-label="Ligações"
+          onClick={() => setActionError("Para fazer ou consultar ligações, abra o WhatsApp. O iGrow é uma ferramenta de apoio para mensagens recentes.")}><Phone size={22}/></button>
+        <button type="button" className="wai-rail-shortcut" title="Atualizações: consulte pelo WhatsApp" aria-label="Atualizações"
+          onClick={() => setActionError("As atualizações de status ficam no WhatsApp e não são copiadas pelo iGrow.")}><CircleDashed size={23}/></button>
+        <button type="button" className="wai-rail-shortcut" title="Canais: consulte pelo WhatsApp" aria-label="Canais"
+          onClick={() => setActionError("A consulta de canais está disponível no WhatsApp original.")}><MessagesSquare size={23}/></button>
+        <button type="button" className="wai-rail-shortcut" title="Comunidades: consulte pelo WhatsApp" aria-label="Comunidades"
+          onClick={() => setActionError("A gestão de comunidades permanece no WhatsApp original.")}><UsersRound size={23}/></button>
+        <div className="wai-rail-separator" aria-hidden="true" />
+        <button type="button" className="wai-rail-shortcut" title="Ferramentas comerciais: gerencie pelo WhatsApp Business" aria-label="Ferramentas comerciais"
+          onClick={() => setActionError("Ferramentas comerciais como catálogo e cobranças são gerenciadas no WhatsApp Business.")}><Store size={23}/></button>
+        <button type="button" className="wai-rail-shortcut" title="Anúncios: gerencie na Meta" aria-label="Anunciar"
+          onClick={() => setActionError("Anúncios são criados e gerenciados no Gerenciador de Anúncios da Meta.")}><Megaphone size={23}/></button>
       </div>
-      <div className="wai-rail-bottom"><div className="wai-rail-separator" aria-hidden="true" />
-      {allChannels.map(item => {
-        const unread = unreadByChannel.get(item.key) ?? 0;
-        return <button key={item.key} type="button" className={`wai-rail-item${item.key === channelKey ? " is-active" : ""}`} aria-pressed={item.key === channelKey}
-          title={`${item.name}${item.phone ? ` · ${item.phone}` : ""}${item.kind === "official" ? item.coexistence ? " · API com coexistência" : " · API oficial" : " · QR Code"}`}
-          onClick={() => { setChannelKey(item.key); setCustomFilterId(null); setManagingLists(false); setEditingList(undefined); setOpenId(null); setDraft(null); setPicking(false); setShowArchived(false); setStarPanel(false); setSelecting(false); setSelectedIds([]); setListMenuOpen(false); setDetailsOpen(false); setChatSearchOpen(false); setChatSearchQuery(""); setFilter("all"); }}>
-          {item.kind === "qr" ? <QrCode size={21} /> : /\p{L}/u.test(item.name)
-            ? <span className="wai-rail-initials" style={{ background: colorFor(item.key) }}>{initialsOf(item.name)}</span>
-            : <span className="wai-rail-initials is-icon" style={{ background: colorFor(item.key) }}><BadgeCheck size={17} /></span>}
-          {unread > 0 && <span className="wai-rail-badge">{unread > 99 ? "99+" : unread}</span>}
-        </button>;
-      })}
-        <a className="wai-rail-exit" href={demo ? "/demo" : "/dashboard"} title="Voltar ao iGrow Reports" aria-label="Voltar ao iGrow Reports"><ArrowLeft size={23} /></a>
+      <div className="wai-rail-bottom">
+        <button type="button" className="wai-rail-shortcut" title="Mídia da conversa" aria-label="Mídias, links e documentos"
+          onClick={() => { if (open) { setDetails(null); setDetailsLoading(true); setDetailsOpen(true); } else setActionError("Abra uma conversa para consultar as mídias recentes."); }}><ImageIcon size={23}/></button>
+        <a className="wai-rail-exit" href={demo ? "/demo/configuracoes" : "/dashboard/configuracoes"} title="Configurações do iGrow" aria-label="Configurações do iGrow"><Settings size={24}/></a>
+        <div className="wai-account-switcher">
+          <button type="button" className="wai-rail-account" aria-label="Selecionar número conectado" aria-expanded={accountMenuOpen}
+            title={channel.name} onClick={() => setAccountMenuOpen(value => !value)}>
+            <span className="wai-account-mark">{channel.kind === "qr" ? "iGrow" : initialsOf(channel.name)}</span>
+            {!!unreadHere && <span className="wai-rail-badge">{unreadHere > 99 ? "99+" : unreadHere}</span>}
+          </button>
+          {accountMenuOpen && <div className="wai-account-menu" role="menu">
+            <strong>Contas conectadas</strong>
+            {allChannels.map(item => <button key={item.key} type="button" role="menuitem" className={item.key === channelKey ? "is-active" : undefined}
+              onClick={() => { setAccountMenuOpen(false); setChannelKey(item.key); setCustomFilterId(null); setManagingLists(false); setEditingList(undefined); setOpenId(null); setDraft(null); setPicking(false); setShowArchived(false); setStarPanel(false); setSelecting(false); setSelectedIds([]); setListMenuOpen(false); setDetailsOpen(false); setChatSearchOpen(false); setChatSearchQuery(""); setFilter("all"); }}>
+              <span className="wai-account-mark">{item.kind === "qr" ? "iGrow" : initialsOf(item.name)}</span>
+              <span>{item.name}<small>{item.phone || (item.kind === "qr" ? "QR Code" : "API oficial")}</small></span>
+              {item.key === channelKey && <Check size={17}/>}
+            </button>)}
+            <a href={demo ? "/demo" : "/dashboard"}><ArrowLeft size={17}/>Voltar ao iGrow Reports</a>
+          </div>}
+        </div>
       </div>
     </nav>
 
