@@ -1,0 +1,109 @@
+/* Design fidelity / screens 20-29: list manager, list editor and contact picker.
+ * Every selector stays under the WhatsApp module. Real API and user data are preserved. */
+.wai-shell .wai-custom-editor,.wai-shell .wai-custom-manager {
+  position:relative;display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;
+  overflow:hidden;background:#161717;color:#f7f7f7;
+}
+.wai-shell .wai-custom-editor-head,.wai-shell .wai-custom-manager-head {
+  display:flex;align-items:center;gap:22px;flex-shrink:0;height:70px;min-height:70px;
+  padding:0 24px 0 20px;background:#161717;
+}
+.wai-shell .wai-custom-editor-head strong,.wai-shell .wai-custom-manager-head strong {font-size:17px;font-weight:600;line-height:1.2;}
+.wai-shell .wai-custom-editor-head button,.wai-shell .wai-custom-manager-head button {
+  display:grid;place-items:center;flex-shrink:0;width:39px;height:39px;border:0;
+  border-radius:50%;background:transparent;color:#eeeeee;cursor:pointer;
+}
+.wai-shell .wai-custom-editor-head button:hover,.wai-shell .wai-custom-manager-head button:hover {background:#343535;}
+.wai-shell .wai-custom-editor-scroll {flex:1;overflow-y:auto;min-height:0;padding:10px 28px 35px 22px;scrollbar-width:thin;scrollbar-color:#444848 transparent;}
+.wai-shell .wai-custom-editor-label {display:block;margin:0 0 5px;color:#aeb1b0;font-size:13px;font-weight:600;}
+.wai-shell .wai-custom-editor-name {position:relative;display:flex;align-items:center;width:100%;height:45px;border-bottom:1px solid #7c8280;}
+.wai-shell .wai-custom-editor-name:focus-within {border-bottom-color:#e9eded;}
+.wai-shell .wai-custom-editor-name input {min-width:0;flex:1;height:42px;outline:0;border:0;background:transparent;color:#f5f5f5;font-size:16px;}
+.wai-shell .wai-custom-editor-name input::placeholder{color:#969b99;}
+.wai-shell .wai-custom-editor-name>button {display:grid;place-items:center;flex-shrink:0;width:30px;height:34px;background:transparent;color:#fafafa;border:0;cursor:pointer;}
+.wai-shell .wai-custom-editor-name>button.wai-custom-color-button {width:31px;height:32px;}
+.wai-shell .wai-custom-color-button span {width:21px;height:21px;border-radius:50%;}
+.wai-shell .wai-custom-colors {
+  position:absolute;z-index:15;top:calc(100% + 8px);right:0;display:grid;grid-template-columns:repeat(5,1fr);
+  gap:13px;width:244px;padding:14px;border:1px solid #414544;border-radius:11px;background:#222525;box-shadow:0 14px 24px #000a;
+}
+.wai-shell .wai-custom-colors button {width:34px;height:34px;display:grid;place-items:center;border:2px solid transparent;border-radius:50%;color:white;cursor:pointer;}
+.wai-shell .wai-custom-colors button[aria-checked="true"]{outline:2px solid white;outline-offset:2px;}
+.wai-shell .wai-custom-suggestions {margin-top:60px;}
+.wai-shell .wai-custom-suggestions h3,.wai-shell .wai-custom-members h3 {margin:0 0 15px;color:#aeb4b2;font-size:15px;font-weight:600;}
+.wai-shell .wai-custom-suggestions button {display:flex;align-items:center;gap:22px;width:100%;height:60px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:#f1f1f1;text-align:left;font-size:16px;cursor:pointer;}
+.wai-shell .wai-custom-suggestions button:hover,.wai-shell .wai-custom-add-members:hover,.wai-shell .wai-custom-member:hover{background:#292b2a;}
+.wai-shell .wai-custom-list-dot {display:block;flex-shrink:0;width:17px;height:17px;border-radius:50%;}
+.wai-shell .wai-custom-members {margin-top:70px;}
+.wai-shell .wai-custom-members h3 {margin-bottom:24px;}
+.wai-shell .wai-custom-member {display:flex;align-items:center;gap:16px;width:100%;padding:9px 10px;background:transparent;border:0;color:inherit;font-size:16px;cursor:pointer;text-align:left;}
+.wai-shell .wai-custom-member>span:nth-of-type(2){flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.wai-shell .wai-custom-add-members {display:flex;align-items:center;gap:24px;min-height:58px;padding:6px 11px;background:transparent;border:0;border-radius:9px;color:#f7f7f7;font-size:16px;text-align:left;cursor:pointer;}
+.wai-shell .wai-custom-big-plus {display:grid;place-items:center;width:50px;height:50px;border-radius:50%;background:#f5f5f5;color:#1b1b1b;}
+.wai-shell .wai-custom-create {display:flex;align-items:center;justify-content:center;gap:8px;min-width:139px;height:47px;margin:55px 0 0 12px;padding:0 25px;border:0;border-radius:26px;background:#fff;color:#131414;font-size:15px;font-weight:600;cursor:pointer;}
+.wai-shell .wai-custom-create:disabled {color:#6c6c6c;background:#303232;cursor:not-allowed;}
+.wai-shell .wai-custom-manager-head {gap:13px;padding-left:19px;}
+.wai-shell .wai-custom-manager-head>strong {flex:1;}
+.wai-shell .wai-custom-manager-head .wai-custom-manager-plus {width:34px;height:34px;border:2px solid #e6e9e7;border-radius:50%;}
+.wai-shell .wai-custom-manager-head .wai-custom-manager-plus svg{width:21px;}
+.wai-shell .wai-custom-manager-options {position:relative;}
+.wai-shell .wai-custom-manager-options>button {width:43px;height:43px;}
+.wai-shell .wai-custom-manager-options>button[aria-expanded="true"] {background:#353738;}
+.wai-shell .wai-custom-options-menu {position:absolute;right:-4px;top:43px;z-index:25;width:190px;padding:8px;border:1px solid #393d3c;border-radius:17px;background:#181a1a;box-shadow:0 7px 30px #0008;}
+.wai-shell .wai-custom-options-menu button {display:flex;align-items:center;justify-content:flex-start;gap:18px;width:100%;height:41px;padding:0 11px;border-radius:8px;font-size:14px;white-space:nowrap;}
+.wai-shell .wai-custom-manager-rows {flex:1;min-height:0;overflow:auto;padding:0 13px;scrollbar-width:thin;scrollbar-color:#454747 transparent;}
+.wai-shell .wai-custom-manager-item {position:relative;display:flex;align-items:center;gap:18px;min-height:79px;padding:7px 11px;border-radius:11px;color:#fafafa;}
+.wai-shell .wai-custom-manager-item:hover,.wai-shell .wai-custom-manager-item:has(.wai-custom-manager-context){background:#2c2e2e;}
+.wai-shell .wai-custom-manager-item .wai-custom-list-dot {width:14px;height:14px;}
+.wai-shell .wai-custom-manager-title {display:grid;gap:4px;flex:1;min-width:0;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;text-align:left;}
+.wai-shell .wai-custom-manager-title strong {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;font-weight:500;}
+.wai-shell .wai-custom-manager-title small {font-size:15px;color:#a9adab;}
+.wai-shell .wai-custom-manager-caret,.wai-shell .wai-custom-order-actions button {display:grid;place-items:center;flex-shrink:0;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:#aab2b0;cursor:pointer;}
+.wai-shell .wai-custom-manager-caret:not([aria-expanded="true"]){opacity:0;}
+.wai-shell .wai-custom-manager-item:hover .wai-custom-manager-caret,.wai-shell .wai-custom-manager-caret[aria-expanded="true"]{opacity:1;}
+.wai-shell .wai-custom-order-actions{display:flex;align-items:center;gap:3px;}
+.wai-shell .wai-custom-order-actions button:disabled{opacity:.3;cursor:default;}
+.wai-shell .wai-custom-manager-context{position:absolute;top:34px;right:-146px;z-index:29;display:grid;width:188px;padding:7px;background:#171919;border:1px solid #383b3b;border-radius:18px;box-shadow:0 8px 25px #0008;}
+.wai-shell .wai-custom-manager-context button{display:flex;align-items:center;gap:16px;width:100%;min-height:41px;padding:8px 10px;border:0;border-radius:7px;color:#f6f6f6;background:transparent;text-align:left;font-size:15px;cursor:pointer;}
+.wai-shell .wai-custom-manager-context button:hover{background:#343738;}
+.wai-shell .wai-custom-manager-context button:last-child{margin-top:3px;border-top:1px solid #333737;border-radius:0;}
+/* Recipient selector is an overlay only while selecting members; editing remains in sidebar. */
+.wai-shell .wai-custom-picker-backdrop {position:fixed;inset:0;z-index:1800;background:#0008;}
+.wai-shell .wai-custom-picker{
+  position:absolute;top:6vh;left:calc(var(--wai-ref-rail-width) + var(--wai-ref-inbox-width) + 30px);
+  display:flex;flex-direction:column;width:min(540px,calc(100vw - 40px));height:min(88vh,950px);
+  border-radius:21px;overflow:hidden;background:#171919;color:#fff;box-shadow:0 10px 45px #0009;
+}
+.wai-shell .wai-custom-picker>header{display:flex;align-items:center;gap:15px;height:70px;min-height:70px;padding:0 24px;}
+.wai-shell .wai-custom-picker>header strong{font-size:18px;font-weight:600;}
+.wai-shell .wai-custom-picker>header button {display:grid;place-items:center;width:32px;height:38px;border:0;background:transparent;color:#fff;cursor:pointer;}
+.wai-shell .wai-custom-picker-search {display:flex;align-items:center;gap:16px;flex-shrink:0;height:55px;min-height:55px;margin:0 23px 12px;padding:0 22px;border:2px solid #e9e9e9;border-radius:30px;background:transparent;color:#abb2b0;}
+.wai-shell .wai-custom-picker-search:focus-within{border-color:white;}
+.wai-shell .wai-custom-picker-search input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:white;font-size:16px;}
+.wai-shell .wai-custom-picker-list{flex:1;min-height:0;overflow:auto;padding:2px 12px 60px;scrollbar-width:thin;scrollbar-color:#454a48 transparent;}
+.wai-shell .wai-custom-picker-list h4{margin:22px 17px 23px;color:#a9afac;font-size:15px;font-weight:500;}
+.wai-shell .wai-custom-picker-row {display:flex;align-items:center;gap:22px;min-height:90px;padding:5px 16px;border-radius:12px;cursor:pointer;}
+.wai-shell .wai-custom-picker-row:hover{background:#2d3030;}
+.wai-shell .wai-custom-picker-row input{appearance:none;width:21px;height:21px;flex-shrink:0;margin:0;border:2px solid #737977;border-radius:5px;cursor:pointer;}
+.wai-shell .wai-custom-picker-row input:checked{background:#25d366;border-color:#25d366;}
+.wai-shell .wai-custom-picker-row input:checked::before{content:"✓";display:block;text-align:center;line-height:17px;color:#082515;font-size:14px;font-weight:700;}
+.wai-shell .wai-list-picker-avatar{position:relative;display:grid;place-items:center;flex-shrink:0;width:58px;height:58px;overflow:hidden;border-radius:50%;color:#fff;font-size:16px;font-weight:600;}
+.wai-shell .wai-list-picker-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.wai-shell .wai-custom-picker-row>span:last-child{display:grid;gap:5px;min-width:0;flex:1;}
+.wai-shell .wai-custom-picker-row strong{font-size:16px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wai-shell .wai-custom-picker-row small{font-size:14px;color:#afb5b3;}
+.wai-shell .wai-custom-picker-done{position:absolute;right:39px;bottom:42px;display:grid;place-items:center;width:72px;height:72px;border:0;border-radius:50%;background:#fff;color:#0b0b0b;box-shadow:0 8px 25px #0009;cursor:pointer;}
+.wai-shell .wai-custom-picker-done:hover{background:#e4e4e4;}
+.wai-shell .wai-list-membership label{gap:14px;min-height:48px;padding:5px 11px;font-size:15px;}
+.wai-shell .wai-list-membership label>span:nth-child(2){flex:1;}
+.wai-shell .wai-list-membership label input{order:3;margin-left:auto;width:21px;height:21px;accent-color:#fff;}
+@media(max-width:1130px){.wai-shell .wai-custom-picker{left:max(70px,calc(50vw - 270px));}}
+@media(max-width:760px){
+  .wai-shell .wai-custom-picker{top:4vh;left:12px;width:calc(100vw - 24px);height:92dvh;}
+  .wai-shell .wai-custom-editor-head,.wai-shell .wai-custom-manager-head{height:65px;min-height:65px;}
+  .wai-shell .wai-custom-editor-scroll{padding:8px 17px 28px;}
+  .wai-shell .wai-custom-suggestions{margin-top:35px;}
+  .wai-shell .wai-custom-members{margin-top:40px;}
+  .wai-shell .wai-custom-manager-context{right:3px;top:64px;}
+  .wai-shell .wai-custom-picker-done{bottom:18px;right:20px;width:58px;height:58px;}
+}

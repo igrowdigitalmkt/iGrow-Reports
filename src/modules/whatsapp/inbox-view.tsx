@@ -16,6 +16,7 @@ import "./inbox.css";
 import "./inbox-reference.css";
 import "./custom-lists.css";
 import "./inbox-fidelity.css";
+import "./inbox-screens.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -587,7 +588,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     </nav>
 
     <section className="wai-list" aria-label="Conversas">
-      <header className="wai-list-head">
+      {editingList === undefined && !managingLists && !picking && !starPanel && !showArchived && <header className="wai-list-head">
         <div><h2>WhatsApp</h2><small title="Número conectado no iGrow">{channel.name}{channel.phone ? ` · ${channel.phone}` : ""}</small></div>
         <div className="wai-head-actions">
           <button type="button" className={`wai-icon-button${picking ? " is-on" : ""}`} disabled={channel.kind !== "qr" || !canReply} onClick={() => setPicking(value => !value)}
@@ -603,7 +604,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             </div>}
           </div>
         </div>
-      </header>
+      </header>}
       {actionError && <p role="alert" className="wai-list-note">{actionError}</p>}
       {customLists.error && <div className="wai-custom-list-error" role="alert"><span>{customLists.error}</span><button type="button" onClick={customLists.clearError} aria-label="Fechar aviso"><X size={16} /></button></div>}
       {selecting && !picking && !starPanel && <div className="wai-selection-bar">
@@ -611,7 +612,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => void markSelectedRead(selectedIds)}><CheckCheck size={16} />Marcar como lidas</button>
         <button type="button" disabled={bulkBusy} onClick={() => { setSelecting(false); setSelectedIds([]); }} aria-label="Cancelar seleção"><X size={18} /></button>
       </div>}
-      {managingLists ? <CustomListManager lists={customLists.lists} busy={customLists.busy}
+      {editingList !== undefined ? <CustomListEditor key={editingList?.id ?? "new-list"} list={editingList}
+        conversations={conversations.filter(item => item.channelKey === channelKey)} busy={customLists.busy || demo} error={customLists.error}
+        onClose={() => setEditingList(undefined)} onSave={saveCustomList} />
+      : managingLists ? <CustomListManager lists={customLists.lists} busy={customLists.busy}
         onBack={() => setManagingLists(false)} onCreate={() => setEditingList(null)}
         onEdit={setEditingList} onRemove={setDeletingList} onMove={(item,delta) => void moveCustomList(item,delta)} />
       : picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={choose} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
@@ -844,9 +848,6 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           onClose={() => setDetailsOpen(false)} />}
       </>}
     </section>
-    {editingList !== undefined && <CustomListEditor key={editingList?.id ?? "new-list"} list={editingList}
-      conversations={conversations.filter(item => item.channelKey === channelKey)} busy={customLists.busy || demo} error={customLists.error}
-      onClose={() => setEditingList(undefined)} onSave={saveCustomList} />}
     {deletingList && <div className="wai-list-dialog-backdrop" role="presentation" onClick={() => setDeletingList(null)}>
       <section className="wai-list-delete-dialog" role="dialog" aria-modal="true" aria-label="Apagar lista" onClick={event => event.stopPropagation()}>
         <strong>Apagar lista “{deletingList.name}”?</strong><p>As conversas não serão apagadas. Apenas esta lista personalizada será removida.</p>
