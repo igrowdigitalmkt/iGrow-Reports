@@ -19,6 +19,7 @@ import "./inbox-fidelity.css";
 import "./inbox-screens.css";
 import "./inbox-menus-fidelity.css";
 import "./inbox-rail-fidelity.css";
+import "./inbox-pixel-precision.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -692,9 +693,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             <span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
         <div className="wai-filter-dropdown-anchor">
           <button type="button" className="wai-list-add-filter" aria-expanded={filterMenuOpen}
-            onClick={() => { if (!customLists.lists.length) setEditingList(null); else setFilterMenuOpen(value => !value); }}
-            title={customLists.lists.length ? "Outras listas" : "Criar nova lista"}>
-            {customLists.lists.length ? <ChevronDown size={17} /> : <Plus size={18} />}
+            onClick={() => setFilterMenuOpen(value => !value)} title="Outras listas e nova lista">
+            <ChevronDown size={17} />
           </button>
           {filterMenuOpen && <div className="wai-filter-dropdown" role="menu">
             {customLists.lists.map(list => <button key={list.id} type="button" role="menuitem" onClick={() => {
@@ -981,8 +981,9 @@ function ConversationRow({ item, active, now, photo, labels, onOpen }: { item: I
       </span>
       {item.clientName && <span className="wai-row-client">{item.clientName}</span>}
       {!!labels.length && <span className="wai-row-list-labels" aria-label={labels.map(item => item.name).join(", ")}>
-        {labels.slice(0,3).map(label => <span key={label.id} title={label.name} style={{ background: label.color }} />)}
-        {labels.length > 3 && <small>+{labels.length - 3}</small>}
+        {labels.slice(0,4).map(label => <span className="wai-row-list-chip" key={label.id} title={label.name}
+          style={{ "--wai-chip-color": label.color } as React.CSSProperties}>{label.name}</span>)}
+        {labels.length > 4 && <small>+{labels.length - 4}</small>}
       </span>}
     </span>
   </button>;
