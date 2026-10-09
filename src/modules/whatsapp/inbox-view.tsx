@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -21,6 +21,7 @@ import "./inbox-screens.css";
 import "./inbox-menus-fidelity.css";
 import "./inbox-rail-fidelity.css";
 import "./inbox-pixel-precision.css";
+import "./inbox-screenshot-corrections.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -953,6 +954,17 @@ function Avatar({ item, size, photo }: { item: InboxConversation; size: number; 
   </span>;
 }
 
+/** Rounded sticker/smiley glyph from the current Web composer reference. */
+function EmojiStickerIcon() {
+  return <svg className="wai-emoji-sticker-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M8.2 2.5h7.6c3.7 0 5.7 2.1 5.7 5.8v5.3c0 1.5-.5 2.9-1.4 4L16 21.5H8.2c-3.7 0-5.7-2-5.7-5.7V8.3c0-3.7 2-5.8 5.7-5.8Z" />
+    <path d="M15.9 21.4v-3.8c0-1.6.9-2.6 2.6-2.6h2.8" />
+    <circle cx="9.1" cy="9.8" r=".8" fill="currentColor" stroke="none" />
+    <circle cx="15.2" cy="9.8" r=".8" fill="currentColor" stroke="none" />
+    <path d="M8.6 13.5c1.5 2.1 4.7 2.1 6.3 0" />
+  </svg>;
+}
+
 function Ticks({ status }: { status: InboxStatus }) {
   if (status === "read") return <CheckCheck size={16} className="wai-tick is-read" aria-label="Lida" />;
   if (status === "delivered") return <CheckCheck size={16} className="wai-tick" aria-label="Entregue" />;
@@ -1505,7 +1517,7 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
         </div>}
       </div>
       <div className="wai-composer-menu">
-        <button type="button" className={`wai-icon-button${menu === "emoji" ? " is-on" : ""}`} onClick={() => setMenu(menu === "emoji" ? null : "emoji")} aria-expanded={menu === "emoji"} title="Emojis"><Smile size={22} /></button>
+        <button type="button" className={`wai-icon-button${menu === "emoji" ? " is-on" : ""}`} onClick={() => setMenu(menu === "emoji" ? null : "emoji")} aria-expanded={menu === "emoji"} title="Emojis"><EmojiStickerIcon /></button>
         {menu === "emoji" && <EmojiPicker onPick={insertEmoji} />}
       </div>
       <textarea ref={field} rows={1} value={text} maxLength={MAX_REPLY_TEXT} placeholder="Digite uma mensagem" aria-label="Mensagem"
