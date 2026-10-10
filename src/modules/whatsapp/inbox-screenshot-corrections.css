@@ -238,3 +238,15 @@
     pointer-events: none !important;
   }
 }
+
+/* Fix the actual black notch at the message tail.
+   The shared .wai-bubble rule applies border-radius:9px AFTER the original
+   .has-tail rule, rounding the upper corner underneath the triangle.
+   That exposes a black wedge between bubble and ::before. Override the
+   corner at greater specificity so the tail joins a square, solid edge. */
+.wai-shell .wai-bubble-row.is-out .wai-bubble.has-tail {
+  border-top-right-radius: 0;
+}
+.wai-shell .wai-bubble-row.is-in .wai-bubble.has-tail {
+  border-top-left-radius: 0;
+}
