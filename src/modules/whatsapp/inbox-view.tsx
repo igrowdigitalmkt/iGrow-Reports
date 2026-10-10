@@ -1138,7 +1138,7 @@ const VOICE_WAVE_BARS = Array.from({ length: 48 }, (_, i) =>
 /** Decode only small, temporary voice previews; no additional server call,
  * no upload and no persistent media storage. Keep a visual fallback when the
  * browser cannot decode an Opus / AAC variant. */
-async function voiceWaveFromPreview(url: string, count = 48): Promise<number[] | null> {
+async function voiceWaveFromPreview(url: string, count = 48): Promise<{ bars: number[]; duration: number } | null> {
   const response = await fetch(url);
   const blob = await response.blob();
   if (blob.size > 2_500_000 || blob.size === 0) return null;
@@ -1149,6 +1149,7 @@ async function voiceWaveFromPreview(url: string, count = 48): Promise<number[] |
     const data = await context.decodeAudioData(await blob.arrayBuffer());
     const samples = data.getChannelData(0);
     if (!samples.length) return null;
+    const duration = Number.isFinite(data.duration) && data.duration > 0 ? data.duration : 0;
     const energies = Array.from({ length: count }, (_, i) => {
       const start = Math.floor(i * samples.length / count);
       const end = Math.min(samples.length, Math.max(start + 1, Math.floor((i + 1) * samples.length / count)));
@@ -1158,7 +1159,7 @@ async function voiceWaveFromPreview(url: string, count = 48): Promise<number[] |
       return Math.sqrt(sum / Math.max(n, 1));
     });
     const peak = Math.max(...energies, 0.001);
-    return energies.map(v => Math.max(4, Math.min(32, Math.round(4 + 28 * Math.sqrt(v / peak)))));
+    return { bars: energies.map(v => Math.max(4, Math.min(32, Math.round(4 + 28 * Math.sqrt(v / peak))))), duration };
   } finally { await context.close(); }
 }
 
@@ -1174,7 +1175,7 @@ function VoiceAvatar({ src, out }: { src?: string; out: boolean }) {
 
 /** WhatsApp-style voice note. The preview is fetched only when visible;
  * its duration comes from the actual audio metadata, not a fabricated value. */
-function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; out: boolean; avatarSrc?: string; preview?: boolean }) {
+function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: { src: string; out: boolean; avatarSrc?: string; preview?: boolean; durationSeconds?: number | null }) {
   const anchor = useRef<HTMLDivElement>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const url = useRef<string | null>(null);
@@ -1183,7 +1184,7 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
   const pending = useRef<Promise<HTMLAudioElement> | null>(null);
   const speedRef = useRef(1);
   const [state, setState] = useState<"idle" | "loading" | "playing" | "paused" | "error">("idle");
-  const [time, setTime] = useState({ current: 0, duration: 0 });
+  const [time, setTime] = useState({ current: 0, duration: durationSeconds ?? 0 });
   const [speed, setSpeed] = useState(1);
   const [hasStarted, setHasStarted] = useState(false);
   const [wave, setWave] = useState<number[]>(VOICE_WAVE_BARS);
@@ -1199,19 +1200,24 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
       url.current = previewUrl;
       // Decode asynchronously, without delaying the audio controls or playback.
       void voiceWaveFromPreview(previewUrl).then(result => {
-        if (!controller.signal.aborted && result) setWave(result);
+        if (controller.signal.aborted || !result) return;
+        setWave(result.bars);
+        if (result.duration > 0) setTime(previous => ({
+          ...previous,
+          duration: previous.duration > 0 ? previous.duration : result.duration,
+        }));
       }).catch(() => undefined);
       const element = new Audio(previewUrl);
       element.preload = "metadata";
       element.playbackRate = speedRef.current;
       element.onloadedmetadata = () => setTime(previous => ({
         current: previous.current,
-        duration: Number.isFinite(element.duration) ? element.duration : 0,
+        duration: Number.isFinite(element.duration) && element.duration > 0 ? element.duration : previous.duration,
       }));
-      element.ontimeupdate = () => setTime({
+      element.ontimeupdate = () => setTime(previous => ({
         current: element.currentTime,
-        duration: Number.isFinite(element.duration) ? element.duration : element.currentTime,
-      });
+        duration: Number.isFinite(element.duration) && element.duration > 0 ? element.duration : previous.duration,
+      }));
       element.onplay = () => { setHasStarted(true); setState("playing"); };
       element.onpause = () => setState(previous => previous === "error" ? "error" : "paused");
       element.onended = () => { element.currentTime = 0; setTime(previous => ({ ...previous, current: 0 })); setState("paused"); };
@@ -1225,8 +1231,8 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
           audio.current = null;
           // Expiring the temporary media must not erase the listened state.
           setState("idle");
-          setTime({ current: 0, duration: 0 });
-          setWave(VOICE_WAVE_BARS);
+          // The expiring Blob URL must not erase duration or the visual history.
+          setTime(previous => ({ ...previous, current: 0 }));
         }
       }, MEDIA_PREVIEW_MS);
       return element;
@@ -1269,7 +1275,8 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
     if (audio.current) audio.current.playbackRate = next;
   }
   const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
-  const progress = time.duration ? Math.min(100, (time.current / time.duration) * 100) : 0;
+  const progress = time.duration ? Math.max(0, Math.min(100, (time.current / time.duration) * 100)) : 0;
+  const playedBars = Math.round((progress / 100) * wave.length);
 
   return <div ref={anchor} className={`wai-voice${out ? " is-out" : " is-in"}${hasStarted ? " is-started" : ""}`}>
     <span className="wai-voice-identity">
@@ -1286,14 +1293,15 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
       <div className="wai-voice-waveform">
         <svg className="wai-voice-wave-svg" viewBox={`0 0 ${wave.length * 4.75} 40`} preserveAspectRatio="none" aria-hidden="true">
           {wave.map((height, index) =>
-            <rect key={index} x={index * 4.75} y={(40 - height) / 2} width={2.6} height={height} rx={1.3} />)}
+            <rect key={index} x={index * 4.75} y={(40 - height) / 2} width={2.6} height={height} rx={1.3}
+              fill={hasStarted && index < playedBars ? "#f0f2f1" : undefined} />)}
         </svg>
         <input type="range" min={0} max={time.duration || 1} step={0.1}
           value={time.current} onChange={event => seek(Number(event.target.value))}
           disabled={preview || !time.duration} aria-label="Posição do áudio"
           style={{ "--wai-progress": `${progress}%` } as React.CSSProperties} />
       </div>
-      <small className="wai-voice-duration">{time.duration ? clock(state === "idle" ? time.duration : Math.max(0, time.duration - time.current)) : state === "loading" ? "…" : "--:--"}</small>
+      <small className="wai-voice-duration">{time.duration ? clock(state === "playing" ? Math.max(0, time.duration - time.current) : time.duration) : state === "loading" ? "…" : "--:--"}</small>
     </div>
 
   </div>;
@@ -1408,8 +1416,8 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
         </div>}
         {live && (message.kind === "image" || message.kind === "sticker") && <MediaImage src={src} sticker={message.kind === "sticker"} onView={onView} />}
         {live && message.kind === "video" && <DeferredVideo src={src} />}
-        {live && message.kind === "audio" && <AudioPlayer src={src} out={out} avatarSrc={voiceAvatarSrc} />}
-        {!live && message.kind === "audio" && <AudioPlayer src={src} out={out} avatarSrc={voiceAvatarSrc} preview />}
+        {live && message.kind === "audio" && <AudioPlayer src={src} out={out} avatarSrc={voiceAvatarSrc} durationSeconds={message.mediaDurationSeconds} />}
+        {!live && message.kind === "audio" && <AudioPlayer src={src} out={out} avatarSrc={voiceAvatarSrc} durationSeconds={message.mediaDurationSeconds} preview />}
         {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
         {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
         {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}

@@ -6,6 +6,7 @@ import type { InboxConversation, InboxList, InboxThread } from "./inbox-types";
 import { WHATSAPP_QR_RECENT_DAYS } from "./recent-policy";
 import { groupReactions } from "./inbox-reactions";
 import { canRevokeForEveryone } from "./message-actions";
+import { voiceDurationFromRef } from "./voice-metadata";
 
 type Client = SupabaseClient<Database>;
 
@@ -85,7 +86,7 @@ export async function loadInboxChanges(supabase: Client, agencyId: string, since
 export async function loadThread(supabase: Client, agencyId: string, conversationId: string, userId?: string): Promise<InboxThread> {
   const [{ data: row }, { data: messages }] = await Promise.all([
     supabase.from("whatsapp_conversations").select("*").eq("agency_id", agencyId).eq("id", conversationId).maybeSingle(),
-    supabase.from("whatsapp_messages").select("id,direction,kind,body,media_name,media_mime,author,status,sent_at,revoked_at,external_id").eq("agency_id", agencyId)
+    supabase.from("whatsapp_messages").select("id,direction,kind,body,media_name,media_mime,media_ref,author,status,sent_at,revoked_at,external_id").eq("agency_id", agencyId)
       .eq("conversation_id", conversationId).neq("kind", "reaction").order("sent_at", { ascending: false }).limit(50),
   ]);
   if (!row) return { conversation: null, messages: [] };
@@ -118,6 +119,7 @@ export async function loadThread(supabase: Client, agencyId: string, conversatio
       body: message.revoked_at ? "Mensagem apagada" : message.body,
       mediaName: message.revoked_at ? null : message.media_name,
       mediaMime: message.revoked_at ? null : message.media_mime,
+      mediaDurationSeconds: !message.revoked_at && message.kind === "audio" ? voiceDurationFromRef(message.media_ref) : null,
       author: message.author, status: message.status, sentAt: message.sent_at,
       reactions: message.revoked_at ? [] : groupReactions(byTarget.get(message.id) ?? []),
       pinned: pinnedIds.has(message.id), revoked: !!message.revoked_at,

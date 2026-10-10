@@ -18,6 +18,8 @@ export type InboxMessageItem = {
   author: string | null; status: InboxStatus; sentAt: string;
   reactions?: Array<{ emoji: string; count: number; mine: boolean }>;
   pinned?: boolean;
+  /** Duration from WhatsApp encrypted media metadata, in seconds. */
+  mediaDurationSeconds?: number | null;
   revoked?: boolean;
   canRevokeForEveryone?: boolean;
 };
