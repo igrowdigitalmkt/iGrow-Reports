@@ -8,6 +8,7 @@ import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, 
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
+import { WhatsAppEmoji, WhatsAppEmojiText } from "./whatsapp-emoji";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
@@ -834,7 +835,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <button type="button" className="wai-contact-trigger" title={open.isGroup ? "Informações do grupo" : "Dados do contato"}
             onClick={() => { setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}>
             <Avatar key={open.id} item={open} size={40} photo={!demo} />
-            <span className={`wai-chat-title${open.isGroup ? " is-group" : ""}`}><strong>{conversationTitle(open)}</strong>
+            <span className={`wai-chat-title${open.isGroup ? " is-group" : ""}`}><strong><WhatsAppEmojiText text={conversationTitle(open)} /></strong>
               <small>{open.isGroup ? groupSubtitle : open.title ? formatWhatsAppPhone(open.remoteId) : channel.name}</small></span>
           </button>
           <div className="wai-head-actions">
@@ -1000,7 +1001,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                       onChange={() => setForwardTargets(previous => previous.includes(item.id)
                         ? previous.filter(value => value !== item.id) : previous.length < 10 ? [...previous,item.id] : previous)} />
                     <Avatar item={item} size={60} photo={!demo} />
-                    <span><strong>{conversationTitle(item)}</strong>{item.id === selfConversation?.id && <small>Mensagens para mim</small>}</span>
+                    <span><strong><WhatsAppEmojiText text={conversationTitle(item)} /></strong>{item.id === selfConversation?.id && <small>Mensagens para mim</small>}</span>
                   </label>)}
             </div>
             {actionError && <p role="alert" className="wai-composer-error"><AlertCircle size={15} />{actionError}</p>}
@@ -1078,17 +1079,17 @@ function SearchHighlight({ text, query }: { text: string; query: string }) {
   const match = query ? text.toLocaleLowerCase("pt-BR").indexOf(query) : 0;
   const offset = Math.max(0, match - 40);
   text = `${offset ? "…" : ""}${text.slice(offset, offset + 160)}${text.length > offset + 160 ? "…" : ""}`;
-  if (!query) return <>{text}</>;
+  if (!query) return <WhatsAppEmojiText text={text} />;
   const parts = [];
   const lower = text.toLocaleLowerCase("pt-BR");
   let start = 0;
   let index = lower.indexOf(query);
   while (index !== -1) {
-    parts.push(<Fragment key={index}>{text.slice(start, index)}<mark>{text.slice(index, index + query.length)}</mark></Fragment>);
+    parts.push(<Fragment key={index}><WhatsAppEmojiText text={text.slice(start, index)} /><mark><WhatsAppEmojiText text={text.slice(index, index + query.length)} /></mark></Fragment>);
     start = index + query.length;
     index = lower.indexOf(query, start);
   }
-  return <>{parts}{text.slice(start)}</>;
+  return <>{parts}<WhatsAppEmojiText text={text.slice(start)} /></>;
 }
 
 function Avatar({ item, size, photo }: { item: InboxConversation; size: number; photo: boolean }) {
@@ -1140,12 +1141,12 @@ function ConversationRow({ item, active, now, photo, labels, onOpen }: { item: I
   return <button type="button" className={`wai-row${active ? " is-active" : ""}`} onClick={onOpen}>
     <Avatar item={item} size={49} photo={photo} />
     <span className="wai-row-main">
-      <span className="wai-row-top"><strong>{conversationTitle(item)}</strong><time className={item.unread ? "is-unread" : undefined}>{listTime(item.lastAt, now)}</time></span>
+      <span className="wai-row-top"><strong><WhatsAppEmojiText text={conversationTitle(item)} /></strong><time className={item.unread ? "is-unread" : undefined}>{listTime(item.lastAt, now)}</time></span>
       <span className="wai-row-bottom">
         <span className="wai-row-preview">
           {item.lastDirection === "out" && <Ticks status={item.lastStatus} />}
           {Icon && <Icon size={15} className="wai-row-kind" />}
-          <span>{preview}</span>
+          <span><WhatsAppEmojiText text={preview} /></span>
         </span>
         {item.favorite && <Star size={13} className="wai-row-star" aria-label="Favorita" />}
         {item.unread > 0 && <span className="wai-unread">{item.unread}</span>}
@@ -1584,7 +1585,7 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
     </label>}
     <div className="wai-bubble-stack" ref={wrapper}>
       <div className={`wai-bubble${tail ? " has-tail" : ""}`} id={`wai-msg-${message.id}`}>
-        {showAuthor && message.author && <span className="wai-author" style={{ color: colorFor(message.author) }}>{message.author}</span>}
+        {showAuthor && message.author && <span className="wai-author" style={{ color: colorFor(message.author) }}><WhatsAppEmojiText text={message.author} /></span>}
         {message.kind === "document" && <div className="wai-document">
           <span className="wai-document-icon"><FileText size={22} /><small>{(message.mediaName?.split(".").pop() ?? "PDF").slice(0, 4).toUpperCase()}</small></span>
           <span className="wai-document-name">{message.mediaName ?? "Documento"}</span>
@@ -1608,7 +1609,7 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
         <span className={`wai-reactions-group${message.reactions.some(item => item.mine) ? " is-mine" : ""}`}
           title={message.reactions.map(item => `${item.emoji}: ${item.count} ${item.count === 1 ? "reação" : "reações"}${item.mine ? " (inclui você)" : ""}`).join(" · ")}
           aria-label={`Reações nesta mensagem: ${message.reactions.map(item => `${item.emoji} ${item.count}`).join(", ")}`}>
-          {message.reactions.slice(0, 3).map(item => <span key={item.emoji} className="wai-reaction-emoji" aria-hidden="true">{item.emoji}</span>)}
+          {message.reactions.slice(0, 3).map(item => <span key={item.emoji} className="wai-reaction-emoji" aria-hidden="true"><WhatsAppEmoji emoji={item.emoji} /></span>)}
           {message.reactions.reduce((sum, item) => sum + item.count, 0) > 1 &&
             <small>{message.reactions.reduce((sum, item) => sum + item.count, 0)}</small>}
         </span>
@@ -1628,7 +1629,7 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
           {QUICK_REACTIONS.map(emoji => <button type="button" key={emoji}
             className={currentMine === emoji ? "is-current" : undefined} title={currentMine === emoji ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}
             aria-label={currentMine === emoji ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}
-            disabled={reactionBusy} onClick={() => choose(emoji)}>{emoji}</button>)}
+            disabled={reactionBusy} onClick={() => choose(emoji)}><WhatsAppEmoji emoji={emoji} /></button>)}
           <button type="button" title="Mais emojis" aria-label="Mais emojis" aria-expanded={allEmoji}
             onClick={() => setAllEmoji(value => !value)}><Plus size={19} /></button>
         </div>}
@@ -1803,7 +1804,7 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
     {replyTarget && <div className="wai-reply-banner">
       <Reply size={18} />
       <span><strong>Respondendo à {replyTarget.direction === "in" ? "mensagem recebida" : "mensagem enviada"}</strong>
-        <small>{replyTarget.body?.slice(0, 110) || kindLabel(replyTarget.kind)}</small></span>
+        <small><WhatsAppEmojiText text={replyTarget.body?.slice(0, 110) || kindLabel(replyTarget.kind)} /></small></span>
       <button type="button" className="wai-icon-button" onClick={onClearReply} aria-label="Cancelar resposta"><X size={17} /></button>
     </div>}
     {file && <div className="wai-attachment">
@@ -1902,7 +1903,7 @@ function ContactDetails({ item, data, loading, demo, lists, listsBusy, onToggleL
     <div className="wai-details-scroll">
       <div className="wai-details-identity">
         <Avatar item={item} size={100} photo={!demo} />
-        <h3>{name}</h3>
+        <h3><WhatsAppEmojiText text={name} /></h3>
         {!item.isGroup && <p>{formatWhatsAppPhone(item.remoteId)}</p>}
         {item.clientName && <span className="wai-details-chip">Cliente: {item.clientName}</span>}
       </div>

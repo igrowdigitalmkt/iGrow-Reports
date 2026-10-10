@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { WhatsAppEmojiText } from "./whatsapp-emoji";
 
 // WhatsApp text formatting: *bold*, _italic_, ~strikethrough~, `code`, ```monospace``` and links.
 // A marker only counts at a word boundary, as in WhatsApp ("2*3*4" stays as it is).
@@ -17,7 +18,7 @@ function inline(text: string, key: string): ReactNode[] {
     const inner = token.slice(1, -1);
     // Markers need a boundary on both sides and text that does not start or end with a space.
     if (!isLink && (!BOUNDARY.test(before) || !BOUNDARY.test(after) || /^\s|\s$/.test(inner))) continue;
-    if (start > last) nodes.push(text.slice(last, start));
+    if (start > last) nodes.push(<WhatsAppEmojiText key={`${key}-${last}-text`} text={text.slice(last, start)} />);
     const id = `${key}-${start}`;
     if (isLink) nodes.push(<a key={id} href={token} target="_blank" rel="noopener noreferrer nofollow">{token}</a>);
     else if (token[0] === "*") nodes.push(<strong key={id}>{inline(inner, id)}</strong>);
@@ -26,7 +27,7 @@ function inline(text: string, key: string): ReactNode[] {
     else nodes.push(<code key={id}>{inner}</code>);
     last = start + token.length;
   }
-  if (last < text.length) nodes.push(text.slice(last));
+  if (last < text.length) nodes.push(<WhatsAppEmojiText key={`${key}-${last}-text`} text={text.slice(last)} />);
   return nodes;
 }
 

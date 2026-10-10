@@ -1,4 +1,5 @@
 "use client";
+import { WhatsAppEmoji } from "./whatsapp-emoji";
 
 import { useRef, useState } from "react";
 import { Car, Clock3, Flag, Globe, Heart, Lightbulb, PawPrint, Search, Smile, ThumbsUp, UtensilsCrossed } from "lucide-react";
@@ -59,7 +60,7 @@ export function EmojiPicker({ onPick, variant = "composer" }: { onPick: (emoji: 
 
   const title = <p className="wai-emoji-title">{search ? "Resultados" : category === "recent" ? "Recentes" : categories.find(item => item.key === category)?.label}</p>;
   const grid = <div className="wai-emoji-grid">
-    {shown.length ? shown.map(item => <button key={item.emoji} type="button" onClick={() => pick(item.emoji)} aria-label={`${item.emoji} ${item.words}`} title={item.words || undefined}>{item.emoji}</button>)
+    {shown.length ? shown.map(item => <button key={item.emoji} type="button" onClick={() => pick(item.emoji)} aria-label={`${item.emoji} ${item.words}`} title={item.words || undefined}><WhatsAppEmoji emoji={item.emoji} /></button>)
       : <p className="wai-emoji-empty" role="status">{search ? "Nenhum emoji encontrado." : "Os emojis que você usar aparecem aqui."}</p>}
   </div>;
 

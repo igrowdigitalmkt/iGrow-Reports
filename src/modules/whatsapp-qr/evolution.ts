@@ -1,12 +1,16 @@
 import "server-only";
 
 export class EvolutionError extends Error {
-  constructor(message: string, readonly status = 0) { super(message); }
+  constructor(message: string, readonly status = 0, readonly code?: string) { super(message); }
 }
 
 export type EvolutionState = "open" | "connecting" | "close";
 export type EvolutionInstance = { name: string; connectionStatus: string; ownerJid: string | null; profileName: string | null; profilePicUrl: string | null };
 export type EvolutionGroup = { id: string; subject: string; size: number | null };
+export type EvolutionLabelSnapshot = {
+  labels: Array<{ id: string; name: string; color: string }>;
+  chats: Array<{ remoteJid: string; remoteJidAlt?: string; labels: string[] }>;
+};
 
 export function evolutionConfig() {
   const url = process.env.EVOLUTION_API_URL?.trim().replace(/\/+$/, "");
@@ -27,7 +31,13 @@ export class EvolutionClient {
       cache: "no-store",
     }).catch(() => { throw new EvolutionError("O servidor do WhatsApp não respondeu."); });
     const body = await response.json().catch(() => null) as T | null;
-    if (!response.ok) throw new EvolutionError(`O servidor do WhatsApp recusou o pedido (${response.status}).`, response.status);
+    if (!response.ok) {
+      const details = body as { message?: unknown; response?: { message?: unknown } } | null;
+      const message = details?.response?.message ?? details?.message;
+      const messages = Array.isArray(message) ? message : [message];
+      const code = messages.includes("IGROW_LABEL_STATE_UNAVAILABLE") ? "IGROW_LABEL_STATE_UNAVAILABLE" : undefined;
+      throw new EvolutionError(`O servidor do WhatsApp recusou o pedido (${response.status}).`, response.status, code);
+    }
     return body as T;
   }
 
@@ -70,6 +80,20 @@ export class EvolutionClient {
 
   logout(name: string) {
     return this.request(`/instance/logout/${encodeURIComponent(name)}`, { method: "DELETE" });
+  }
+
+  labelSnapshot(name: string) {
+    return this.request<EvolutionLabelSnapshot>(`/label/igrowSnapshot/${encodeURIComponent(name)}`, { timeoutMs: 45_000 });
+  }
+
+  editLabel(name: string, data: { id?: string; name?: string; color?: number; deleted?: boolean }) {
+    return this.request<{ id: string }>(`/label/igrowEdit/${encodeURIComponent(name)}`, { method: "POST", body: data, timeoutMs: 45_000 });
+  }
+
+  setChatLabel(name: string, jid: string, labelId: string, member: boolean) {
+    return this.request(`/label/handleLabel/${encodeURIComponent(name)}`, {
+      method: "POST", body: { number: jid, labelId, action: member ? "add" : "remove" },
+    });
   }
 
   remove(name: string) {

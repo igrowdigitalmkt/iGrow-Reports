@@ -9,6 +9,8 @@ RUN git clone --depth 1 --branch 2.3.7 --recurse-submodules --shallow-submodules
     https://github.com/evolution-foundation/evolution-api.git .
 COPY igrow-chat-state.patch /tmp/igrow-chat-state.patch
 RUN git apply --check --unidiff-zero /tmp/igrow-chat-state.patch && git apply --unidiff-zero /tmp/igrow-chat-state.patch
+COPY igrow-labels.patch /tmp/igrow-labels.patch
+RUN git apply --check /tmp/igrow-labels.patch && git apply /tmp/igrow-labels.patch
 
 RUN npm ci --silent
 RUN cp .env.example .env

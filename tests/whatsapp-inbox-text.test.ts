@@ -26,6 +26,16 @@ describe("formatação do WhatsApp", () => {
     expect(html("Veja https://igrow.com.br/x.")).toBe('Veja <a href="https://igrow.com.br/x" target="_blank" rel="noopener noreferrer nofollow">https://igrow.com.br/x</a>.');
     expect(html("<b>oi</b>")).toBe("&lt;b&gt;oi&lt;/b&gt;");
   });
+
+  it("uses original WhatsApp artwork without splitting emoji sequences or changing text formatting", () => {
+    const markup = html("*Olá ❤️* 🇧🇷 👍🏽");
+    expect(markup).toContain('<strong>Olá <img');
+    expect(markup).toContain('alt="❤️"');
+    expect(markup).toContain('alt="🇧🇷"');
+    expect(markup).toContain('alt="👍🏽"');
+    expect((markup.match(/<img /g) ?? []).length).toBe(3);
+    expect(markup).toContain('/whatsapp-emojis/002764_00fe0f.png');
+  });
 });
 
 describe("leitura feita no celular", () => {

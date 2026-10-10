@@ -25,8 +25,10 @@ try {
     assert.equal(await search.evaluate(el=>el===document.activeElement),true);
     assert.equal(await picker.getByRole("tab").count(),8);
     assert.equal(await dialog.locator(".wai-message-quick-reactions").count(),0);
-    const first=await picker.locator(".wai-emoji-grid button").allTextContents();
+    const first=await picker.locator(".wai-emoji-grid button img").evaluateAll(images=>images.map(image=>image.alt));
     assert.deepEqual(first.slice(0,16),["😀","😃","😄","😁","😆","🥹","😅","😂","🤣","🥲","☺️","😊","😇","🙂","🙃","😉"]);
+    await picker.locator(".wai-emoji-grid button img").first().evaluate(image => image.decode());
+    assert.ok(await picker.locator(".wai-emoji-grid button img").first().evaluate(image => image.naturalWidth === 64));
     const box=await dialog.boundingBox();
     assert.ok(box.x>=0 && box.y>=0 && box.x+box.width<=width+1 && box.y+box.height<=height+1,JSON.stringify(box));
     if(width===1920){assert.equal(box.width,488);assert.equal(box.height,404);await page.screenshot({path:"artifacts/whatsapp-04-after-1920.png"});}

@@ -1,0 +1,196 @@
+diff --git a/src/api/controllers/label.controller.ts b/src/api/controllers/label.controller.ts
+index 2df112f..bbe60ae 100644
+--- a/src/api/controllers/label.controller.ts
++++ b/src/api/controllers/label.controller.ts
+@@ -9,6 +9,14 @@ export class LabelController {
+     return await this.waMonitor.waInstances[instanceName].fetchLabels();
+   }
+ 
++  public async igrowSnapshot({ instanceName }: InstanceDto) {
++    return await this.waMonitor.waInstances[instanceName].igrowLabelSnapshot();
++  }
++
++  public async igrowEdit({ instanceName }: InstanceDto, data: any) {
++    return await this.waMonitor.waInstances[instanceName].igrowEditLabel(data);
++  }
++
+   public async handleLabel({ instanceName }: InstanceDto, data: HandleLabelDto) {
+     return await this.waMonitor.waInstances[instanceName].handleLabel(data);
+   }
+diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
+index 60e857f..b0d64c6 100644
+--- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
++++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
+@@ -1825,7 +1825,8 @@ export class BaileysStartupService extends ChannelStartupService {
+         return;
+       }
+ 
+-      const labelName = label.name.replace(/[^\x20-\x7E]/g, '');
++      if (label.deleted) return;
++      const labelName = label.name;
+       if (!savedLabel || savedLabel.color !== `${label.color}` || savedLabel.name !== labelName) {
+         if (this.configService.get<Database>('DATABASE').SAVE_DATA.LABELS) {
+           const labelData = {
+@@ -1851,7 +1852,7 @@ export class BaileysStartupService extends ChannelStartupService {
+       this.logger.info(
+         `labels association - ${data?.association?.chatId} (${data.type}-${data?.association?.type}): ${data?.association?.labelId}`,
+       );
+-      if (database.SAVE_DATA.CHATS) {
++      if (database.SAVE_DATA.LABELS && data.association.type === 'label_jid') {
+         const instanceId = this.instanceId;
+         const chatId = data.association.chatId;
+         const labelId = data.association.labelId;
+@@ -1995,13 +1996,13 @@ export class BaileysStartupService extends ChannelStartupService {
+ 
+             if (events[Events.LABELS_ASSOCIATION]) {
+               const payload = events[Events.LABELS_ASSOCIATION];
+-              this.labelHandle[Events.LABELS_ASSOCIATION](payload, database);
++              await this.labelHandle[Events.LABELS_ASSOCIATION](payload, database);
+               return;
+             }
+ 
+             if (events[Events.LABELS_EDIT]) {
+               const payload = events[Events.LABELS_EDIT];
+-              this.labelHandle[Events.LABELS_EDIT](payload);
++              await this.labelHandle[Events.LABELS_EDIT](payload);
+               return;
+             }
+           }
+@@ -4244,6 +4245,61 @@ export class BaileysStartupService extends ChannelStartupService {
+     }
+   }
+ 
++  private igrowLabelsReady = false;
++  private igrowLabelsInitialization: Promise<void> | undefined;
++  private igrowLabelQueue: Promise<unknown> = Promise.resolve();
++
++  public async igrowLabelSnapshot() {
++    // Re-read linked-device label state once after a provider restart. Does not request message history.
++    if (!this.igrowLabelsReady) {
++      if (!this.igrowLabelsInitialization) this.igrowLabelsInitialization = (async () => {
++        // A normal resync requests only changes since the stored version. Rebuild the label projection
++        // from a full app-state snapshot so first import and changes during downtime are included.
++        await this.prismaRepository.label.deleteMany({ where: { instanceId: this.instanceId } });
++        await this.prismaRepository.chat.updateMany({ where: { instanceId: this.instanceId }, data: { labels: [] } });
++        await this.client.authState.keys.set({ 'app-state-sync-version': { regular: null, regular_low: null } });
++        await this.client.resyncAppState(['regular', 'regular_low'], true);
++        const synced = await this.client.authState.keys.get('app-state-sync-version', ['regular', 'regular_low']);
++        if (!Number.isInteger(synced.regular?.version) || !Number.isInteger(synced.regular_low?.version))
++          throw new BadRequestException('IGROW_LABEL_STATE_UNAVAILABLE');
++        await this.eventProcessingQueue;
++        this.igrowLabelsReady = true;
++      })().finally(() => { this.igrowLabelsInitialization = undefined; });
++      await this.igrowLabelsInitialization;
++    }
++    const states = await this.client.authState.keys.get('app-state-sync-version', ['regular', 'regular_low']);
++    const syncVersions = { regular: states.regular?.version ?? null, regular_low: states.regular_low?.version ?? null };
++    const labels = await this.fetchLabels();
++    const chats = await this.prismaRepository.chat.findMany({ where: { instanceId: this.instanceId },
++      select: { remoteJid: true, labels: true } });
++    return { labels, syncVersions, chats: await Promise.all(chats.filter(chat => Array.isArray(chat.labels) && chat.labels.length)
++      .map(async chat => ({ ...chat, remoteJidAlt: await this.mappedPhoneJid(chat.remoteJid) }))) };
++  }
++
++  public igrowEditLabel(data: { id?: string; name?: string; color?: number; deleted?: boolean }) {
++    const operation = this.igrowLabelQueue.then(async () => {
++      const current = await this.igrowLabelSnapshot();
++      if (data.id && !current.labels.some(label => label.id === data.id)) throw new NotFoundException('Label not found');
++      if (!data.id && current.labels.length >= 20) throw new BadRequestException('WhatsApp allows 20 labels');
++      const id = data.id || String(Math.max(0, ...current.labels.map(label => Number(label.id) || 0)) + 1);
++      const label = { id, name: data.name?.trim(), color: data.color, deleted: !!data.deleted };
++      await this.client.addLabel(this.client.user.id, label);
++      if (label.deleted) {
++        await this.prismaRepository.label.deleteMany({ where: { instanceId: this.instanceId, labelId: id } });
++        const chats = await this.prismaRepository.chat.findMany({ where: { instanceId: this.instanceId } });
++        for (const chat of chats) if (Array.isArray(chat.labels) && chat.labels.includes(id))
++          await this.removeLabel(id, this.instanceId, chat.remoteJid);
++      } else {
++        const stored = { instanceId: this.instanceId, labelId: id, name: label.name, color: String(label.color) };
++        await this.prismaRepository.label.upsert({ where: { labelId_instanceId: { instanceId: this.instanceId, labelId: id } },
++          create: stored, update: stored });
++      }
++      return { id };
++    });
++    this.igrowLabelQueue = operation.catch(() => undefined);
++    return operation;
++  }
++
+   public async fetchLabels(): Promise<LabelDto[]> {
+     const labels = await this.prismaRepository.label.findMany({ where: { instanceId: this.instanceId } });
+ 
+@@ -4256,7 +4312,8 @@ export class BaileysStartupService extends ChannelStartupService {
+   }
+ 
+   public async handleLabel(data: HandleLabelDto) {
+-    const whatsappContact = await this.whatsappNumber({ numbers: [data.number] });
++    const whatsappContact = /^[0-9]+@(s\.whatsapp\.net|lid|g\.us)$/.test(data.number)
++      ? [{ jid: data.number, exists: true }] : await this.whatsappNumber({ numbers: [data.number] });
+     if (whatsappContact.length === 0) {
+       throw new NotFoundException('Number not found');
+     }
+diff --git a/src/api/routes/label.router.ts b/src/api/routes/label.router.ts
+index bfb4a08..421495f 100644
+--- a/src/api/routes/label.router.ts
++++ b/src/api/routes/label.router.ts
+@@ -10,6 +10,22 @@ export class LabelRouter extends RouterBroker {
+   constructor(...guards: RequestHandler[]) {
+     super();
+     this.router
++      .get(this.routerPath('igrowSnapshot'), ...guards, async (req, res) => {
++        const response = await this.dataValidate<LabelDto>({ request: req, schema: null, ClassRef: LabelDto,
++          execute: (instance) => labelController.igrowSnapshot(instance) });
++        return res.status(HttpStatus.OK).json(response);
++      })
++      .post(this.routerPath('igrowEdit'), ...guards, async (req, res) => {
++        const data = req.body;
++        if (!data || (data.id !== undefined && !/^[0-9]{1,9}$/.test(data.id)) ||
++          (data.deleted !== undefined && typeof data.deleted !== 'boolean') ||
++          (!data.deleted && (typeof data.name !== 'string' || !data.name.trim() || data.name.length > 40 ||
++            !Number.isInteger(data.color) || data.color < 0 || data.color > 19)) || (data.deleted && !data.id))
++          return res.status(400).json({ error: 'Invalid label' });
++        const response = await this.dataValidate<LabelDto>({ request: req, schema: null, ClassRef: LabelDto,
++          execute: (instance) => labelController.igrowEdit(instance, data) });
++        return res.status(HttpStatus.OK).json(response);
++      })
+       .get(this.routerPath('findLabels'), ...guards, async (req, res) => {
+         const response = await this.dataValidate<LabelDto>({
+           request: req,
+diff --git a/src/utils/use-multi-file-auth-state-prisma.ts b/src/utils/use-multi-file-auth-state-prisma.ts
+index d090780..bd11afa 100644
+--- a/src/utils/use-multi-file-auth-state-prisma.ts
++++ b/src/utils/use-multi-file-auth-state-prisma.ts
+@@ -182,7 +182,7 @@ export default async function useMultiFileAuthStatePrisma(
+             ids.map(async (id) => {
+               let value = await readData(`${type}-${id}`);
+               if (type === 'app-state-sync-key' && value) {
+-                value = proto.Message.AppStateSyncKeyData.create(value);
++                value = proto.Message.AppStateSyncKeyData.fromObject(value);
+               }
+ 
+               data[id] = value;
+diff --git a/src/utils/use-multi-file-auth-state-provider-files.ts b/src/utils/use-multi-file-auth-state-provider-files.ts
+index eecc310..1579181 100644
+--- a/src/utils/use-multi-file-auth-state-provider-files.ts
++++ b/src/utils/use-multi-file-auth-state-provider-files.ts
+@@ -116,7 +116,7 @@ export class AuthStateProvider {
+               ids.map(async (id) => {
+                 let value = await readData(`${type}-${id}`);
+                 if (type === 'app-state-sync-key' && value) {
+-                  value = proto.Message.AppStateSyncKeyData.create(value);
++                  value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                 }
+ 
+                 data[id] = value;
+diff --git a/src/utils/use-multi-file-auth-state-redis-db.ts b/src/utils/use-multi-file-auth-state-redis-db.ts
+index e0981c7..4d5d5a5 100644
+--- a/src/utils/use-multi-file-auth-state-redis-db.ts
++++ b/src/utils/use-multi-file-auth-state-redis-db.ts
+@@ -61,7 +61,7 @@ export async function useMultiFileAuthStateRedisDb(
+             ids.map(async (id) => {
+               let value = await readData(`${type}-${id}`);
+               if (type === 'app-state-sync-key' && value) {
+-                value = proto.Message.AppStateSyncKeyData.create(value);
++                value = proto.Message.AppStateSyncKeyData.fromObject(value);
+               }
+ 
+               data[id] = value;

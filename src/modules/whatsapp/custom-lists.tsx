@@ -4,18 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Edit3, ListFilter, Loader2, MoreVertical, Palette, Plus, Search, Smile, Trash2, UsersRound, X } from "lucide-react";
 import { colorFor, conversationTitle, initialsOf } from "./inbox-format";
 import type { InboxConversation } from "./inbox-types";
+import { WHATSAPP_LABEL_COLORS } from "./native-labels";
 
 export type CustomList = { id: string; name: string; color: string; sortOrder: number; conversationIds: string[]; };
-const PALETTE = ["#a2bb41", "#76cdae", "#bd9b38", "#a3297b", "#28b8ca", "#932d46", "#edb32b", "#ff776b", "#8a67bf", "#9ba4ae"];
+const PALETTE = WHATSAPP_LABEL_COLORS;
 const SUGGESTIONS = [
-  { name: "Novo pedido", color: "#bd9b38" },
-  { name: "Pagamento pendente", color: "#a3297b" },
-  { name: "Acompanhar", color: "#28b8ca" },
-  { name: "Pago", color: "#932d46" },
-  { name: "Pedido finalizado", color: "#edb32b" },
-  { name: "Importante", color: "#ff776b" },
+  { name: "Novo pedido", color: PALETTE[2] },
+  { name: "Pagamento pendente", color: PALETTE[3] },
+  { name: "Acompanhar", color: PALETTE[10] },
+  { name: "Pago", color: PALETTE[5] },
+  { name: "Pedido finalizado", color: PALETTE[7] },
+  { name: "Importante", color: PALETTE[0] },
 ];
-const API = "/api/whatsapp/inbox/lists";
 // Read-only sample lists for visual checks in the isolated demo; never sent to the API.
 const DEMO_LISTS: CustomList[] = [
   { id: "demo-new-client", name: "Novo cliente", color: "#a2bb41", sortOrder: 0, conversationIds: ["d2"] },
@@ -25,6 +25,7 @@ const DEMO_LISTS: CustomList[] = [
 ];
 
 export function useCustomLists(channelKey: string, demo: boolean) {
+  const API = channelKey === "qr" ? "/api/whatsapp/inbox/native-labels" : "/api/whatsapp/inbox/lists";
   const [listState, setListState] = useState<{ channelKey: string; items: CustomList[] }>({ channelKey, items: [] });
   const lists = demo ? channelKey === "qr" ? DEMO_LISTS : [] : listState.channelKey === channelKey ? listState.items : [];
   const [busy, setBusy] = useState(false);
@@ -36,7 +37,13 @@ export function useCustomLists(channelKey: string, demo: boolean) {
     const body = await response.json().catch(() => null) as { lists?: CustomList[]; error?: string } | null;
     if (!response.ok) throw new Error(body?.error ?? "Não foi possível carregar as listas.");
     setListState({ channelKey, items: body?.lists ?? [] });
-  }, [channelKey, demo]);
+  }, [API, channelKey, demo]);
+
+  useEffect(() => {
+    if (demo || channelKey !== "qr" || busy) return;
+    const timer = setInterval(() => { void refresh().catch(() => setError("Não foi possível sincronizar as etiquetas do WhatsApp.")); }, 15_000);
+    return () => clearInterval(timer);
+  }, [channelKey, demo, busy, refresh]);
 
   useEffect(() => {
     let active = true;
@@ -49,7 +56,7 @@ export function useCustomLists(channelKey: string, demo: boolean) {
         if (active) { setListState({ channelKey, items: body?.lists ?? [] }); setError(""); }
       }).catch(failure => { if (active && !controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Não foi possível carregar as listas."); });
     return () => { active = false; controller.abort(); };
-  }, [channelKey, demo]);
+  }, [API, channelKey, demo]);
 
   async function request(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>, id?: string) {
     if (demo || busy) return false;
@@ -64,6 +71,8 @@ export function useCustomLists(channelKey: string, demo: boolean) {
       await refresh();
       return true;
     } catch (failure) {
+      // Some remote changes can have succeeded before a later peer fails. Re-read the device state.
+      if (channelKey === "qr") await refresh().catch(() => undefined);
       setError(failure instanceof Error ? failure.message : "Não foi possível atualizar a lista.");
       return false;
     } finally { setBusy(false); }
@@ -173,7 +182,7 @@ export function CustomListManager({ lists, busy, onBack, onCreate, onEdit, onRem
       <button type="button" aria-label="Criar lista" onClick={onCreate} className="wai-custom-manager-plus"><Plus size={23}/></button>
       <div className="wai-custom-manager-options">
         <button type="button" aria-label="Opções das listas" aria-expanded={options} onClick={() => setOptions(value => !value)}><MoreVertical size={22}/></button>
-        {options && <div className="wai-custom-options-menu"><button type="button" onClick={() => { setReordering(value => !value); setOptions(false); }}>
+        {options && <div className="wai-custom-options-menu"><button type="button" disabled={lists.some(list => list.id.startsWith("wa:"))} title={lists.some(list => list.id.startsWith("wa:")) ? "Ordem definida pelo WhatsApp" : undefined} onClick={() => { setReordering(value => !value); setOptions(false); }}>
           <ListFilter size={17}/>{reordering ? "Concluir ordem" : "Reordenar"}</button></div>}
       </div>
     </header>

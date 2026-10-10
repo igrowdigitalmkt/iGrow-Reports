@@ -287,3 +287,8 @@
 .wai-shell .wai-forward-dialog>header strong{font-size:19px;font-weight:500}
 .wai-shell .wai-forward-destinations button{min-height:57px;border-radius:9px}
 @media(max-width:760px){.wai-shell .wai-details,.wai-shell .wai-chat-search-panel{width:100%}.wai-shell .wai-details-head,.wai-shell .wai-chat-search-head{min-height:64px}}
+
+.wai-shell .wai-original-emoji{display:inline-block;width:1.35em;height:1.35em;object-fit:contain;vertical-align:-.28em;flex-shrink:0}
+.wai-shell .wai-emoji-grid .wai-original-emoji{width:32px;height:32px;vertical-align:middle}
+.wai-shell .wai-message-quick-reactions .wai-original-emoji{width:32px;height:32px;vertical-align:middle}
+.wai-shell .wai-reaction-emoji .wai-original-emoji{width:20px;height:20px;vertical-align:middle}
