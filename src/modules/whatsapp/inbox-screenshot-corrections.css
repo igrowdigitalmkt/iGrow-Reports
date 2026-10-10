@@ -61,3 +61,57 @@
  .wai-shell .wai-composer textarea { font-size: 15px; }
  .wai-shell .wai-archived-row { padding-left: 22px;gap:20px;margin-bottom:8px; }
 }
+
+/* Screenshot comparison: WhatsApp's conversation list uses a larger visual
+   type scale than the existing iGrow list. Keep this scoped to the left
+   column so message bubbles and the composer retain their approved sizes. */
+.wai-shell .wai-list-head h2 {
+  font-size: 27px;
+  line-height: 32px;
+}
+.wai-shell .wai-list .wai-search input {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 400;
+}
+.wai-shell .wai-list .wai-filters button {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 500;
+}
+.wai-shell .wai-list .wai-archived-row {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 500;
+}
+.wai-shell .wai-list .wai-row-top strong {
+  font-size: 20px;
+  line-height: 25px;
+  font-weight: 500;
+  letter-spacing: -.12px;
+}
+.wai-shell .wai-list .wai-row-top time {
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.wai-shell .wai-list .wai-row-preview {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 400;
+}
+.wai-shell .wai-list .wai-row-main {
+  gap: 3px;
+}
+.wai-shell .wai-list .wai-row .wai-tick {
+  height: 19px;
+}
+@media (max-width: 760px) {
+  .wai-shell .wai-list .wai-row-top strong { font-size: 17px; line-height: 22px; }
+  .wai-shell .wai-list .wai-row-preview { font-size: 14px; line-height: 19px; }
+  .wai-shell .wai-list .wai-row-top time { font-size: 12px; line-height: 17px; }
+  .wai-shell .wai-list .wai-filters button { font-size: 15px; }
+  .wai-shell .wai-list .wai-search input { font-size: 15px; }
+  .wai-shell .wai-list .wai-archived-row { font-size: 15px; }
+}
