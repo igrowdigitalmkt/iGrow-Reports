@@ -68,12 +68,15 @@ it("creates a native label using the protocol color and returned ID",async()=>{
   expect(await response.json()).toEqual({id:"wa:4"});
   expect(writes[0].body).toEqual({name:"Novo cliente",color:5});
   expect(writes[1].body.labelId).toBe("4");
+  expect((await POST(request({name:"Cinza",color:"#8d9599"},"POST"))).status).toBe(200);
+  expect(writes[2].body.color).toBe(21);
 });
 it("renames and deletes the existing native label",async()=>{
   expect((await PATCH(request({id:"wa:3",name:"Atenção"}))).status).toBe(200);
   expect(writes[0].body).toEqual({id:"3",name:"Atenção",color:3});
   expect((await DELETE(new Request("https://app.example.test/api/whatsapp/inbox/native-labels?id=wa%3A3"))).status).toBe(200);
-  expect(writes[1].body).toEqual({id:"3",deleted:true});
+  expect(writes[1].body).toEqual({number:"123456789012@lid",labelId:"3",action:"remove"});
+  expect(writes[2].body).toEqual({id:"3",deleted:true});
 });
 it("never reports success when WhatsApp refuses the operation",async()=>{
   unavailable=true;

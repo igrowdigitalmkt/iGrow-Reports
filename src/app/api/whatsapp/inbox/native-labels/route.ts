@@ -115,7 +115,14 @@ export async function DELETE(request: Request) {
   if (!parsed.success) return Response.json({ error: "Etiqueta inválida." }, { status: 400, headers });
   const context = await requireAgencyContext();
   try { const scope = await access(context, true); if (scope.response) return scope.response;
-    await scope.client.editLabel(scope.instance, { id: nativeLabelId(parsed.data)!, deleted: true });
+    const labelId = nativeLabelId(parsed.data)!;
+    const current = await snapshot(scope);
+    if (!current.labels.some(label => label.id === parsed.data))
+      return Response.json({ error: "Etiqueta não encontrada no WhatsApp." }, { status: 404, headers });
+    // Remove native associations too: WhatsApp can retain orphan links after a label tombstone.
+    for (const chat of current.chats.filter(chat => chat.labels.includes(labelId)))
+      await scope.client.setChatLabel(scope.instance, chat.remoteJid, labelId, false);
+    await scope.client.editLabel(scope.instance, { id: labelId, deleted: true });
     return Response.json({ ok: true }, { headers });
   } catch (error) { return failure(error); }
 }
