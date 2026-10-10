@@ -3,6 +3,8 @@ import { requireAgencyContext } from "@/modules/agencies/context";
 import { canPinMessages, canDeleteOwnMessage, canRevokeForEveryone } from "@/modules/whatsapp/message-actions";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { revokeQrSentMessage } from "@/modules/whatsapp-qr/server";
+import { loadOwnModules } from "@/modules/team/admin";
+import { canOpenSection } from "@/modules/team/permissions";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "private, no-store" };
@@ -18,6 +20,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
     return Response.json({ error: "Ação ou seleção inválida." }, { status: 400, headers });
   const context = await requireAgencyContext();
   if (context.role === "viewer") return Response.json({ error: "Seu perfil não pode apagar mensagens." }, { status: 403, headers });
+  const modules = ["owner", "admin"].includes(context.role) ? null : await loadOwnModules(context.supabase, context.agency.id, context.user.id);
+  if (!canOpenSection(context.role, modules, "whatsapp")) return Response.json({ error: "Sem acesso ao WhatsApp." }, { status: 403, headers });
   const agencyId = context.agency.id;
   const userId = context.user.id;
   const ids = [...new Set(input.data.messageIds)];

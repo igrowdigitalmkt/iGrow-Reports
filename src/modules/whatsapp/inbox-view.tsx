@@ -767,8 +767,6 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               onClick={() => { setBulkMenuOpen(false); void markSelectedRead(selectedIds); }}><CheckCheck size={19}/>Marcar como lidas</button>
             <button type="button" role="menuitem" disabled title="Silenciar precisa de suporte confirmado da conexão"><Mic size={19}/>Silenciar notificações</button>
             <button type="button" role="menuitem" disabled title="Operação em lote ainda indisponível"><Archive size={19}/>Arquivar conversas</button>
-            <div className="wai-menu-divider"/>
-            <button type="button" role="menuitem" disabled title="O WhatsApp não confirmou exclusão em lote"><Trash2 size={19}/>Limpar conversas selecionadas</button>
           </div>}
         </div>
       </div>}

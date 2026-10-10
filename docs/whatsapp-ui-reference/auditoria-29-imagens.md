@@ -37,6 +37,8 @@ Todas as imagens foram abertas individualmente. Alterações e validações segu
 
 ## Critérios de validação
 
+Regra de segurança definida pelo usuário em 10/10/2026: ações da iGrow não podem limpar/apagar conversas nem excluir/ocultar mensagens recebidas. Somente mensagens enviadas podem ser apagadas, conforme permissões e limites do WhatsApp. Seleções mistas são recusadas integralmente. Os controles proibidos das referências não serão reproduzidos e não contam como pendências de implementação.
+
 Comparação principal em 1920×1080, resolução das referências. Conferir também 1536×864, 1366×768, 1024×768 e 390×844. Reavaliar componentes compartilhados após cada alteração. Operações sem suporte real exigem análise do conector antes da implementação. Fidelidade total permanece pendente até comparar todos os estados com evidências no navegador.
 
 ## Imagem 09 — parte inferior dos dados do contato
@@ -52,7 +54,9 @@ Comparação principal em 1920×1080, resolução das referências. Conferir tam
 - Bloquear/desbloquear contato usa a sessão QR nativa: consulta `fetchBlocklist`, alteração `updateBlockStatus` e nova consulta para confirmar o resultado. Estado é atualizado a cada 15 segundos enquanto o painel está aberto. Confirmação, foco, Esc, mensagens de falha persistentes e acesso somente de leitura foram validados em desktop e celular. Consultas retornam somente um booleano, sem revelar a lista de bloqueados. LID sem associação comprovada pelo repositório Signal permanece indisponível; o próprio número não pode ser bloqueado.
 - Rota verifica o módulo, permissão de escrita e agência antes de acessar o provedor. Testes executam o método real do patch com cliente simulado para bloquear/desbloquear, identidade desconhecida, sessão desconectada, própria conta e confirmação divergente. QA: `node scripts/qa-whatsapp-contact-block.mjs`; cria e remove um harness temporário local e intercepta todas as operações. Nenhum contato real foi bloqueado/desbloqueado. Verificação somente leitura no VPS confirmou consulta nativa por telefone e recusa segura de um LID ainda não mapeado.
 - Validação desta continuação: 122 arquivos/820 testes aprovados; ESLint, TypeScript, QA do bloqueio e regressão do painel. Imagem do provedor: `igrow/evolution-api:2.3.7-contact-block-1`, preservando patches de etiquetas e estado da conversa.
-- Pendências desta imagem: tema por conversa, verificação de criptografia, denunciar, limpar e apagar conversa, edição do contato e sublinha dos integrantes do grupo. Esses controles não foram simulados. Ícones ainda usam Lucide. A identidade superior será tratada na imagem 10. A imagem 09 ainda não representa equivalência de 100%.
+- Limpar/apagar conversa foram retirados do escopo por determinação de segurança do usuário. A opção de limpar conversas selecionadas foi removida. API recusa excluir recebidas e seleções mistas antes de qualquer alteração. Política restritiva no banco impede ocultação de recebidas por INSERT/UPDATE direto, inclusive por proprietários, e mantém fixação de recebidas; perfil leitor não pode ocultar enviadas. Clientes não têm DELETE nas tabelas de mensagens/conversas. Testes: `tests/whatsapp-deletion-safety-route.test.ts` e `supabase/tests/whatsapp-deletion-safety.test.sql`.
+- Validação da regra de exclusão: 123 arquivos/826 testes Vitest, suíte SQL/RLS completa (incluindo 11 novos casos), ESLint e build aprovados. QA da seleção em seis tamanhos/níveis de zoom confirma ausência de Apagar em recebidas, rejeição de seleção mista e ausência de limpar/apagar conversas no menu. Migração aplicada e verificada no Supabase de produção por chamada direta autenticada dentro de transação revertida; nenhum dado real foi apagado. Não havia recebidas ocultadas no banco.
+- Pendências desta imagem: tema por conversa, verificação de criptografia, denunciar, edição do contato e sublinha dos integrantes do grupo. Esses controles não foram simulados. Ícones ainda usam Lucide. A identidade superior será tratada na imagem 10. A imagem 09 ainda não representa equivalência de 100%.
 
 ## Evidências da primeira correção da imagem 01
 
@@ -135,7 +139,7 @@ Comparação principal em 1920×1080, resolução das referências. Conferir tam
 - Primeiro item recebe foco ao abrir; setas, Home e End navegam entre itens habilitados. Esc fecha e devolve foco ao botão; clique fora fecha. Arquivar e favoritos ficam desabilitados na demonstração.
 - QA: `node scripts/qa-whatsapp-conversation-menu-reference.mjs`. Seis configurações: 1920×1080, 1366×768, 1024×768, 390×844, 1536×864 @1,25 e 1280×720 @1,5. Largura, limites, alinhamento, ordem, divisória, teclado, foco, pesquisa, seleção vazia e fechar verificados sem POST ao WhatsApp.
 - Capturas: `artifacts/whatsapp-07-after-1920.png` e `artifacts/whatsapp-07-after-390.png`.
-- Pendências: silenciar, mensagens temporárias, tema por conversa, exportar, links/chamadas em grupo, denunciar, bloquear, limpar e apagar conversa não estão implementados neste fluxo. Menu tem menor altura que a referência devido às ações ausentes; ícones também não são os assets oficiais. Fidelidade total permanece pendente.
+- Pendências neste menu: silenciar, mensagens temporárias, tema por conversa, exportar, links/chamadas em grupo, denunciar e atalho de bloquear (o painel de contato já oferece bloqueio). Limpar/apagar conversas são proibidos pela regra de segurança do usuário. Menu tem menor altura que a referência devido às ações ausentes; ícones também não são os assets oficiais. Fidelidade total permanece pendente.
 - ESLint, TypeScript, 116 arquivos/790 testes e build final aprovados. Seleção e pesquisa revalidadas nas seis configurações. Associação de listas e fechamento por clique fora incluídos no QA final do menu.
 
 ## Imagem 08 — associação a listas

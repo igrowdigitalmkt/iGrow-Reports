@@ -17,6 +17,7 @@ try {
     const incoming = page.locator(".wai-bubble-row.is-in").last();
     await incoming.locator(".wai-bubble-stack").hover();
     await incoming.getByRole("button",{name:"Mais opções da mensagem"}).click();
+    assert.equal(await page.getByRole("dialog",{name:"Ações da mensagem"}).getByRole("button",{name:"Apagar",exact:true}).count(),0,"incoming messages have no delete control");
     await page.getByRole("dialog",{name:"Ações da mensagem"}).getByRole("button",{name:"Selecionar",exact:true}).click();
     const checks = page.locator(".wai-select-message-check input");
     for (let i=0;i<await checks.count();i++) await checks.nth(i).check();
@@ -62,6 +63,12 @@ try {
       assert.ok(Math.abs(box.x+box.width/2-width/2)<1,"deletion stays centered");
       await deletion.getByRole("button",{name:"Cancelar",exact:true}).click();
       await toolbar.getByRole("button",{name:"Cancelar seleção"}).click();
+    }
+    if(width>760){
+      await page.getByRole("button",{name:"Opções de conversas",exact:true}).click();
+      await page.getByRole("menuitem",{name:"Selecionar conversas",exact:true}).click();
+      await page.getByRole("button",{name:"Opções das conversas selecionadas",exact:true}).click();
+      assert.equal(await page.getByRole("menuitem",{name:/Limpar|Apagar conversa/}).count(),0,"conversation clearing/deletion must not be offered");
     }
     assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);
     console.log(`PASS ${width}×${height} @${scale}: selection, full rows, alignment, permissions, forward, cancel`);
