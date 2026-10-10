@@ -1,0 +1,10 @@
+import { readFileSync } from "node:fs";
+const env=Object.fromEntries(readFileSync(".env.production.local","utf8").split(/\r?\n/).map(l=>/^([A-Za-z_][A-Za-z_0-9]*)=(.*)$/.exec(l)).filter(Boolean).map(m=>[m[1],m[2].replace(/^["']|["']$/g,"")]));
+const base=env.NEXT_PUBLIC_SUPABASE_URL;
+const token=env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY;
+if (!base?.includes("supabase.co") || !token) throw Error("Credentials missing");
+const started=Date.now();
+const res=await fetch(base+"/rest/v1/rpc/prune_whatsapp_qr_messages",{method:"POST",headers:{"apikey":token,Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({p_batch_size:1}),signal:AbortSignal.timeout(9000)});
+const body=await res.text();
+console.log("PRUNE_SMOKE status="+res.status+" removed="+(res.ok?body:"ERROR")+" duration_ms="+(Date.now()-started));
+if (!res.ok || body!=="1") process.exitCode=1;

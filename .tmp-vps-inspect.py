@@ -20,7 +20,7 @@ for row in rows:
     if rc2==0:
         with sftp.file("/tmp/igrow-webhook.json","r") as f: wh=json.loads(f.read().decode())
         obj=wh.get("webhook",wh) if isinstance(wh,dict) else {}
-        print("EVENTS "+",".join(obj.get("events") or []))
+        print("WEBHOOK_ENABLED "+str(obj.get("enabled"))+" EVENTS "+",".join(obj.get("events") or []))
     else:
         print("WEBHOOK_QUERY_FAILED")
 sftp.close(); c.close()
