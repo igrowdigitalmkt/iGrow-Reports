@@ -167,6 +167,14 @@
   font-weight: 400;
 }
 /* The official reference uses a comfortable 16px composition placeholder. */
+.wai-shell .wai-composer .wai-emoji-input {
+  flex: 1; min-width: 0; min-height: 42px; max-height: 150px; overflow-y: auto;
+  padding: 10px 8px; border: 0; background: transparent; color: var(--wai-text);
+  font: inherit; font-size: 16px; font-weight: 400; line-height: 22px;
+  white-space: pre-wrap; overflow-wrap: anywhere; outline: none;
+}
+.wai-emoji-input:empty::before { content: attr(data-placeholder); color: #a8adad; pointer-events: none; }
+.wai-shell .wai-emoji-input .wai-original-emoji { display: inline-block; width: 22px; height: 22px; vertical-align: -5px; object-fit: contain; }
 .wai-shell .wai-composer textarea {
   font-size: 16px;
   font-weight: 400;

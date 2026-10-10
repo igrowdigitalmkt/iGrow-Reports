@@ -9,6 +9,7 @@ import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAp
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
 import { WhatsAppEmoji, WhatsAppEmojiText } from "./whatsapp-emoji";
+import { EmojiInput, type EmojiInputHandle } from "./emoji-input";
 import { labelPillStyle } from "./native-labels";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
@@ -1680,7 +1681,7 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
   const [error, setError] = useState("");
   const [menu, setMenu] = useState<"attach" | "emoji" | null>(null);
   const [sending, setSending] = useState(false);
-  const field = useRef<HTMLTextAreaElement>(null);
+  const field = useRef<EmojiInputHandle>(null);
   const picker = useRef<HTMLInputElement>(null);
   const reply = replyWindow(kind, conversation.lastInboundAt, now);
   const recorder = useRef<{ media: MediaRecorder; chunks: Blob[]; stream: MediaStream; send: boolean } | null>(null);
@@ -1756,11 +1757,7 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
     setError(""); setFile(selected); setAsDocument(pendingDocument); field.current?.focus();
   }
   function insertEmoji(emoji: string) {
-    const element = field.current;
-    const start = element?.selectionStart ?? text.length;
-    const end = element?.selectionEnd ?? text.length;
-    setText(text.slice(0, start) + emoji + text.slice(end));
-    requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(start + emoji.length, start + emoji.length); });
+    field.current?.insertText(emoji);
   }
 
   async function send() {
@@ -1832,8 +1829,8 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
         <button type="button" className={`wai-icon-button${menu === "emoji" ? " is-on" : ""}`} onClick={() => setMenu(menu === "emoji" ? null : "emoji")} aria-expanded={menu === "emoji"} title="Emojis"><EmojiStickerIcon /></button>
         {menu === "emoji" && <EmojiPicker onPick={insertEmoji} />}
       </div>
-      <textarea ref={field} rows={1} value={text} maxLength={MAX_REPLY_TEXT} placeholder="Digite uma mensagem" aria-label="Mensagem"
-        onChange={event => setText(event.target.value)}
+      <EmojiInput ref={field} value={text} maxLength={MAX_REPLY_TEXT} label="Mensagem"
+        onChange={setText}
         onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
       {text.trim() || file
         ? <button type="button" className="wai-send" onClick={() => void send()} disabled={sending} aria-label="Enviar"><SendHorizontal size={20} /></button>
@@ -1971,7 +1968,7 @@ function DraftChat({ draft, demo, onClose, onStarted }: { draft: { phone: string
     <footer className="wai-composer-area">
       {error && <p role="alert" className="wai-composer-error"><AlertCircle size={14} />{error}</p>}
       <div className="wai-composer">
-        <textarea rows={1} autoFocus value={text} maxLength={MAX_REPLY_TEXT} placeholder="Digite uma mensagem" aria-label="Primeira mensagem" onChange={event => setText(event.target.value)}
+        <EmojiInput autoFocus value={text} maxLength={MAX_REPLY_TEXT} label="Primeira mensagem" onChange={setText}
           onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
         <button type="button" className="wai-send" onClick={() => void send()} disabled={sending || !text.trim()} aria-label="Enviar"><SendHorizontal size={20} /></button>
       </div>

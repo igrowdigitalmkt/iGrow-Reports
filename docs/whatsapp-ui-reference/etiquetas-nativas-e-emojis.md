@@ -10,6 +10,8 @@ O serviço Evolution 2.3.7 precisava converter `AppStateSyncKeyData` com `fromOb
 
 O número conectado retornou Novo cliente, Lead, Novo pedido e Pagamento pendente. Foram testadas criação, edição com acentos, associação, remoção e exclusão de uma etiqueta temporária. A etiqueta e seu vínculo com a conversa foram recuperados diretamente do WhatsApp após reiniciar o serviço, confirmando persistência externa; ambos foram removidos após o teste.
 
-Os seletores, mensagens e reações usam os PNGs originais do WhatsApp Web. Foram incluídos 260 arquivos locais, com procedência registrada no diretório público; sequências adicionais consultam o mesmo endpoint oficial, com fallback Unicode quando indisponível. O conteúdo enviado continua Unicode. O campo de digitação ainda usa a renderização de texto do sistema.
+Os seletores, mensagens, reações e o campo de digitação usam os PNGs originais do WhatsApp Web. Foram incluídos 260 arquivos locais, com procedência registrada no diretório público; sequências adicionais consultam o mesmo endpoint oficial, com fallback Unicode quando indisponível fora do editor. O conteúdo enviado continua Unicode.
+
+O editor de mensagens e de primeira mensagem usa imagens como unidades indivisíveis. Mantém inserção pelo seletor na posição do cursor, seleção, clipboard de texto simples, Shift+Enter, envio com Enter, limite de caracteres sem cortar um emoji, composição IME e histórico de desfazer/refazer. A validação Playwright cobre quatro tamanhos de tela e confirma que a demonstração não envia requisições de alteração ao WhatsApp.
 
 Validação: 804 testes em 118 arquivos, análise ESLint dos arquivos alterados, build Next e verificações visuais de reações e listas em seis combinações de tamanho/zoom. Os testes de rota cobrem isolamento por agência, permissão de escrita, cores nativas e falha de sincronização.
