@@ -1,58 +1,88 @@
-/* Audio messages: one compact player for BOTH directions.
-   Only the background color and message alignment differ. Before playback
-   show the sender avatar; after the first play the avatar disappears and
-   the 1,0x / 1,5x / 2,0x control becomes available. */
+/*
+ * WhatsApp voice message.
+ * Same player and playback state machine for both directions.
+ * Incoming: play -> waveform -> identity on RIGHT (per reference).
+ * Outgoing: identity on LEFT -> play -> waveform.
+ * Identity remains in the SAME grid slot when avatar switches to speed,
+ * so play, waveform, scrubber and duration never jump during playback.
+ *
+ * Reference screenshot 1535px wide, capture scale 80%:
+ * incoming bubble ~336 x 67 physical px -> CSS 420 x 84.
+ */
 .wai-shell .wai-bubble-row .wai-bubble:has(.wai-voice) {
   box-sizing: border-box;
-  position: relative;
-  width: min(350px, calc(100vw - 122px));
+  width: min(420px, calc(100vw - 120px));
+  height: 84px;
+  min-height: 84px;
   max-width: 100%;
-  height: 73px;
-  min-height: 73px;
-  padding: 7px 10px 15px;
+  padding: 7px 12px 11px;
+  position: relative;
   border-radius: 10px;
 }
-.wai-shell .wai-bubble-row.is-out .wai-bubble:has(.wai-voice) { background: #144d37; }
-.wai-shell .wai-bubble-row.is-in .wai-bubble:has(.wai-voice) { background: #242626; }
+.wai-shell .wai-bubble-row.is-in .wai-bubble:has(.wai-voice) {
+  padding-left: 36px;
+  background: #242626;
+}
+.wai-shell .wai-bubble-row.is-out .wai-bubble:has(.wai-voice) {
+  padding-left: 12px;
+  background: #144d37;
+}
 .wai-shell .wai-bubble-row.is-out .wai-bubble.has-tail:has(.wai-voice) { border-top-right-radius: 0; }
 .wai-shell .wai-bubble-row.is-in .wai-bubble.has-tail:has(.wai-voice) { border-top-left-radius: 0; }
 .wai-shell .wai-bubble-row .wai-bubble:has(.wai-voice):not(:has(.wai-text)) .wai-meta-row {
   position: absolute;
-  right: 9px;
+  right: 10px;
   bottom: 5px;
   margin: 0;
   min-height: 0;
   align-items: center;
   gap: 2px;
 }
-.wai-shell .wai-bubble-row .wai-bubble:has(.wai-voice) .wai-meta {
-  font-size: 12px;
-  line-height: 14px;
-  font-weight: 400;
-  color: #bcc9c3;
+.wai-shell .wai-bubble-row.is-in .wai-bubble:has(.wai-voice):not(:has(.wai-text)) .wai-meta-row {
+  right: 104px;
 }
-.wai-shell .wai-bubble-row .wai-bubble:has(.wai-voice) .wai-tick { width: 18px; height: 18px; }
+.wai-shell .wai-bubble-row .wai-bubble:has(.wai-voice) .wai-meta {
+  font-size: 14px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #b9c4c0;
+}
+.wai-shell .wai-bubble-row .wai-bubble:has(.wai-voice) .wai-tick {
+  width: 18px;
+  height: 18px;
+}
 .wai-shell .wai-bubble .wai-voice {
   display: grid;
-  grid-template-columns: 52px 25px minmax(0, 1fr);
+  grid-template-columns: 66px 25px minmax(0, 1fr);
+  grid-template-areas: "identity play track";
+  column-gap: 20px;
   align-items: center;
-  column-gap: 11px;
+  box-sizing: border-box;
   width: 100%;
+  height: 65px;
   min-width: 0;
-  height: 51px;
   padding: 0;
   margin: 0;
 }
-.wai-shell .wai-bubble .wai-voice.is-started {
-  grid-template-columns: 25px minmax(0, 1fr) 47px;
-  column-gap: 12px;
+.wai-shell .wai-bubble .wai-voice.is-in {
+  grid-template-columns: 25px minmax(0, 1fr) 66px;
+  grid-template-areas: "play track identity";
+  column-gap: 28px;
+}
+.wai-shell .wai-voice-identity {
+  grid-area: identity;
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  min-width: 0;
 }
 .wai-shell .wai-voice-avatar {
   display: grid;
   position: relative;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
   flex-shrink: 0;
   background: #090e14;
@@ -66,7 +96,7 @@
   height: 100%;
   border-radius: inherit;
   color: #e9eaea;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 .wai-shell .wai-voice-avatar img {
@@ -81,47 +111,40 @@
   position: absolute;
   right: -1px;
   bottom: -4px;
-  width: 18px;
-  height: 23px;
+  width: 21px;
+  height: 26px;
   stroke: #a7c1b8;
   stroke-width: 2.5;
   filter: drop-shadow(0 1px 1px #0009);
 }
-.wai-shell .wai-voice-logo {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: -.7px;
-  text-transform: uppercase;
-  color: white;
-  white-space: nowrap;
-}
-.wai-shell .wai-voice-logo > span { color: #ed6e37; }
 .wai-shell .wai-voice-play {
+  grid-area: play;
   display: grid;
   place-items: center;
   width: 25px;
+  height: 40px;
   min-width: 25px;
-  height: 36px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #f6f7f7;
+  color: #f5f7f5;
   cursor: pointer;
 }
 .wai-shell .wai-voice-play:hover { background: transparent; color: #fff; }
-.wai-shell .wai-voice-play svg { width: 22px; height: 22px; stroke-width: 0; }
-.wai-shell .wai-voice-play:disabled { opacity: 1; cursor: default; }
+.wai-shell .wai-voice-play svg { width: 21px; height: 21px; stroke-width: 0; }
+.wai-shell .wai-voice-play:disabled { opacity: .8; cursor: default; }
 .wai-shell .wai-voice-track {
+  grid-area: track;
   display: grid;
-  grid-template-rows: 30px 15px;
+  grid-template-rows: 35px 17px;
   align-items: center;
-  width: 100%;
-  min-width: 0;
-  height: 48px;
-  gap: 0;
-  padding-top: 2px;
   box-sizing: border-box;
+  width: 100%;
+  height: 57px;
+  min-width: 0;
+  padding-top: 2px;
+  gap: 0;
 }
 .wai-shell .wai-voice-waveform {
   display: flex;
@@ -129,25 +152,24 @@
   position: relative;
   min-width: 0;
   width: 100%;
-  height: 30px;
+  height: 35px;
 }
 .wai-shell .wai-voice-wave-svg {
   display: block;
   width: 100%;
-  height: 27px;
+  height: 32px;
+  fill: #83948e;
+  opacity: .93;
   overflow: visible;
-  fill: #75a095;
-  opacity: .95;
 }
-.wai-shell .wai-bubble-row.is-in .wai-voice-wave-svg { fill: #858c8b; }
-.wai-shell .wai-voice.is-started .wai-voice-wave-svg { fill: #a0aba8; }
-.wai-shell .wai-voice-wave-svg rect:nth-child(-n+9) { fill: #b7d0c8; }
-.wai-shell .wai-voice.is-started .wai-voice-wave-svg rect:nth-child(-n+12) { fill: #e1e7e5; }
+.wai-shell .wai-voice.is-out .wai-voice-wave-svg { fill: #74a295; }
+.wai-shell .wai-voice-wave-svg rect:nth-child(-n+7) { fill: #b0c4bc; }
+.wai-shell .wai-voice.is-started .wai-voice-wave-svg rect:nth-child(-n+9) { fill: #e5e9e7; }
 .wai-shell .wai-voice-waveform input[type="range"] {
   position: absolute;
   inset: 0;
   width: 100%;
-  height: 30px;
+  height: 35px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -158,76 +180,82 @@
   background: transparent;
   cursor: pointer;
 }
-.wai-shell .wai-voice-waveform input[type="range"]::-webkit-slider-runnable-track,
+.wai-shell .wai-voice-waveform input[type="range"]::-webkit-slider-runnable-track {
+  height: 28px;
+  border: 0;
+  background: transparent;
+}
 .wai-shell .wai-voice-waveform input[type="range"]::-moz-range-track {
-  height: 26px;
+  height: 28px;
   border: 0;
   background: transparent;
 }
 .wai-shell .wai-voice-waveform input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  margin-top: 5px;
+  width: 17px;
+  height: 17px;
+  margin-top: 6px;
   border: 0;
   border-radius: 50%;
-  background: #53b7ee;
+  background: #06c77d;
   box-shadow: none;
 }
+.wai-shell .wai-voice.is-started .wai-voice-waveform input[type="range"]::-webkit-slider-thumb { background: #53b7ee; }
 .wai-shell .wai-voice-waveform input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   border: 0;
   border-radius: 50%;
-  background: #53b7ee;
+  background: #06c77d;
 }
+.wai-shell .wai-voice.is-started .wai-voice-waveform input[type="range"]::-moz-range-thumb { background: #53b7ee; }
 .wai-shell .wai-voice-waveform input:disabled { cursor: default; opacity: 1; }
 .wai-shell .wai-voice-duration {
   display: block;
   justify-self: start;
   align-self: center;
-  padding: 0;
   margin: 0;
-  transform: translate(-5px, -1px);
-  font-size: 12px;
-  line-height: 15px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 17px;
   font-weight: 400;
-  color: #aebdb7;
+  color: #abb4b1;
   font-variant-numeric: tabular-nums;
 }
 .wai-shell .wai-voice-speed {
   position: static;
   display: grid;
   place-items: center;
-  width: 46px;
-  min-width: 46px;
-  height: 24px;
+  width: 58px;
+  height: 26px;
+  min-width: 58px;
   margin: 0;
-  padding: 0 3px;
+  padding: 0 4px;
   border: 0;
-  border-radius: 14px;
-  background: #0d372b;
-  color: #eef4f1;
-  font-size: 12px;
+  border-radius: 15px;
+  background: #111415;
+  color: #f3f5f4;
+  font-size: 14px;
   line-height: 17px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
-.wai-shell .wai-bubble-row.is-in .wai-voice-speed { background: #141616; }
+.wai-shell .wai-voice.is-out .wai-voice-speed { background: #0e372b; }
 .wai-shell .wai-voice-speed:hover { filter: brightness(1.12); }
 @media (max-width: 760px) {
   .wai-shell .wai-bubble-row .wai-bubble:has(.wai-voice) {
-    width: min(350px, calc(100vw - 92px));
-    max-width: 100%;
+    width: min(420px, calc(100vw - 95px));
+    padding-left: 9px;
   }
-  .wai-shell .wai-bubble .wai-voice {
-    grid-template-columns: 52px 24px minmax(0,1fr);
-    column-gap: 8px;
-  }
-  .wai-shell .wai-bubble .wai-voice.is-started {
-    grid-template-columns: 24px minmax(0,1fr) 47px;
-    column-gap: 8px;
-  }
+  .wai-shell .wai-bubble-row.is-in .wai-bubble:has(.wai-voice) { padding-left: 12px; }
+  .wai-shell .wai-bubble .wai-voice,
+  .wai-shell .wai-bubble .wai-voice.is-in { column-gap: 10px; }
+  .wai-shell .wai-voice-identity,
+  .wai-shell .wai-voice-avatar { width: 57px; height: 57px; }
+  .wai-shell .wai-bubble .wai-voice { grid-template-columns: 57px 24px minmax(0, 1fr); }
+  .wai-shell .wai-bubble .wai-voice.is-in { grid-template-columns: 24px minmax(0, 1fr) 57px; }
+  .wai-shell .wai-voice-speed { width: 53px; min-width: 53px; }
+  .wai-shell .wai-bubble-row.is-in .wai-bubble:has(.wai-voice):not(:has(.wai-text)) .wai-meta-row { right: 73px; }
 }
