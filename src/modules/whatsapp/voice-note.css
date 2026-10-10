@@ -258,10 +258,10 @@
   .wai-shell .wai-bubble-row.is-in .wai-bubble:has(.wai-voice):not(:has(.wai-text)) .wai-meta-row { right: 73px; }
 }
 
-/* Screen-to-screen comparison: native consecutive voice notes have almost no
-   vertical gap. Preserve the regular spacing for all other message kinds. */
+/* Keep adjacent voice notes visually separate without affecting other message types.
+   Previously a negative margin made the audio bubble edges touch. */
 .wai-shell .wai-bubble-row:has(.wai-voice) { padding-top: 0; padding-bottom: 0; }
-.wai-shell .wai-bubble-row:has(.wai-voice):not(.has-reactions) + .wai-bubble-row:has(.wai-voice) { margin-top: -6px; }
+.wai-shell .wai-bubble-row:has(.wai-voice):not(.has-reactions) + .wai-bubble-row:has(.wai-voice) { margin-top: 2px; }
 /* In the reference the received bubble starts 10px further right but the play
    icon stays aligned. Offset the row and recover the space inside the bubble. */
 .wai-shell .wai-bubble-row.is-in:has(.wai-voice) { margin-left: 12px; }
