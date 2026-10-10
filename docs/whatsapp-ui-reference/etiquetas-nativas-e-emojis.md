@@ -2,6 +2,8 @@
 
 O canal QR usa as etiquetas do número conectado, com IDs, nomes, cores e vínculos nativos. Consultas atualizam a interface a cada 15 segundos; criação, edição, exclusão e associação enviam operações de app-state ao WhatsApp. Os filtros internos Não lidas, Favoritos e Grupos não aparecem como etiquetas editáveis. O canal Cloud mantém seu comportamento separado.
 
+A paleta segue o módulo público `WAWebLabelPillColors` do WhatsApp Web consultado nesta data: 22 índices nativos, com 20 cores disponíveis para edição e dois índices reservados. Os chips usam as cores de texto e fundo do tema escuro original, em vez da antiga paleta Android. Novo cliente usa o índice 1 e Lead o 18, como na captura.
+
 Foram removidas, com autorização do usuário, as duas listas locais existentes no escopo da conta iGrow Digital.
 
 O serviço Evolution 2.3.7 precisava converter `AppStateSyncKeyData` com `fromObject`, em vez de `create`: a serialização protobuf havia gravado `keyData` em base64. A conversão restaura os bytes sem substituir chaves ou refazer o pareamento. A imagem `igrow/evolution-api:2.3.7-labels-1` inclui a correção e o bridge autenticado. O snapshot inicial reconstrói apenas a projeção de etiquetas e exige versões de app-state válidas; falhas não são apresentadas como lista vazia ou sucesso.

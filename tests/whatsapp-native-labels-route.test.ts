@@ -48,7 +48,7 @@ it("reads the native ID, name, color and proven LID membership",async()=>{
   const body=await response.json();
   expect(body.source).toBe("whatsapp");
   expect(body.lists).toHaveLength(1);
-  expect(body.lists[0]).toMatchObject({id:"wa:3",name:"Pagamento pendente",color:"#dfaef0",conversationIds:[chat]});
+  expect(body.lists[0]).toMatchObject({id:"wa:3",name:"Pagamento pendente",color:"#c15add",conversationIds:[chat]});
   expect(writes).toEqual([]);
 });
 it("adds and removes the native label on the real peer",async()=>{
@@ -63,7 +63,7 @@ it("refuses peers from a different agency or number before writing",async()=>{
   expect(writes).toEqual([]);
 });
 it("creates a native label using the protocol color and returned ID",async()=>{
-  const response=await POST(request({name:"Novo cliente",color:"#55ccb3",conversationIds:[chat]},"POST"));
+  const response=await POST(request({name:"Novo cliente",color:"#c0835d",conversationIds:[chat]},"POST"));
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({id:"wa:4"});
   expect(writes[0].body).toEqual({name:"Novo cliente",color:5});

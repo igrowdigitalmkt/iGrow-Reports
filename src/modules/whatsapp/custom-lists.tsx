@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Edit3, ListFilter, Loader2, MoreVertical, Palette, Plus, Search, Smile, Trash2, UsersRound, X } from "lucide-react";
 import { colorFor, conversationTitle, initialsOf } from "./inbox-format";
 import type { InboxConversation } from "./inbox-types";
-import { WHATSAPP_LABEL_COLORS } from "./native-labels";
+import { CUSTOM_LABEL_COLORS } from "./native-labels";
 
 export type CustomList = { id: string; name: string; color: string; sortOrder: number; conversationIds: string[]; };
-const PALETTE = WHATSAPP_LABEL_COLORS;
+const PALETTE = CUSTOM_LABEL_COLORS;
 const SUGGESTIONS = [
   { name: "Novo pedido", color: PALETTE[2] },
   { name: "Pagamento pendente", color: PALETTE[3] },

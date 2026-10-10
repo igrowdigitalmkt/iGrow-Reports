@@ -9,6 +9,7 @@ import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAp
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
 import { WhatsAppEmoji, WhatsAppEmojiText } from "./whatsapp-emoji";
+import { labelPillStyle } from "./native-labels";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
@@ -1154,7 +1155,7 @@ function ConversationRow({ item, active, now, photo, labels, onOpen }: { item: I
       {item.clientName && <span className="wai-row-client">{item.clientName}</span>}
       {!!labels.length && <span className="wai-row-list-labels" aria-label={labels.map(item => item.name).join(", ")}>
         {labels.slice(0,4).map(label => <span className="wai-row-list-chip" key={label.id} title={label.name}
-          style={{ "--wai-chip-color": label.color } as React.CSSProperties}>{label.name}</span>)}
+          style={labelPillStyle(label.color) as React.CSSProperties}>{label.name}</span>)}
         {labels.length > 4 && <small>+{labels.length - 4}</small>}
       </span>}
     </span>

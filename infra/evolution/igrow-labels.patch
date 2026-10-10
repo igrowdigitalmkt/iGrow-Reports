@@ -18,7 +18,7 @@ index 2df112f..bbe60ae 100644
      return await this.waMonitor.waInstances[instanceName].handleLabel(data);
    }
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..b0d64c6 100644
+index 60e857f..8eefe8c 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 @@ -1825,7 +1825,8 @@ export class BaileysStartupService extends ChannelStartupService {
@@ -95,7 +95,7 @@ index 60e857f..b0d64c6 100644
 +    const operation = this.igrowLabelQueue.then(async () => {
 +      const current = await this.igrowLabelSnapshot();
 +      if (data.id && !current.labels.some(label => label.id === data.id)) throw new NotFoundException('Label not found');
-+      if (!data.id && current.labels.length >= 20) throw new BadRequestException('WhatsApp allows 20 labels');
++      if (!data.id && current.labels.filter(label => !(Number(label.id) <= 3 && label.name.startsWith('\u200e'))).length >= 20) throw new BadRequestException('WhatsApp allows 20 labels');
 +      const id = data.id || String(Math.max(0, ...current.labels.map(label => Number(label.id) || 0)) + 1);
 +      const label = { id, name: data.name?.trim(), color: data.color, deleted: !!data.deleted };
 +      await this.client.addLabel(this.client.user.id, label);
@@ -129,7 +129,7 @@ index 60e857f..b0d64c6 100644
        throw new NotFoundException('Number not found');
      }
 diff --git a/src/api/routes/label.router.ts b/src/api/routes/label.router.ts
-index bfb4a08..421495f 100644
+index bfb4a08..d18b5c7 100644
 --- a/src/api/routes/label.router.ts
 +++ b/src/api/routes/label.router.ts
 @@ -10,6 +10,22 @@ export class LabelRouter extends RouterBroker {
@@ -146,7 +146,7 @@ index bfb4a08..421495f 100644
 +        if (!data || (data.id !== undefined && !/^[0-9]{1,9}$/.test(data.id)) ||
 +          (data.deleted !== undefined && typeof data.deleted !== 'boolean') ||
 +          (!data.deleted && (typeof data.name !== 'string' || !data.name.trim() || data.name.length > 40 ||
-+            !Number.isInteger(data.color) || data.color < 0 || data.color > 19)) || (data.deleted && !data.id))
++            !Number.isInteger(data.color) || data.color < 0 || data.color > 21)) || (data.deleted && !data.id))
 +          return res.status(400).json({ error: 'Invalid label' });
 +        const response = await this.dataValidate<LabelDto>({ request: req, schema: null, ClassRef: LabelDto,
 +          execute: (instance) => labelController.igrowEdit(instance, data) });
