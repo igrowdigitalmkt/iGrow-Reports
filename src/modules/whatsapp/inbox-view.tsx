@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
 import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
@@ -22,6 +22,7 @@ import "./inbox-menus-fidelity.css";
 import "./inbox-rail-fidelity.css";
 import "./inbox-pixel-precision.css";
 import "./inbox-screenshot-corrections.css";
+import "./voice-note.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -293,6 +294,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const unreadHere = inChannel.filter(item => item.unread > 0).length;
   const open = conversations.find(item => item.id === openId) ?? null;
   const channel = allChannels.find(item => item.key === channelKey) ?? allChannels[0];
+  const selfConversation = conversations.find(item =>
+    item.channelKey === channelKey && !item.isGroup &&
+    ((channel.phone && phoneKey(item.remoteId) === phoneKey(channel.phone)) ||
+      /\(você\)/i.test(item.title ?? "")));
 
   function startWith(contact: { phone: string; name: string | null; clientName: string | null }) {
     setPicking(false);
@@ -809,6 +814,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               return <Fragment key={message.id}>
                 {newDay && <p className="wai-day"><span>{dayLabel(message.sentAt, now)}</span></p>}
                 <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped}
+                  voiceAvatarSrc={channel.kind === "qr" && (message.direction === "in" || selfConversation)
+                    ? `/api/whatsapp/inbox/avatar/${message.direction === "in" ? open.id : selfConversation?.id}`
+                    : undefined}
                   live={!demo && !message.id.startsWith("local-")} canReact={canReply && reactingId === null} reactionBusy={reactingId === message.id}
                   selected={selectedMessageIds.has(message.id)} selectMode={selectedMessageIds.size > 0}
                   starred={starredIds.has(message.id)}
@@ -1120,33 +1128,63 @@ function PhotoViewer({ src, downloadSrc, onClose }: { src: string; downloadSrc: 
   </div>;
 }
 
-/** Voice and audio messages: WhatsApp-like player; the file downloads only when played. */
-function AudioPlayer({ src, out }: { src: string; out: boolean }) {
+/** A voice note keeps real playback and timing; its waveform is a decorative
+ * visual guide until the encrypted media is fetched. Never invent duration. */
+const VOICE_WAVE_BARS = Array.from({ length: 69 }, (_, index) => {
+  if (index < 43) return 3 + (index % 4 === 0 ? 1 : 0);
+  const spikes = [17, 7, 12, 8, 4, 19, 9, 14, 8, 6, 12, 22, 9, 14, 7, 16, 8, 6, 12, 24, 10, 7, 12, 5, 4, 3];
+  return spikes[index - 43] ?? 3;
+});
+
+function VoiceAvatar({ src, out }: { src?: string; out: boolean }) {
+  const [failed, setFailed] = useState(false);
+  return <span className={`wai-voice-avatar${out ? " is-out" : ""}`} aria-hidden="true">
+    <span className="wai-voice-avatar-fallback">{out ? <span className="wai-voice-logo">IGR<span>O</span>W.</span> : <Contact size={29} />}</span>
+    {src && !failed && /* eslint-disable-next-line @next/next/no-img-element -- authenticated, short-lived WhatsApp photo */
+      <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} />}
+    <Mic className="wai-voice-avatar-mic" size={24} strokeWidth={2.4} />
+  </span>;
+}
+
+/** WhatsApp-style voice note. The preview is fetched only when visible;
+ * its duration comes from the actual audio metadata, not a fabricated value. */
+function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; out: boolean; avatarSrc?: string; preview?: boolean }) {
+  const anchor = useRef<HTMLDivElement>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const url = useRef<string | null>(null);
   const expiry = useRef<ReturnType<typeof setTimeout> | null>(null);
   const request = useRef<AbortController | null>(null);
+  const pending = useRef<Promise<HTMLAudioElement> | null>(null);
+  const speedRef = useRef(1);
   const [state, setState] = useState<"idle" | "loading" | "playing" | "paused" | "error">("idle");
   const [time, setTime] = useState({ current: 0, duration: 0 });
   const [speed, setSpeed] = useState(1);
-  useEffect(() => () => {
-    request.current?.abort();
-    if (expiry.current) clearTimeout(expiry.current);
-    audio.current?.pause();
-    if (url.current) URL.revokeObjectURL(url.current);
-  }, []);
 
-  async function toggle() {
-    if (state === "playing") { audio.current?.pause(); return; }
-    if (audio.current) { void audio.current.play(); return; }
-    setState("loading");
-    try {
-      const controller = new AbortController();
-      request.current = controller;
+  const prepare = useCallback(async () => {
+    if (audio.current) return audio.current;
+    if (pending.current) return pending.current;
+    const controller = new AbortController();
+    request.current = controller;
+    const task = (async () => {
       const previewUrl = await loadTemporaryMedia(src, controller.signal);
-      if (controller.signal.aborted) { URL.revokeObjectURL(previewUrl); return; }
+      if (controller.signal.aborted) { URL.revokeObjectURL(previewUrl); throw new Error("Áudio cancelado"); }
       url.current = previewUrl;
       const element = new Audio(previewUrl);
+      element.preload = "metadata";
+      element.playbackRate = speedRef.current;
+      element.onloadedmetadata = () => setTime(previous => ({
+        current: previous.current,
+        duration: Number.isFinite(element.duration) ? element.duration : 0,
+      }));
+      element.ontimeupdate = () => setTime({
+        current: element.currentTime,
+        duration: Number.isFinite(element.duration) ? element.duration : element.currentTime,
+      });
+      element.onplay = () => setState("playing");
+      element.onpause = () => setState(previous => previous === "error" ? "error" : "paused");
+      element.onended = () => { element.currentTime = 0; setTime(previous => ({ ...previous, current: 0 })); setState("paused"); };
+      audio.current = element;
+      element.load();
       expiry.current = setTimeout(() => {
         element.pause();
         if (url.current === previewUrl) {
@@ -1157,39 +1195,77 @@ function AudioPlayer({ src, out }: { src: string; out: boolean }) {
           setTime({ current: 0, duration: 0 });
         }
       }, MEDIA_PREVIEW_MS);
-      element.playbackRate = speed;
-      element.onloadedmetadata = () => setTime({ current: 0, duration: Number.isFinite(element.duration) ? element.duration : 0 });
-      element.ontimeupdate = () => setTime({ current: element.currentTime, duration: Number.isFinite(element.duration) ? element.duration : element.currentTime });
-      element.onplay = () => setState("playing");
-      element.onpause = () => setState("paused");
-      element.onended = () => { element.currentTime = 0; setState("paused"); };
-      audio.current = element;
-      await element.play();
-    } catch { setState("error"); }
+      return element;
+    })();
+    pending.current = task;
+    try { return await task; } finally { pending.current = null; }
+  }, [src]);
+
+  useEffect(() => {
+    const container = anchor.current;
+    if (preview || !container || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        observer.disconnect();
+        void prepare().catch(() => undefined);
+      }
+    }, { rootMargin: "80px 0px" });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [prepare, preview]);
+
+  useEffect(() => () => {
+    request.current?.abort();
+    if (expiry.current) clearTimeout(expiry.current);
+    audio.current?.pause();
+    if (url.current) URL.revokeObjectURL(url.current);
+  }, []);
+
+  async function toggle() {
+    if (preview) return;
+    if (state === "playing") { audio.current?.pause(); return; }
+    setState("loading");
+    try { const element = await prepare(); await element.play(); }
+    catch { setState("error"); }
   }
   function seek(value: number) { if (audio.current && time.duration) audio.current.currentTime = value; }
-  function cycleSpeed() { const next = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1; setSpeed(next); if (audio.current) audio.current.playbackRate = next; }
+  function cycleSpeed() {
+    const next = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+    setSpeed(next); speedRef.current = next;
+    if (audio.current) audio.current.playbackRate = next;
+  }
   const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  const progress = time.duration ? Math.min(100, (time.current / time.duration) * 100) : 0;
+
   if (state === "error") return <div className="wai-media"><Mic size={18} />Áudio indisponível</div>;
-  return <div className={`wai-voice${out ? " is-out" : ""}`}>
-    <button type="button" className="wai-voice-play" onClick={() => void toggle()} aria-label={state === "playing" ? "Pausar áudio" : "Tocar áudio"}>
-      {state === "loading" ? <Loader2 size={20} className="wai-spin" /> : state === "playing" ? <Pause size={20} /> : <Play size={20} />}
+  return <div ref={anchor} className={`wai-voice${out ? " is-out" : ""}`}>
+    <VoiceAvatar src={avatarSrc} out={out} />
+    <button type="button" className="wai-voice-play" disabled={preview} onClick={() => void toggle()} aria-label={preview ? "Áudio não reproduzível nesta prévia" : state === "playing" ? "Pausar áudio" : "Tocar áudio"}>
+      {state === "loading" ? <Loader2 className="wai-spin" size={25} /> : state === "playing" ? <Pause size={30} fill="currentColor" strokeWidth={0} /> : <Play size={31} fill="currentColor" strokeWidth={0} />}
     </button>
     <div className="wai-voice-track">
-      <input type="range" min={0} max={time.duration || 1} step={0.1} value={time.current} onChange={event => seek(Number(event.target.value))} disabled={!time.duration} aria-label="Posição do áudio"
-        style={{ "--wai-progress": `${time.duration ? (time.current / time.duration) * 100 : 0}%` } as React.CSSProperties} />
-      <small>{state === "idle" ? "Áudio" : clock(state === "playing" || time.current ? time.current : time.duration)}</small>
+      <div className="wai-voice-waveform">
+        <svg className="wai-voice-wave-svg" viewBox="0 0 330 40" preserveAspectRatio="none" aria-hidden="true">
+          {VOICE_WAVE_BARS.map((height, index) =>
+            <rect key={index} x={index * 4.75} y={(40 - height) / 2} width={2.6} height={height} rx={1.3} />)}
+        </svg>
+        <input type="range" min={0} max={time.duration || 1} step={0.1}
+          value={time.current} onChange={event => seek(Number(event.target.value))}
+          disabled={preview || !time.duration} aria-label="Posição do áudio"
+          style={{ "--wai-progress": `${progress}%` } as React.CSSProperties} />
+      </div>
+      <small className="wai-voice-duration">{time.duration ? clock(Math.max(0, time.duration - time.current)) : state === "loading" ? "…" : "0:00"}</small>
     </div>
-    {state !== "idle" && <button type="button" className="wai-voice-speed" onClick={cycleSpeed} aria-label="Velocidade">{speed}×</button>}
+    {(state === "playing" || state === "paused") && <button type="button" className="wai-voice-speed" onClick={cycleSpeed} aria-label="Velocidade">{speed}×</button>}
   </div>;
 }
 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"] as const;
 
 /** WhatsApp-like message actions: emoji on hover and dropdown for contextual actions. */
-function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selected, selectMode, starred,
+function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, reactionBusy, selected, selectMode, starred,
   onStar, onReact, onCopy, onReply, onSelect, onInfo, onForward, onPin, onDelete, onView }: {
-  message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean;
+  message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; voiceAvatarSrc?: string;
   canReact: boolean; reactionBusy: boolean; selected: boolean; selectMode: boolean; starred: boolean;
   onStar: () => void; onReact: (emoji: string) => void; onCopy: () => void;
   onReply: () => void; onSelect: () => void; onInfo: () => void;
@@ -1293,8 +1369,8 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
         </div>}
         {live && (message.kind === "image" || message.kind === "sticker") && <MediaImage src={src} sticker={message.kind === "sticker"} onView={onView} />}
         {live && message.kind === "video" && <DeferredVideo src={src} />}
-        {live && message.kind === "audio" && <AudioPlayer src={src} out={out} />}
-        {!live && message.kind === "audio" && <div className="wai-audio"><span className="wai-audio-play"><Play size={18} /></span><span className="wai-audio-wave" aria-hidden /><small>Áudio</small></div>}
+        {live && message.kind === "audio" && <AudioPlayer src={src} out={out} avatarSrc={voiceAvatarSrc} />}
+        {!live && message.kind === "audio" && <AudioPlayer src={src} out={out} avatarSrc={voiceAvatarSrc} preview />}
         {Icon && message.kind !== "document" && message.kind !== "audio" && !(live && shownLive) && <div className="wai-media"><Icon size={18} />{kindLabel(message.kind)}{message.kind === "contact" || message.kind === "location" ? message.body ? `: ${message.body}` : "" : ""}</div>}
         {message.kind === "template" && !message.body && <div className="wai-media"><FileText size={18} />Mensagem modelo</div>}
         {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
