@@ -154,3 +154,87 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+/* Reaction reference: short curved tail, circular emoji action, overlapping badge.
+   Keep the message body/metadata intact; these are independent decorations. */
+.wai-shell .wai-bubble.has-tail::before {
+  width: 6px;
+  height: 9px;
+  background: inherit;
+}
+.wai-shell .wai-bubble-row.is-out .wai-bubble.has-tail::before {
+  right: -6px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.wai-shell .wai-bubble-row.is-in .wai-bubble.has-tail::before {
+  left: -6px;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+/* The emoji option is a low-contrast round control outside the message,
+   not an unframed smile-plus floating next to the bubble. */
+.wai-shell .wai-bubble-stack .wai-message-controls .wai-message-emoji-trigger {
+  top: 10px;
+  right: -42px;
+  left: auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 50%;
+  background: #222525;
+  color: #b5bcbb;
+  box-shadow: none;
+}
+.wai-shell .wai-bubble-row.is-out .wai-bubble-stack .wai-message-controls .wai-message-emoji-trigger {
+  left: -42px;
+  right: auto;
+}
+.wai-shell .wai-bubble-stack .wai-message-controls .wai-message-emoji-trigger:is(:hover, [aria-expanded="true"]) {
+  background: #303333;
+  color: #f2f5f4;
+}
+.wai-shell .wai-message-emoji-trigger svg {
+  width: 22px;
+  height: 22px;
+}
+/* The reaction pill dips just below the bubble edge, with a deliberate inset
+   from the right (it must never cover the checkmarks or time). */
+.wai-shell .wai-bubble-row.has-reactions { margin-bottom: 8px; }
+.wai-shell .wai-bubble-stack .wai-reactions {
+  align-self: flex-end;
+  margin: -8px 24px 4px 0;
+  position: relative;
+  z-index: 3;
+}
+.wai-shell .wai-bubble-stack .wai-reactions > .wai-reactions-group,
+.wai-shell .wai-bubble-stack .wai-reactions > .wai-reactions-group.is-mine {
+  min-height: 29px;
+  padding: 4px 10px;
+  gap: 5px;
+  border: 0;
+  border-radius: 100px;
+  background: #292c2c;
+  color: #b1b7b7;
+  box-shadow: 0 2px 3px #0006;
+  line-height: 1;
+}
+.wai-shell .wai-bubble-stack .wai-reaction-emoji {
+  font-size: 19px;
+  line-height: 1;
+}
+.wai-shell .wai-bubble-stack .wai-reactions small {
+  font-size: 15px;
+  line-height: 1;
+  margin-left: 2px;
+  font-weight: 400;
+  color: #b4babb;
+}
+@media (hover: none), (pointer: coarse) {
+  /* Preserve long-press actions; the hover decoration stays hidden on touch. */
+  .wai-shell .wai-bubble-row .wai-message-controls .wai-message-emoji-trigger {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}

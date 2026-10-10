@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
-import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, SmilePlus, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
+import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
@@ -1315,7 +1315,7 @@ function Bubble({ message, tail, showAuthor, live, canReact, reactionBusy, selec
       <div className="wai-message-controls">
         {canReact && !message.revoked && <button type="button" className="wai-message-emoji-trigger" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
           disabled={reactionBusy} onClick={() => openPanel("emoji")}>
-          {reactionBusy ? <Loader2 size={16} className="wai-spin" /> : <SmilePlus size={18} />}
+          {reactionBusy ? <Loader2 size={16} className="wai-spin" /> : <Smile size={21} strokeWidth={2.3} />}
         </button>}
         <button type="button" className="wai-message-dropdown-trigger" aria-label="Mais opções da mensagem" aria-expanded={panel === "menu"}
           onClick={() => openPanel("menu")}><ChevronDown size={18} /></button>
