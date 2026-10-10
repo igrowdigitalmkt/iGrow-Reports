@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
 import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
@@ -13,6 +13,7 @@ import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } fr
 import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
 import { canForwardInboxMessage, canDeleteOwnMessage } from "./message-actions";
 import { CustomListEditor, CustomListManager, CustomListMembership, useCustomLists, type CustomList } from "./custom-lists";
+import { claimVoicePlayback, getActiveVoiceToken, releaseVoicePlayback, subscribeVoicePlayback } from "./voice-playback-coordinator";
 import "./inbox.css";
 import "./inbox-reference.css";
 import "./custom-lists.css";
@@ -1186,7 +1187,9 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
   const [state, setState] = useState<"idle" | "loading" | "playing" | "paused" | "error">("idle");
   const [time, setTime] = useState({ current: 0, duration: durationSeconds ?? 0 });
   const [speed, setSpeed] = useState(1);
-  const [hasStarted, setHasStarted] = useState(false);
+  const [token] = useState(() => Symbol("WhatsApp voice note"));
+  const activeToken = useSyncExternalStore(subscribeVoicePlayback, getActiveVoiceToken, () => null);
+  const isActive = activeToken === token;
   const [wave, setWave] = useState<number[]>(VOICE_WAVE_BARS);
 
   const prepare = useCallback(async () => {
@@ -1218,7 +1221,10 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
         current: element.currentTime,
         duration: Number.isFinite(element.duration) && element.duration > 0 ? element.duration : previous.duration,
       }));
-      element.onplay = () => { setHasStarted(true); setState("playing"); };
+      element.onplay = () => {
+        if (getActiveVoiceToken() !== token) { element.pause(); return; }
+        setState("playing");
+      };
       element.onpause = () => setState(previous => previous === "error" ? "error" : "paused");
       element.onended = () => { element.currentTime = 0; setTime(previous => ({ ...previous, current: 0 })); setState("paused"); };
       audio.current = element;
@@ -1229,7 +1235,8 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
           URL.revokeObjectURL(previewUrl);
           url.current = null;
           audio.current = null;
-          // Expiring the temporary media must not erase the listened state.
+          // When the temporary media expires, free ownership and restore its avatar.
+          releaseVoicePlayback(token);
           setState("idle");
           // The expiring Blob URL must not erase duration or the visual history.
           setTime(previous => ({ ...previous, current: 0 }));
@@ -1239,7 +1246,7 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
     })();
     pending.current = task;
     try { return await task; } finally { pending.current = null; }
-  }, [src]);
+  }, [src, token]);
 
   useEffect(() => {
     const container = anchor.current;
@@ -1255,18 +1262,29 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
   }, [prepare, preview]);
 
   useEffect(() => () => {
+    releaseVoicePlayback(token);
     request.current?.abort();
     if (expiry.current) clearTimeout(expiry.current);
     audio.current?.pause();
     if (url.current) URL.revokeObjectURL(url.current);
-  }, []);
+  }, [token]);
 
   async function toggle() {
     if (preview) return;
     if (state === "playing") { audio.current?.pause(); return; }
+    // Claim before the asynchronous download so a slower previous click cannot
+    // start another voice note after the user chooses a different one.
+    claimVoicePlayback(token, () => audio.current?.pause());
     setState("loading");
-    try { const element = await prepare(); await element.play(); }
-    catch { setState("error"); }
+    try {
+      const element = await prepare();
+      if (getActiveVoiceToken() !== token) { setState("idle"); return; }
+      await element.play();
+    } catch {
+      if (getActiveVoiceToken() !== token) { setState("idle"); return; }
+      releaseVoicePlayback(token);
+      setState("error");
+    }
   }
   function seek(value: number) { if (audio.current && time.duration) audio.current.currentTime = value; }
   function cycleSpeed() {
@@ -1278,9 +1296,9 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
   const progress = time.duration ? Math.max(0, Math.min(100, (time.current / time.duration) * 100)) : 0;
   const playedBars = Math.round((progress / 100) * wave.length);
 
-  return <div ref={anchor} className={`wai-voice${out ? " is-out" : " is-in"}${hasStarted ? " is-started" : ""}`}>
+  return <div ref={anchor} className={`wai-voice${out ? " is-out" : " is-in"}${isActive ? " is-started" : ""}`}>
     <span className="wai-voice-identity">
-      {!hasStarted ? <VoiceAvatar src={avatarSrc} out={out} /> :
+      {!isActive ? <VoiceAvatar src={avatarSrc} out={out} /> :
         <button type="button" className="wai-voice-speed" onClick={cycleSpeed}
           aria-label={`Velocidade ${speed.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} vezes`}>
           {speed.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×
@@ -1294,7 +1312,7 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
         <svg className="wai-voice-wave-svg" viewBox={`0 0 ${wave.length * 4.75} 40`} preserveAspectRatio="none" aria-hidden="true">
           {wave.map((height, index) =>
             <rect key={index} x={index * 4.75} y={(40 - height) / 2} width={2.6} height={height} rx={1.3}
-              fill={hasStarted && index < playedBars ? "#f0f2f1" : undefined} />)}
+              fill={isActive && index < playedBars ? "#f0f2f1" : undefined} />)}
         </svg>
         <input type="range" min={0} max={time.duration || 1} step={0.1}
           value={time.current} onChange={event => seek(Number(event.target.value))}
