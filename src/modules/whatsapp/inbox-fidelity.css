@@ -211,7 +211,7 @@
   box-shadow:0 10px 42px #0009;
 }
 .wai-shell .wai-delete-dialog>header{justify-content:center;margin:5px 12px 27px;}
-.wai-shell .wai-delete-dialog>header strong{max-width:260px;text-align:center;font-size:24px;font-weight:500;line-height:1.36;}
+.wai-shell .wai-delete-dialog>header strong{max-width:260px;text-align:center;font-size:28px;font-weight:400;line-height:1.25;}
 .wai-shell .wai-delete-dialog .wai-delete-choices{display:grid;gap:10px;margin:0;}
 .wai-shell .wai-delete-dialog .wai-delete-choices>button{
   display:flex;justify-content:center;align-items:center;min-height:50px;
@@ -219,8 +219,8 @@
   background:transparent;color:#25d366;text-align:center;
 }
 .wai-shell .wai-delete-dialog .wai-delete-choices>button:hover{background:#292c2c;border-color:#515555;}
-.wai-shell .wai-delete-dialog .wai-delete-choices>button.is-danger{color:#ed9aaf;}
-.wai-shell .wai-delete-dialog .wai-delete-choices strong{font-size:16px;font-weight:600;}
+.wai-shell .wai-delete-dialog .wai-delete-choices>button.is-danger{color:#ff869a;}
+.wai-shell .wai-delete-dialog .wai-delete-choices strong{font-size:18px;font-weight:500;}
 .wai-shell .wai-delete-dialog .wai-delete-local-note{margin:12px 0 0;text-align:center;font-size:11px;line-height:1.4;color:#aeb9b9;}
 .wai-shell .wai-delete-dialog .wai-delete-note{margin:7px 3px 0;text-align:center;font-size:10px;line-height:1.35;color:#9ca7a7;}
 .wai-shell .wai-delete-dialog .wai-confirm-actions{display:block;margin:4px 0 0;}
@@ -229,6 +229,45 @@
   background:transparent;color:#25d366;text-align:center;font-size:16px;
 }
 .wai-shell .wai-delete-dialog .wai-confirm-actions button:hover{background:#282b2b;}
+
+/* Reference 01: confirmation is centered over the entire inbox, not the chat.
+   Keep the product-specific deletion explanation visible below the choices. */
+.wai-shell .wai-delete-backdrop{position:fixed;inset:0;z-index:1400;background:rgb(0 0 0 / 30%);}
+.wai-shell .wai-delete-dialog{box-shadow:none;}
+.wai-shell .wai-chat.is-selecting-messages .wai-bubble-row.is-selected .wai-bubble{outline:none;}
+.wai-shell .wai-select-message-check input{width:22px;height:22px;}
+.wai-shell .wai-message-selection-bar[data-selection-count="1"]{height:77px;min-height:77px;padding-inline:25px;background:#222424;}
+.wai-shell .wai-message-selection-bar[data-selection-count="1"]>span{font-size:18px;font-weight:400;}
+/* A single selected message exposes deletion in the reference; the other
+   operations remain available in the message menu and in multiple selection. */
+.wai-shell .wai-message-selection-bar[data-selection-count="1"]>button:not(:first-child):not([aria-label="Apagar mensagens"]){display:none;}
+
+/* Reference 03: selection owns the full row, including the checkbox gutter. */
+.wai-shell .wai-chat.is-selecting-messages{--wai-selection-left:130px;--wai-selection-right:25px;}
+.wai-shell .wai-chat.is-selecting-messages .wai-messages-inner{padding-left:var(--wai-selection-left);padding-right:var(--wai-selection-right);gap:0;}
+.wai-shell .wai-chat.is-selecting-messages .wai-bubble-row.is-selection-mode{
+  margin-left:calc(-1 * var(--wai-selection-left));margin-right:calc(-1 * var(--wai-selection-right));
+  margin-bottom:0;min-height:90px;align-items:center;padding:2px var(--wai-selection-right) 2px var(--wai-selection-left);cursor:pointer;
+}
+.wai-shell .wai-chat.is-selecting-messages .wai-bubble-row.is-selected{background:#151616;}
+.wai-shell .wai-chat.is-selecting-messages .wai-bubble-row.is-selected::before{content:none;}
+.wai-shell .wai-chat.is-selecting-messages .wai-select-message-check{left:28px;}
+.wai-shell .wai-chat.is-selecting-messages .wai-select-message-check input{appearance:none;border:2px solid #747878;border-radius:5px;background:transparent;transition:none;}
+.wai-shell .wai-chat.is-selecting-messages .wai-select-message-check input:checked{background:#1dbf60;border-color:#1dbf60;}
+.wai-shell .wai-chat.is-selecting-messages .wai-select-message-check input:checked::before{content:'✓';display:block;text-align:center;font-size:18px;font-weight:600;line-height:18px;color:#082719;}
+.wai-shell .wai-chat.is-selecting-messages .wai-select-message-check input:focus-visible{outline:2px solid #fff;outline-offset:4px;}
+.wai-shell .wai-message-selection-bar{height:77px;min-height:77px;padding:0 35px 0 25px;background:#222424;flex-wrap:nowrap;gap:21px;}
+.wai-shell .wai-message-selection-bar>button:first-child{margin-right:-5px;}
+.wai-shell .wai-message-selection-bar>span{font-size:18px;font-weight:400;}
+.wai-shell .wai-message-selection-bar>button{width:39px;min-width:39px;height:39px;}
+.wai-shell .wai-message-selection-bar>button:is([aria-label="Copiar mensagens"],[aria-label="Fixar mensagens"]){display:none;}
+@media(max-width:760px){
+  .wai-shell .wai-chat.is-selecting-messages{--wai-selection-left:64px;--wai-selection-right:18px;}
+  .wai-shell .wai-chat.is-selecting-messages .wai-select-message-check{left:12px;}
+  .wai-shell .wai-message-selection-bar,.wai-shell .wai-message-selection-bar[data-selection-count="1"]{height:67px;min-height:67px;padding-inline:7px;gap:4px;}
+  .wai-shell .wai-message-selection-bar>span,.wai-shell .wai-message-selection-bar[data-selection-count="1"]>span{font-size:13px;}
+  .wai-shell .wai-message-selection-bar>button{width:30px;min-width:30px;}
+}
 
 .wai-shell .wai-chat-list-colors{display:inline-flex;gap:0;flex-shrink:0}.wai-shell .wai-chat-list-colors>span{width:14px;height:14px;border-radius:50%;border:1px solid #252828}.wai-shell .wai-chat-list-colors>span+span{margin-left:-4px}
 

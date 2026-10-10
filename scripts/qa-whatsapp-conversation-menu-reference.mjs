@@ -1,0 +1,56 @@
+import { chromium } from "@playwright/test";
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+const base=process.env.WA_QA_URL||"http://127.0.0.1:3158/demo/whatsapp";
+assert.equal(new URL(base).pathname,"/demo/whatsapp");
+await mkdir("artifacts",{recursive:true});
+const browser=await chromium.launch({headless:true,executablePath:"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"});
+try {
+ for(const [width,height,scale] of [[1920,1080,1],[1366,768,1],[1024,768,1],[390,844,1],[1536,864,1.25],[1280,720,1.5]]) {
+  const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:scale});
+  const errors=[],mutations=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  page.on("request",request=>{if(request.method()==="POST"&&request.url().includes("/api/whatsapp/"))mutations.push(request.url());});
+  await page.goto(base,{waitUntil:"domcontentloaded"});
+  await page.locator(".wai-row").filter({hasText:"Diretoria Colégio"}).click();
+  const trigger=page.locator(".wai-chat-head").getByRole("button",{name:"Mais opções",exact:true});
+  const menu=page.getByRole("menu",{name:"Opções da conversa"});
+  await trigger.click();await menu.waitFor();
+  assert.deepEqual(await menu.getByRole("menuitem").allTextContents(),["Informações do grupo","Pesquisar","Selecionar mensagens","Adicionar aos Favoritos","Mudar lista","Fechar conversa","Arquivar conversa"]);
+  const box=await menu.boundingBox(),button=await trigger.boundingBox();
+  const zoom=await page.locator(".wai-shell").evaluate(el=>Number(getComputedStyle(el).zoom)||1);
+  assert.ok(Math.abs(box.width-284*zoom)<1);
+  assert.ok(Math.abs(box.x+box.width-button.x-button.width)<1,"aligned to right edge of trigger");
+  assert.ok(box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);
+  assert.equal(await menu.locator("hr").count(),1);
+  assert.equal(await menu.getByRole("menuitem",{name:"Informações do grupo"}).evaluate(el=>el===document.activeElement),true);
+  if(width===1920)await page.screenshot({path:"artifacts/whatsapp-07-after-1920.png"});
+  if(width===390)await page.screenshot({path:"artifacts/whatsapp-07-after-390.png"});
+  await page.keyboard.press("ArrowDown");
+  assert.equal(await menu.getByRole("menuitem",{name:"Pesquisar",exact:true}).evaluate(el=>el===document.activeElement),true);
+  await page.keyboard.press("End");
+  assert.equal(await menu.getByRole("menuitem",{name:"Fechar conversa"}).evaluate(el=>el===document.activeElement),true,"skip disabled archive");
+  await page.keyboard.press("Escape");assert.equal(await menu.count(),0);
+  assert.equal(await trigger.evaluate(el=>el===document.activeElement),true);
+  await trigger.click();await page.mouse.click(4,height-100);assert.equal(await menu.count(),0,"click outside closes menu");
+  await trigger.click();await menu.getByRole("menuitem",{name:"Pesquisar",exact:true}).click();
+  await page.getByRole("textbox",{name:"Pesquisar nesta conversa"}).waitFor();
+  await page.getByRole("button",{name:"Fechar pesquisa"}).click();
+  await trigger.click();await menu.getByRole("menuitem",{name:"Mudar lista"}).click();
+  await page.locator(".wai-chat-lists-popover").waitFor();
+  await page.getByRole("button",{name:"Adicionar conversa à lista"}).click();
+  await trigger.click();await menu.getByRole("menuitem",{name:"Selecionar mensagens"}).click();
+  const toolbar=page.getByRole("toolbar",{name:"Mensagens selecionadas"});
+  assert.equal(await page.locator(".wai-select-message-check input").count(),3);
+  await toolbar.getByText("0 itens selecionados",{exact:true}).waitFor();
+  assert.equal(await toolbar.locator("button:visible").count(),1);
+  await page.locator(".wai-select-message-check input").first().check();
+  await toolbar.getByText("1 selecionada",{exact:true}).waitFor();
+  await toolbar.getByRole("button",{name:"Cancelar seleção"}).click();
+  await trigger.click();await menu.getByRole("menuitem",{name:"Fechar conversa"}).click();
+  assert.equal(await page.locator(".wai-chat-head").count(),0);
+  assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);
+  console.log(`PASS ${width}x${height} @${scale}: header menu, keyboard, search, empty selection, close`);
+  await page.close();
+ }
+} finally {await browser.close();}

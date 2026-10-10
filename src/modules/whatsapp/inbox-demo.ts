@@ -41,7 +41,9 @@ export const demoInboxThreads: Record<string, InboxMessageItem[]> = {
     message("g2", "in", 65, "Ótimo, obrigado!", { author: "Carlos Mendes" }),
     message("g3", "in", 62, "Os números da semana ficaram ótimos", { author: "Fernanda Lima" }),
   ],
-  d3: [message("p1", "in", 60 * 27, "Consegue me mandar o relatório de setembro?"), message("p2", "out", 60 * 26, "Pode ser, combinado")],
+  // QR message within 48 hours: preview both deletion choices without sending
+  // any provider request (performLocalMessageAction explicitly blocks demo).
+  d3: [message("p1", "in", 60 * 27, "Consegue me mandar o relatório de setembro?"), message("p2", "out", 60 * 26, "Pode ser, combinado", { canRevokeForEveryone: true })],
   d4: [message("r1", "out", 60 * 24 * 3, null, { kind: "document", mediaName: "Relatorio-Escola-Horizonte.pdf", status: "delivered" })],
   d5: [
     message("o1", "out", 60 * 5, "Olá, Mariana! O relatório de desempenho de Escola Horizonte, referente ao período de 06/09/2026 a 05/10/2026, está no arquivo acima. Qualquer dúvida, fale com a equipe iGrow Digital por aqui.", { kind: "document", mediaName: "Escola-Horizonte-2026-09-06-2026-10-05.pdf" }),

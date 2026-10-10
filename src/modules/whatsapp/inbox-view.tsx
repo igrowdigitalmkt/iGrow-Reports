@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
+import { CalendarSearch, Heart, CircleX } from "lucide-react";
 import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
@@ -42,6 +43,21 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [picking, setPicking] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const chatMenuHost = useRef<HTMLDivElement>(null);
+  const chatMenuTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    chatMenuHost.current?.querySelector<HTMLButtonElement>("[role=menuitem]")?.focus();
+    const pointer = (event: PointerEvent) => {
+      if (!chatMenuHost.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setMenuOpen(false); chatMenuTrigger.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", pointer);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", pointer); document.removeEventListener("keydown", escape); };
+  }, [menuOpen]);
   const [listMenuOpen, setListMenuOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -91,12 +107,44 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [messageInfo, setMessageInfo] = useState<InboxMessageItem | null>(null);
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [chatListsOpen, setChatListsOpen] = useState(false);
+  const chatListsHost = useRef<HTMLDivElement>(null);
+  const chatListsTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!chatListsOpen) return;
+    chatListsHost.current?.querySelector<HTMLInputElement | HTMLButtonElement>(".wai-chat-lists-popover input:not(:disabled), .wai-chat-lists-popover button:not(:disabled)")?.focus();
+    const pointer = (event: PointerEvent) => {
+      if (!chatListsHost.current?.contains(event.target as Node)) setChatListsOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setChatListsOpen(false); chatListsTrigger.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", pointer);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", pointer); document.removeEventListener("keydown", escape); };
+  }, [chatListsOpen]);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [chatSearchDate, setChatSearchDate] = useState("");
+  const [chatSearchDateOpen, setChatSearchDateOpen] = useState(false);
+  const chatSearchTrigger = useRef<HTMLButtonElement>(null);
+  const chatSearchInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!chatSearchOpen) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setChatSearchOpen(false); setChatSearchQuery(""); setChatSearchDate(""); setChatSearchDateOpen(false);
+      chatSearchTrigger.current?.focus();
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [chatSearchOpen]);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [messageSelectionOpen, setMessageSelectionOpen] = useState(false);
+  const messageSelectionActive = messageSelectionOpen || selectedMessageIds.size > 0;
   const [forwardIds, setForwardIds] = useState<string[]>([]);
   const [forwardTargets, setForwardTargets] = useState<string[]>([]);
   const [forwardQuery, setForwardQuery] = useState("");
   const [forwardBusy, setForwardBusy] = useState(false);
+  const [downloadingSelection, setDownloadingSelection] = useState(false);
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const [messageActionBusy, setMessageActionBusy] = useState(false);
   const [reactingId, setReactingId] = useState<string | null>(null);
@@ -261,8 +309,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     ...((messages ?? []).some(message => message.direction === "out") ? ["Você"] : []),
   ].join(", ") || "Grupo";
   const searchTerms = chatSearchQuery.trim().toLocaleLowerCase("pt-BR");
-  const chatSearchResults = !searchTerms ? [] : (messages ?? []).filter(message =>
-    !message.revoked && (message.body ?? "").toLocaleLowerCase("pt-BR").includes(searchTerms));
+  const chatSearchResults = !searchTerms && !chatSearchDate ? [] : (messages ?? []).filter(message =>
+    !message.revoked && (message.body ?? "").toLocaleLowerCase("pt-BR").includes(searchTerms)
+    && (!chatSearchDate || dayKey(message.sentAt) === dayKey(`${chatSearchDate}T00:00:00`)))
+    .sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt));
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [messages?.length, openId]);
 
   function queue(conversationId: string, item: InboxMessageItem) {
@@ -300,6 +350,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     item.channelKey === channelKey && !item.isGroup &&
     ((channel.phone && phoneKey(item.remoteId) === phoneKey(channel.phone)) ||
       /\(você\)/i.test(item.title ?? "")));
+  const forwardSearch = forwardQuery.trim().toLocaleLowerCase("pt-BR");
+  const forwardDestinations = conversations.filter(item => item.channelKey === open?.channelKey &&
+    (!forwardSearch || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(forwardSearch)))
+    .slice(0, 80);
 
   function startWith(contact: { phone: string; name: string | null; clientName: string | null }) {
     setPicking(false);
@@ -316,6 +370,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
 
   function choose(id: string) {
     setDraft(null);
+    setMessageSelectionOpen(false);
     setMenuOpen(false);
     setListMenuOpen(false);
     setDetailsOpen(false); setDetails(null); setChatListsOpen(false);
@@ -426,6 +481,27 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setSelectedMessageIds(new Set());
   }
 
+  const downloadableSelection = (messages ?? []).filter(message => selectedMessageIds.has(message.id) &&
+    !message.revoked && !message.id.startsWith("local-") && ["image", "video", "audio", "document", "sticker"].includes(message.kind));
+
+  async function downloadSelectedMessages() {
+    if (demo || downloadingSelection || !downloadableSelection.length) return;
+    setDownloadingSelection(true); setActionError("");
+    try {
+      for (const message of downloadableSelection) {
+        const response = await fetch(`/api/whatsapp/inbox/media/${message.id}?baixar`, { cache: "no-store" });
+        if (!response.ok) throw new Error("Não foi possível baixar um dos arquivos selecionados. Ele pode ter expirado.");
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url; link.download = message.mediaName || `whatsapp-${message.kind}`;
+        document.body.appendChild(link); link.click(); link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (error) { setActionError(error instanceof Error ? error.message : "Não foi possível baixar os arquivos selecionados."); }
+    finally { setDownloadingSelection(false); }
+  }
+
   async function performLocalMessageAction(action: "pin" | "unpin" | "hide" | "revoke", ids: string[]) {
     if (!openId || !ids.length || messageActionBusy) return;
     if (demo) { setActionError("Ações de organização não são salvas na demonstração."); return; }
@@ -468,6 +544,13 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     if (selected.length > 10) { setActionError("Encaminhe até 10 mensagens por vez."); return; }
     setActionError("");
     setForwardIds(selected.map(item => item.id)); setForwardTargets([]); setForwardQuery("");
+  }
+
+  function closeForward() {
+    if (forwardBusy) return;
+    const source = document.getElementById(`wai-msg-${forwardIds[0]}`)?.closest(".wai-bubble-row");
+    setForwardIds([]); setForwardTargets([]); setForwardQuery(""); setActionError("");
+    source?.querySelector<HTMLButtonElement>(".wai-message-dropdown-trigger")?.focus();
   }
 
   async function forwardMessages(targetIds: string[]) {
@@ -739,7 +822,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     </section>
 
     {viewer && <PhotoViewer src={viewer.displaySrc} downloadSrc={viewer.downloadSrc} onClose={() => setViewer(null)} />}
-    <section className={`wai-chat${draft ? " has-draft" : ""}${selectedMessageIds.size ? " is-selecting-messages" : ""}`} aria-label="Conversa">
+    <section className={`wai-chat${draft ? " has-draft" : ""}${messageSelectionActive ? " is-selecting-messages" : ""}`} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
         <h3>WhatsApp na iGrow</h3>
@@ -755,40 +838,53 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               <small>{open.isGroup ? groupSubtitle : open.title ? formatWhatsAppPhone(open.remoteId) : channel.name}</small></span>
           </button>
           <div className="wai-head-actions">
-            <div className="wai-chat-lists">
-              <button type="button" className="wai-chat-lists-trigger" aria-label="Adicionar conversa à lista"
-                aria-expanded={chatListsOpen} onClick={() => setChatListsOpen(value => !value)}>
+            <div className="wai-chat-lists" ref={chatListsHost}>
+              <button ref={chatListsTrigger} type="button" className="wai-chat-lists-trigger" aria-label="Adicionar conversa à lista" aria-haspopup="dialog"
+                aria-expanded={chatListsOpen} onClick={() => { setMenuOpen(false); setChatListsOpen(value => !value); }}>
                 {customLists.lists.some(item => item.conversationIds.includes(open.id))
-                  ? <span className="wai-chat-list-colors">{customLists.lists.filter(item => item.conversationIds.includes(open.id)).slice(0,2)
+                  ? <span className="wai-chat-list-colors">{customLists.lists.filter(item => item.conversationIds.includes(open.id)).slice(-2).reverse()
                     .map(item => <span key={item.id} style={{ backgroundColor: item.color }} />)}</span>
                   : <Contact size={18} />}
-                <span>{customLists.lists.filter(item => item.conversationIds.includes(open.id)).length
-                  ? `${customLists.lists.filter(item => item.conversationIds.includes(open.id)).length} selecionadas`
+                <span className="wai-chat-lists-label">{customLists.lists.filter(item => item.conversationIds.includes(open.id)).length
+                  ? `${customLists.lists.filter(item => item.conversationIds.includes(open.id)).length} ${customLists.lists.filter(item => item.conversationIds.includes(open.id)).length === 1 ? "selecionada" : "selecionadas"}`
                   : "Adicionar à lista"}</span><ChevronDown size={16} />
               </button>
-              {chatListsOpen && <div className="wai-chat-lists-popover">
-                <strong>Adicionar à lista</strong>
+              {chatListsOpen && <div className="wai-chat-lists-popover" role="dialog" aria-label="Adicionar à lista">
                 <CustomListMembership lists={customLists.lists} conversationId={open.id} busy={customLists.busy || demo}
                   onToggle={(list,member) => void customLists.setMember(list.id,open.id,member)} />
                 {customLists.error && <p className="wai-list-membership-empty" role="alert">{customLists.error}</p>}
-                <button type="button" className="wai-chat-lists-new" onClick={() => { setChatListsOpen(false); setEditingList(null); }}><Plus size={16} />Criar nova lista</button>
+                <div className="wai-chat-lists-actions">
+                  <button type="button" onClick={() => { setChatListsOpen(false); setEditingList(null); if (window.matchMedia("(max-width: 760px)").matches) setOpenId(null); }}><Plus size={20} />Nova lista</button>
+                  <button type="button" onClick={() => { setChatListsOpen(false); setManagingLists(true); setEditingList(undefined); setPicking(false); setStarPanel(false); setShowArchived(false); if (window.matchMedia("(max-width: 760px)").matches) setOpenId(null); }}><Contact size={20} />Gerenciar listas</button>
+                </div>
               </div>}
             </div>
             <button type="button" className="wai-icon-button wai-call-action" aria-label="Chamada de vídeo" title="As chamadas são realizadas no WhatsApp"
               onClick={() => setActionError("Chamadas de vídeo devem ser iniciadas no WhatsApp. Esta tela é uma ferramenta de apoio e não faz ligações.")}><Video size={23}/></button>
             <button type="button" className="wai-icon-button wai-call-action" aria-label="Chamada de voz" title="As chamadas são realizadas no WhatsApp"
               onClick={() => setActionError("Chamadas de voz devem ser iniciadas no WhatsApp. Esta tela é uma ferramenta de apoio e não faz ligações.")}><Phone size={23}/></button>
-            <button type="button" className="wai-icon-button" aria-label="Pesquisar na conversa" title="Pesquisar na conversa"
-              aria-expanded={chatSearchOpen} onClick={() => { setChatSearchOpen(value => !value); setChatSearchQuery(""); }}>
+            <button ref={chatSearchTrigger} type="button" className="wai-icon-button" aria-label="Pesquisar na conversa" title="Pesquisar na conversa"
+              aria-expanded={chatSearchOpen} onClick={() => { setChatSearchOpen(value => !value); setChatSearchQuery(""); setChatSearchDate(""); setChatSearchDateOpen(false); }}>
               <Search size={24} />
             </button>
-            <div className="wai-head-menu">
-              <button type="button" className={`wai-icon-button${menuOpen ? " is-on" : ""}`} onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-label="Mais opções"><MoreVertical size={20} /></button>
-              {menuOpen && <div className="wai-attach-menu wai-chat-menu" role="menu">
+            <div className="wai-head-menu" ref={chatMenuHost}>
+              <button ref={chatMenuTrigger} type="button" className={`wai-icon-button${menuOpen ? " is-on" : ""}`} onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Mais opções"><MoreVertical size={24} /></button>
+              {menuOpen && <div className="wai-attach-menu wai-chat-menu wai-conversation-menu" role="menu" aria-label="Opções da conversa" onKeyDown={event => {
+                if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("[role=menuitem]:not(:disabled)")];
+                const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+                const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+                buttons[next]?.focus();
+              }}>
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}><Info size={18} />{open.isGroup ? "Informações do grupo" : "Dados do contato"}</button>
-                <button type="button" role="menuitem" onClick={() => toggleArchived(open)}><Archive size={18} />{open.archived ? "Desarquivar conversa" : "Arquivar conversa"}</button>
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); toggleFavorite(open); }}><Star size={18} />{open.favorite ? "Remover das favoritas" : "Adicionar às favoritas"}</button>
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}><ListFilter size={18} />Adicionar à lista</button>
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setDetailsOpen(false); setChatSearchOpen(true); setChatSearchQuery(""); setChatSearchDate(""); setChatSearchDateOpen(false); }}><Search size={18} />Pesquisar</button>
+                <button type="button" role="menuitem" disabled={!messages?.length} onClick={() => { setMenuOpen(false); setMessageSelectionOpen(true); setSelectedMessageIds(new Set()); setReplyTarget(null); }}><CheckSquare size={18} />Selecionar mensagens</button>
+                <button type="button" role="menuitem" disabled={demo} onClick={() => { setMenuOpen(false); toggleFavorite(open); }}><Heart size={18} />{open.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</button>
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setChatListsOpen(true); }}><Contact size={18} />Mudar lista</button>
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setMessageSelectionOpen(false); setSelectedMessageIds(new Set()); setOpenId(null); }}><CircleX size={18} />Fechar conversa</button>
+                <hr />
+                <button type="button" role="menuitem" disabled={demo} onClick={() => toggleArchived(open)}><Archive size={18} />{open.archived ? "Desarquivar conversa" : "Arquivar conversa"}</button>
               </div>}
             </div>
           </div>
@@ -797,7 +893,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <AlertCircle size={16} /><span>{actionError}</span>
           <button type="button" onClick={() => setActionError("")} aria-label="Fechar aviso"><X size={17} /></button>
         </div>}
-        {!!messages?.some(message => message.pinned) && !selectedMessageIds.size && <div className="wai-pinned-banner" aria-label="Mensagens fixadas no iGrow">
+        {!!messages?.some(message => message.pinned) && !messageSelectionActive && <div className="wai-pinned-banner" aria-label="Mensagens fixadas no iGrow">
           <Pin size={16} />
           <span><strong>Fixadas no iGrow</strong><small>{messages.filter(item => item.pinned).map(item => item.body?.slice(0, 35) || kindLabel(item.kind)).join(" · ")}</small></span>
           {messages.filter(item => item.pinned).slice(0, 3).map(item =>
@@ -820,13 +916,13 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                     ? `/api/whatsapp/inbox/avatar/${message.direction === "in" ? open.id : selfConversation?.id}`
                     : undefined}
                   live={!demo && !message.id.startsWith("local-")} canReact={canReply && reactingId === null} reactionBusy={reactingId === message.id}
-                  selected={selectedMessageIds.has(message.id)} selectMode={selectedMessageIds.size > 0}
+                  selected={selectedMessageIds.has(message.id)} selectMode={messageSelectionActive}
                   starred={starredIds.has(message.id)}
                   onReply={() => { setReplyTarget(message); setSelectedMessageIds(new Set()); }}
                   onReact={emoji => void reactTo(message, emoji)}
                   onCopy={() => void copyMessage(message)}
                   onInfo={() => setMessageInfo(message)}
-                  onSelect={() => toggleSelectedMessage(message.id)}
+                  onSelect={() => { setMessageSelectionOpen(false); toggleSelectedMessage(message.id); }}
                   onStar={() => void toggleMessageStar(message)}
                   onForward={() => startForward([message.id])}
                   onPin={() => void performLocalMessageAction(message.pinned ? "unpin" : "pin", [message.id])}
@@ -840,21 +936,26 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             <div ref={bottom} />
           </div>
         </div>
-        {!!selectedMessageIds.size ? <div className="wai-message-selection-bar" role="toolbar" aria-label="Mensagens selecionadas">
-          <button type="button" onClick={() => setSelectedMessageIds(new Set())} aria-label="Cancelar seleção"><X size={21} /></button>
-          <span>{selectedMessageIds.size} {selectedMessageIds.size === 1 ? "selecionada" : "selecionadas"}</span>
+        {messageSelectionActive ? <div className="wai-message-selection-bar" role="toolbar" aria-label="Mensagens selecionadas" data-selection-count={selectedMessageIds.size}>
+          <button type="button" onClick={() => { setMessageSelectionOpen(false); setSelectedMessageIds(new Set()); }} aria-label="Cancelar seleção"><X size={21} /></button>
+          <span aria-live="polite">{selectedMessageIds.size} {selectedMessageIds.size === 1 ? "selecionada" : "itens selecionados"}</span>
           <button type="button" onClick={() => void copySelectedMessages()} aria-label="Copiar mensagens" title="Copiar"><Copy size={20} /></button>
           <button type="button" onClick={() => void favoriteSelectedMessages()} aria-label="Favoritar mensagens" title="Favoritar"><Star size={20} /></button>
-          <button type="button" onClick={() => startForward([...selectedMessageIds])} aria-label="Encaminhar mensagens" title="Encaminhar"><Forward size={20} /></button>
           <button type="button" disabled={messageActionBusy} onClick={() => void performLocalMessageAction("pin", [...selectedMessageIds])} aria-label="Fixar mensagens" title="Fixar no iGrow"><Pin size={20} /></button>
           <button type="button" disabled={!(messages ?? []).filter(message => selectedMessageIds.has(message.id)).every(message =>
             canDeleteOwnMessage(message) && !message.id.startsWith("local-"))}
             onClick={() => { setActionError(""); setDeleteIds([...selectedMessageIds]); }}
             aria-label="Apagar mensagens" title="Só mensagens enviadas podem ser apagadas"><Trash2 size={20} /></button>
+          <button type="button" onClick={() => startForward([...selectedMessageIds])} aria-label="Encaminhar mensagens" title="Encaminhar"><Forward size={22} /></button>
+          <button type="button" disabled={demo || downloadingSelection || !downloadableSelection.length}
+            onClick={() => void downloadSelectedMessages()} aria-label="Baixar arquivos selecionados"
+            title={demo ? "A demonstração não baixa arquivos" : "Baixar mídias selecionadas"}>
+            {downloadingSelection ? <Loader2 size={22} className="wai-spin" /> : <Download size={22} />}
+          </button>
         </div> : <Composer key={open.id} conversation={open} kind={channel.kind} now={now} demo={demo} canReply={canReply}
           replyTarget={replyTarget} onClearReply={() => setReplyTarget(null)}
           onQueued={item => queue(open.id, item)} onSettled={(itemId, status) => settle(open.id, itemId, status)} onSent={() => { setReplyTarget(null); if (!demo) reload(open.id); }} />}
-        {!!deleteIds.length && <div className="wai-message-info-backdrop" role="presentation" onClick={() => setDeleteIds([])}>
+        {!!deleteIds.length && <div className="wai-message-info-backdrop wai-delete-backdrop" role="presentation" onClick={() => { if (!messageActionBusy) setDeleteIds([]); }}>
           <section className="wai-message-info wai-delete-dialog" role="dialog" aria-modal="true" aria-label="Apagar mensagens" onClick={event => event.stopPropagation()}>
             <header><strong>{deleteIds.length === 1 ? "Deseja apagar a mensagem?" : `Deseja apagar ${deleteIds.length} mensagens?`}</strong></header>
             {actionError && <p role="alert" className="wai-composer-error"><AlertCircle size={15} />{actionError}</p>}
@@ -870,36 +971,45 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             <p className="wai-delete-local-note">“Apagar para mim” remove apenas desta plataforma.</p>
             {(messages ?? []).filter(message => deleteIds.includes(message.id)).some(message => !message.canRevokeForEveryone) &&
               <p className="wai-delete-note">“Apagar para todos” só é oferecido no QR Code para mensagens com ID válido enviadas há menos de dois dias. A API oficial não permite essa operação.</p>}
-            <div className="wai-confirm-actions"><button type="button" onClick={() => setDeleteIds([])}>Cancelar</button></div>
+            <div className="wai-confirm-actions"><button type="button" disabled={messageActionBusy} onClick={() => setDeleteIds([])}>Cancelar</button></div>
           </section>
         </div>}
-        {!!forwardIds.length && <div className="wai-message-info-backdrop wai-forward-backdrop" role="presentation" onClick={() => { if (!forwardBusy) { setForwardIds([]); setForwardTargets([]); } }}>
+        {!!forwardIds.length && <div className="wai-message-info-backdrop wai-forward-backdrop" role="presentation" onClick={closeForward}>
           <section className="wai-message-info wai-forward-dialog" role="dialog" aria-modal="true" aria-label="Encaminhar mensagens para"
-            onClick={event => event.stopPropagation()}>
-            <header><button type="button" className="wai-icon-button" disabled={forwardBusy} onClick={() => { setForwardIds([]); setForwardTargets([]); }} aria-label="Fechar"><X size={22} /></button>
+            aria-busy={forwardBusy} onClick={event => event.stopPropagation()}
+            onKeyDown={event => {
+              if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeForward(); }
+              if (event.key !== "Tab") return;
+              const fields = [...event.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled)")]
+                .filter(field => field.getClientRects().length > 0);
+              const first = fields[0], last = fields.at(-1);
+              if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+              else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }}>
+            <header><button type="button" className="wai-icon-button" disabled={forwardBusy} onClick={closeForward} aria-label="Fechar encaminhamento"><X size={22} /></button>
               <strong>Encaminhar mensagens para</strong></header>
-            <label className="wai-forward-search"><Search size={20} /><input autoFocus value={forwardQuery} onChange={event => setForwardQuery(event.target.value)}
+            <label className="wai-forward-search"><Search size={20} /><input autoFocus disabled={forwardBusy} value={forwardQuery} onChange={event => setForwardQuery(event.target.value)}
               placeholder="Pesquisar nome, número ou @nomedeusuário" aria-label="Buscar destinatário" /></label>
             <div className="wai-forward-destinations">
               <h4>Conversas recentes</h4>
-              {(list?.conversations ?? []).filter(item => item.channelKey === open.channelKey &&
-                (!forwardQuery || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(forwardQuery.toLocaleLowerCase("pt-BR"))))
-                .slice(0, 80).map(item =>
+              {!forwardDestinations.length && <p className="wai-forward-empty" role="status">Nenhuma conversa encontrada.</p>}
+              {forwardDestinations.map(item =>
                   <label className="wai-forward-choice" key={item.id}>
-                    <input type="checkbox" disabled={forwardBusy} checked={forwardTargets.includes(item.id)}
+                    <input type="checkbox" aria-label={`Encaminhar para ${conversationTitle(item)}`}
+                      disabled={forwardBusy || (forwardTargets.length >= 10 && !forwardTargets.includes(item.id))} checked={forwardTargets.includes(item.id)}
                       onChange={() => setForwardTargets(previous => previous.includes(item.id)
                         ? previous.filter(value => value !== item.id) : previous.length < 10 ? [...previous,item.id] : previous)} />
-                    <Avatar item={item} size={58} photo={!demo} />
-                    <span><strong>{conversationTitle(item)}</strong><small>{item.isGroup ? "Grupo" : formatWhatsAppPhone(item.remoteId)}</small></span>
+                    <Avatar item={item} size={60} photo={!demo} />
+                    <span><strong>{conversationTitle(item)}</strong>{item.id === selfConversation?.id && <small>Mensagens para mim</small>}</span>
                   </label>)}
             </div>
             {actionError && <p role="alert" className="wai-composer-error"><AlertCircle size={15} />{actionError}</p>}
             {forwardBusy && <p className="wai-forward-status" role="status">Enviando mensagens. Aguarde a confirmação do WhatsApp…</p>}
-            <button type="button" className="wai-forward-confirm" aria-label="Encaminhar para as conversas selecionadas"
+            {forwardTargets.length > 0 && <button type="button" className="wai-forward-confirm" aria-label="Encaminhar para as conversas selecionadas"
               title={demo ? "A demonstração não envia mensagens" : "Encaminhar para as conversas selecionadas"}
               disabled={!forwardTargets.length || forwardBusy || demo} onClick={() => void forwardMessages(forwardTargets)}>
               {forwardBusy ? <Loader2 size={23} className="wai-spin" /> : <Check size={25} />}
-            </button>
+            </button>}
           </section>
         </div>}
         {messageInfo && <div className="wai-message-info-backdrop" role="presentation" onClick={() => setMessageInfo(null)}>
@@ -914,22 +1024,34 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         </div>}
         {chatSearchOpen && <aside className="wai-chat-search-panel" aria-label="Pesquisar mensagens">
           <div className="wai-chat-search-head">
-            <button type="button" className="wai-icon-button" aria-label="Fechar pesquisa" onClick={() => { setChatSearchOpen(false); setChatSearchQuery(""); }}><X size={20} /></button>
+            <button type="button" className="wai-icon-button" aria-label="Fechar pesquisa" onClick={() => { setChatSearchOpen(false); setChatSearchQuery(""); setChatSearchDate(""); setChatSearchDateOpen(false); chatSearchTrigger.current?.focus(); }}><X size={24} /></button>
             <strong>Pesquisar mensagens</strong>
           </div>
-          <label className="wai-search"><Search size={19} /><input autoFocus value={chatSearchQuery}
+          <div className="wai-chat-search-tools">
+          <button type="button" className="wai-icon-button" aria-label="Filtrar mensagens por data" aria-expanded={chatSearchDateOpen} onClick={() => setChatSearchDateOpen(value => !value)}><CalendarSearch size={26} /></button>
+          <label className="wai-search"><Search size={21} /><input ref={chatSearchInput} autoFocus value={chatSearchQuery}
             onChange={event => setChatSearchQuery(event.target.value)} placeholder="Pesquisar nesta conversa"
-            aria-label="Pesquisar nesta conversa" /></label>
+            aria-label="Pesquisar nesta conversa" />
+            {!!chatSearchQuery && <button type="button" className="wai-icon-button" aria-label="Limpar pesquisa" onClick={() => { setChatSearchQuery(""); chatSearchInput.current?.focus(); }}><X size={21} /></button>}
+          </label></div>
+          {chatSearchDateOpen && <div className="wai-chat-search-date"><label>Data das mensagens<input type="date" aria-label="Data das mensagens" value={chatSearchDate} onChange={event => setChatSearchDate(event.target.value)} /></label><button type="button" onClick={() => setChatSearchDate("")} disabled={!chatSearchDate}>Limpar data</button></div>}
           <div className="wai-chat-search-results" role="list">
-            {!searchTerms && <p>Pesquise mensagens nesta conversa.</p>}
-            {!!searchTerms && !chatSearchResults.length && <p>Nenhuma mensagem encontrada.</p>}
-            {!!chatSearchResults.length && <small className="wai-chat-search-count">{chatSearchResults.length} {chatSearchResults.length === 1 ? "resultado" : "resultados"} nas últimas mensagens</small>}
-            {chatSearchResults.map(message => <button key={message.id} type="button" role="listitem"
-              onClick={() => document.getElementById(`wai-msg-${message.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-              <span><strong>{message.direction === "out" ? "Você" : conversationTitle(open)}</strong>
-                <small>{new Date(message.sentAt).toLocaleDateString("pt-BR")} · {clockTime(message.sentAt)}</small></span>
-              <span className="wai-chat-search-snippet">{message.body}</span>
-            </button>)}
+            {!searchTerms && !chatSearchDate && <p>Pesquise mensagens nesta conversa.</p>}
+            {(!!searchTerms || !!chatSearchDate) && !chatSearchResults.length && <p>Nenhuma mensagem encontrada.</p>}
+            <span className="wai-chat-search-count" role="status">{chatSearchResults.length} {chatSearchResults.length === 1 ? "resultado" : "resultados"}</span>
+            {chatSearchResults.map(message => <div key={message.id} role="listitem"><button type="button"
+              aria-label={`${clockTime(message.sentAt)}: ${message.body || kindLabel(message.kind)}`} onClick={() => {
+                const element = document.getElementById(`wai-msg-${message.id}`);
+                if (window.matchMedia("(max-width: 760px)").matches) setChatSearchOpen(false);
+                requestAnimationFrame(() => {
+                  element?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+                  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) element?.animate([{ backgroundColor: "#25d36633" }, { backgroundColor: "transparent" }], { duration: 1200 });
+                });
+              }}>
+              <small>{dayKey(message.sentAt) !== dayKey(new Date().toISOString()) && `${new Date(message.sentAt).toLocaleDateString("pt-BR")} · `}{clockTime(message.sentAt)}</small>
+              <span className="wai-chat-search-snippet">{message.direction === "out" && <Ticks status={message.status} />}<span><SearchHighlight text={message.body || kindLabel(message.kind)} query={searchTerms} /></span></span>
+            </button></div>)}
+            {(!!searchTerms || !!chatSearchDate) && <p className="wai-chat-search-scope">Pesquisa nas mensagens carregadas desta conversa.</p>}
           </div>
         </aside>}
         {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo}
@@ -952,6 +1074,23 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
 }
 
 // Profile photo from WhatsApp (QR Code session only) over the initials, which stay if there is none.
+function SearchHighlight({ text, query }: { text: string; query: string }) {
+  const match = query ? text.toLocaleLowerCase("pt-BR").indexOf(query) : 0;
+  const offset = Math.max(0, match - 40);
+  text = `${offset ? "…" : ""}${text.slice(offset, offset + 160)}${text.length > offset + 160 ? "…" : ""}`;
+  if (!query) return <>{text}</>;
+  const parts = [];
+  const lower = text.toLocaleLowerCase("pt-BR");
+  let start = 0;
+  let index = lower.indexOf(query);
+  while (index !== -1) {
+    parts.push(<Fragment key={index}>{text.slice(start, index)}<mark>{text.slice(index, index + query.length)}</mark></Fragment>);
+    start = index + query.length;
+    index = lower.indexOf(query, start);
+  }
+  return <>{parts}{text.slice(start)}</>;
+}
+
 function Avatar({ item, size, photo }: { item: InboxConversation; size: number; photo: boolean }) {
   const [failed, setFailed] = useState(false);
   const title = conversationTitle(item);
@@ -1357,6 +1496,7 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
   const touchHold = useRef<ReturnType<typeof setTimeout> | null>(null);
   const popover = useRef<HTMLDivElement>(null);
   const [popupCoordinates, setPopupCoordinates] = useState<{ top: number; left: number } | null>(null);
+  const popupReady = popupCoordinates !== null;
   // Portaling to the WhatsApp shell prevents the emoji picker from being cut
   // off by the scrolling conversation viewport and keeps the same theme tokens.
   useLayoutEffect(() => {
@@ -1365,7 +1505,7 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
       if (!wrapper.current || !popover.current) return;
       const anchor = wrapper.current.getBoundingClientRect();
       const panelBox = popover.current;
-      const height = Math.min(panelBox.scrollHeight, window.innerHeight - 80);
+      const height = Math.min(panelBox.getBoundingClientRect().height, window.innerHeight - 80);
       const width = panelBox.getBoundingClientRect().width || 324;
       const above = anchor.top - 68;
       const below = window.innerHeight - anchor.bottom - 12;
@@ -1373,14 +1513,19 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
       if (above >= height) top = anchor.top - height - 8;
       else if (below >= height) top = anchor.bottom + 8;
       else top = Math.max(68, Math.min(anchor.top - height / 2, window.innerHeight - height - 12));
-      const idealLeft = out ? anchor.right - width : anchor.left;
+      const idealLeft = allEmoji || panel === "menu" ? (out ? anchor.left - width - 8 : anchor.right + 8) : out ? anchor.right - width : anchor.left;
       const left = Math.max(12, Math.min(idealLeft, window.innerWidth - width - 12));
-      setPopupCoordinates(previous => previous?.top === top && previous?.left === left ? previous : { top, left });
+      const scale = Number(getComputedStyle(panelBox.closest(".wai-shell") ?? panelBox).zoom) || 1;
+      const coordinates = { top: top / scale, left: left / scale };
+      setPopupCoordinates(previous => previous?.top === coordinates.top && previous?.left === coordinates.left ? previous : coordinates);
     };
     calculate();
     window.addEventListener("resize", calculate);
     return () => window.removeEventListener("resize", calculate);
   }, [panel, allEmoji, out]);
+  useEffect(() => {
+    if (panel === "menu" && !allEmoji && popupReady) popover.current?.querySelector<HTMLButtonElement>(".wai-message-menu-list button:not(:disabled)")?.focus();
+  }, [panel, allEmoji, popupReady]);
   useEffect(() => {
     if (!panel) return;
     const clickAway = (event: PointerEvent) => {
@@ -1389,7 +1534,10 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
       }
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setPanel(null); setAllEmoji(false); }
+      if (event.key === "Escape") {
+        wrapper.current?.querySelector<HTMLButtonElement>(panel === "menu" ? ".wai-message-dropdown-trigger" : ".wai-message-emoji-trigger")?.focus();
+        setPanel(null); setAllEmoji(false);
+      }
     };
     document.addEventListener("pointerdown", clickAway);
     document.addEventListener("keydown", escape);
@@ -1473,10 +1621,10 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
         <button type="button" className="wai-message-dropdown-trigger" aria-label="Mais opções da mensagem" aria-expanded={panel === "menu"}
           onClick={() => openPanel("menu")}><ChevronDown size={18} /></button>
       </div>
-      {panel && portalHost && createPortal(<div ref={popover} className="wai-message-popup wai-message-popup-fixed"
+      {panel && portalHost && createPortal(<div ref={popover} className={`wai-message-popup wai-message-popup-fixed${allEmoji ? " is-full-reaction" : panel === "menu" ? " is-message-menu" : " is-quick-reaction"}`}
         style={{ top: popupCoordinates?.top ?? 0, left: popupCoordinates?.left ?? 0, visibility: popupCoordinates ? "visible" : "hidden" }}
         role="dialog" aria-label={panel === "emoji" ? "Reagir à mensagem" : "Ações da mensagem"}>
-        {canReact && <div className="wai-message-quick-reactions" aria-label="Reações rápidas">
+        {canReact && !message.revoked && !allEmoji && <div className="wai-message-quick-reactions" aria-label="Reações rápidas">
           {QUICK_REACTIONS.map(emoji => <button type="button" key={emoji}
             className={currentMine === emoji ? "is-current" : undefined} title={currentMine === emoji ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}
             aria-label={currentMine === emoji ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}
@@ -1484,14 +1632,23 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
           <button type="button" title="Mais emojis" aria-label="Mais emojis" aria-expanded={allEmoji}
             onClick={() => setAllEmoji(value => !value)}><Plus size={19} /></button>
         </div>}
-        {allEmoji && canReact && <div className="wai-message-all-emoji"><EmojiPicker onPick={choose} /></div>}
-        {panel === "menu" && !allEmoji && <div className="wai-message-menu-list">
-          <button type="button" onClick={() => run(onInfo)}><Info size={17} />Dados da mensagem</button>
+        {allEmoji && canReact && <div className="wai-message-all-emoji"><EmojiPicker variant="reaction" onPick={choose} /></div>}
+        {panel === "menu" && !allEmoji && <div className="wai-message-menu-list" onKeyDown={event => {
+          if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+          const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+          const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[next]?.focus();
+        }}>
           <button type="button" onClick={() => run(onReply)} disabled={!canReact || message.revoked}><Reply size={17} />Responder</button>
           <button type="button" onClick={() => run(onCopy)} disabled={!message.body}><Copy size={17} />Copiar</button>
+          <button type="button" onClick={() => setAllEmoji(true)} disabled={!canReact || message.revoked}><Smile size={17} />Reagir</button>
           <button type="button" onClick={() => run(onForward)} disabled={!live || message.revoked}><Forward size={17} />Encaminhar</button>
           <button type="button" onClick={() => run(onPin)} disabled={!live}>{message.pinned ? <PinOff size={17} /> : <Pin size={17} />}{message.pinned ? "Desafixar" : "Fixar"}</button>
           <button type="button" onClick={() => run(onStar)} disabled={!live || message.revoked}><Star size={17} fill={starred ? "currentColor" : "none"} />{starred ? "Remover dos favoritos" : "Favoritar"}</button>
+          <hr className="wai-message-menu-divider" />
+          <button type="button" onClick={() => run(onInfo)}><Info size={17} />Dados da mensagem</button>
           <button type="button" onClick={() => run(onSelect)}><CheckSquare size={17} />{selected ? "Desmarcar" : "Selecionar"}</button>
           {canDeleteOwnMessage(message) && <button type="button" onClick={() => run(onDelete)} disabled={!live} className="is-danger"><Trash2 size={17} />Apagar</button>}
         </div>}

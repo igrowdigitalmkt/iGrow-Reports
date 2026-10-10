@@ -124,9 +124,10 @@ export async function PATCH(request: Request) {
       .eq("channel_key",list.channel_key).maybeSingle();
     if (!chat.data) return Response.json({ error: "Conversa não pertence a esse número." }, { status: 400, headers });
     const query = context.supabase.from("whatsapp_custom_list_members");
+    // Existing links stay untouched: authenticated can INSERT/DELETE, but cannot UPDATE memberships.
     const { error } = body.data.member
       ? await query.upsert({ agency_id: context.agency.id,user_id: context.user.id,
-        list_id: list.id,conversation_id: chat.data.id }, { onConflict: "list_id,conversation_id" })
+        list_id: list.id,conversation_id: chat.data.id }, { onConflict: "list_id,conversation_id", ignoreDuplicates: true })
       : await query.delete().eq("list_id",list.id).eq("conversation_id",chat.data.id)
         .eq("agency_id",context.agency.id).eq("user_id",context.user.id);
     if (error) return Response.json({ error: "Não foi possível atualizar os contatos dessa lista." }, { status: 503, headers });

@@ -16,10 +16,17 @@ const SUGGESTIONS = [
   { name: "Importante", color: "#ff776b" },
 ];
 const API = "/api/whatsapp/inbox/lists";
+// Read-only sample lists for visual checks in the isolated demo; never sent to the API.
+const DEMO_LISTS: CustomList[] = [
+  { id: "demo-new-client", name: "Novo cliente", color: "#a2bb41", sortOrder: 0, conversationIds: ["d2"] },
+  { id: "demo-lead", name: "Lead", color: "#76cdae", sortOrder: 1, conversationIds: ["d2"] },
+  { id: "demo-order", name: "Novo pedido", color: "#bd9b38", sortOrder: 2, conversationIds: ["d2"] },
+  { id: "demo-payment", name: "Pagamento pendente", color: "#a3297b", sortOrder: 3, conversationIds: ["d2"] },
+];
 
 export function useCustomLists(channelKey: string, demo: boolean) {
   const [listState, setListState] = useState<{ channelKey: string; items: CustomList[] }>({ channelKey, items: [] });
-  const lists = !demo && listState.channelKey === channelKey ? listState.items : [];
+  const lists = demo ? channelKey === "qr" ? DEMO_LISTS : [] : listState.channelKey === channelKey ? listState.items : [];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
