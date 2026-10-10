@@ -1136,6 +1136,13 @@ const VOICE_WAVE_BARS = Array.from({ length: 69 }, (_, index) => {
   return spikes[index - 43] ?? 3;
 });
 
+const PLAYED_WAVE_BARS = [
+  7, 12, 16, 18, 12, 19, 16, 21, 18, 15, 20, 22, 19, 24,
+  12, 9, 15, 13, 19, 16, 10, 18, 14, 12, 16, 17, 10, 18,
+  16, 13, 12, 15, 13, 18, 11, 14, 17, 12, 15, 10, 9, 13,
+  9, 11, 7, 5,
+];
+
 function VoiceAvatar({ src, out }: { src?: string; out: boolean }) {
   const [failed, setFailed] = useState(false);
   return <span className={`wai-voice-avatar${out ? " is-out" : ""}`} aria-hidden="true">
@@ -1159,6 +1166,7 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
   const [state, setState] = useState<"idle" | "loading" | "playing" | "paused" | "error">("idle");
   const [time, setTime] = useState({ current: 0, duration: 0 });
   const [speed, setSpeed] = useState(1);
+  const [hasStarted, setHasStarted] = useState(false);
 
   const prepare = useCallback(async () => {
     if (audio.current) return audio.current;
@@ -1180,7 +1188,7 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
         current: element.currentTime,
         duration: Number.isFinite(element.duration) ? element.duration : element.currentTime,
       });
-      element.onplay = () => setState("playing");
+      element.onplay = () => { setHasStarted(true); setState("playing"); };
       element.onpause = () => setState(previous => previous === "error" ? "error" : "paused");
       element.onended = () => { element.currentTime = 0; setTime(previous => ({ ...previous, current: 0 })); setState("paused"); };
       audio.current = element;
@@ -1192,6 +1200,7 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
           url.current = null;
           audio.current = null;
           setState("idle");
+          setHasStarted(false);
           setTime({ current: 0, duration: 0 });
         }
       }, MEDIA_PREVIEW_MS);
@@ -1238,15 +1247,15 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
   const progress = time.duration ? Math.min(100, (time.current / time.duration) * 100) : 0;
 
   if (state === "error") return <div className="wai-media"><Mic size={18} />Áudio indisponível</div>;
-  return <div ref={anchor} className={`wai-voice${out ? " is-out" : ""}`}>
-    <VoiceAvatar src={avatarSrc} out={out} />
+  return <div ref={anchor} className={`wai-voice${out ? " is-out" : ""}${hasStarted ? " is-started" : ""}`}>
+    {!hasStarted && <VoiceAvatar src={avatarSrc} out={out} />}
     <button type="button" className="wai-voice-play" disabled={preview} onClick={() => void toggle()} aria-label={preview ? "Áudio não reproduzível nesta prévia" : state === "playing" ? "Pausar áudio" : "Tocar áudio"}>
       {state === "loading" ? <Loader2 className="wai-spin" size={25} /> : state === "playing" ? <Pause size={30} fill="currentColor" strokeWidth={0} /> : <Play size={31} fill="currentColor" strokeWidth={0} />}
     </button>
     <div className="wai-voice-track">
       <div className="wai-voice-waveform">
-        <svg className="wai-voice-wave-svg" viewBox="0 0 330 40" preserveAspectRatio="none" aria-hidden="true">
-          {VOICE_WAVE_BARS.map((height, index) =>
+        <svg className="wai-voice-wave-svg" viewBox={`0 0 ${(hasStarted ? PLAYED_WAVE_BARS : VOICE_WAVE_BARS).length * 4.75} 40`} preserveAspectRatio="none" aria-hidden="true">
+          {(hasStarted ? PLAYED_WAVE_BARS : VOICE_WAVE_BARS).map((height, index) =>
             <rect key={index} x={index * 4.75} y={(40 - height) / 2} width={2.6} height={height} rx={1.3} />)}
         </svg>
         <input type="range" min={0} max={time.duration || 1} step={0.1}
@@ -1256,7 +1265,7 @@ function AudioPlayer({ src, out, avatarSrc, preview = false }: { src: string; ou
       </div>
       <small className="wai-voice-duration">{time.duration ? clock(Math.max(0, time.duration - time.current)) : state === "loading" ? "…" : "0:00"}</small>
     </div>
-    {(state === "playing" || state === "paused") && <button type="button" className="wai-voice-speed" onClick={cycleSpeed} aria-label="Velocidade">{speed}×</button>}
+    {!preview && hasStarted && <button type="button" className="wai-voice-speed" onClick={cycleSpeed} aria-label={`Velocidade ${speed.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} vezes`}>{speed.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×</button>}
   </div>;
 }
 
