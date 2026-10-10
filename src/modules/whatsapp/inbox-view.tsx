@@ -14,6 +14,7 @@ import { latestInboxCursor, reconcileInboxList } from "./inbox-merge";
 import { canForwardInboxMessage, canDeleteOwnMessage } from "./message-actions";
 import { CustomListEditor, CustomListManager, CustomListMembership, useCustomLists, type CustomList } from "./custom-lists";
 import { claimVoicePlayback, getActiveVoiceToken, releaseVoicePlayback, subscribeVoicePlayback } from "./voice-playback-coordinator";
+import { getServerVoicePlaybackSpeed, getVoicePlaybackSpeed, setVoicePlaybackSpeed, subscribeVoicePlaybackSpeed } from "./voice-playback-speed";
 import "./inbox.css";
 import "./inbox-reference.css";
 import "./custom-lists.css";
@@ -1183,14 +1184,21 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
   const expiry = useRef<ReturnType<typeof setTimeout> | null>(null);
   const request = useRef<AbortController | null>(null);
   const pending = useRef<Promise<HTMLAudioElement> | null>(null);
-  const speedRef = useRef(1);
+  const speedRef = useRef(getServerVoicePlaybackSpeed());
   const [state, setState] = useState<"idle" | "loading" | "playing" | "paused" | "error">("idle");
   const [time, setTime] = useState({ current: 0, duration: durationSeconds ?? 0 });
-  const [speed, setSpeed] = useState(1);
+  const speed = useSyncExternalStore(subscribeVoicePlaybackSpeed, getVoicePlaybackSpeed, getServerVoicePlaybackSpeed);
   const [token] = useState(() => Symbol("WhatsApp voice note"));
   const activeToken = useSyncExternalStore(subscribeVoicePlayback, getActiveVoiceToken, () => null);
   const isActive = activeToken === token;
   const [wave, setWave] = useState<number[]>(VOICE_WAVE_BARS);
+
+  // Apply a speed selected on any other audio in this conversation or tab,
+  // including to a player already prepared before its first click.
+  useEffect(() => {
+    speedRef.current = speed;
+    if (audio.current) audio.current.playbackRate = speed;
+  }, [speed]);
 
   const prepare = useCallback(async () => {
     if (audio.current) return audio.current;
@@ -1279,6 +1287,8 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
     try {
       const element = await prepare();
       if (getActiveVoiceToken() !== token) { setState("idle"); return; }
+      // Audio.load() may reset playbackRate; always respect the shared preference.
+      element.playbackRate = getVoicePlaybackSpeed();
       await element.play();
     } catch {
       if (getActiveVoiceToken() !== token) { setState("idle"); return; }
@@ -1288,8 +1298,10 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
   }
   function seek(value: number) { if (audio.current && time.duration) audio.current.currentTime = value; }
   function cycleSpeed() {
-    const next = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
-    setSpeed(next); speedRef.current = next;
+    const current = getVoicePlaybackSpeed();
+    const next = current === 1 ? 1.5 : current === 1.5 ? 2 : 1;
+    setVoicePlaybackSpeed(next);
+    speedRef.current = next;
     if (audio.current) audio.current.playbackRate = next;
   }
   const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
