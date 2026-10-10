@@ -61,7 +61,7 @@ describe("EvolutionClient", () => {
     const client = new EvolutionClient(config, fetcher as unknown as typeof fetch);
     expect(await client.commonGroups("igrow-a", "5586999999999")).toEqual({ groups: [{ id: "1@g.us", subject: "Equipe" }, { id: "2@g.us", subject: "Grupo sem nome" }], incomplete: true });
     expect((fetcher.mock.calls[0] as unknown as [string])[0]).toContain("getParticipants=true");
-    expect(await client.commonGroups("igrow-a", "123@lid")).toEqual({ groups: [{ id: "1@g.us", subject: "Equipe" }], incomplete: false });
+    expect(await client.commonGroups("igrow-a", "123@lid")).toEqual({ groups: [{ id: "1@g.us", subject: "Equipe" }], incomplete: true });
   });
 
   it("envia texto com atraso de digitação", async () => {

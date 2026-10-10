@@ -140,7 +140,9 @@ export class EvolutionClient {
       if (!group.id?.endsWith("@g.us")) return false;
       if (!group.participants) { incomplete = true; return false; }
       const found = group.participants.some(person => [person.id, person.phoneNumber, person.lid].some(jid => typeof jid === "string" && key(jid) === target));
-      if (!found && !target.endsWith("@lid") && group.participants.some(person => person.id?.endsWith("@lid") && !person.phoneNumber)) incomplete = true;
+      if (!found && group.participants.some(person => target.endsWith("@lid")
+        ? !person.id?.endsWith("@lid") && !person.lid
+        : person.id?.endsWith("@lid") && !person.phoneNumber)) incomplete = true;
       return found;
     }).map(group => ({ id: group.id, subject: group.subject?.trim().slice(0, 200) || "Grupo sem nome" }));
     return { groups: confirmed, incomplete };
