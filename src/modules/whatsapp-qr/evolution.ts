@@ -130,6 +130,22 @@ export class EvolutionClient {
     return (list ?? []).filter(group => group.id?.endsWith("@g.us")).map(group => ({ id: group.id, subject: group.subject?.trim() || "Grupo sem nome", size: group.size ?? null }));
   }
 
+  async commonGroups(name: string, peer: string) {
+    const groups = await this.request<Array<{ id: string; subject?: string; participants?: Array<{ id?: string; phoneNumber?: string; lid?: string }> }>>(
+      `/group/fetchAllGroups/${encodeURIComponent(name)}?getParticipants=true`, { timeoutMs: 40_000 });
+    const key = (jid: string) => jid.replace(/:\d+(?=@)/g, "").replace(/@s\.whatsapp\.net$/, "");
+    const target = key(peer);
+    let incomplete = false;
+    const confirmed = (groups ?? []).filter(group => {
+      if (!group.id?.endsWith("@g.us")) return false;
+      if (!group.participants) { incomplete = true; return false; }
+      const found = group.participants.some(person => [person.id, person.phoneNumber, person.lid].some(jid => typeof jid === "string" && key(jid) === target));
+      if (!found && !target.endsWith("@lid") && group.participants.some(person => person.id?.endsWith("@lid") && !person.phoneNumber)) incomplete = true;
+      return found;
+    }).map(group => ({ id: group.id, subject: group.subject?.trim().slice(0, 200) || "Grupo sem nome" }));
+    return { groups: confirmed, incomplete };
+  }
+
   /** Marks received messages as read on WhatsApp (the contact sees the blue ticks, as when opening the chat). */
   async markRead(name: string, keys: Array<{ remoteJid: string; fromMe: boolean; id: string }>, chat: string) {
     await this.request(`/chat/markMessageAsRead/${encodeURIComponent(name)}`, { method: "POST", body: { readMessages: keys, chat } });

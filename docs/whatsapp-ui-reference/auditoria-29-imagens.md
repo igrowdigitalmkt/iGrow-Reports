@@ -13,7 +13,7 @@ Todas as imagens foram abertas individualmente. Alterações e validações segu
 | 06 | Pesquisa na conversa: painel à direita, cabeçalho, campo, resultados destacados e redução da área da conversa. | Layout e pesquisa local aplicados; calendário usa filtro nativo, escopo limitado às mensagens carregadas. |
 | 07 | Menu do cabeçalho da conversa: alinhamento à direita, ações agrupadas por divisórias e ícones. | Layout aplicado; atalhos de pesquisa, seleção vazia, listas e fechar disponíveis. Funções de provedor ausentes pendentes. |
 | 08 | Associação a listas: botão com cores sobrepostas, popover, bolinhas, checkboxes e gestão. | Layout aplicado e validado com dados fictícios; persistência autenticada ainda precisa de validação real. |
-| 09 | Dados do contato, parte inferior: seções, separadores, grupo em comum e ações. | Pendente |
+| 09 | Dados do contato, parte inferior: seções, separadores, grupo em comum e ações. | Painel, grupos em comum, favoritos, listas e exportação aplicados; ações adicionais do WhatsApp ainda pendentes. |
 | 10 | Dados do contato, parte superior: foto de 150px, identidade, atalhos, listas, notas, mídias e favoritos. | Pendente |
 | 11 | Emojis do compositor: painel maior, categorias, pesquisa, grade de 12 colunas e abas inferiores. | Pendente |
 | 12 | Anexos: menu vertical, ícones coloridos, separadores, ancoragem acima do botão. | Pendente |
@@ -38,6 +38,18 @@ Todas as imagens foram abertas individualmente. Alterações e validações segu
 ## Critérios de validação
 
 Comparação principal em 1920×1080, resolução das referências. Conferir também 1536×864, 1366×768, 1024×768 e 390×844. Reavaliar componentes compartilhados após cada alteração. Operações sem suporte real exigem análise do conector antes da implementação. Fidelidade total permanece pendente até comparar todos os estados com evidências no navegador.
+
+## Imagem 09 — parte inferior dos dados do contato
+
+- Painel de 575px em 1920×1080. Em dimensões intermediárias, largura e margem cedida pela conversa seguem `min(575px, 47%)`, corrigindo a sobreposição do painel. Em celular, ocupa toda a conversa.
+- Cabeçalho de 80px, texto de 20px, divisórias finas, margem lateral de 25px, grupo com avatar de 60px e ações de 78px. Mudar lista abre os vínculos existentes dentro do painel, com o estado de ocupação e permissões preservados.
+- Consulta de grupos em comum usa o número da agência e comparação dos identificadores nativos, incluindo `phoneNumber` para participantes LID. Retorna somente nome/ID dos grupos confirmados, sem enviar os participantes ao navegador; identificação incompleta ou serviço indisponível são informados. A rota mantém escopo RLS e verifica acesso ao módulo WhatsApp.
+- O serviço conectado confirmou um grupo com dois participantes LID, ambos com telefone associado. Essa verificação foi somente leitura; nomes e telefones não foram copiados para fixtures.
+- Favoritos usa a operação existente da iGrow, com reversão da marca e erro explícito em caso de falha. Exportação baixa um TXT das mensagens carregadas, declara o escopo antes do download e não recupera texto de mensagens revogadas. Não exporta histórico remoto ou arquivos de mídia.
+- QA reproduzível: `node scripts/qa-whatsapp-contact-details-reference.mjs`. Seis tamanhos/níveis de zoom, geometria, grupos fictícios, listas, exportação real de fixture, foco, Esc e cancelamento; nenhuma alteração enviada ao WhatsApp. Capturas em `artifacts/whatsapp-09-after-1920.png` e `artifacts/whatsapp-09-after-390.png`.
+- Testes de rota cobrem isolamento por agência, restrição por módulo, canais, ausência de dados e falha de consulta. O adaptador cobre PN/LID e exportação cobre Unicode, ordem e mensagens apagadas.
+- ESLint aprovado; 120 arquivos e 811 testes Vitest aprovados. A leitura dos campos de participantes foi conferida no [código oficial do Baileys](https://github.com/WhiskeySockets/Baileys/blob/master/src/Socket/groups.ts).
+- Pendências desta imagem: tema por conversa, verificação de criptografia, bloquear, denunciar, limpar e apagar conversa, edição do contato e sublinha dos integrantes do grupo. Esses controles não foram simulados. Ícones ainda usam Lucide. A identidade superior será tratada na imagem 10. A imagem 09 ainda não representa equivalência de 100%.
 
 ## Evidências da primeira correção da imagem 01
 

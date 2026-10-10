@@ -51,6 +51,19 @@ describe("EvolutionClient", () => {
     ]);
   });
 
+  it("confirma grupos em comum por telefone ou LID sem expor participantes", async () => {
+    const fetcher = vi.fn(async () => reply(200, [
+      { id: "1@g.us", subject: " Equipe ", participants: [{ id: "123@lid", phoneNumber: "5586999999999@s.whatsapp.net" }] },
+      { id: "2@g.us", participants: [{ id: "5586999999999:2@s.whatsapp.net" }] },
+      { id: "3@g.us", participants: [{ id: "999@lid" }] },
+      { id: "4@s.whatsapp.net", participants: [{ id: "5586999999999@s.whatsapp.net" }] },
+    ]));
+    const client = new EvolutionClient(config, fetcher as unknown as typeof fetch);
+    expect(await client.commonGroups("igrow-a", "5586999999999")).toEqual({ groups: [{ id: "1@g.us", subject: "Equipe" }, { id: "2@g.us", subject: "Grupo sem nome" }], incomplete: true });
+    expect((fetcher.mock.calls[0] as unknown as [string])[0]).toContain("getParticipants=true");
+    expect(await client.commonGroups("igrow-a", "123@lid")).toEqual({ groups: [{ id: "1@g.us", subject: "Equipe" }], incomplete: false });
+  });
+
   it("envia texto com atraso de digitação", async () => {
     const fetcher = vi.fn(async () => reply(201, { key: { id: "abc" } }));
     await new EvolutionClient(config, fetcher as unknown as typeof fetch).sendText("igrow-a", "5586994037823", "Olá");

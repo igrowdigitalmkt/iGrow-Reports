@@ -11,6 +11,7 @@ import { EmojiPicker } from "./emoji-picker";
 import { WhatsAppEmoji, WhatsAppEmojiText } from "./whatsapp-emoji";
 import { EmojiInput, type EmojiInputHandle } from "./emoji-input";
 import { labelPillStyle } from "./native-labels";
+import { conversationExport } from "./conversation-export";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
@@ -29,10 +30,11 @@ import "./inbox-rail-fidelity.css";
 import "./inbox-pixel-precision.css";
 import "./inbox-screenshot-corrections.css";
 import "./voice-note.css";
+import "./contact-details.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
-type DetailData = { media: Array<{ id: string; kind: string; media_name: string | null; sent_at: string }>; group: { subject: string | null; description: string | null; members: number | null; participants: Array<{ id: string; admin: boolean }> } | null };
+type DetailData = { media: Array<{ id: string; kind: string; media_name: string | null; sent_at: string }>; commonGroups?: { groups: Array<{ id: string; subject: string }>; incomplete: boolean } | null; group: { subject: string | null; description: string | null; members: number | null; participants: Array<{ id: string; admin: boolean }> } | null };
 const QR_CHANNEL: InboxChannel = { key: "qr", kind: "qr", name: "Seu WhatsApp", phone: null, coexistence: false };
 
 /**
@@ -402,10 +404,16 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       setActionError(error instanceof Error ? error.message : "Não foi possível sincronizar o arquivamento.");
     }
   }
-  function toggleFavorite(item: InboxConversation) {
+  async function toggleFavorite(item: InboxConversation) {
     if (demo) return;
     setList(current => current && { ...current, conversations: current.conversations.map(entry => entry.id === item.id ? { ...entry, favorite: !item.favorite } : entry) });
-    fetch(`/api/whatsapp/inbox/${item.id}`, { method: "POST", body: JSON.stringify({ action: "favorite", value: !item.favorite }) }).catch(() => undefined);
+    try {
+      const response = await fetch(`/api/whatsapp/inbox/${item.id}`, { method: "POST", body: JSON.stringify({ action: "favorite", value: !item.favorite }) });
+      if (!response.ok) throw Error("Não foi possível atualizar os favoritos.");
+    } catch {
+      setList(current => current && { ...current, conversations: current.conversations.map(entry => entry.id === item.id ? { ...entry, favorite: item.favorite } : entry) });
+      setActionError("Não foi possível atualizar os favoritos. Tente novamente.");
+    }
   }
 
   async function toggleMessageStar(message: InboxMessageItem) {
@@ -1057,10 +1065,13 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             {(!!searchTerms || !!chatSearchDate) && <p className="wai-chat-search-scope">Pesquisa nas mensagens carregadas desta conversa.</p>}
           </div>
         </aside>}
-        {detailsOpen && <ContactDetails item={open} data={details} loading={detailsLoading} demo={demo}
+        {detailsOpen && <ContactDetails key={`details-${open.id}`} item={open}
+          data={demo ? { media: [], group: null, commonGroups: open.isGroup ? null : { groups: [{ id: "demo-common@g.us", subject: "Equipe de atendimento" }], incomplete: false } } : details}
+          loading={detailsLoading && !demo} demo={demo} messages={messages ?? []}
+          onFavorite={() => toggleFavorite(open)}
           lists={customLists.lists} listsBusy={customLists.busy}
           onToggleList={(list,member) => void customLists.setMember(list.id,open.id,member)}
-          onClose={() => setDetailsOpen(false)} />}
+          onClose={() => { setDetailsOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }} />}
       </>}
     </section>
     {deletingList && <div className="wai-list-dialog-backdrop" role="presentation" onClick={() => setDeletingList(null)}>
@@ -1886,14 +1897,40 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, lists, listsBusy, onToggleList, onClose }: {
+function ContactDetails({ item, data, loading, demo, lists, listsBusy, messages, onFavorite, onToggleList, onClose }: {
   item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean;
   lists: CustomList[]; listsBusy: boolean; onToggleList: (list: CustomList,member: boolean) => void; onClose: () => void;
+  messages: InboxMessageItem[]; onFavorite: () => Promise<void>;
 }) {
+  const [showLists, setShowLists] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const exportButton = useRef<HTMLButtonElement>(null);
+  const exportDialog = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!exportOpen) return;
+    exportDialog.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const key = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setExportOpen(false); exportButton.current?.focus(); }
+      if (event.key === "Tab") {
+        const buttons = [...(exportDialog.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
+        const next = (buttons.indexOf(document.activeElement as HTMLButtonElement) + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length;
+        event.preventDefault(); buttons[next]?.focus();
+      }
+    };
+    document.addEventListener("keydown", key, true); return () => document.removeEventListener("keydown", key, true);
+  }, [exportOpen]);
+  function downloadExport() {
+    const url = URL.createObjectURL(new Blob([conversationExport(name, messages)], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a"); link.href = url; link.download = `Conversa - ${name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 80)}.txt`;
+    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setExportOpen(false); exportButton.current?.focus();
+  }
   const name = conversationTitle(item);
   const media = data?.media ?? [];
   const group = data?.group;
-  return <aside className="wai-details" aria-label={item.isGroup ? "Informações do grupo" : "Dados do contato"}>
+  return <aside className="wai-details" aria-label={item.isGroup ? "Informações do grupo" : "Dados do contato"}
+    onKeyDown={event => { if (event.key === "Escape" && !exportOpen) { event.preventDefault(); onClose(); } }}>
     <header className="wai-details-head">
       <button type="button" className="wai-icon-button" onClick={onClose} aria-label="Fechar informações"><X size={21} /></button>
       <strong>{item.isGroup ? "Informações do grupo" : "Dados do contato"}</strong>
@@ -1919,9 +1956,6 @@ function ContactDetails({ item, data, loading, demo, lists, listsBusy, onToggleL
         </div>)}
         {group.members != null && group.members > group.participants.length && <p className="wai-details-muted">Exibindo até {group.participants.length} participantes.</p>}
       </div>}
-      <div className="wai-details-section"><h4>Listas personalizadas</h4>
-        <CustomListMembership lists={lists} conversationId={item.id} busy={listsBusy || demo} onToggle={onToggleList} />
-      </div>
       <div className="wai-details-section">
         <h4>Mídia, links e documentos</h4>
         {loading && <p className="wai-details-muted">Carregando informações…</p>}
@@ -1936,7 +1970,28 @@ function ContactDetails({ item, data, loading, demo, lists, listsBusy, onToggleL
         })}
         <p className="wai-details-muted">Até 30 arquivos recentes. Os arquivos são buscados somente ao abrir.</p>
       </div>
+      {!item.isGroup && <div className="wai-details-section wai-common-groups">
+        <h4>{data?.commonGroups ? `${data.commonGroups.groups.length} ${data.commonGroups.groups.length === 1 ? "grupo" : "grupos"} em comum${data.commonGroups.incomplete ? " confirmados" : ""}` : "Grupos em comum"}</h4>
+        {loading && <p className="wai-details-muted">Consultando grupos…</p>}
+        {!loading && !data?.commonGroups && <p className="wai-details-muted">Não foi possível consultar os grupos nesta sessão.</p>}
+        {data?.commonGroups?.groups.map(group => <div className="wai-common-group" key={group.id}>
+          <span className="wai-avatar is-group"><UsersRound size={29} /></span><span><strong><WhatsAppEmojiText text={group.subject} /></strong></span>
+        </div>)}
+        {data?.commonGroups?.incomplete && <p className="wai-details-muted">Alguns participantes ainda não puderam ser identificados pelo WhatsApp.</p>}
+      </div>}
+      <div className="wai-details-section wai-details-actions">
+        <button type="button" disabled={demo || favoriteBusy} aria-busy={favoriteBusy} onClick={async () => { setFavoriteBusy(true); try { await onFavorite(); } finally { setFavoriteBusy(false); } }}><Heart size={26} /><span>{item.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</span></button>
+        <button type="button" aria-expanded={showLists} onClick={() => setShowLists(value => !value)}><ImageIcon size={26} /><span>Mudar lista</span></button>
+        {showLists && <div className="wai-details-list-options"><CustomListMembership lists={lists} conversationId={item.id} busy={listsBusy || demo} onToggle={onToggleList} /></div>}
+        <button type="button" ref={exportButton} disabled={!messages.length} onClick={() => setExportOpen(true)}><Download size={26} /><span>Exportar conversa</span></button>
+      </div>
     </div>
+    {exportOpen && <div className="wai-details-export-backdrop" role="presentation" onClick={() => { setExportOpen(false); exportButton.current?.focus(); }}>
+      <div ref={exportDialog} className="wai-details-export" role="dialog" aria-modal="true" aria-label="Exportar conversa" onClick={event => event.stopPropagation()}>
+        <strong>Exportar conversa</strong><p>Baixe {messages.length} mensagens carregadas na iGrow em um arquivo de texto. Os arquivos de mídia e o histórico que não está carregado não serão incluídos.</p>
+        <footer><button type="button" onClick={() => { setExportOpen(false); exportButton.current?.focus(); }}>Cancelar</button><button type="button" onClick={downloadExport}>Exportar</button></footer>
+      </div>
+    </div>}
   </aside>;
 }
 

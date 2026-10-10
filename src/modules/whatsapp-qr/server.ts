@@ -106,6 +106,12 @@ export async function qrGroupInfo(agencyId: string, groupJid: string) {
   return evolution.groupInfo(instanceNameFor(agencyId), groupJid).catch(() => null);
 }
 
+export async function qrCommonGroups(agencyId: string, peer: string) {
+  const evolution = client();
+  if (!evolution) return null;
+  return evolution.commonGroups(instanceNameFor(agencyId), peer).catch(() => null);
+}
+
 export async function qrGroupSubject(instance: string, groupJid: string, timeoutMs = 15_000) {
   const evolution = client();
   if (!evolution) return null;
