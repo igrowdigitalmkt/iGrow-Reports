@@ -8,6 +8,11 @@
 .wai-shell .wai-common-group { display:flex; align-items:center; gap:19px; min-height:60px; }
 .wai-shell .wai-common-group>.wai-avatar { width:60px; height:60px; flex-shrink:0; background:#341723; color:#ff537a; border:1px solid #54303f; }
 .wai-shell .wai-common-group strong { font-size:20px; font-weight:500; overflow-wrap:anywhere; }
+.wai-shell button.wai-common-group { width:100%; padding:0; border:0; border-radius:8px; background:transparent; text-align:left; font:inherit; color:inherit; cursor:pointer; }
+.wai-shell button.wai-common-group:hover { background:#1e2020; }
+.wai-shell button.wai-common-group:focus-visible { outline:2px solid #25d366; outline-offset:5px; }
+.wai-shell .wai-common-group-text { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.wai-shell .wai-common-group small { color:#a5a7a7; font-size:18px; line-height:24px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .wai-shell .wai-details-actions { gap:0; padding:13px 0; }
 .wai-shell .wai-details-actions>button { display:flex; align-items:center; gap:28px; min-height:78px; padding:16px 24px; width:100%; border:0; border-radius:17px; background:transparent; color:#f1f1f1; text-align:left; font:inherit; font-size:20px; cursor:pointer; }
 .wai-shell .wai-details-actions>button>svg { flex-shrink:0; color:#a1a3a3; }

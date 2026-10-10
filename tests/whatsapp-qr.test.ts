@@ -64,7 +64,7 @@ describe("EvolutionClient", () => {
     ]);
   });
 
-  it("confirma grupos em comum por telefone ou LID sem expor participantes", async () => {
+  it("confirma grupos em comum por telefone ou LID e limita os dados à prévia", async () => {
     const fetcher = vi.fn(async () => reply(200, [
       { id: "1@g.us", subject: " Equipe ", participants: [{ id: "123@lid", phoneNumber: "5586999999999@s.whatsapp.net" }] },
       { id: "2@g.us", participants: [{ id: "5586999999999:2@s.whatsapp.net" }] },
@@ -72,9 +72,23 @@ describe("EvolutionClient", () => {
       { id: "4@s.whatsapp.net", participants: [{ id: "5586999999999@s.whatsapp.net" }] },
     ]));
     const client = new EvolutionClient(config, fetcher as unknown as typeof fetch);
-    expect(await client.commonGroups("igrow-a", "5586999999999")).toEqual({ groups: [{ id: "1@g.us", subject: "Equipe" }, { id: "2@g.us", subject: "Grupo sem nome" }], incomplete: true });
+    const result = await client.commonGroups("igrow-a", "5586999999999");
+    expect(result).toMatchObject({ groups: [{ id: "1@g.us", subject: "Equipe", memberCount: 1 }, { id: "2@g.us", subject: "Grupo sem nome", memberCount: 1 }], incomplete: true });
+    expect(result.groups.every(group => group.memberPreview.length <= 3 && !("participants" in group))).toBe(true);
+    expect(result.groups[0].memberPreview[0].remoteId).toBe("5586999999999");
     expect((fetcher.mock.calls[0] as unknown as [string])[0]).toContain("getParticipants=true");
-    expect(await client.commonGroups("igrow-a", "123@lid")).toEqual({ groups: [{ id: "1@g.us", subject: "Equipe" }], incomplete: true });
+    expect(await client.commonGroups("igrow-a", "123@lid")).toMatchObject({ groups: [{ id: "1@g.us", subject: "Equipe" }], incomplete: true });
+  });
+
+  it("uses the connected instance identity for the common-group preview without fetching history", async () => {
+    const fetcher = vi.fn(async (url: string) => reply(200, url.includes("fetchInstances")
+      ? [{ name: "igrow-a", ownerJid: "5586888888888:12@s.whatsapp.net" }]
+      : [{ id: "1@g.us", subject: "Equipe", participants: [{ id: "5586888888888@s.whatsapp.net" }, { id: "987654321@lid", phoneNumber: "5586999999999@s.whatsapp.net" }] }]));
+    const client = new EvolutionClient(config, fetcher as unknown as typeof fetch);
+    const result = await client.commonGroups("igrow-a", "5586999999999");
+    expect(result.groups[0].memberPreview.map(member => member.label)).toEqual(["+55 86 99999-9999", "Você"]);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls.every(([url]) => !url.includes("findMessages"))).toBe(true);
   });
 
   it("envia texto com atraso de digitação", async () => {

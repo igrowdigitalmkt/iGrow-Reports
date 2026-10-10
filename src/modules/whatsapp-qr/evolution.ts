@@ -1,4 +1,5 @@
 import "server-only";
+import { commonGroupPreview } from "@/modules/whatsapp/common-groups";
 
 export class EvolutionError extends Error {
   constructor(message: string, readonly status = 0, readonly code?: string) { super(message); }
@@ -141,8 +142,11 @@ export class EvolutionClient {
   }
 
   async commonGroups(name: string, peer: string) {
-    const groups = await this.request<Array<{ id: string; subject?: string; participants?: Array<{ id?: string; phoneNumber?: string; lid?: string }> }>>(
-      `/group/fetchAllGroups/${encodeURIComponent(name)}?getParticipants=true`, { timeoutMs: 40_000 });
+    const [groups, instance] = await Promise.all([
+      this.request<Array<{ id: string; subject?: string; participants?: Array<{ id?: string; phoneNumber?: string; lid?: string }> }>>(
+        `/group/fetchAllGroups/${encodeURIComponent(name)}?getParticipants=true`, { timeoutMs: 40_000 }),
+      this.instance(name).catch(() => null),
+    ]);
     const key = (jid: string) => jid.replace(/:\d+(?=@)/g, "").replace(/@s\.whatsapp\.net$/, "");
     const target = key(peer);
     let incomplete = false;
@@ -154,7 +158,8 @@ export class EvolutionClient {
         ? !person.id?.endsWith("@lid") && !person.lid
         : person.id?.endsWith("@lid") && !person.phoneNumber)) incomplete = true;
       return found;
-    }).map(group => ({ id: group.id, subject: group.subject?.trim().slice(0, 200) || "Grupo sem nome" }));
+    }).map(group => ({ id: group.id, subject: group.subject?.trim().slice(0, 200) || "Grupo sem nome",
+      memberCount: group.participants!.length, memberPreview: commonGroupPreview(group.participants!, instance?.ownerJid) }));
     return { groups: confirmed, incomplete };
   }
 

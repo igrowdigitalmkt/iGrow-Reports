@@ -14,6 +14,7 @@ try {
     page.on("request", request=>{if(["POST","PATCH","DELETE"].includes(request.method()) && request.url().includes("/api/whatsapp/"))mutations.push(request.url());});
     await page.goto(base,{waitUntil:"domcontentloaded"});
     await page.locator(".wai-row").filter({hasText:"Lindaiane"}).click();
+    const contactName=await page.locator(".wai-chat-title strong").textContent();
     await page.getByTitle("Dados do contato",{exact:true}).click();
     const panel=page.getByRole("complementary",{name:"Dados do contato",exact:true});
     await panel.waitFor();
@@ -22,6 +23,9 @@ try {
     if(width>760){const chat=await page.locator(".wai-chat-head").boundingBox();assert.ok(chat.x+chat.width<=box.x+1,"panel must not overlap the chat header");}
     assert.equal(await panel.getByRole("button",{name:"Adicionar aos Favoritos",exact:true}).isDisabled(),true);
     assert.ok((await panel.textContent()).includes("1 grupo em comum"));
+    const commonGroup = panel.getByRole("button",{name:/Abrir grupo/});
+    assert.equal(await commonGroup.count(),1);
+    assert.ok((await commonGroup.textContent()).includes(`${contactName}, Você`));
     const lists=panel.getByRole("button",{name:"Mudar lista",exact:true}); await lists.click();
     assert.equal(await lists.getAttribute("aria-expanded"),"true");
     assert.equal(await panel.getByRole("checkbox").count(),4);
@@ -40,6 +44,11 @@ try {
     assert.ok(text.includes("mensagens carregadas")); assert.ok(text.includes("Lindaiane"));
     assert.equal(await dialog.count(),0);
     await panel.getByRole("button",{name:"Fechar informações",exact:true}).click(); assert.equal(await panel.count(),0);
+    await page.getByTitle("Dados do contato",{exact:true}).click();
+    const groupName=(await commonGroup.getAttribute("aria-label")).replace("Abrir grupo ","");
+    await commonGroup.click(); assert.equal(await panel.count(),0);
+    await page.locator(".wai-chat-title").getByText(groupName,{exact:true}).waitFor();
+    assert.equal(await page.locator(".wai-contact-trigger").evaluate(button=>button===document.activeElement),true);
     assert.deepEqual(errors,[]); assert.deepEqual(mutations,[]);
     console.log(`PASS contact details ${width} @${scale}: geometry, common group, lists, export, focus and safe demo`);
     await page.close();

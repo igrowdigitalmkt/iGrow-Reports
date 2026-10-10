@@ -13,6 +13,7 @@ import { EmojiInput, type EmojiInputHandle } from "./emoji-input";
 import { labelPillStyle } from "./native-labels";
 import { conversationExport } from "./conversation-export";
 import { ContactBlockAction } from "./contact-block-action";
+import { commonGroupMembersText, type CommonGroup } from "./common-groups";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
@@ -35,7 +36,7 @@ import "./contact-details.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
-type DetailData = { media: Array<{ id: string; kind: string; media_name: string | null; sent_at: string }>; commonGroups?: { groups: Array<{ id: string; subject: string }>; incomplete: boolean } | null; group: { subject: string | null; description: string | null; members: number | null; participants: Array<{ id: string; admin: boolean }> } | null };
+type DetailData = { media: Array<{ id: string; kind: string; media_name: string | null; sent_at: string }>; commonGroups?: { groups: CommonGroup[]; incomplete: boolean } | null; group: { subject: string | null; description: string | null; members: number | null; participants: Array<{ id: string; admin: boolean }> } | null };
 const QR_CHANNEL: InboxChannel = { key: "qr", kind: "qr", name: "Seu WhatsApp", phone: null, coexistence: false };
 
 /**
@@ -1065,9 +1066,15 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           </div>
         </aside>}
         {detailsOpen && <ContactDetails key={`details-${open.id}`} item={open}
-          data={demo ? { media: [], group: null, commonGroups: open.isGroup ? null : { groups: [{ id: "demo-common@g.us", subject: "Equipe de atendimento" }], incomplete: false } } : details}
+          data={demo ? { media: [], group: null, commonGroups: open.isGroup ? null : { groups: [{
+            id: conversations.find(item => item.isGroup && item.channelKey === "qr")?.remoteId ?? "demo-common@g.us",
+            subject: conversations.find(item => item.isGroup && item.channelKey === "qr")?.title ?? "Equipe de atendimento",
+            memberCount: 2, memberPreview: [{ remoteId: open.remoteId, label: "Contato fictício", isSelf: false }, { remoteId: null, label: "Você", isSelf: true }],
+          }], incomplete: false } } : details}
           loading={detailsLoading && !demo} demo={demo} canChange={canReply} messages={messages ?? []}
           onFavorite={() => toggleFavorite(open)}
+          conversations={conversations} onOpenGroup={group => { setChannelKey(group.channelKey); setShowArchived(group.archived); setFilter("all"); setQuery(""); setCustomFilterId(null); choose(group.id);
+            requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }}
           lists={customLists.lists} listsBusy={customLists.busy}
           onToggleList={(list,member) => void customLists.setMember(list.id,open.id,member)}
           onClose={() => { setDetailsOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }} />}
@@ -1896,10 +1903,11 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, canChange, lists, listsBusy, messages, onFavorite, onToggleList, onClose }: {
+function ContactDetails({ item, data, loading, demo, canChange, conversations, onOpenGroup, lists, listsBusy, messages, onFavorite, onToggleList, onClose }: {
   item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean;
   lists: CustomList[]; listsBusy: boolean; onToggleList: (list: CustomList,member: boolean) => void; onClose: () => void;
   messages: InboxMessageItem[]; canChange: boolean; onFavorite: () => Promise<void>;
+  conversations: InboxConversation[]; onOpenGroup: (group: InboxConversation) => void;
 }) {
   const [showLists, setShowLists] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -1973,9 +1981,14 @@ function ContactDetails({ item, data, loading, demo, canChange, lists, listsBusy
         <h4>{data?.commonGroups ? `${data.commonGroups.groups.length} ${data.commonGroups.groups.length === 1 ? "grupo" : "grupos"} em comum${data.commonGroups.incomplete ? " confirmados" : ""}` : "Grupos em comum"}</h4>
         {loading && <p className="wai-details-muted">Consultando grupos…</p>}
         {!loading && !data?.commonGroups && <p className="wai-details-muted">Não foi possível consultar os grupos nesta sessão.</p>}
-        {data?.commonGroups?.groups.map(group => <div className="wai-common-group" key={group.id}>
-          <span className="wai-avatar is-group"><UsersRound size={29} /></span><span><strong><WhatsAppEmojiText text={group.subject} /></strong></span>
-        </div>)}
+        {data?.commonGroups?.groups.map(group => {
+          const chat = conversations.find(conversation => conversation.channelKey === "qr" && conversation.isGroup && conversation.remoteId === group.id);
+          const members = commonGroupMembersText(group, conversations);
+          const contents = <>{chat ? <Avatar item={chat} size={60} photo={!demo} /> : <span className="wai-avatar is-group"><UsersRound size={29} /></span>}
+            <span className="wai-common-group-text"><strong><WhatsAppEmojiText text={group.subject} /></strong>{members && <small><WhatsAppEmojiText text={members} /></small>}</span></>;
+          return chat ? <button type="button" className="wai-common-group" key={group.id} onClick={() => onOpenGroup(chat)} aria-label={`Abrir grupo ${group.subject}`}>{contents}</button>
+            : <div className="wai-common-group" key={group.id} title="Grupo ainda não disponível na caixa de entrada da iGrow">{contents}</div>;
+        })}
         {data?.commonGroups?.incomplete && <p className="wai-details-muted">Alguns participantes ainda não puderam ser identificados pelo WhatsApp.</p>}
       </div>}
       <div className="wai-details-section wai-details-actions">
