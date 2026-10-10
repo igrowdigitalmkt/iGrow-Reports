@@ -35,7 +35,8 @@ export class EvolutionClient {
       const details = body as { message?: unknown; response?: { message?: unknown } } | null;
       const message = details?.response?.message ?? details?.message;
       const messages = Array.isArray(message) ? message : [message];
-      const code = messages.includes("IGROW_LABEL_STATE_UNAVAILABLE") ? "IGROW_LABEL_STATE_UNAVAILABLE" : undefined;
+      const code = messages.includes("IGROW_LABEL_STATE_UNAVAILABLE") ? "IGROW_LABEL_STATE_UNAVAILABLE"
+        : messages.includes("Cannot block the connected account") ? "IGROW_CONTACT_SELF" : undefined;
       throw new EvolutionError(`O servidor do WhatsApp recusou o pedido (${response.status}).`, response.status, code);
     }
     return body as T;
@@ -84,6 +85,15 @@ export class EvolutionClient {
 
   labelSnapshot(name: string) {
     return this.request<EvolutionLabelSnapshot>(`/label/igrowSnapshot/${encodeURIComponent(name)}`, { timeoutMs: 45_000 });
+  }
+
+  async contactBlock(name: string, peer: string, blocked?: boolean) {
+    const result = await this.request<{ blocked: boolean }>(`/label/igrowContactBlock/${encodeURIComponent(name)}`, {
+      method: "POST", body: { peer, ...(blocked !== undefined ? { blocked } : {}) },
+    });
+    if (typeof result?.blocked !== "boolean" || (blocked !== undefined && result.blocked !== blocked))
+      throw new EvolutionError("O WhatsApp não confirmou o bloqueio.");
+    return result;
   }
 
   editLabel(name: string, data: { id?: string; name?: string; color?: number; deleted?: boolean }) {

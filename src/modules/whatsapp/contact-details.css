@@ -13,6 +13,9 @@
 .wai-shell .wai-details-actions>button>svg { flex-shrink:0; color:#a1a3a3; }
 .wai-shell .wai-details-actions>button:hover:not(:disabled),.wai-shell .wai-details-actions>button[aria-expanded=true] { background:#1e2020; }
 .wai-shell .wai-details-actions>button:disabled { opacity:.5; cursor:default; }
+.wai-shell .wai-details-actions>button.wai-contact-danger,.wai-shell .wai-details-actions>button.wai-contact-danger>svg { color:#fa527c; }
+.wai-shell .wai-block-status { padding:0 24px 18px; color:#a5a7a7; font-size:14px; }
+.wai-shell .wai-block-status button { background:transparent; border:0; color:#25d366; font:inherit; cursor:pointer; padding:0; }
 .wai-shell .wai-details-list-options { padding:10px 24px 20px; }
 .wai-details-export-backdrop { position:fixed; inset:0; z-index:1500; display:grid; place-items:center; padding:16px; background:rgb(0 0 0 / 45%); }
 .wai-details-export { width:min(450px,100%); padding:28px; border-radius:18px; border:1px solid #3c4140; background:#242626; color:#f1f1f1; }

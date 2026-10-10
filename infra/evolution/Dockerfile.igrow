@@ -1,4 +1,4 @@
-# Evolution API 2.3.7 with the minimal iGrow chat-state bridge patch.
+# Evolution API 2.3.7 with iGrow chat-state, native labels and contact-block bridges.
 # The upstream app discards Baileys archived/unread fields before webhooks; this build preserves them.
 FROM node:24-alpine AS builder
 

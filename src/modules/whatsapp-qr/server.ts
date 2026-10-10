@@ -153,6 +153,14 @@ export async function listQrGroups(agencyId: string): Promise<EvolutionGroup[]> 
 
 const chatJid = (remoteId: string) => remoteId.includes("@") ? remoteId : `${remoteId.replace(/\D/g, "")}@s.whatsapp.net`;
 
+export async function qrContactBlock(agencyId: string, remoteId: string, blocked?: boolean) {
+  const evolution = client();
+  if (!evolution) throw new EvolutionError("Servidor do WhatsApp não configurado.");
+  const peer = chatJid(remoteId);
+  if (!/^[0-9]{8,20}@(s\.whatsapp\.net|lid)$/.test(peer)) throw new EvolutionError("Contato inválido.");
+  return evolution.contactBlock(instanceNameFor(agencyId), peer, blocked);
+}
+
 /** Mirrors "read" on the phone for the given received messages. */
 export async function markQrRead(agencyId: string, remoteId: string, messageIds: string[]) {
   const evolution = client();

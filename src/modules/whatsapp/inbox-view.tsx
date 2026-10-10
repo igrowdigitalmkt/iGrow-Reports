@@ -12,6 +12,7 @@ import { WhatsAppEmoji, WhatsAppEmojiText } from "./whatsapp-emoji";
 import { EmojiInput, type EmojiInputHandle } from "./emoji-input";
 import { labelPillStyle } from "./native-labels";
 import { conversationExport } from "./conversation-export";
+import { ContactBlockAction } from "./contact-block-action";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
@@ -1067,7 +1068,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         </aside>}
         {detailsOpen && <ContactDetails key={`details-${open.id}`} item={open}
           data={demo ? { media: [], group: null, commonGroups: open.isGroup ? null : { groups: [{ id: "demo-common@g.us", subject: "Equipe de atendimento" }], incomplete: false } } : details}
-          loading={detailsLoading && !demo} demo={demo} messages={messages ?? []}
+          loading={detailsLoading && !demo} demo={demo} canChange={canReply} messages={messages ?? []}
           onFavorite={() => toggleFavorite(open)}
           lists={customLists.lists} listsBusy={customLists.busy}
           onToggleList={(list,member) => void customLists.setMember(list.id,open.id,member)}
@@ -1897,10 +1898,10 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, lists, listsBusy, messages, onFavorite, onToggleList, onClose }: {
+function ContactDetails({ item, data, loading, demo, canChange, lists, listsBusy, messages, onFavorite, onToggleList, onClose }: {
   item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean;
   lists: CustomList[]; listsBusy: boolean; onToggleList: (list: CustomList,member: boolean) => void; onClose: () => void;
-  messages: InboxMessageItem[]; onFavorite: () => Promise<void>;
+  messages: InboxMessageItem[]; canChange: boolean; onFavorite: () => Promise<void>;
 }) {
   const [showLists, setShowLists] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -1984,6 +1985,7 @@ function ContactDetails({ item, data, loading, demo, lists, listsBusy, messages,
         <button type="button" aria-expanded={showLists} onClick={() => setShowLists(value => !value)}><ImageIcon size={26} /><span>Mudar lista</span></button>
         {showLists && <div className="wai-details-list-options"><CustomListMembership lists={lists} conversationId={item.id} busy={listsBusy || demo} onToggle={onToggleList} /></div>}
         <button type="button" ref={exportButton} disabled={!messages.length} onClick={() => setExportOpen(true)}><Download size={26} /><span>Exportar conversa</span></button>
+        {!item.isGroup && item.channelKey === "qr" && <ContactBlockAction conversationId={item.id} name={name} enabled={canChange} demo={demo} />}
       </div>
     </div>
     {exportOpen && <div className="wai-details-export-backdrop" role="presentation" onClick={() => { setExportOpen(false); exportButton.current?.focus(); }}>

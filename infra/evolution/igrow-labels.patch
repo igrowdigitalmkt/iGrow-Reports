@@ -1,13 +1,17 @@
 diff --git a/src/api/controllers/label.controller.ts b/src/api/controllers/label.controller.ts
-index 2df112f..bbe60ae 100644
+index 2df112f..b6add02 100644
 --- a/src/api/controllers/label.controller.ts
 +++ b/src/api/controllers/label.controller.ts
-@@ -9,6 +9,14 @@ export class LabelController {
+@@ -9,6 +9,18 @@ export class LabelController {
      return await this.waMonitor.waInstances[instanceName].fetchLabels();
    }
  
 +  public async igrowSnapshot({ instanceName }: InstanceDto) {
 +    return await this.waMonitor.waInstances[instanceName].igrowLabelSnapshot();
++  }
++
++  public async igrowContactBlock({ instanceName }: InstanceDto, data: { peer: string; blocked?: boolean }) {
++    return await this.waMonitor.waInstances[instanceName].igrowContactBlock(data);
 +  }
 +
 +  public async igrowEdit({ instanceName }: InstanceDto, data: any) {
@@ -18,7 +22,7 @@ index 2df112f..bbe60ae 100644
      return await this.waMonitor.waInstances[instanceName].handleLabel(data);
    }
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..8eefe8c 100644
+index 60e857f..bb467ac 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 @@ -1825,7 +1825,8 @@ export class BaileysStartupService extends ChannelStartupService {
@@ -56,11 +60,25 @@ index 60e857f..8eefe8c 100644
                return;
              }
            }
-@@ -4244,6 +4245,61 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -4244,6 +4245,75 @@ export class BaileysStartupService extends ChannelStartupService {
      }
    }
  
 +  private igrowLabelsReady = false;
++  public async igrowContactBlock(data: { peer: string; blocked?: boolean }) {
++    if (this.stateConnection.state !== 'open') throw new BadRequestException('WhatsApp disconnected');
++    // Block lists use phone JIDs. Resolve LIDs only through the authenticated signal repository.
++    const peer = data.peer.endsWith('@lid') ? await this.mappedPhoneJid(data.peer) : data.peer;
++    if (!peer) throw new BadRequestException('Contact identity unavailable');
++    if (jidNormalizedUser(peer) === jidNormalizedUser(this.client.user?.id || ''))
++      throw new BadRequestException('Cannot block the connected account');
++    if (data.blocked !== undefined) await this.client.updateBlockStatus(peer, data.blocked ? 'block' : 'unblock');
++    const blocked = (await this.client.fetchBlocklist()).some((jid) => jidNormalizedUser(jid) === peer);
++    if (data.blocked !== undefined && blocked !== data.blocked)
++      throw new BadRequestException('WhatsApp did not confirm the block status');
++    return { blocked };
++  }
++
 +  private igrowLabelsInitialization: Promise<void> | undefined;
 +  private igrowLabelQueue: Promise<unknown> = Promise.resolve();
 +
@@ -118,7 +136,7 @@ index 60e857f..8eefe8c 100644
    public async fetchLabels(): Promise<LabelDto[]> {
      const labels = await this.prismaRepository.label.findMany({ where: { instanceId: this.instanceId } });
  
-@@ -4256,7 +4312,8 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -4256,7 +4326,8 @@ export class BaileysStartupService extends ChannelStartupService {
    }
  
    public async handleLabel(data: HandleLabelDto) {
@@ -129,13 +147,22 @@ index 60e857f..8eefe8c 100644
        throw new NotFoundException('Number not found');
      }
 diff --git a/src/api/routes/label.router.ts b/src/api/routes/label.router.ts
-index bfb4a08..d18b5c7 100644
+index bfb4a08..ad780f3 100644
 --- a/src/api/routes/label.router.ts
 +++ b/src/api/routes/label.router.ts
-@@ -10,6 +10,22 @@ export class LabelRouter extends RouterBroker {
+@@ -10,6 +10,31 @@ export class LabelRouter extends RouterBroker {
    constructor(...guards: RequestHandler[]) {
      super();
      this.router
++      .post(this.routerPath('igrowContactBlock'), ...guards, async (req, res) => {
++        const data = req.body;
++        if (!data || typeof data.peer !== 'string' || !/^[0-9]{8,20}@(s[.]whatsapp[.]net|lid)$/.test(data.peer) ||
++          (data.blocked !== undefined && typeof data.blocked !== 'boolean'))
++          return res.status(400).json({ error: 'Invalid contact' });
++        const response = await this.dataValidate<LabelDto>({ request: req, schema: null, ClassRef: LabelDto,
++          execute: (instance) => labelController.igrowContactBlock(instance, data) });
++        return res.status(HttpStatus.OK).json(response);
++      })
 +      .get(this.routerPath('igrowSnapshot'), ...guards, async (req, res) => {
 +        const response = await this.dataValidate<LabelDto>({ request: req, schema: null, ClassRef: LabelDto,
 +          execute: (instance) => labelController.igrowSnapshot(instance) });

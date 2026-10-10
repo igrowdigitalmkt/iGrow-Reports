@@ -24,6 +24,19 @@ describe("EvolutionClient", () => {
   const config = { url: "https://evo.example.test", key: "segredo" };
   const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
+  it("queries block status without mutating it and rejects missing or unconfirmed native state", async () => {
+    const fetcher = vi.fn(async () => reply(200, { blocked: false }));
+    const client = new EvolutionClient(config, fetcher as unknown as typeof fetch);
+    expect(await client.contactBlock("igrow-a", "123456789@lid")).toEqual({ blocked: false });
+    const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("/label/igrowContactBlock/igrow-a"); expect(JSON.parse(init.body as string)).toEqual({ peer: "123456789@lid" });
+    await expect(client.contactBlock("igrow-a", "123456789@lid", true)).rejects.toThrow("não confirmou");
+    const invalid = new EvolutionClient(config, (async () => reply(200, {})) as unknown as typeof fetch);
+    await expect(invalid.contactBlock("igrow-a", "123456789@lid")).rejects.toThrow("não confirmou");
+    const own = new EvolutionClient(config, (async () => reply(400, { response: { message: ["Cannot block the connected account"] } })) as unknown as typeof fetch);
+    await expect(own.contactBlock("igrow-a", "123456789@s.whatsapp.net")).rejects.toMatchObject({ code: "IGROW_CONTACT_SELF" });
+  });
+
   it("envia a chave em todo pedido e lê o estado da conexão", async () => {
     const fetcher = vi.fn(async () => reply(200, { instance: { instanceName: "igrow-a", state: "open" } }));
     const client = new EvolutionClient(config, fetcher as unknown as typeof fetch);
