@@ -115,3 +115,42 @@
   .wai-shell .wai-list .wai-search input { font-size: 15px; }
   .wai-shell .wai-list .wai-archived-row { font-size: 15px; }
 }
+
+/* Message chevron: WhatsApp-like compact affordance, instead of an opaque
+   dark block that covers the upper-right corner of the outgoing bubble. */
+.wai-shell .wai-bubble-stack .wai-message-controls .wai-message-dropdown-trigger {
+  top: 3px;
+  right: 3px;
+  left: auto;
+  width: 24px;
+  height: 23px;
+  padding: 0;
+  border-radius: 4px;
+  color: #d8e3de;
+  background: linear-gradient(90deg, transparent 0%, #144d37 62%);
+  box-shadow: none;
+}
+.wai-shell .wai-bubble-row.is-in .wai-message-controls .wai-message-dropdown-trigger {
+  background: linear-gradient(90deg, transparent 0%, #242626 62%);
+  color: #c8cdcd;
+}
+.wai-shell .wai-bubble-stack .wai-message-controls .wai-message-dropdown-trigger:is(:hover, [aria-expanded="true"]) {
+  background: #144d37;
+}
+.wai-shell .wai-bubble-row.is-in .wai-message-controls .wai-message-dropdown-trigger:is(:hover, [aria-expanded="true"]) {
+  background: #242626;
+}
+.wai-shell .wai-message-dropdown-trigger svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2;
+}
+.wai-shell .wai-bubble-stack:not(:hover):not(:focus-within) .wai-message-dropdown-trigger:not([aria-expanded="true"]) {
+  opacity: 0;
+  pointer-events: none;
+}
+.wai-shell .wai-bubble-stack:is(:hover, :focus-within) .wai-message-dropdown-trigger,
+.wai-shell .wai-message-dropdown-trigger[aria-expanded="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
