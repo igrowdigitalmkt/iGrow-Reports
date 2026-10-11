@@ -6,7 +6,7 @@ import {qrMute} from "@/modules/whatsapp-qr/server";
 export const runtime="nodejs";
 export const maxDuration=60;
 const headers={"Cache-Control":"private, no-store"};
-const changeSchema=z.object({duration:z.enum(["8h","7d","off"]),expectedMuted:z.boolean(),expectedUntil:z.number().int().safe().nullable()}).strict();
+const changeSchema=z.object({duration:z.enum(["8h","7d","always","off"]),expectedMuted:z.boolean(),expectedUntil:z.number().int().safe().nullable()}).strict();
 async function execute(id:string,change?:z.infer<typeof changeSchema>) {
   if(!z.uuid().safeParse(id).success)return Response.json({error:"Conversa inválida."},{status:400,headers});
   const context=await requireAgencyContext();

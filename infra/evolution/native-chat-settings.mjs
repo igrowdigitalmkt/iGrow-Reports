@@ -33,17 +33,17 @@ const methods=`
       const raw = action.muteEndTimestamp;
       const until = raw == null ? null : Number(typeof raw.toNumber === 'function' ? raw.toNumber() : raw);
       if (until !== null && !Number.isSafeInteger(until)) throw new BadRequestException('IGROW_MUTE_STATE_UNAVAILABLE');
-      return { jid, muted: action.muted === true, until };
+      return { jid, muted: action.muted === true && (until === -1 || (until !== null && until > Date.now())), until };
     }
     return { jid: phone || peer, muted: false, until: null };
   }
-  public igrowMute(data: { peer: string; duration?: '8h' | '7d' | 'off'; expectedUntil?: number | null; expectedMuted?: boolean }) {
+  public igrowMute(data: { peer: string; duration?: '8h' | '7d' | 'always' | 'off'; expectedUntil?: number | null; expectedMuted?: boolean }) {
     const operation = this.igrowMuteQueue.then(async () => {
       if (this.stateConnection.state !== 'open') throw new BadRequestException('WhatsApp disconnected');
       const before = await this.igrowReadMute(data.peer);
       if (data.duration !== undefined) {
         if (before.muted !== data.expectedMuted || before.until !== data.expectedUntil) throw new BadRequestException('IGROW_MUTE_CHANGED');
-        const mute = data.duration === 'off' ? null : Date.now() + (data.duration === '8h' ? 8 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000);
+        const mute = data.duration === 'off' ? null : data.duration === 'always' ? -1 : Date.now() + (data.duration === '8h' ? 8 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000);
         await this.client.chatModify({ mute }, before.jid);
         for (let attempt = 0; attempt < 4; attempt++) {
           const after = await this.igrowReadMute(data.peer);
@@ -66,7 +66,7 @@ change(router,"      .post(this.routerPath('igrowContact'),",`      .post(this.r
         const data = req.body;
         if (!data || typeof data.peer !== 'string' || !/^[0-9]{8,20}@(s[.]whatsapp[.]net|lid|g[.]us)$/.test(data.peer) ||
           Object.keys(data).some(key => !['peer', 'duration', 'expectedUntil', 'expectedMuted'].includes(key)) ||
-          (data.duration !== undefined && (!['8h', '7d', 'off'].includes(data.duration) || typeof data.expectedMuted !== 'boolean' ||
+          (data.duration !== undefined && (!['8h', '7d', 'always', 'off'].includes(data.duration) || typeof data.expectedMuted !== 'boolean' ||
             !(data.expectedUntil === null || Number.isSafeInteger(data.expectedUntil))))) return res.status(400).json({ error: 'Invalid mute request' });
         const response = await this.dataValidate<LabelDto>({ request: req, schema: null, ClassRef: LabelDto,
           execute: (instance) => labelController.igrowMute(instance, data) });

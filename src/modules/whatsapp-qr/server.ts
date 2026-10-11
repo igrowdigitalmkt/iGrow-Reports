@@ -259,7 +259,7 @@ export async function sendQrExtended(agencyId: string, remoteId: string, content
   if(!/^[0-9]{8,20}@(s\.whatsapp\.net|lid|g\.us)$/.test(peer))throw new EvolutionError("Conversa inválida.");
   return evolution.sendExtended(name,peer.endsWith("@s.whatsapp.net") ? peer.split("@")[0] : peer,content);
 }
-export async function qrMute(agencyId:string,remoteId:string,change?:{duration:"8h"|"7d"|"off";expectedMuted:boolean;expectedUntil:number|null}) {
+export async function qrMute(agencyId:string,remoteId:string,change?:{duration:"8h"|"7d"|"always"|"off";expectedMuted:boolean;expectedUntil:number|null}) {
   const evolution=client();if(!evolution)throw new EvolutionError("Servidor do WhatsApp não configurado.");
   const peer=chatJid(remoteId);if(!/^[0-9]{8,20}@(s\.whatsapp\.net|lid|g\.us)$/.test(peer))throw new EvolutionError("Conversa inválida.");
   return evolution.mute(instanceNameFor(agencyId),peer,change);

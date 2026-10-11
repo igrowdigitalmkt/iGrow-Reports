@@ -22,7 +22,7 @@ export function evolutionConfig() {
 // Thin client for the agency's own Evolution API server (WhatsApp Web sessions by QR Code).
 export class EvolutionClient {
   constructor(private readonly config: { url: string; key: string }, private readonly fetcher: typeof fetch = fetch) {}
-  async mute(name:string,peer:string,change?:{duration:"8h"|"7d"|"off";expectedMuted:boolean;expectedUntil:number|null}) {
+  async mute(name:string,peer:string,change?:{duration:"8h"|"7d"|"always"|"off";expectedMuted:boolean;expectedUntil:number|null}) {
     const result=await this.request<{muted:boolean;until:number|null}>(`/label/igrowMute/${encodeURIComponent(name)}`,{method:"POST",timeoutMs:45000,body:{peer,...change}});
     if(typeof result?.muted!=="boolean" || !(result.until===null || Number.isSafeInteger(result.until)))throw new EvolutionError("O WhatsApp não confirmou o silenciamento.");
     if(change && result.muted!==(change.duration!=="off"))throw new EvolutionError("O WhatsApp não confirmou o silenciamento.");

@@ -37,3 +37,10 @@ it("uses an absolute millisecond deadline and confirms the native snapshot echo"
  const before=Date.now();const result=await service.igrowMute({peer,duration:"8h",expectedMuted:false,expectedUntil:null});
  expect(deadline).toBeGreaterThanOrEqual(before+8*60*60*1000);expect(deadline).toBeLessThanOrEqual(Date.now()+8*60*60*1000);expect(result).toEqual({muted:true,until:deadline});
 });
+it("treats expired native mute as inactive and preserves the forever sentinel",async()=>{
+ const {service,snapshot}=fixture();const value=(until:number)=>({state:{},mutationMap:{mute:{index:["mute",peer],syncAction:{value:{muteAction:{muted:true,muteEndTimestamp:until}}}}}});
+ snapshot.mockResolvedValue(value(Date.now()-1000));expect(await service.igrowMute({peer})).toMatchObject({muted:false});
+ snapshot.mockResolvedValue(value(-1));expect(await service.igrowMute({peer})).toEqual({muted:true,until:-1});
+ service.client.chatModify.mockImplementation(async()=>snapshot.mockResolvedValue(value(-1)));
+ expect(await service.igrowMute({peer,duration:"always",expectedMuted:true,expectedUntil:-1})).toEqual({muted:true,until:-1});expect(service.client.chatModify).toHaveBeenCalledWith({mute:-1},peer);
+});
