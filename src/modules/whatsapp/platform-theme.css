@@ -2,6 +2,20 @@
    WhatsApp once occupied the entire viewport with z-index:180; it must now
    remain inside the workspace content, including its menus and overlays. */
 .workspace:has(.wai-shell) > .topbar { z-index: 40; }
+/* Desktop WhatsApp is a viewport-height workspace. Do not let the outer
+   document scroll the embedded inbox beneath the sticky platform header:
+   messages and the conversation list retain their own scroll containers. */
+@media (min-width: 761px) {
+  .workspace:has(.wai-shell) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .workspace:has(.wai-shell) > .main-content.is-full {
+    min-height: 0;
+    overflow: hidden;
+  }
+}
 /* The platform theme is authoritative, including conversations with a saved wallpaper. */
 .workspace .wai-shell {
   position:relative!important;inset:auto!important;z-index:0!important;isolation:isolate;width:100%!important;height:calc((100dvh - 56px) / .8)!important;min-height:0;zoom:.8!important;
