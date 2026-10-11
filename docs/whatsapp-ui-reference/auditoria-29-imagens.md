@@ -18,7 +18,7 @@ Todas as imagens foram abertas individualmente. Alterações e validações segu
 | 11 | Emojis do compositor: painel maior, categorias, pesquisa, grade de 12 colunas e abas inferiores. | Layout aplicado com desenhos originais; catálogo ampliado para 3.667 glyphs originais e criação/envio de figurinhas disponíveis; GIFs pendentes. |
 | 12 | Anexos: menu vertical, ícones coloridos, separadores, ancoragem acima do botão. | Documento, fotos/vídeos, câmera, áudio, contato, enquete e figurinha disponíveis; fluxos comerciais/eventos sem operação nativa verificada. |
 | 13 | Responder: bloco citado acima do campo, faixa lateral, autor e fechar; conversa redimensionada. | Layout e cancelamento aplicados; envio mantém a rota existente. |
-| 14 | Telefone: painel esquerdo, pesquisa, instrução e teclado numérico. | Pendente |
+| 14 | Telefone: painel esquerdo, pesquisa, instrução e teclado numérico. | Painel implementado; abertura sem envio e cinco tamanhos conferidos. Ícones ainda diferem dos originais. |
 | 15 | Novo contato: formulário com sublinhados, ícones e sincronização com celular. | Pendente |
 | 16 | Nova conversa: pesquisa, atalhos, contato próprio e lista alfabética. | Pendente |
 | 17 | Confirmação de associação: notificações brancas arredondadas empilhadas à esquerda. | Pendente |

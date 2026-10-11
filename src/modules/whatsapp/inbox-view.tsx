@@ -41,6 +41,7 @@ import { ExtraSendDialog } from "./extra-send-dialog";
 import { CameraDialog } from "./camera-dialog";
 import { ContactStarsAction } from "./contact-stars-action";
 import { NativeMuteAction } from "./native-mute-action";
+import { PhonePanel } from "./phone-panel";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -688,7 +689,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
 
   if (demo && !demoReady) return <div className="wai-shell wai-demo-loading" aria-busy="true"><span>Carregando demonstração de conversas…</span></div>;
 
-  return <div className={`wai-shell${openId || draft ? " is-chat-open" : ""}`}>
+  return <div className={`wai-shell${(openId || draft) && !picking ? " is-chat-open" : ""}`}>
     <nav className="wai-rail" aria-label="Navegação WhatsApp">
       <div className="wai-rail-top">
         <button type="button" className={`wai-rail-shortcut${!starPanel && !showArchived && !managingLists ? " is-active" : ""}`}
@@ -786,7 +787,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       : managingLists ? <CustomListManager lists={customLists.lists} busy={customLists.busy}
         onBack={() => setManagingLists(false)} onCreate={() => setEditingList(null)}
         onEdit={setEditingList} onRemove={setDeletingList} onMove={(item,delta) => void moveCustomList(item,delta)} />
-      : picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={choose} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
+      : picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={id=>{setPicking(false);choose(id);}} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
         <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setStarPanel(false)} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Mensagens favoritas</strong></div>
         <p className="wai-new-note">Favoritos privados nesta plataforma, preservados enquanto as mensagens estiverem disponíveis no iGrow.</p>
         <div className="wai-rows">
@@ -1914,6 +1915,7 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
   const [query, setQuery] = useState("");
   const search = query.trim().toLocaleLowerCase("pt-BR");
   const digits = query.replace(/\D/g, "");
+  const [phonePanel,setPhonePanel]=useState(false);
   const shown = contacts.filter(contact => !search || `${contact.name} ${contact.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search) || (digits.length >= 3 && contact.phone.replace(/\D/g, "").includes(digits)));
   const typed = digits.length >= 10 ? (digits.length <= 11 ? `55${digits}` : digits) : null;
   const recent = conversations.filter(item => !search ||
@@ -1923,9 +1925,11 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
   // appear twice in the contact picker (DDD+last 8 handles Brazil's ninth digit).
   const recentPhones = new Set(recent.filter(item => !item.remoteId.endsWith("@lid")).map(item => phoneKey(item.remoteId)));
   const recipients = shown.filter(contact => !recentPhones.has(phoneKey(contact.phone)));
+  if(phonePanel)return <PhonePanel onClose={()=>setPhonePanel(false)} onPick={onPick}/>;
   return <div className="wai-new">
     <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={onClose} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Nova conversa</strong></div>
     <label className="wai-search"><Search size={17} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar nome ou digitar número com DDD" aria-label="Pesquisar contato ou número" /></label>
+    <button type="button" className="wai-row" onClick={()=>setPhonePanel(true)}><span className="wai-avatar is-icon" style={{width:49,height:49}}><Phone size={24}/></span><span className="wai-row-main"><span className="wai-row-top"><strong>Telefone</strong></span></span></button>
     <p className="wai-new-note">Pelo QR Code, mande mensagem só para quem conhece seu número: mensagens para desconhecidos aumentam o risco de bloqueio.</p>
     <div className="wai-rows">
       {typed && <button type="button" className="wai-row" onClick={() => onPick({ phone: typed, name: null, clientName: null })}>
