@@ -64,3 +64,20 @@
 .wai-extra-dialog button {background:var(--surface-raised)!important;color:var(--text)!important;}
 .wai-extra-dialog footer button:last-child {background:var(--accent)!important;color:var(--on-accent)!important;}
 @media(max-width:760px) {.workspace .wai-shell {--wai-ref-inbox-width:100%;}}
+
+/* Theme every nested surface as well as its panel; legacy screenshot styles
+   otherwise leave dark headers, media tiles and reaction controls in light mode. */
+.workspace .wai-shell :is(.wai-details-head,.wai-chat-search-head,.wai-details-file,.wai-contact-shortcuts button>span,.wai-message-controls button,.wai-reactions>.wai-reactions-group,.wai-message-quick-reactions,.wai-message-menu-list,.wai-conversation-menu,.wai-message-popup.is-full-reaction,.wai-selection-bar,.wai-details-export,.wai-emoji-footer,.wai-emoji-search,.wai-emoji-tabs,.wai-custom-list-editor,.wai-custom-list-manager) {
+  background:var(--surface-raised)!important;background-image:none!important;color:var(--text)!important;border-color:var(--border)!important;
+}
+.workspace .wai-shell .wai-message-controls {background:transparent!important;}
+.workspace .wai-shell .wai-reactions {background:transparent!important;}
+.workspace .wai-shell :is(.wai-details-section,.wai-message-menu-divider,.wai-menu-divider,.wai-filter-dropdown-divider) {border-color:var(--border)!important;}
+.workspace .wai-shell :is(.wai-details-file span,.wai-details-file svg,.wai-contact-labels,.wai-reactions-group small,.wai-message-controls svg,.wai-emoji-title,.wai-emoji-footer,.wai-theme-dialog legend) {color:var(--secondary)!important;}
+.workspace .wai-shell :is(.wai-details-actions>button,.wai-conversation-menu button,.wai-message-menu-list button,.wai-filter-dropdown button,.wai-chat-lists-actions button):hover:not(:disabled) {background:var(--surface-hover)!important;}
+.workspace .wai-shell .wai-contact-danger,.workspace .wai-shell .wai-contact-danger svg {color:var(--bad)!important;}
+.workspace .wai-shell :is(.wai-chat-search-date input,.wai-phone-panel input) {color-scheme:inherit;}
+.workspace .wai-shell :is(.wai-details-scroll,.wai-emoji-content,.wai-contact-media-grid) {scrollbar-color:var(--border-strong) transparent;}
+.workspace .wai-shell .wai-message-controls button:hover {background:var(--surface-hover)!important;}
+.wai-extra-dialog :is(.wai-contact-editor-field,.wai-theme-dialog legend) {color:var(--secondary)!important;}
+.wai-extra-dialog .wai-theme-dialog label:has(input:checked) {background:var(--accent-bg)!important;}
