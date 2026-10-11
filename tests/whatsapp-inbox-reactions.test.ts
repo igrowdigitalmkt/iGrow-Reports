@@ -91,8 +91,8 @@ describe("WhatsApp reactions", () => {
       { emoji: "❤️", reactorId: "contact-a" }, { emoji: "❤️", reactorId: "me" },
       { emoji: "👍", reactorId: "contact-b" },
     ])).toEqual([
-      { emoji: "❤️", count: 2, mine: true },
-      { emoji: "👍", count: 1, mine: false },
+      { emoji: "❤️", count: 2, mine: true, reactorIds: ["contact-a", "me"] },
+      { emoji: "👍", count: 1, mine: false, reactorIds: ["contact-b"] },
     ]);
   });
 });

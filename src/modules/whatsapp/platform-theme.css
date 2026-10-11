@@ -112,6 +112,30 @@
 .workspace .wai-shell .wai-contact-shortcuts {grid-template-columns:repeat(2,minmax(0,1fr));}
 .workspace .wai-shell .wai-mute-switch.is-on {background:var(--accent);border-color:var(--accent);}
 .workspace .wai-shell .wai-mute-switch.is-on::before {background:var(--on-accent);}
+/* A reaction shortcut sits outside the bubble. Keep it visible across the gap
+   and extend its hit area so moving toward it cannot interrupt hover. */
+@media(hover:hover) and (pointer:fine) {
+  .workspace .wai-shell .wai-bubble-row:hover .wai-message-controls button {opacity:1;pointer-events:auto;}
+  .workspace .wai-shell .wai-message-emoji-trigger::before {content:"";position:absolute;inset:-5px -12px;}
+}
+.workspace .wai-shell .wai-reactions-group {cursor:pointer;}
+.workspace .wai-shell .wai-message-popup.is-reaction-details {width:460px;max-width:calc(100vw - 24px);padding:0;border-radius:20px;overflow:hidden;background:var(--surface);border:1px solid var(--border);box-shadow:0 8px 28px #0003;}
+.wai-reaction-details {min-height:310px;color:var(--text);}
+.wai-reaction-details>header {display:grid;gap:12px;padding:20px 18px 14px;border-bottom:1px solid var(--border);}
+.wai-reaction-details>header>strong {font-size:16px;font-weight:500;}
+.wai-reaction-details-tabs {display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.wai-reaction-details-tabs button {display:flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;border:1px solid var(--border);border-radius:22px;background:transparent;cursor:pointer;}
+.wai-reaction-details-tabs button[aria-pressed=true] {background:var(--surface-raised);}
+.wai-reaction-details-tabs .wai-original-emoji {width:24px;height:24px;}
+.wai-reaction-details-people {max-height:320px;overflow:auto;padding:12px 0;}
+.wai-reaction-details-people :is(button,.wai-reaction-person) {display:flex;align-items:center;gap:16px;width:100%;min-height:76px;padding:10px 18px;border:0;background:transparent;text-align:left;font:inherit;}
+.wai-reaction-details-people button {cursor:pointer;}
+.wai-reaction-details-people button:hover {background:var(--surface-hover);}
+.wai-reaction-person-avatar {position:relative;display:grid;place-items:center;flex-shrink:0;width:46px;height:46px;border-radius:50%;overflow:hidden;background:var(--accent-bg);color:var(--accent);}
+.wai-reaction-person-avatar img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.wai-reaction-person-name {display:grid;flex:1;gap:5px;min-width:0;overflow-wrap:anywhere;}
+.wai-reaction-person-name small {font-size:14px;}
+.wai-reaction-details-people .wai-original-emoji {width:32px;height:32px;flex-shrink:0;}
 [data-theme="light"] .workspace .wai-shell .wai-row-list-chip {background:var(--wai-chip-bg-light,var(--accent-bg))!important;color:var(--wai-chip-text-light,var(--accent))!important;}
 /* Use the actual remaining flex height, including a wrapping demo banner. */
 .workspace:has(.wai-shell) {height:100dvh;min-height:0;overflow:hidden;transition:none;}

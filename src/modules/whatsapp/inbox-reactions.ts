@@ -8,16 +8,17 @@ export type InboxReactionEvent = {
   at: string;
 };
 export type InboxReaction = { emoji: string; reactorId: string };
-export type ReactionSummary = { emoji: string; count: number; mine: boolean };
+export type ReactionSummary = { emoji: string; count: number; mine: boolean; reactorIds?: string[] };
 
 /** Group individual reactions by emoji, without losing the identity of each sender. */
 export function groupReactions(reactions: InboxReaction[]): ReactionSummary[] {
   const map = new Map<string, ReactionSummary>();
   for (const reaction of reactions) {
     if (!reaction.emoji) continue;
-    const current = map.get(reaction.emoji) ?? { emoji: reaction.emoji, count: 0, mine: false };
+    const current = map.get(reaction.emoji) ?? { emoji: reaction.emoji, count: 0, mine: false, reactorIds: [] };
     current.count++;
     if (reaction.reactorId === "me") current.mine = true;
+    current.reactorIds!.push(reaction.reactorId);
     map.set(reaction.emoji, current);
   }
   return [...map.values()];

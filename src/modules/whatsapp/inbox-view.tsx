@@ -911,6 +911,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
               return <Fragment key={message.id}>
                 {newDay && <p className="wai-day"><span>{dayLabel(message.sentAt, now)}</span></p>}
                 <Bubble message={message} tail={!grouped} showAuthor={open.isGroup && message.direction === "in" && !grouped}
+                  reactionAvatarSrc={!demo && selfConversation ? `/api/whatsapp/inbox/avatar/${selfConversation.id}` : undefined}
+                  reactionContactName={!open.isGroup ? conversationTitle(open) : undefined}
                   voiceAvatarSrc={channel.kind === "qr" && (message.direction === "in" || selfConversation)
                     ? `/api/whatsapp/inbox/avatar/${message.direction === "in" ? open.id : selfConversation?.id}`
                     : undefined}
@@ -1494,9 +1496,40 @@ function AudioPlayer({ src, out, avatarSrc, preview = false, durationSeconds }: 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"] as const;
 
 /** WhatsApp-like message actions: emoji on hover and dropdown for contextual actions. */
-function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, reactionBusy, selected, selectMode, starred,
+function ReactionDetails({reactions,filter,onFilter,avatarSrc,contactName,canReact,busy,onRemove,onAdd}:{
+  reactions:NonNullable<InboxMessageItem["reactions"]>;filter:string|null;onFilter:(emoji:string|null)=>void;
+  avatarSrc?:string;contactName?:string;canReact:boolean;busy:boolean;onRemove:(emoji:string)=>void;onAdd:()=>void;
+}) {
+  const [photoFailed,setPhotoFailed]=useState(false);
+  const total=reactions.reduce((sum,item)=>sum+item.count,0);
+  return <div className="wai-reaction-details">
+    <header><strong>{total} {total===1?"reação":"reações"}</strong>
+      <div className="wai-reaction-details-tabs" aria-label="Filtrar reações">
+        <button type="button" disabled={!canReact || busy} onClick={onAdd} aria-label="Adicionar reação"><Smile size={22}/></button>
+        {reactions.length>1 && <button type="button" aria-pressed={filter===null} onClick={()=>onFilter(null)}>Tudo {total}</button>}
+        {reactions.map(item=><button type="button" key={item.emoji} aria-label={`Ver reações ${item.emoji}`} aria-pressed={filter===item.emoji || reactions.length===1} onClick={()=>onFilter(item.emoji)}><WhatsAppEmoji emoji={item.emoji}/><span>{item.count}</span></button>)}
+      </div>
+    </header>
+    <div className="wai-reaction-details-people" role="list">
+      {reactions.filter(item=>!filter || filter===item.emoji).flatMap(item=>{
+        // Older cached/demo summaries have counts only. Never invent identities.
+        const ids=item.reactorIds ?? [...(item.mine?["me"]:[]),...(item.count>(item.mine?1:0)?["unknown"]:[])];
+        return ids.map(id=>{
+          const mine=id==="me";
+          const remaining=item.count-(item.mine?1:0);
+          const name=mine?"Você":id==="unknown"?`${remaining} ${remaining===1?"outra pessoa":"outras pessoas"}`:contactName ?? (id.endsWith("@s.whatsapp.net")?formatWhatsAppPhone(id):"Participante");
+          const content=<><span className="wai-reaction-person-avatar">{mine?"V":<Contact size={23}/>}{mine && avatarSrc && !photoFailed && /* eslint-disable-next-line @next/next/no-img-element -- private WhatsApp account avatar */
+            <img src={avatarSrc} alt="" onError={()=>setPhotoFailed(true)}/>}</span><span className="wai-reaction-person-name"><span>{name}</span>{mine && canReact && <small>Clique para remover</small>}</span><WhatsAppEmoji emoji={item.emoji}/></>;
+          return <div role="listitem" key={`${item.emoji}:${id}`}>{mine && canReact?<button type="button" disabled={busy} aria-label={`Remover sua reação ${item.emoji}`} onClick={()=>onRemove(item.emoji)}>{content}</button>:<div className="wai-reaction-person">{content}</div>}</div>;
+        });
+      })}
+    </div>
+  </div>;
+}
+
+function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, reactionAvatarSrc, reactionContactName, canReact, reactionBusy, selected, selectMode, starred,
   onStar, onReact, onCopy, onReply, onSelect, onInfo, onForward, onPin, onDelete, onView }: {
-  message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; voiceAvatarSrc?: string;
+  message: InboxMessageItem; tail: boolean; showAuthor: boolean; live: boolean; voiceAvatarSrc?: string; reactionAvatarSrc?:string; reactionContactName?:string;
   canReact: boolean; reactionBusy: boolean; selected: boolean; selectMode: boolean; starred: boolean;
   onStar: () => void; onReact: (emoji: string) => void; onCopy: () => void;
   onReply: () => void; onSelect: () => void; onInfo: () => void;
@@ -1504,7 +1537,8 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
   onView: (displaySrc: string, downloadSrc: string) => void;
 }) {
   const out = message.direction === "out";
-  const [panel, setPanel] = useState<"emoji" | "menu" | null>(null);
+  const [panel, setPanel] = useState<"emoji" | "menu" | "reactions" | null>(null);
+  const [reactionFilter,setReactionFilter] = useState<string|null>(null);
   const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
   const [allEmoji, setAllEmoji] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
@@ -1518,7 +1552,7 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
     if (!panel || !wrapper.current || !popover.current) return;
     const calculate = () => {
       if (!wrapper.current || !popover.current) return;
-      const anchor = wrapper.current.getBoundingClientRect();
+      const anchor = (panel === "reactions" ? wrapper.current.querySelector(".wai-reactions-group") ?? wrapper.current : wrapper.current).getBoundingClientRect();
       const panelBox = popover.current;
       const height = Math.min(panelBox.getBoundingClientRect().height, window.innerHeight - 80);
       const width = panelBox.getBoundingClientRect().width || 324;
@@ -1537,9 +1571,10 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
     calculate();
     window.addEventListener("resize", calculate);
     return () => window.removeEventListener("resize", calculate);
-  }, [panel, allEmoji, out]);
+  }, [panel, allEmoji, out, reactionFilter]);
   useEffect(() => {
     if (panel === "menu" && !allEmoji && popupReady) popover.current?.querySelector<HTMLButtonElement>(".wai-message-menu-list button:not(:disabled)")?.focus();
+    if (panel === "reactions" && popupReady) popover.current?.querySelector<HTMLButtonElement>(".wai-reaction-details-tabs button[aria-pressed=true]")?.focus();
   }, [panel, allEmoji, popupReady]);
   useEffect(() => {
     if (!panel) return;
@@ -1550,7 +1585,7 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        wrapper.current?.querySelector<HTMLButtonElement>(panel === "menu" ? ".wai-message-dropdown-trigger" : ".wai-message-emoji-trigger")?.focus();
+        wrapper.current?.querySelector<HTMLButtonElement>(panel === "menu" ? ".wai-message-dropdown-trigger" : panel === "reactions" ? ".wai-reactions-group" : ".wai-message-emoji-trigger")?.focus();
         setPanel(null); setAllEmoji(false);
       }
     };
@@ -1558,11 +1593,12 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
     document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("pointerdown", clickAway); document.removeEventListener("keydown", escape); };
   }, [panel]);
-  const openPanel = (mode: "emoji" | "menu") => {
+  const openPanel = (mode: "emoji" | "menu" | "reactions") => {
     setPortalHost((wrapper.current?.closest(".wai-shell") as HTMLElement | null) ?? document.body);
     setPopupCoordinates(null);
     setPanel(previous => previous === mode ? null : mode);
     setAllEmoji(false);
+    setReactionFilter(null);
   };
   const cancelTouchHold = () => {
     if (touchHold.current) clearTimeout(touchHold.current);
@@ -1620,13 +1656,14 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
       {message.pinned && <span className="wai-message-pinned-indicator" title="Fixada no iGrow"><Pin size={12} />Fixada</span>}
       {/* Badge in the document flow AFTER the bubble: never covers timestamp or checkmarks. */}
       {!!message.reactions?.length && <div className="wai-reactions">
-        <span className={`wai-reactions-group${message.reactions.some(item => item.mine) ? " is-mine" : ""}`}
+        <button type="button" className={`wai-reactions-group${message.reactions.some(item => item.mine) ? " is-mine" : ""}`}
+          aria-haspopup="dialog" aria-expanded={panel === "reactions"} onClick={()=>openPanel("reactions")}
           title={message.reactions.map(item => `${item.emoji}: ${item.count} ${item.count === 1 ? "reação" : "reações"}${item.mine ? " (inclui você)" : ""}`).join(" · ")}
           aria-label={`Reações nesta mensagem: ${message.reactions.map(item => `${item.emoji} ${item.count}`).join(", ")}`}>
           {message.reactions.slice(0, 3).map(item => <span key={item.emoji} className="wai-reaction-emoji" aria-hidden="true"><WhatsAppEmoji emoji={item.emoji} /></span>)}
           {message.reactions.reduce((sum, item) => sum + item.count, 0) > 1 &&
             <small>{message.reactions.reduce((sum, item) => sum + item.count, 0)}</small>}
-        </span>
+        </button>
       </div>}
       <div className="wai-message-controls">
         {canReact && !message.revoked && <button type="button" className="wai-message-emoji-trigger" aria-label="Reagir à mensagem" aria-expanded={panel === "emoji"}
@@ -1636,10 +1673,12 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, canReact, rea
         <button type="button" className="wai-message-dropdown-trigger" aria-label="Mais opções da mensagem" aria-expanded={panel === "menu"}
           onClick={() => openPanel("menu")}><ChevronDown size={18} /></button>
       </div>
-      {panel && portalHost && createPortal(<div ref={popover} className={`wai-message-popup wai-message-popup-fixed${allEmoji ? " is-full-reaction" : panel === "menu" ? " is-message-menu" : " is-quick-reaction"}`}
+      {panel && portalHost && createPortal(<div ref={popover} className={`wai-message-popup wai-message-popup-fixed${panel === "reactions" ? " is-reaction-details" : allEmoji ? " is-full-reaction" : panel === "menu" ? " is-message-menu" : " is-quick-reaction"}`}
         style={{ top: popupCoordinates?.top ?? 0, left: popupCoordinates?.left ?? 0, visibility: popupCoordinates ? "visible" : "hidden" }}
-        role="dialog" aria-label={panel === "emoji" ? "Reagir à mensagem" : "Ações da mensagem"}>
-        {canReact && !message.revoked && !allEmoji && <div className="wai-message-quick-reactions" aria-label="Reações rápidas">
+        role="dialog" aria-label={panel === "reactions" ? "Reações da mensagem" : panel === "emoji" ? "Reagir à mensagem" : "Ações da mensagem"}>
+        {panel === "reactions" && <ReactionDetails reactions={message.reactions ?? []} filter={reactionFilter} onFilter={setReactionFilter}
+          avatarSrc={reactionAvatarSrc} contactName={reactionContactName} canReact={canReact && !message.revoked} busy={reactionBusy} onRemove={choose} onAdd={()=>openPanel("emoji")}/>}
+        {panel !== "reactions" && canReact && !message.revoked && !allEmoji && <div className="wai-message-quick-reactions" aria-label="Reações rápidas">
           {QUICK_REACTIONS.map(emoji => <button type="button" key={emoji}
             className={currentMine === emoji ? "is-current" : undefined} title={currentMine === emoji ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}
             aria-label={currentMine === emoji ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}

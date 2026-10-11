@@ -16,7 +16,7 @@ export type InboxConversation = {
 export type InboxMessageItem = {
   id: string; direction: "in" | "out"; kind: string; body: string | null; mediaName: string | null; mediaMime: string | null;
   author: string | null; status: InboxStatus; sentAt: string;
-  reactions?: Array<{ emoji: string; count: number; mine: boolean }>;
+  reactions?: Array<{ emoji: string; count: number; mine: boolean; reactorIds?: string[] }>;
   pinned?: boolean;
   /** Duration from WhatsApp encrypted media metadata, in seconds. */
   mediaDurationSeconds?: number | null;
