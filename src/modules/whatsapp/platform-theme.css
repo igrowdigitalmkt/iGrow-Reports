@@ -1,6 +1,6 @@
 /* The platform theme is authoritative, including conversations with a saved wallpaper. */
 .workspace .wai-shell {
-  position:relative!important;inset:auto!important;width:100%!important;height:calc((100dvh - 56px) / .9)!important;min-height:0;zoom:.9!important;
+  position:relative!important;inset:auto!important;width:100%!important;height:calc((100dvh - 56px) / .8)!important;min-height:0;zoom:.8!important;
   --wai-rail:var(--sidebar);--wai-panel:var(--surface);--wai-chat:var(--bg);--wai-line:var(--border);
   --wai-hover:var(--surface-hover);--wai-active:var(--accent-bg);--wai-text:var(--text);--wai-muted:var(--muted);
   --wai-search:var(--surface-raised);--wai-in:var(--surface-raised);--wai-out:var(--accent-bg);--wai-out-text:var(--text);
@@ -8,7 +8,7 @@
   --wai-day:var(--surface-raised);--wai-doc:var(--surface);--wai-blue:var(--blue);
   --wai-ref-inbox-width:clamp(280px,30%,420px);background:var(--bg)!important;color:var(--text);color-scheme:inherit;
 }
-.workspace:has(.demo-banner) .wai-shell {height:calc((100dvh - 94px) / .9)!important;}
+.workspace:has(.demo-banner) .wai-shell {height:calc((100dvh - 94px) / .8)!important;}
 .wai-shell :is(.wai-rail,.wai-list,.wai-new,.wai-details,.wai-chat-head,.wai-chat-search-panel,.wai-phone-panel,.wai-emoji,.wai-attach-menu,.wai-message-menu,.wai-forward-dialog,.wai-chat-menu,.wai-chat-lists-popover,.wai-account-menu,.wai-list-menu,.wai-filter-dropdown,.wai-bulk-menu,.wai-custom-manager-context) {background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
 .wai-shell :is(.wai-messages,.wai-empty,.wai-composer-area) {background:var(--bg)!important;}
 .wai-shell :is(.wai-composer,.wai-search,.wai-chat-search-input,.wai-reply-banner,.wai-reactions,.wai-reaction-picker,.wai-day span) {background:var(--surface-raised)!important;color:var(--text)!important;border-color:var(--border)!important;}
