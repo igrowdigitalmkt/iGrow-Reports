@@ -39,6 +39,13 @@
 .wai-shell :is(input,textarea) {background:var(--surface-raised)!important;border-color:var(--border-strong)!important;}
 .wai-shell input::placeholder,.wai-shell textarea::placeholder,.wai-shell .wai-emoji-input:empty::before {color:var(--muted)!important;}
 .wai-shell :is(.wai-send,.wai-list-head .wai-head-actions>.wai-icon-button:first-child) {background:var(--accent)!important;color:var(--on-accent)!important;}
+/* Keep the scrollable conversation list and its selection wrapper on the same
+   theme as the panel. Screenshot-fidelity CSS previously forced #161717 here,
+   which rendered dark rows under light-theme text. */
+.wai-shell .wai-rows {background:var(--surface)!important;scrollbar-color:var(--border-strong) transparent;}
+.wai-shell .wai-chat {background:var(--bg)!important;}
+.wai-shell .wai-select-row:has(> input[type="checkbox"]):has(.wai-row.is-active) {background:var(--accent-bg)!important;}
+.wai-shell .wai-select-row:hover:not(:has(.wai-row.is-active)) {background:var(--surface-hover)!important;}
 .wai-shell .wai-row.is-active,.wai-shell .wai-filters button.is-active {background:var(--accent-bg)!important;}
 .wai-shell .wai-row:hover {background:var(--surface-hover)!important;}
 .wai-shell a {color:var(--accent)!important;}
