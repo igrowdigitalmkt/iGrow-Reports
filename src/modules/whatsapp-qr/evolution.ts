@@ -37,7 +37,8 @@ export class EvolutionClient {
       const message = details?.response?.message ?? details?.message;
       const messages = Array.isArray(message) ? message : [message];
       const code = messages.includes("IGROW_LABEL_STATE_UNAVAILABLE") ? "IGROW_LABEL_STATE_UNAVAILABLE"
-        : messages.includes("Cannot block the connected account") ? "IGROW_CONTACT_SELF" : undefined;
+        : messages.includes("Cannot block the connected account") ? "IGROW_CONTACT_SELF"
+        : messages.find((value): value is string => typeof value === "string" && /^IGROW_CONTACT_(NOT_SAVED|STATE_UNAVAILABLE|CHANGED|NOT_CONFIRMED)$/.test(value));
       throw new EvolutionError(`O servidor do WhatsApp recusou o pedido (${response.status}).`, response.status, code);
     }
     return body as T;
@@ -77,7 +78,7 @@ export class EvolutionClient {
   // Messages, receipts and chat state are forwarded to the iGrow, signed by a header.
   // Only live UPDATE/UPSERT chat states are needed for archive/unread sync.
   setWebhook(name: string, url: string, token: string) {
-    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE", "CHATS_UPDATE", "CHATS_SET", "CHATS_UPSERT", "CONNECTION_UPDATE", "MESSAGES_SET"] } } });
+    return this.request(`/webhook/set/${encodeURIComponent(name)}`, { method: "POST", body: { webhook: { enabled: true, url, headers: { "x-igrow-token": token }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE", "CHATS_UPDATE", "CHATS_SET", "CHATS_UPSERT", "CONTACTS_UPSERT", "CONNECTION_UPDATE", "MESSAGES_SET"] } } });
   }
 
   logout(name: string) {
@@ -94,6 +95,16 @@ export class EvolutionClient {
     });
     if (typeof result?.blocked !== "boolean" || (blocked !== undefined && result.blocked !== blocked))
       throw new EvolutionError("O WhatsApp não confirmou o bloqueio.");
+    return result;
+  }
+
+  async contact(name: string, peer: string, edit?: { fullName: string; firstName: string; expectedFullName: string }) {
+    const result = await this.request<{ fullName: string; firstName: string; canEdit: boolean }>(`/label/igrowContact/${encodeURIComponent(name)}`, {
+      method: "POST", body: { peer, ...edit }, timeoutMs: 45_000,
+    });
+    if (typeof result?.fullName !== "string" || !result.fullName.trim() || result.fullName.length > 200 ||
+      typeof result.firstName !== "string" || typeof result.canEdit !== "boolean" || (edit && (result.fullName !== edit.fullName || result.firstName !== edit.firstName)))
+      throw new EvolutionError("O WhatsApp não confirmou o nome do contato.");
     return result;
   }
 

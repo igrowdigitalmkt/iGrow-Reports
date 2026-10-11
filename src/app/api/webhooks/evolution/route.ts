@@ -9,6 +9,7 @@ import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, p
 import { qrGroupSubject, replyFromInstance, validWebhookToken } from "@/modules/whatsapp-qr/server";
 import { clearQrInboxForLostSession } from "@/modules/whatsapp-qr/session-lifecycle";
 import { isConfirmedQrLogout } from "@/modules/whatsapp-qr/connection-state";
+import { syncQrContactNames } from "@/modules/whatsapp-qr/contact-names";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -57,6 +58,13 @@ export async function POST(request: Request) {
   }
 
   const event = (body as { event?: unknown } | null)?.event;
+  if (event === "contacts.upsert" || event === "CONTACTS_UPSERT") {
+    if (guard && !scoped) return Response.json({ ok: true, ignored: "old_session_contacts" });
+    try {
+      const updated = await syncQrContactNames(service, agencyId, guard?.fresh_after, body);
+      return Response.json({ ok: true, contacts: updated });
+    } catch { return Response.json({ error: "Atualização dos contatos pendente." }, { status: 503 }); }
+  }
   // Import the recent private + group bootstrap from this exact pairing. Old
   // instances have legacy signatures and cannot replay their history here.
   if (event === "messages.set" || event === "MESSAGES_SET") {

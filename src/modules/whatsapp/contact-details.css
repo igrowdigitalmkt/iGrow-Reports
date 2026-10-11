@@ -9,6 +9,13 @@
 .wai-shell .wai-details { width: min(575px,47%); background:#161717; box-shadow:none; }
 .wai-shell .wai-details-head { height:80px; min-height:80px; padding:0 22px; gap:22px; border-bottom:0; background:#161717; font-size:20px; }
 .wai-shell .wai-details-head strong { font-weight:500; }
+.wai-shell .wai-details-head .wai-contact-edit { margin-left:auto; flex-shrink:0; }
+.wai-contact-editor form { display:flex; flex-direction:column; gap:18px; }
+.wai-contact-editor-field { display:flex; flex-direction:column; gap:7px; color:#b5bcba; }
+.wai-contact-editor .wai-emoji-input { width:100%; min-width:0; box-sizing:border-box; border:1px solid #68716d; border-radius:8px; padding:12px; background:#161717; color:#f1f1f1; font:inherit; min-height:48px; white-space:pre; overflow-x:auto; }
+.wai-contact-editor .wai-emoji-input:focus-visible { outline:2px solid #25d366; outline-offset:2px; }
+.wai-contact-editor .wai-original-emoji { display:inline-block; width:22px; height:22px; object-fit:contain; vertical-align:middle; }
+.wai-contact-editor button:disabled { opacity:.5; cursor:default; }
 .wai-shell .wai-details-scroll { scrollbar-width:thin; scrollbar-color:#383a3a transparent; }
 .wai-shell .wai-details-section { margin:0 25px; padding:28px 0; border-top:1px solid #303232; gap:20px; }
 .wai-shell .wai-details-section h4 { color:#a5a7a7; font-size:18px; line-height:24px; font-weight:600; }

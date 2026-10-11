@@ -161,6 +161,14 @@ export async function qrContactBlock(agencyId: string, remoteId: string, blocked
   return evolution.contactBlock(instanceNameFor(agencyId), peer, blocked);
 }
 
+export async function qrContact(agencyId: string, remoteId: string, edit?: { fullName: string; firstName: string; expectedFullName: string }) {
+  const evolution = client();
+  if (!evolution) throw new EvolutionError("Servidor do WhatsApp não configurado.");
+  const peer = chatJid(remoteId);
+  if (!/^[0-9]{8,20}@(s\.whatsapp\.net|lid)$/.test(peer)) throw new EvolutionError("Contato inválido.");
+  return evolution.contact(instanceNameFor(agencyId), peer, edit);
+}
+
 /** Mirrors "read" on the phone for the given received messages. */
 export async function markQrRead(agencyId: string, remoteId: string, messageIds: string[]) {
   const evolution = client();

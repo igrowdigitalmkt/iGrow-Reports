@@ -56,9 +56,9 @@ function paint(element: HTMLElement, text: string) {
 }
 
 /** Editable original emoji artwork; clipboard, history and outgoing messages stay plain Unicode. */
-export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoFocus, ref }: {
+export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoFocus, disabled = false, multiline = true, ref }: {
   value: string; onChange: (value: string) => void; onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
-  maxLength: number; label: string; autoFocus?: boolean; ref?: Ref<EmojiInputHandle>;
+  maxLength: number; label: string; autoFocus?: boolean; disabled?: boolean; multiline?: boolean; ref?: Ref<EmojiInputHandle>;
 }) {
   const element = useRef<HTMLDivElement>(null);
   const lastSelection = useRef<Selection>({ start: value.length, end: value.length });
@@ -67,6 +67,8 @@ export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoF
   const position = useRef(0);
   function remember() { if (element.current) lastSelection.current = selectionIn(element.current, lastSelection.current); }
   function commit(text: string, selected: Selection, record = true) {
+    if (disabled) return;
+    if (!multiline) text = text.replace(/[\r\n]/g, " ");
     const editor = element.current; if (!editor) return;
     if (text.length > maxLength) {
       let trimmed = "";
@@ -81,6 +83,8 @@ export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoF
     paint(editor, text); lastSelection.current = selected; restoreSelection(editor, selected); onChange(text);
   }
   function insert(text: string) {
+    if (disabled) return;
+    if (!multiline) text = text.replace(/[\r\n]/g, " ");
     const editor = element.current; if (!editor) return;
     remember();
     const current = plainText(editor), { start, end } = lastSelection.current;
@@ -102,8 +106,8 @@ export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoF
     if (document.activeElement === editor) restoreSelection(editor, lastSelection.current);
   }, [value]);
   useLayoutEffect(() => { if (autoFocus) element.current?.focus(); }, [autoFocus]);
-  return <div ref={element} className="wai-emoji-input" role="textbox" aria-label={label} aria-multiline="true"
-    data-placeholder="Digite uma mensagem" contentEditable suppressContentEditableWarning spellCheck
+  return <div ref={element} className="wai-emoji-input" role="textbox" aria-label={label} aria-multiline={multiline} aria-disabled={disabled}
+    data-placeholder={multiline ? "Digite uma mensagem" : ""} contentEditable={!disabled} suppressContentEditableWarning spellCheck
     onSelect={remember} onBlur={remember}
     onCompositionStart={() => { composing.current = true; }}
     onCompositionEnd={() => { composing.current = false; const editor = element.current!; commit(plainText(editor), selectionIn(editor, lastSelection.current)); }}
@@ -111,14 +115,16 @@ export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoF
     onBeforeInput={event => {
       const type = (event.nativeEvent as InputEvent).inputType;
       if (type === "historyUndo" || type === "historyRedo") { event.preventDefault(); undo(type === "historyRedo"); }
-      else if (!composing.current && (type === "insertParagraph" || type === "insertLineBreak")) { event.preventDefault(); insert("\n"); }
+      else if (!composing.current && (type === "insertParagraph" || type === "insertLineBreak")) { event.preventDefault(); if (multiline) insert("\n"); }
     }}
     onPaste={event => { event.preventDefault(); insert(event.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n")); }}
     onDrop={event => { event.preventDefault(); insert(event.dataTransfer.getData("text/plain").replace(/\r\n?/g, "\n")); }}
     onCopy={event => { remember(); const { start, end } = lastSelection.current; event.clipboardData.setData("text/plain", plainText(element.current!).slice(start, end)); event.preventDefault(); }}
     onCut={event => { remember(); const { start, end } = lastSelection.current; event.clipboardData.setData("text/plain", plainText(element.current!).slice(start, end)); event.preventDefault(); insert(""); }}
     onKeyDown={event => {
+      if (disabled) return;
       if (composing.current || event.nativeEvent.isComposing) return;
+      if (!multiline && event.key === "Enter") { event.preventDefault(); onKeyDown(event); return; }
       if ((event.ctrlKey || event.metaKey) && ["z", "y"].includes(event.key.toLowerCase())) { event.preventDefault(); undo(event.shiftKey || event.key.toLowerCase() === "y"); return; }
       if ((event.key === "Backspace" || event.key === "Delete") && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault(); remember();

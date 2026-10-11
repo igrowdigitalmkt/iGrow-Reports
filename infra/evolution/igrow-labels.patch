@@ -1,8 +1,8 @@
 diff --git a/src/api/controllers/label.controller.ts b/src/api/controllers/label.controller.ts
-index 2df112f..b6add02 100644
+index 2df112f..7ae0c6d 100644
 --- a/src/api/controllers/label.controller.ts
 +++ b/src/api/controllers/label.controller.ts
-@@ -9,6 +9,18 @@ export class LabelController {
+@@ -9,6 +9,22 @@ export class LabelController {
      return await this.waMonitor.waInstances[instanceName].fetchLabels();
    }
  
@@ -14,6 +14,10 @@ index 2df112f..b6add02 100644
 +    return await this.waMonitor.waInstances[instanceName].igrowContactBlock(data);
 +  }
 +
++  public async igrowContact({ instanceName }: InstanceDto, data: any) {
++    return await this.waMonitor.waInstances[instanceName].igrowContact(data);
++  }
++
 +  public async igrowEdit({ instanceName }: InstanceDto, data: any) {
 +    return await this.waMonitor.waInstances[instanceName].igrowEditLabel(data);
 +  }
@@ -22,10 +26,33 @@ index 2df112f..b6add02 100644
      return await this.waMonitor.waInstances[instanceName].handleLabel(data);
    }
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..bb467ac 100644
+index 60e857f..82633d1 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-@@ -1825,7 +1825,8 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -807,6 +807,10 @@ export class BaileysStartupService extends ChannelStartupService {
+ 
+   private readonly contactHandle = {
+     'contacts.upsert': async (contacts: Contact[]) => {
++      for (const contact of contacts) {
++        const action = (contact as Contact & { igrowContactAction?: Record<string, any> }).igrowContactAction;
++        if (action) this.igrowContacts.set(contact.id, { ...action });
++      }
+       try {
+         const contactsRaw: any = contacts.map((contact) => ({
+           remoteJid: contact.id,
+@@ -816,7 +820,10 @@ export class BaileysStartupService extends ChannelStartupService {
+         }));
+ 
+         if (contactsRaw.length > 0) {
+-          this.sendDataWebhook(Events.CONTACTS_UPSERT, contactsRaw);
++          this.sendDataWebhook(Events.CONTACTS_UPSERT, contactsRaw.map((row, index) => ({ ...row,
++            igrowSavedName: (contacts[index] as any).igrowContactAction?.fullName,
++            lidJid: (contacts[index] as any).igrowContactAction?.lidJid,
++            remoteJidAlt: (contacts[index] as any).igrowContactAction?.pnJid })));
+ 
+           if (this.configService.get<Database>('DATABASE').SAVE_DATA.CONTACTS)
+             await this.prismaRepository.contact.createMany({ data: contactsRaw, skipDuplicates: true });
+@@ -1825,7 +1832,8 @@ export class BaileysStartupService extends ChannelStartupService {
          return;
        }
  
@@ -35,7 +62,7 @@ index 60e857f..bb467ac 100644
        if (!savedLabel || savedLabel.color !== `${label.color}` || savedLabel.name !== labelName) {
          if (this.configService.get<Database>('DATABASE').SAVE_DATA.LABELS) {
            const labelData = {
-@@ -1851,7 +1852,7 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -1851,7 +1859,7 @@ export class BaileysStartupService extends ChannelStartupService {
        this.logger.info(
          `labels association - ${data?.association?.chatId} (${data.type}-${data?.association?.type}): ${data?.association?.labelId}`,
        );
@@ -44,7 +71,7 @@ index 60e857f..bb467ac 100644
          const instanceId = this.instanceId;
          const chatId = data.association.chatId;
          const labelId = data.association.labelId;
-@@ -1995,13 +1996,13 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -1995,13 +2003,13 @@ export class BaileysStartupService extends ChannelStartupService {
  
              if (events[Events.LABELS_ASSOCIATION]) {
                const payload = events[Events.LABELS_ASSOCIATION];
@@ -60,11 +87,64 @@ index 60e857f..bb467ac 100644
                return;
              }
            }
-@@ -4244,6 +4245,75 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -4244,6 +4252,128 @@ export class BaileysStartupService extends ChannelStartupService {
      }
    }
  
 +  private igrowLabelsReady = false;
++  private igrowContacts = new Map<string, Record<string, any>>();
++  private igrowContactsReady = false;
++  private igrowContactsInitialization: Promise<void> | undefined;
++  private igrowContactQueue: Promise<unknown> = Promise.resolve();
++  public igrowContact(data: { peer: string; fullName?: string; firstName?: string; expectedFullName?: string }) {
++    const operation = this.igrowContactQueue.then(async () => {
++      if (this.stateConnection.state !== 'open') throw new BadRequestException('WhatsApp disconnected');
++      if (!this.igrowContactsReady) {
++        if (!this.igrowContactsInitialization) this.igrowContactsInitialization = (async () => {
++          this.igrowContacts.clear();
++          await this.client.authState.keys.set({ 'app-state-sync-version': { critical_unblock_low: null } });
++          await this.client.resyncAppState(['critical_unblock_low'], true);
++          const state = await this.client.authState.keys.get('app-state-sync-version', ['critical_unblock_low']);
++          if (!Number.isInteger(state.critical_unblock_low?.version)) throw new BadRequestException('IGROW_CONTACT_STATE_UNAVAILABLE');
++          await this.eventProcessingQueue;
++          this.igrowContactsReady = true;
++        })().finally(() => { this.igrowContactsInitialization = undefined; });
++        await this.igrowContactsInitialization;
++      } else await this.client.resyncAppState(['critical_unblock_low'], false);
++      const phone = data.peer.endsWith('@lid') ? await this.mappedPhoneJid(data.peer) : data.peer;
++      // Only native action identity fields may connect PN and LID, never names or avatars.
++      let entry: [string, Record<string, any>] | undefined;
++      for (let attempt = 0; attempt < 20; attempt++) {
++        await this.eventProcessingQueue;
++        entry = [...this.igrowContacts.entries()].find(([id, action]) =>
++          [id, action.pnJid, action.lidJid].includes(data.peer) || (phone && [id, action.pnJid].includes(phone)));
++        if (entry) break;
++        await new Promise(resolve => setTimeout(resolve, 150));
++      }
++      if (!entry || typeof entry[1].fullName !== 'string' || !entry[1].fullName.trim())
++        throw new BadRequestException('IGROW_CONTACT_NOT_SAVED');
++      const [jid, existing] = entry;
++      if (data.fullName !== undefined) {
++        if (existing.fullName !== data.expectedFullName) throw new BadRequestException('IGROW_CONTACT_CHANGED');
++        // Copy all authenticated fields, including address-book settings and native identities.
++        await this.client.chatModify({ contact: { ...existing, fullName: data.fullName, firstName: data.firstName } }, jid);
++        await this.client.resyncAppState(['critical_unblock_low'], false);
++        for (let attempt = 0; attempt < 20; attempt++) {
++          await this.eventProcessingQueue;
++          const confirmed = this.igrowContacts.get(jid);
++          if (confirmed?.fullName === data.fullName && confirmed?.firstName === data.firstName) break;
++          await new Promise(resolve => setTimeout(resolve, 150));
++        }
++        if (this.igrowContacts.get(jid)?.fullName !== data.fullName || this.igrowContacts.get(jid)?.firstName !== data.firstName)
++          throw new BadRequestException('IGROW_CONTACT_NOT_CONFIRMED');
++      }
++      const contact = this.igrowContacts.get(jid);
++      return { fullName: contact.fullName, firstName: typeof contact.firstName === 'string' ? contact.firstName : '', canEdit: true };
++    });
++    this.igrowContactQueue = operation.catch(() => undefined);
++    return operation;
++  }
++
 +  public async igrowContactBlock(data: { peer: string; blocked?: boolean }) {
 +    if (this.stateConnection.state !== 'open') throw new BadRequestException('WhatsApp disconnected');
 +    // Block lists use phone JIDs. Resolve LIDs only through the authenticated signal repository.
@@ -136,7 +216,7 @@ index 60e857f..bb467ac 100644
    public async fetchLabels(): Promise<LabelDto[]> {
      const labels = await this.prismaRepository.label.findMany({ where: { instanceId: this.instanceId } });
  
-@@ -4256,7 +4326,8 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -4256,7 +4386,8 @@ export class BaileysStartupService extends ChannelStartupService {
    }
  
    public async handleLabel(data: HandleLabelDto) {
@@ -147,13 +227,25 @@ index 60e857f..bb467ac 100644
        throw new NotFoundException('Number not found');
      }
 diff --git a/src/api/routes/label.router.ts b/src/api/routes/label.router.ts
-index bfb4a08..ad780f3 100644
+index bfb4a08..6ad6264 100644
 --- a/src/api/routes/label.router.ts
 +++ b/src/api/routes/label.router.ts
-@@ -10,6 +10,31 @@ export class LabelRouter extends RouterBroker {
+@@ -10,6 +10,43 @@ export class LabelRouter extends RouterBroker {
    constructor(...guards: RequestHandler[]) {
      super();
      this.router
++      .post(this.routerPath('igrowContact'), ...guards, async (req, res) => {
++        const data = req.body;
++        if (!data || typeof data.peer !== 'string' || !/^[0-9]{8,20}@(s[.]whatsapp[.]net|lid)$/.test(data.peer) ||
++          Object.keys(data).some(key => !['peer', 'fullName', 'firstName', 'expectedFullName'].includes(key)) ||
++          (data.fullName !== undefined && (typeof data.fullName !== 'string' || !data.fullName.trim() || data.fullName.length > 200 ||
++            typeof data.firstName !== 'string' || !data.firstName.trim() || data.firstName.length > 100 ||
++            typeof data.expectedFullName !== 'string' || data.expectedFullName.length > 200)))
++          return res.status(400).json({ error: 'Invalid contact' });
++        const response = await this.dataValidate<LabelDto>({ request: req, schema: null, ClassRef: LabelDto,
++          execute: (instance) => labelController.igrowContact(instance, data) });
++        return res.status(HttpStatus.OK).json(response);
++      })
 +      .post(this.routerPath('igrowContactBlock'), ...guards, async (req, res) => {
 +        const data = req.body;
 +        if (!data || typeof data.peer !== 'string' || !/^[0-9]{8,20}@(s[.]whatsapp[.]net|lid)$/.test(data.peer) ||

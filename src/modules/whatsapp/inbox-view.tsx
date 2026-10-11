@@ -15,6 +15,7 @@ import { conversationExport } from "./conversation-export";
 import { ContactBlockAction } from "./contact-block-action";
 import { commonGroupMembersText, type CommonGroup } from "./common-groups";
 import { ConversationThemeAction, useConversationTheme } from "./conversation-theme";
+import { ContactEditAction } from "./contact-edit-action";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
@@ -1075,6 +1076,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           }], incomplete: false } } : details}
           loading={detailsLoading && !demo} demo={demo} canChange={canReply} messages={messages ?? []}
           onFavorite={() => toggleFavorite(open)}
+          onContactSaved={name => setList(previous => previous ? { ...previous, conversations: previous.conversations.map(chat => chat.id === open.id ? { ...chat, title: name } : chat) } : previous)}
           conversations={conversations} onOpenGroup={group => { setChannelKey(group.channelKey); setShowArchived(group.archived); setFilter("all"); setQuery(""); setCustomFilterId(null); choose(group.id);
             requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }}
           lists={customLists.lists} listsBusy={customLists.busy}
@@ -1905,11 +1907,12 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, canChange, conversations, onOpenGroup, lists, listsBusy, messages, onFavorite, onToggleList, onClose }: {
+function ContactDetails({ item, data, loading, demo, canChange, conversations, onOpenGroup, lists, listsBusy, messages, onFavorite, onContactSaved, onToggleList, onClose }: {
   item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean;
   lists: CustomList[]; listsBusy: boolean; onToggleList: (list: CustomList,member: boolean) => void; onClose: () => void;
   messages: InboxMessageItem[]; canChange: boolean; onFavorite: () => Promise<void>;
   conversations: InboxConversation[]; onOpenGroup: (group: InboxConversation) => void;
+  onContactSaved: (name: string) => void;
 }) {
   const [showLists, setShowLists] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -1943,6 +1946,7 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
     <header className="wai-details-head">
       <button type="button" className="wai-icon-button" onClick={onClose} aria-label="Fechar informações"><X size={21} /></button>
       <strong>{item.isGroup ? "Informações do grupo" : "Dados do contato"}</strong>
+      {!item.isGroup && item.channelKey === "qr" && <ContactEditAction conversationId={item.id} enabled={canChange} demo={demo} onSaved={onContactSaved} />}
     </header>
     <div className="wai-details-scroll">
       <div className="wai-details-identity">

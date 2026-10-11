@@ -24,6 +24,18 @@ describe("EvolutionClient", () => {
   const config = { url: "https://evo.example.test", key: "segredo" };
   const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
+  it("loads saved contact names and verifies both edited name fields, preserving conflict codes", async () => {
+    const fetcher = vi.fn(async () => reply(200, { fullName: "Novo ❤️", firstName: "Novo", canEdit: true }));
+    const client = new EvolutionClient(config, fetcher as unknown as typeof fetch);
+    const edit = { fullName: "Novo ❤️", firstName: "Novo", expectedFullName: "Antigo" };
+    expect(await client.contact("igrow-a", "123456789@lid", edit)).toMatchObject({ fullName: "Novo ❤️" });
+    const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("/label/igrowContact/igrow-a"); expect(JSON.parse(init.body as string)).toEqual({ peer: "123456789@lid", ...edit });
+    await expect(client.contact("igrow-a", "123456789@lid", { ...edit, firstName: "Outro" })).rejects.toThrow("não confirmou");
+    const conflict = new EvolutionClient(config, (async () => reply(400, { response: { message: ["IGROW_CONTACT_CHANGED"] } })) as typeof fetch);
+    await expect(conflict.contact("igrow-a", "123456789@lid", edit)).rejects.toMatchObject({ code: "IGROW_CONTACT_CHANGED" });
+  });
+
   it("queries block status without mutating it and rejects missing or unconfirmed native state", async () => {
     const fetcher = vi.fn(async () => reply(200, { blocked: false }));
     const client = new EvolutionClient(config, fetcher as unknown as typeof fetch);
