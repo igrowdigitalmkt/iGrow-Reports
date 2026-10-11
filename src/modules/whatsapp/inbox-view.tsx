@@ -14,6 +14,7 @@ import { labelPillStyle } from "./native-labels";
 import { conversationExport } from "./conversation-export";
 import { ContactBlockAction } from "./contact-block-action";
 import { commonGroupMembersText, type CommonGroup } from "./common-groups";
+import { ConversationThemeAction, useConversationTheme } from "./conversation-theme";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
 import { optimisticReadApplies, optimisticReadSnapshot, type OptimisticRead } from "./inbox-unread";
@@ -352,6 +353,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     && (!search || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""} ${item.preview ?? ""}`.toLocaleLowerCase("pt-BR").includes(search)));
   const unreadHere = inChannel.filter(item => item.unread > 0).length;
   const open = conversations.find(item => item.id === openId) ?? null;
+  const conversationTheme = useConversationTheme(open?.id ?? "");
   const channel = allChannels.find(item => item.key === channelKey) ?? allChannels[0];
   const selfConversation = conversations.find(item =>
     item.channelKey === channelKey && !item.isGroup &&
@@ -833,7 +835,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     </section>
 
     {viewer && <PhotoViewer src={viewer.displaySrc} downloadSrc={viewer.downloadSrc} onClose={() => setViewer(null)} />}
-    <section className={`wai-chat${draft ? " has-draft" : ""}${messageSelectionActive ? " is-selecting-messages" : ""}`} aria-label="Conversa">
+    <section className={`wai-chat${draft ? " has-draft" : ""}${messageSelectionActive ? " is-selecting-messages" : ""}`} style={{ "--wai-conversation-background": conversationTheme.color } as React.CSSProperties} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
         <h3>WhatsApp na iGrow</h3>
@@ -1977,6 +1979,7 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
         })}
         <p className="wai-details-muted">Até 30 arquivos recentes. Os arquivos são buscados somente ao abrir.</p>
       </div>
+      <div className="wai-details-section wai-details-actions wai-details-theme"><ConversationThemeAction conversationId={item.id} /></div>
       {!item.isGroup && <div className="wai-details-section wai-common-groups">
         <h4>{data?.commonGroups ? `${data.commonGroups.groups.length} ${data.commonGroups.groups.length === 1 ? "grupo" : "grupos"} em comum${data.commonGroups.incomplete ? " confirmados" : ""}` : "Grupos em comum"}</h4>
         {loading && <p className="wai-details-muted">Consultando grupos…</p>}

@@ -1,4 +1,11 @@
 /* Reference 09: lower contact details, with the same space reserved by the chat. */
+.wai-shell .wai-messages { background-color:var(--wai-conversation-background,#0a0a0a); }
+.wai-theme-dialog fieldset { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; border:0; padding:0; margin:20px 0; }
+.wai-theme-dialog legend { margin-bottom:12px; color:#b5bcba; }
+.wai-theme-dialog label { display:flex; align-items:center; gap:9px; padding:10px 6px; border-radius:8px; cursor:pointer; }
+.wai-theme-dialog label:has(input:checked) { background:#343a37; }
+.wai-theme-dialog input { accent-color:#25d366; }
+.wai-theme-swatch { width:26px; height:26px; border:1px solid #68716d; border-radius:50%; flex-shrink:0; }
 .wai-shell .wai-details { width: min(575px,47%); background:#161717; box-shadow:none; }
 .wai-shell .wai-details-head { height:80px; min-height:80px; padding:0 22px; gap:22px; border-bottom:0; background:#161717; font-size:20px; }
 .wai-shell .wai-details-head strong { font-weight:500; }
