@@ -1,6 +1,10 @@
+/* Keep the iGrow platform header above the embedded WhatsApp at all times.
+   WhatsApp once occupied the entire viewport with z-index:180; it must now
+   remain inside the workspace content, including its menus and overlays. */
+.workspace:has(.wai-shell) > .topbar { z-index: 40; }
 /* The platform theme is authoritative, including conversations with a saved wallpaper. */
 .workspace .wai-shell {
-  position:relative!important;inset:auto!important;width:100%!important;height:calc((100dvh - 56px) / .8)!important;min-height:0;zoom:.8!important;
+  position:relative!important;inset:auto!important;z-index:0!important;isolation:isolate;width:100%!important;height:calc((100dvh - 56px) / .8)!important;min-height:0;zoom:.8!important;
   --wai-rail:var(--sidebar);--wai-panel:var(--surface);--wai-chat:var(--bg);--wai-line:var(--border);
   --wai-hover:var(--surface-hover);--wai-active:var(--accent-bg);--wai-text:var(--text);--wai-muted:var(--muted);
   --wai-search:var(--surface-raised);--wai-in:var(--surface-raised);--wai-out:var(--accent-bg);--wai-out-text:var(--text);
