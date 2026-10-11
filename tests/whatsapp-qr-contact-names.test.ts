@@ -27,6 +27,18 @@ it("updates only existing QR contacts in the authenticated agency and exact sess
   expect(calls[1].url.searchParams.get("agency_id")).toBe("eq.agency");
   expect(calls[1].url.searchParams.get("channel")).toBe("eq.qr");
   expect(calls[1].url.searchParams.get("is_group")).toBe("eq.false");
-  expect(calls[1].url.searchParams.get("remote_id")).toBe("eq.5586999999999");
+  expect(calls[1].url.searchParams.get("remote_id")).toBe("in.(123456789@lid,5586999999999)");
   expect(calls[1].body).toMatchObject({ title: "Atualizado ❤️" });
+});
+
+it("accepts only explicit native aliases and never writes identity bindings or deletes data", async () => {
+  const calls: Array<{ url: URL; method: string }> = [];
+  const client = createClient<Database>("https://db.example.test", "test-key", { auth: { persistSession: false }, global: { fetch: async (input, init) => {
+    calls.push({url:new URL(String(input)),method:init?.method??"GET"});
+    return new Response("[]",{headers:{"Content-Type":"application/json"}});
+  } } });
+  await syncQrContactNames(client,"agency",undefined,{event:"contacts.upsert",data:[{remoteJid:"5586999999999@s.whatsapp.net",lidJid:"123456789@lid",remoteJidAlt:"123@g.us",igrowSavedName:"Nome salvo"}]});
+  expect(calls).toHaveLength(1); expect(calls[0].method).toBe("PATCH");
+  expect(calls[0].url.pathname).toBe("/rest/v1/whatsapp_conversations");
+  expect(calls[0].url.searchParams.get("remote_id")).toBe("in.(5586999999999,123456789@lid)");
 });

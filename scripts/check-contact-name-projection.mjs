@@ -2,29 +2,25 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
+import { execFileSync } from "node:child_process";
+import { homedir } from "node:os";
+import { join } from "node:path";
 const env = parseEnv(readFileSync(".env.production.local", "utf8"));
 const agency = "4c49714e-3aec-409a-8c5a-d2dae02f2e3b";
-const instance = `igrow-${agency}`;
-const base = env.EVOLUTION_API_URL?.replace(/\/+$/, "");
-const key = env.EVOLUTION_API_KEY;
 const db = env.NEXT_PUBLIC_SUPABASE_URL;
 const secret = env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY;
-assert.ok(base && key && db && secret, "Verification environment unavailable");
-async function native(path, body) {
-  const response = await fetch(base + path, { headers: { apikey:key, "Content-Type":"application/json" },
-    ...(body ? {method:"POST",body:JSON.stringify(body)} : {}), signal:AbortSignal.timeout(55_000) });
-  assert.ok(response.ok,"Native read failed"); return response.json();
-}
-const account = (await native(`/instance/fetchInstances?instanceName=${instance}`)).find(item=>item.name===instance);
-const owner = account.ownerJid.replace(/:\d+(?=@)/,"");
-const groups = await native(`/group/fetchAllGroups/${instance}?getParticipants=true`);
-const person = groups.flatMap(group=>group.participants??[]).find(person=>person.phoneNumber && person.phoneNumber!==owner);
-assert.ok(person,"Native group contact unavailable");
-const contact = await native(`/label/igrowContact/${instance}`, {peer:person.phoneNumber});
+assert.ok(db && secret, "Verification environment unavailable");
+// SSH output is captured inside this process, never written to the terminal or fixtures.
+const bootstrap = readFileSync("scripts/check-contact-edit-provider.py", "utf8").replace(/\r\n/g,"\n").split("try:\n    phone = api(")[0];
+const input = bootstrap + '\ncontact = api("/label/igrowContact/" + instance, {"peer": person["phoneNumber"]})\nprint(json.dumps({"remoteId": person["phoneNumber"].split("@")[0], "fullName": contact["fullName"]}))\n';
+let contact;
+try {
+  contact = JSON.parse(execFileSync("ssh", ["-i",join(homedir(),".ssh","igrow_vps"),"-o","BatchMode=yes","root@179.236.250.51","python3 -"], {input,encoding:"utf8",timeout:75_000,stdio:["pipe","pipe","pipe"]}));
+} catch { throw new Error("Native contact read unavailable"); }
 const query = new URL(`${db}/rest/v1/whatsapp_conversations`);
 query.searchParams.set("select","title"); query.searchParams.set("agency_id",`eq.${agency}`);
 query.searchParams.set("channel","eq.qr"); query.searchParams.set("is_group","eq.false");
-query.searchParams.set("remote_id",`eq.${person.phoneNumber.replace("@s.whatsapp.net","")}`);
+query.searchParams.set("remote_id",`eq.${contact.remoteId}`);
 let confirmed = false;
 for (let attempt = 0; attempt < 10; attempt++) {
   const response = await fetch(query,{headers:{apikey:secret,Authorization:`Bearer ${secret}`},signal:AbortSignal.timeout(15_000)});

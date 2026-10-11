@@ -39,6 +39,16 @@ export async function POST(request: Request) {
   if (!scoped && !legacy) return Response.json({ error: "Acesso negado." }, { status: 401 });
   if (guard?.blocked) return Response.json({ ok: true, ignored: "reset_in_progress" });
 
+  const event = (body as { event?: unknown } | null)?.event;
+  // Contact-name changes only update existing metadata: never merge/delete inbox rows.
+  if (event === "contacts.upsert" || event === "CONTACTS_UPSERT") {
+    if (guard && !scoped) return Response.json({ ok: true, ignored: "old_session_contacts" });
+    try {
+      const updated = await syncQrContactNames(service, agencyId, guard?.fresh_after, body);
+      return Response.json({ ok: true, contacts: updated });
+    } catch { return Response.json({ error: "Atualização dos contatos pendente." }, { status: 503 }); }
+  }
+
   // Merge only identities explicitly paired by WhatsApp; never by names or avatars.
   try {
     await bindQrPeerLinks(service, agencyId, qrPeerLinks(body));
@@ -57,14 +67,6 @@ export async function POST(request: Request) {
     }
   }
 
-  const event = (body as { event?: unknown } | null)?.event;
-  if (event === "contacts.upsert" || event === "CONTACTS_UPSERT") {
-    if (guard && !scoped) return Response.json({ ok: true, ignored: "old_session_contacts" });
-    try {
-      const updated = await syncQrContactNames(service, agencyId, guard?.fresh_after, body);
-      return Response.json({ ok: true, contacts: updated });
-    } catch { return Response.json({ error: "Atualização dos contatos pendente." }, { status: 503 }); }
-  }
   // Import the recent private + group bootstrap from this exact pairing. Old
   // instances have legacy signatures and cannot replay their history here.
   if (event === "messages.set" || event === "MESSAGES_SET") {
