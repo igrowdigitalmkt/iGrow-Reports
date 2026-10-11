@@ -8,11 +8,11 @@ import { GET, PATCH, POST, DELETE } from "@/app/api/whatsapp/inbox/native-labels
 const agency = "11111111-1111-4111-8111-111111111111";
 const user = "22222222-2222-4222-8222-222222222222";
 const chat = "44444444-4444-4444-8444-444444444444";
-let validChat: boolean, blocked: boolean, unavailable: boolean, invalidState: boolean, role: string;
+let validChat: boolean, blocked: boolean, unavailable: boolean, invalidState: boolean, membershipRejected:boolean, role: string;
 let writes: Array<{ path: string; body: Record<string, unknown> }>;
 const reply = (body: unknown, status=200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 beforeEach(() => {
-  validChat=true; blocked=false; unavailable=false; invalidState=false; role="owner"; writes=[];
+  validChat=true; blocked=false; unavailable=false; invalidState=false; membershipRejected=false; role="owner"; writes=[];
   vi.stubEnv("EVOLUTION_API_URL", "https://evo.example.test");
   vi.stubEnv("EVOLUTION_API_KEY", "test-key");
   const supabase = createClient("https://db.example.test", "test-key", { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: async(input) => {
@@ -37,7 +37,8 @@ beforeEach(() => {
       ? reply({response:{message:["IGROW_LABEL_STATE_UNAVAILABLE"]}},400)
       : reply({labels:[{id:"1",name:"\u200eNão lidas",color:"0"},{id:"3",name:"Pagamento pendente",color:"3"}],chats:[{remoteJid:"123456789012@lid",labels:["3"]}]});
     writes.push({path,body:JSON.parse(String(init?.body))});
-    return reply(unavailable?{error:"provider rejected"}:{id:"4"},unavailable?500:200);
+    const rejected=unavailable || (membershipRejected && path.startsWith("/label/handleLabel/"));
+    return reply(rejected?{error:"provider rejected"}:{id:"4"},rejected?500:200);
   }));
 });
 afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
@@ -53,9 +54,10 @@ it("reads the native ID, name, color and proven LID membership",async()=>{
 });
 it("adds and removes the native label on the real peer",async()=>{
   expect((await PATCH(request({id:"wa:3",conversationId:chat,member:true}))).status).toBe(200);
-  expect(writes[0].body).toEqual({number:"5586999999999@s.whatsapp.net",labelId:"3",action:"add"});
+  expect(writes[0].body).toEqual({number:"123456789012@lid",labelId:"3",action:"add"});
   expect((await PATCH(request({id:"wa:3",conversationId:chat,member:false}))).status).toBe(200);
   expect(writes[1].body.action).toBe("remove");
+  expect(writes[2].body).toEqual({number:"5586999999999@s.whatsapp.net",labelId:"3",action:"remove"});
 });
 it("refuses peers from a different agency or number before writing",async()=>{
   validChat=false;
@@ -70,6 +72,13 @@ it("creates a native label using the protocol color and returned ID",async()=>{
   expect(writes[1].body.labelId).toBe("4");
   expect((await POST(request({name:"Cinza",color:"#8d9599"},"POST"))).status).toBe(200);
   expect(writes[2].body.color).toBe(21);
+});
+it("reports an already-created label when membership fails, preventing duplicate create retries",async()=>{
+  membershipRejected=true;
+  const response=await POST(request({name:"Teste",color:"#c0835d",conversationIds:[chat]},"POST"));
+  expect(response.status).toBe(207);
+  expect(await response.json()).toMatchObject({id:"wa:4",warning:expect.stringContaining("Etiqueta criada")});
+  expect(writes.filter(write=>write.path.startsWith("/label/igrowEdit/"))).toHaveLength(1);
 });
 it("renames and deletes the existing native label",async()=>{
   expect((await PATCH(request({id:"wa:3",name:"Atenção"}))).status).toBe(200);

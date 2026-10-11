@@ -59,7 +59,23 @@ async function ownChats(scope: Access, ids: string[]) {
   const { data, error } = await scope.context.supabase.from("whatsapp_conversations").select("id,remote_id")
     .eq("agency_id", scope.context.agency.id).eq("channel_key", "qr").in("id", ids);
   if (error || data?.length !== ids.length) throw Error("Conversa inválida para esse número.");
-  return data.map(chat => ({ id: chat.id, jid: chat.remote_id.includes("@") ? chat.remote_id : chat.remote_id + "@s.whatsapp.net" }));
+  const phones = data.map(chat=>chat.remote_id).filter(peer=>/^\d+$/.test(peer));
+  const {data:links,error:linkError} = scope.epoch && phones.length
+    ? await scope.service.from("whatsapp_qr_peer_links").select("lid,phone").eq("agency_id",scope.context.agency.id)
+      .eq("session_epoch",scope.epoch).in("phone",phones)
+    : {data:[],error:null};
+  if(linkError)throw Error("Não foi possível confirmar a identidade do contato.");
+  const byPhone = new Map((links ?? []).map(link=>[link.phone,link.lid]));
+  return data.map(chat => {
+    const phoneJid=chat.remote_id.includes("@")?chat.remote_id:chat.remote_id+"@s.whatsapp.net";
+    const jid=byPhone.get(chat.remote_id) ?? phoneJid;
+    return {id:chat.id,jid,aliases:[...new Set([jid,phoneJid])]};
+  });
+}
+async function setMember(scope:Access,peer:Awaited<ReturnType<typeof ownChats>>[number],labelId:string,member:boolean) {
+  // WhatsApp stores modern chat labels on LIDs. Removing a membership also
+  // clears the proven phone alias left by older versions of this integration.
+  for(const jid of member?[peer.jid]:peer.aliases)await scope.client.setChatLabel(scope.instance,jid,labelId,member);
 }
 const failure = (error: unknown) => error instanceof EvolutionError && error.code === "IGROW_LABEL_STATE_UNAVAILABLE"
   ? Response.json({ error: "O WhatsApp não conseguiu compartilhar suas etiquetas nesta conexão. Reconecte o número por QR Code para tentar sincronizar novamente." }, { status: 409, headers })
@@ -79,7 +95,8 @@ export async function POST(request: Request) {
     const scope = await access(context, true); if (scope.response) return scope.response;
     const chats = await ownChats(scope, parsed.data.conversationIds ?? []);
     const label = await scope.client.editLabel(scope.instance, { name: parsed.data.name, color: labelColorIndex(parsed.data.color) });
-    for (const chat of chats) await scope.client.setChatLabel(scope.instance, chat.jid, label.id, true);
+    try { for (const chat of chats) await setMember(scope,chat,label.id,true); }
+    catch { return Response.json({id:"wa:"+label.id,warning:"Etiqueta criada no WhatsApp, mas alguns contatos não foram incluídos. Confira os integrantes antes de tentar novamente."},{status:207,headers}); }
     return Response.json({ id: "wa:" + label.id }, { headers });
   } catch (error) { return failure(error); }
 }
@@ -101,12 +118,12 @@ export async function PATCH(request: Request) {
     const remove = requested?.length !== undefined ? current.conversationIds.filter(chat => !requested.includes(chat)) : [];
     const add = requested?.filter(chat => !current.conversationIds.includes(chat)) ?? [];
     const single = body.conversationId && body.member !== undefined ? [body.conversationId] : [];
-    const peers = new Map((await ownChats(scope, [...new Set([...remove, ...add, ...single])])).map(chat => [chat.id, chat.jid]));
+    const peers = new Map((await ownChats(scope, [...new Set([...remove, ...add, ...single])])).map(chat => [chat.id, chat]));
     if (body.name !== undefined || body.color !== undefined)
       await scope.client.editLabel(scope.instance, { id: labelId, name: body.name ?? current.name, color: labelColorIndex(body.color ?? current.color) });
-    for (const chat of remove) await scope.client.setChatLabel(scope.instance, peers.get(chat)!, labelId, false);
-    for (const chat of add) await scope.client.setChatLabel(scope.instance, peers.get(chat)!, labelId, true);
-    if (single.length) await scope.client.setChatLabel(scope.instance, peers.get(single[0])!, labelId, body.member!);
+    for (const chat of remove) await setMember(scope,peers.get(chat)!,labelId,false);
+    for (const chat of add) await setMember(scope,peers.get(chat)!,labelId,true);
+    if (single.length) await setMember(scope,peers.get(single[0])!,labelId,body.member!);
     return Response.json({ ok: true }, { headers });
   } catch (error) { return failure(error); }
 }

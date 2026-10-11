@@ -697,6 +697,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           className={`wai-rail-item${active ? " is-active" : ""}`}
           aria-label={`Conta de WhatsApp: ${item.name}${item.phone ? ` · ${item.phone}` : ""}`}
           aria-pressed={active}
+          disabled={customLists.busy}
           title={`${item.name}${item.phone ? ` · ${item.phone}` : ""}${item.kind === "official" ? item.coexistence ? " · API com coexistência" : " · API oficial" : " · QR Code"}`}
           onClick={() => {
             if (active) return;

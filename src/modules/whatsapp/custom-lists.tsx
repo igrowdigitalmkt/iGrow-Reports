@@ -33,13 +33,17 @@ export function useCustomLists(channelKey: string, demo: boolean) {
   const lists = demo ? channelKey === "qr" ? DEMO_LISTS : [] : listState.channelKey === channelKey ? listState.items : [];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const writing = useRef(false);
+  const refreshVersion = useRef(0);
 
   const refresh = useCallback(async () => {
     if (demo) return;
+    const version = ++refreshVersion.current;
     const response = await fetch(API + "?channelKey=" + encodeURIComponent(channelKey), { cache: "no-store" });
     const body = await response.json().catch(() => null) as { lists?: CustomList[]; error?: string } | null;
+    if (version !== refreshVersion.current) return;
     if (!response.ok) throw new Error(body?.error ?? "Não foi possível carregar as listas.");
-    setListState({ channelKey, items: body?.lists ?? [] });
+    if (version === refreshVersion.current) { setListState({ channelKey, items: body?.lists ?? [] }); setError(""); }
   }, [API, channelKey, demo]);
 
   useEffect(() => {
@@ -52,33 +56,39 @@ export function useCustomLists(channelKey: string, demo: boolean) {
     let active = true;
     if (demo) return;
     const controller = new AbortController();
+    const version = ++refreshVersion.current;
     fetch(API + "?channelKey=" + encodeURIComponent(channelKey), { cache: "no-store", signal: controller.signal })
       .then(async response => {
         const body = await response.json().catch(() => null) as { lists?: CustomList[]; error?: string } | null;
         if (!response.ok) throw new Error(body?.error ?? "Listas indisponíveis.");
-        if (active) { setListState({ channelKey, items: body?.lists ?? [] }); setError(""); }
-      }).catch(failure => { if (active && !controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Não foi possível carregar as listas."); });
+        if (active && version === refreshVersion.current) { setListState({ channelKey, items: body?.lists ?? [] }); setError(""); }
+      }).catch(failure => { if (active && version === refreshVersion.current && !controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Não foi possível carregar as listas."); });
     return () => { active = false; controller.abort(); };
   }, [API, channelKey, demo]);
 
   async function request(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>, id?: string) {
-    if (demo || busy) return false;
+    if (demo || writing.current) return false;
+    writing.current = true;
+    refreshVersion.current++;
     setBusy(true); setError("");
     try {
       const response = await fetch(id ? API + "?id=" + encodeURIComponent(id) : API, {
         method, headers: method === "DELETE" ? undefined : { "Content-Type": "application/json" },
         body: method === "DELETE" ? undefined : JSON.stringify(body),
       });
-      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      const payload = await response.json().catch(() => null) as { error?: string; warning?:string } | null;
       if (!response.ok) throw new Error(payload?.error ?? "Falha ao atualizar a lista.");
-      await refresh();
+      // A successful native write must not become a failed create just because
+      // its follow-up read failed: retrying could create a duplicate label.
+      await refresh().catch(() => setError("Alteração salva no WhatsApp. Não foi possível atualizar a exibição; aguarde a sincronização."));
+      if(payload?.warning)setError(payload.warning);
       return true;
     } catch (failure) {
       // Some remote changes can have succeeded before a later peer fails. Re-read the device state.
       if (channelKey === "qr") await refresh().catch(() => undefined);
       setError(failure instanceof Error ? failure.message : "Não foi possível atualizar a lista.");
       return false;
-    } finally { setBusy(false); }
+    } finally { writing.current = false; setBusy(false); }
   }
 
   return {
