@@ -22,6 +22,20 @@ export function evolutionConfig() {
 // Thin client for the agency's own Evolution API server (WhatsApp Web sessions by QR Code).
 export class EvolutionClient {
   constructor(private readonly config: { url: string; key: string }, private readonly fetcher: typeof fetch = fetch) {}
+  async mute(name:string,peer:string,change?:{duration:"8h"|"7d"|"off";expectedMuted:boolean;expectedUntil:number|null}) {
+    const result=await this.request<{muted:boolean;until:number|null}>(`/label/igrowMute/${encodeURIComponent(name)}`,{method:"POST",timeoutMs:45000,body:{peer,...change}});
+    if(typeof result?.muted!=="boolean" || !(result.until===null || Number.isSafeInteger(result.until)))throw new EvolutionError("O WhatsApp não confirmou o silenciamento.");
+    if(change && result.muted!==(change.duration!=="off"))throw new EvolutionError("O WhatsApp não confirmou o silenciamento.");
+    return result;
+  }
+
+  async sendExtended(name: string, number: string, content: import("@/modules/whatsapp/extended-send").ExtendedSend) {
+    const result=await this.request<{key?:{id?:string}}>(`/message/${content.type === "poll" ? "sendPoll" : content.type === "sticker" ? "sendSticker" : "sendContact"}/${encodeURIComponent(name)}`,{method:"POST",timeoutMs:60000,body:content.type === "sticker" ? {number,sticker:content.base64,notConvertSticker:true} : content.type === "poll"
+      ? {number,name:content.name,values:content.options,selectableCount:content.multiple ? content.options.length : 1}
+      : {number,contact:[{fullName:content.name,wuid:content.phone,phoneNumber:"+"+content.phone}]}});
+    if(!result?.key?.id)throw new EvolutionError("O WhatsApp não confirmou o envio.");
+    return result.key.id;
+  }
 
   private async request<T>(path: string, init: { method?: string; body?: unknown; timeoutMs?: number } = {}): Promise<T> {
     const response = await this.fetcher(`${this.config.url}${path}`, {

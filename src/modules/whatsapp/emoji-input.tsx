@@ -57,7 +57,7 @@ function paint(element: HTMLElement, text: string) {
 
 /** Editable original emoji artwork; clipboard, history and outgoing messages stay plain Unicode. */
 export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoFocus, disabled = false, multiline = true, ref }: {
-  value: string; onChange: (value: string) => void; onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+  value: string; onChange: (value: string) => void; onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
   maxLength: number; label: string; autoFocus?: boolean; disabled?: boolean; multiline?: boolean; ref?: Ref<EmojiInputHandle>;
 }) {
   const element = useRef<HTMLDivElement>(null);
@@ -124,7 +124,7 @@ export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoF
     onKeyDown={event => {
       if (disabled) return;
       if (composing.current || event.nativeEvent.isComposing) return;
-      if (!multiline && event.key === "Enter") { event.preventDefault(); onKeyDown(event); return; }
+      if (!multiline && event.key === "Enter") { event.preventDefault(); onKeyDown?.(event); return; }
       if ((event.ctrlKey || event.metaKey) && ["z", "y"].includes(event.key.toLowerCase())) { event.preventDefault(); undo(event.shiftKey || event.key.toLowerCase() === "y"); return; }
       if ((event.key === "Backspace" || event.key === "Delete") && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault(); remember();
@@ -137,6 +137,6 @@ export function EmojiInput({ value, onChange, onKeyDown, maxLength, label, autoF
         commit(current.slice(0, selected.start) + current.slice(selected.end), { start: selected.start, end: selected.start }); return;
       }
       if (event.key === "Enter" && event.shiftKey) { event.preventDefault(); insert("\n"); return; }
-      onKeyDown(event);
+      onKeyDown?.(event);
     }} />;
 }

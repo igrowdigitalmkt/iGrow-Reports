@@ -1,0 +1,15 @@
+import {beforeEach,expect,it,vi} from "vitest";
+import {createClient} from "@supabase/supabase-js";
+const mocks=vi.hoisted(()=>({context:vi.fn(),modules:vi.fn(),mute:vi.fn()}));
+vi.mock("server-only",()=>({}));vi.mock("@/modules/agencies/context",()=>({requireAgencyContext:mocks.context}));vi.mock("@/modules/team/admin",()=>({loadOwnModules:mocks.modules}));vi.mock("@/modules/whatsapp-qr/server",()=>({qrMute:mocks.mute}));
+import {GET,PATCH} from "@/app/api/whatsapp/inbox/[conversationId]/mute/route";
+const id="00000000-0000-4000-8000-000000000001",agency="00000000-0000-4000-8000-000000000002";
+let found=true,channel="qr";const queries:URL[]=[];const methods:string[]=[];
+const read=()=>GET(new Request("https://app.test"),{params:Promise.resolve({conversationId:id})});
+const write=(body:unknown)=>PATCH(new Request("https://app.test",{method:"PATCH",body:JSON.stringify(body)}),{params:Promise.resolve({conversationId:id})});
+beforeEach(()=>{vi.clearAllMocks();found=true;channel="qr";queries.length=0;methods.length=0;
+const client=createClient("https://db.test","key",{global:{fetch:async(request,init)=>{queries.push(new URL(String(request)));methods.push(init?.method ?? "GET");return new Response(JSON.stringify(found?{id,channel,remote_id:"5586999999999"}:null),{headers:{"Content-Type":"application/json"}});}}});
+mocks.context.mockResolvedValue({supabase:client,agency:{id:agency},user:{id:agency},role:"editor"});mocks.modules.mockResolvedValue(["whatsapp"]);mocks.mute.mockResolvedValue({muted:false,until:null});});
+it("reads scoped native metadata without any database mutation",async()=>{expect((await read()).status).toBe(200);expect(queries[0].searchParams.get("agency_id")).toBe("eq."+agency);expect(methods).toEqual(["GET"]);expect(mocks.mute).toHaveBeenCalledWith(agency,"5586999999999",undefined);});
+it("checks role, module, channel and RLS ownership before native writes",async()=>{const data={duration:"off",expectedMuted:true,expectedUntil:null};(await mocks.context()).role="viewer";expect((await write(data)).status).toBe(403);(await mocks.context()).role="editor";mocks.modules.mockResolvedValue([]);expect((await write(data)).status).toBe(403);mocks.modules.mockResolvedValue(["whatsapp"]);found=false;expect((await write(data)).status).toBe(404);found=true;channel="official";expect((await write(data)).status).toBe(409);expect(mocks.mute).not.toHaveBeenCalled();});
+it("rejects destructive or stale-shape payloads and never fabricates confirmation",async()=>{for(const body of [{duration:"off"},{duration:"off",expectedMuted:false,expectedUntil:null,delete:true},{duration:"clear",expectedMuted:false,expectedUntil:null}])expect((await write(body)).status).toBe(400);expect(mocks.mute).not.toHaveBeenCalled();mocks.mute.mockRejectedValue(Error("timeout"));expect((await read()).status).toBe(502);});

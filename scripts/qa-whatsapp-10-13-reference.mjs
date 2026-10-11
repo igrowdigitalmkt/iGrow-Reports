@@ -41,9 +41,9 @@ try {
     assert.equal(await emoji.count(),0);
     await page.getByTitle("Anexar",{exact:true}).click();
     const attach=page.getByRole("menu",{name:"Anexos",exact:true});
-    assert.deepEqual(await attach.getByRole("menuitem").allTextContents(),["Documento","Fotos e vídeos","Áudio"]);
+    assert.deepEqual(await attach.getByRole("menuitem").allTextContents(),["Documento","Fotos e vídeos","Câmera","Áudio","Contato","Enquete","Nova figurinha"]);
     await page.keyboard.press("End");
-    assert.equal(await attach.getByRole("menuitem",{name:"Áudio",exact:true}).evaluate(el=>el===document.activeElement),true);
+    assert.equal(await attach.getByRole("menuitem",{name:"Nova figurinha",exact:true}).evaluate(el=>el===document.activeElement),true);
     if(width===1920 || width===390)await page.screenshot({path:`artifacts/whatsapp-12-after-${width}.png`});
     const chooser=page.waitForEvent("filechooser"); await attach.getByRole("menuitem",{name:"Documento",exact:true}).click();
     await (await chooser).setFiles({name:"Teste.txt",mimeType:"text/plain",buffer:Buffer.from("Arquivo fictício")});

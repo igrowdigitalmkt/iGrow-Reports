@@ -15,6 +15,8 @@ RUN git apply --check /tmp/igrow-labels.patch && git apply /tmp/igrow-labels.pat
 
 COPY preserve-contact-action.mjs /tmp/preserve-contact-action.mjs
 RUN node /tmp/preserve-contact-action.mjs
+COPY native-chat-settings.mjs /tmp/native-chat-settings.mjs
+RUN node /tmp/native-chat-settings.mjs
 RUN cp .env.example .env
 RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
 RUN ./Docker/scripts/generate_database.sh

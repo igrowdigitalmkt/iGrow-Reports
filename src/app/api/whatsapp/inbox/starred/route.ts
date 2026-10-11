@@ -11,13 +11,14 @@ export async function GET(request: Request) {
   const conversationId = new URL(request.url).searchParams.get("conversationId");
   if (conversationId && !z.uuid().safeParse(conversationId).success)
     return Response.json({ error: "Conversa inválida." }, { status: 400, headers });
-  const query = context.supabase.from("whatsapp_message_stars").select("message_id,created_at")
-    .eq("agency_id", agency).eq("user_id", user).order("created_at", { ascending: false }).limit(200);
+  const query = context.supabase.from("whatsapp_message_stars").select("message_id,created_at,whatsapp_messages!inner(conversation_id,revoked_at)")
+    .eq("agency_id", agency).eq("user_id", user).is("whatsapp_messages.revoked_at", null).order("created_at", { ascending: false }).limit(200);
+  if (conversationId) query.eq("whatsapp_messages.conversation_id", conversationId);
   const { data: stars, error } = await query;
   if (error) return Response.json({ error: "Favoritos indisponíveis." }, { status: 503, headers });
   if (!stars?.length) return Response.json({ items: [] }, { headers });
   const { data: messages, error: messagesError } = await context.supabase.from("whatsapp_messages")
-    .select("id,conversation_id,body,kind,sent_at").eq("agency_id", agency).in("id", stars.map(star => star.message_id));
+    .select("id,conversation_id,body,kind,sent_at").eq("agency_id", agency).is("revoked_at", null).in("id", stars.map(star => star.message_id));
   if (messagesError) return Response.json({ error: "Mensagens indisponíveis." }, { status: 503, headers });
   // A message hidden by the current user must also disappear from their
   // favorite-message view. Other users' stars and message histories remain intact.

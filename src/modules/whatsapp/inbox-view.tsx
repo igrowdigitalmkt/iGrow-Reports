@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
-import { CalendarSearch, Heart, CircleX } from "lucide-react";
+import { CalendarSearch, Heart, CircleX, Camera, ChartNoAxesGantt } from "lucide-react";
 import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, CircleDashed, Settings, Store, MessagesSquare, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
@@ -36,6 +36,11 @@ import "./inbox-screenshot-corrections.css";
 import "./voice-note.css";
 import "./contact-details.css";
 import "./composer-reference.css";
+import "./extra-dialog.css";
+import { ExtraSendDialog } from "./extra-send-dialog";
+import { CameraDialog } from "./camera-dialog";
+import { ContactStarsAction } from "./contact-stars-action";
+import { NativeMuteAction } from "./native-mute-action";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -1078,6 +1083,11 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           loading={detailsLoading && !demo} demo={demo} canChange={canReply} messages={messages ?? []}
           onFavorite={() => toggleFavorite(open)}
           onSearch={() => { setDetailsOpen(false); setChatSearchOpen(true); }}
+          onPickFavorite={id=>{setDetailsOpen(false);requestAnimationFrame(()=>{
+            const message=document.getElementById(`wai-msg-${id}`);
+            if(message)message.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth",block:"center"});
+            else setActionError("Esta mensagem não está carregada na conversa. Abra o histórico disponível para encontrá-la.");
+          });}}
           onContactSaved={name => setList(previous => previous ? { ...previous, conversations: previous.conversations.map(chat => chat.id === open.id ? { ...chat, title: name } : chat) } : previous)}
           conversations={conversations} onOpenGroup={group => { setChannelKey(group.channelKey); setShowArchived(group.archived); setFilter("all"); setQuery(""); setCustomFilterId(null); choose(group.id);
             requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }}
@@ -1703,6 +1713,7 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
   const [pendingDocument, setPendingDocument] = useState(false);
   const [error, setError] = useState("");
   const [menu, setMenu] = useState<"attach" | "emoji" | null>(null);
+  const [extra,setExtra]=useState<"contact"|"poll"|"camera"|"sticker"|null>(null);
   const [sending, setSending] = useState(false);
   const field = useRef<EmojiInputHandle>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -1790,6 +1801,11 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
     picker.current.accept = accept;
     picker.current.click();
   }
+  function openExtra(type:"contact"|"poll"|"camera"|"sticker") {
+    setMenu(null);
+    if(replyTarget){setError("Cancele a resposta citada antes de usar este anexo.");return;}
+    setError("");setExtra(type);
+  }
   function onFile(selected: File | undefined) {
     if (!selected) return;
     if (!replyMediaKind(selected.type, kind, pendingDocument)) { setError("Esse tipo de arquivo não é aceito pelo WhatsApp."); return; }
@@ -1868,11 +1884,16 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
         }}>
           <button type="button" role="menuitem" onClick={() => chooseFile(ACCEPTED_REPLY_FILES, true)}><FileText size={18} className="is-doc" />Documento</button>
           <button type="button" role="menuitem" onClick={() => chooseFile("image/jpeg,image/png,image/webp,video/mp4,video/3gpp", false)}><ImageIcon size={18} className="is-photo" />Fotos e vídeos</button>
+          <button type="button" role="menuitem" onClick={()=>openExtra("camera")}><Camera size={18} className="is-camera"/>Câmera</button>
           <button type="button" role="menuitem" onClick={() => chooseFile("audio/mpeg,audio/ogg,audio/mp4,audio/aac", false)}><Headphones size={18} className="is-audio" />Áudio</button>
+          {kind==="qr" && <><button type="button" role="menuitem" onClick={()=>openExtra("contact")}><Contact size={18} className="is-contact"/>Contato</button><button type="button" role="menuitem" onClick={()=>openExtra("poll")}><ChartNoAxesGantt size={18} className="is-poll"/>Enquete</button></>}
+          {kind==="qr" && <button type="button" role="menuitem" onClick={()=>openExtra("sticker")}><Sticker size={18} className="is-sticker"/>Nova figurinha</button>}
         </div>}
         <button type="button" ref={emojiTrigger} className={`wai-icon-button${menu === "emoji" ? " is-on" : ""}`} onClick={() => setMenu(menu === "emoji" ? null : "emoji")} aria-expanded={menu === "emoji"} title="Emojis"><EmojiStickerIcon /></button>
-        {menu === "emoji" && <EmojiPicker onPick={insertEmoji} />}
+        {menu === "emoji" && <EmojiPicker onPick={insertEmoji} onSticker={kind==="qr" ? ()=>openExtra("sticker") : undefined} />}
       </div>
+    {extra==="camera" && <CameraDialog onClose={()=>{setExtra(null);field.current?.focus();}} onCapture={file=>{setPendingDocument(false);setAsDocument(false);setFile(file);}}/>}
+    {(extra==="contact" || extra==="poll" || extra==="sticker") && <ExtraSendDialog type={extra} conversationId={conversation.id} demo={demo} onClose={()=>{setExtra(null);field.current?.focus();}} onSent={onSent}/>}
       <EmojiInput ref={field} value={text} maxLength={MAX_REPLY_TEXT} label="Mensagem"
         onChange={setText}
         onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
@@ -1930,13 +1951,14 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, canChange, conversations, onOpenGroup, lists, listsBusy, messages, onFavorite, onSearch, onContactSaved, onToggleList, onClose }: {
+function ContactDetails({ item, data, loading, demo, canChange, conversations, onOpenGroup, lists, listsBusy, messages, onFavorite, onSearch, onPickFavorite, onContactSaved, onToggleList, onClose }: {
   item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean;
   lists: CustomList[]; listsBusy: boolean; onToggleList: (list: CustomList,member: boolean) => void; onClose: () => void;
   messages: InboxMessageItem[]; canChange: boolean; onFavorite: () => Promise<void>;
   conversations: InboxConversation[]; onOpenGroup: (group: InboxConversation) => void;
   onContactSaved: (name: string) => void;
   onSearch: () => void;
+  onPickFavorite: (id:string)=>void;
 }) {
   const [showLists, setShowLists] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -2015,7 +2037,7 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
         })}</div>
         <p className="wai-details-muted">Até 30 arquivos recentes. Os arquivos são buscados somente ao abrir.</p>
       </div>
-      <div className="wai-details-section wai-details-actions wai-details-theme"><ConversationThemeAction conversationId={item.id} /></div>
+      <div className="wai-details-section wai-details-actions wai-details-theme"><ContactStarsAction conversationId={item.id} demo={demo} onPick={onPickFavorite}/>{item.channelKey==="qr" && <NativeMuteAction conversationId={item.id} enabled={canChange} demo={demo}/>}<ConversationThemeAction conversationId={item.id} /></div>
       {!item.isGroup && <div className="wai-details-section wai-common-groups">
         <h4>{data?.commonGroups ? `${data.commonGroups.groups.length} ${data.commonGroups.groups.length === 1 ? "grupo" : "grupos"} em comum${data.commonGroups.incomplete ? " confirmados" : ""}` : "Grupos em comum"}</h4>
         {loading && <p className="wai-details-muted">Consultando grupos…</p>}
