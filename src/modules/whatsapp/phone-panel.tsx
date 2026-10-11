@@ -3,6 +3,7 @@
 import {useRef, useState} from "react";
 import {ArrowLeft, Contact, Delete} from "lucide-react";
 import {formatWhatsAppPhone} from "./inbox-format";
+import {normalizePairingPhone} from "@/modules/whatsapp-qr/format";
 import "./phone-panel.css";
 
 const keys=[["1",""],["2","ABC"],["3","DEF"],["4","GHI"],["5","JKL"],["6","MNO"],["7","PQRS"],["8","TUV"],["9","WXYZ"],["+",""],["0",""],["delete",""]];
@@ -10,9 +11,8 @@ const keys=[["1",""],["2","ABC"],["3","DEF"],["4","GHI"],["5","JKL"],["6","MNO"]
 export function PhonePanel({onClose,onPick}:{onClose:()=>void;onPick:(contact:{phone:string;name:null;clientName:null})=>void}) {
  const [value,setValue]=useState("");
  const input=useRef<HTMLInputElement>(null);
- const digits=value.replace(/\D/g,"");
- const phone=value.startsWith("+") ? digits : digits.length===10 || digits.length===11 ? `55${digits}` : digits;
- const valid=/^[1-9]\d{9,14}$/.test(phone) && (value.startsWith("+") || digits.length>=10);
+ const phone=normalizePairingPhone(value) ?? "";
+ const valid=/^[1-9]\d{10,14}$/.test(phone);
  function pressDigit(key:string){
   const field=input.current;if(!field)return;
   const start=field.selectionStart ?? value.length,end=field.selectionEnd ?? start;

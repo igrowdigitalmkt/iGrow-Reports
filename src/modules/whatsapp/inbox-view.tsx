@@ -14,7 +14,7 @@ import { labelPillStyle } from "./native-labels";
 import { conversationExport } from "./conversation-export";
 import { ContactBlockAction } from "./contact-block-action";
 import { commonGroupMembersText, type CommonGroup } from "./common-groups";
-import { ConversationThemeAction, useConversationTheme } from "./conversation-theme";
+import { normalizePairingPhone } from "@/modules/whatsapp-qr/format";
 import { ContactEditAction } from "./contact-edit-action";
 import { WhatsAppText } from "./inbox-text";
 import { ACCEPTED_REPLY_FILES, MAX_REPLY_FILE_BYTES, MAX_REPLY_TEXT, replyMediaKind, replyWindow } from "./reply-rules";
@@ -361,7 +361,6 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     && (!search || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""} ${item.preview ?? ""}`.toLocaleLowerCase("pt-BR").includes(search)));
   const unreadHere = inChannel.filter(item => item.unread > 0).length;
   const open = conversations.find(item => item.id === openId) ?? null;
-  const conversationTheme = useConversationTheme(open?.id ?? "");
   const channel = allChannels.find(item => item.key === channelKey) ?? allChannels[0];
   const selfConversation = conversations.find(item =>
     item.channelKey === channelKey && !item.isGroup &&
@@ -763,7 +762,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           </div>}
         </div>
       </div>}
-      {editingList !== undefined ? <CustomListEditor key={editingList?.id ?? "new-list"} list={editingList}
+      {editingList !== undefined ? <CustomListEditor key={editingList?.id ?? "new-list"} list={editingList} demo={demo}
         conversations={conversations.filter(item => item.channelKey === channelKey)} busy={customLists.busy || demo} error={customLists.error}
         onClose={() => setEditingList(undefined)} onSave={saveCustomList} />
       : managingLists ? <CustomListManager lists={customLists.lists} busy={customLists.busy}
@@ -825,7 +824,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     </section>
 
     {viewer && <PhotoViewer src={viewer.displaySrc} downloadSrc={viewer.downloadSrc} onClose={() => setViewer(null)} />}
-    <section className={`wai-chat${draft ? " has-draft" : ""}${messageSelectionActive ? " is-selecting-messages" : ""}`} style={{ "--wai-conversation-background": conversationTheme.color } as React.CSSProperties} aria-label="Conversa">
+    <section className={`wai-chat${draft ? " has-draft" : ""}${messageSelectionActive ? " is-selecting-messages" : ""}`} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
         <h3>WhatsApp na iGrow</h3>
@@ -862,10 +861,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                 </div>
               </div>}
             </div>
-            <button type="button" className="wai-icon-button wai-call-action" aria-label="Chamada de vídeo" title="As chamadas são realizadas no WhatsApp"
-              onClick={() => setActionError("Chamadas de vídeo devem ser iniciadas no WhatsApp. Esta tela é uma ferramenta de apoio e não faz ligações.")}><Video size={23}/></button>
-            <button type="button" className="wai-icon-button wai-call-action" aria-label="Chamada de voz" title="As chamadas são realizadas no WhatsApp"
-              onClick={() => setActionError("Chamadas de voz devem ser iniciadas no WhatsApp. Esta tela é uma ferramenta de apoio e não faz ligações.")}><Phone size={23}/></button>
+            <button type="button" disabled className="wai-icon-button wai-call-action" aria-label="Chamada de voz indisponível" title="Serviço de ligações de áudio ainda não configurado"><Phone size={23}/></button>
             <button ref={chatSearchTrigger} type="button" className="wai-icon-button" aria-label="Pesquisar na conversa" title="Pesquisar na conversa"
               aria-expanded={chatSearchOpen} onClick={() => { setChatSearchOpen(value => !value); setChatSearchQuery(""); setChatSearchDate(""); setChatSearchDateOpen(false); }}>
               <Search size={24} />
@@ -1899,7 +1895,7 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
   const digits = query.replace(/\D/g, "");
   const [phonePanel,setPhonePanel]=useState(false);
   const shown = contacts.filter(contact => !search || `${contact.name} ${contact.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search) || (digits.length >= 3 && contact.phone.replace(/\D/g, "").includes(digits)));
-  const typed = digits.length >= 10 ? (digits.length <= 11 ? `55${digits}` : digits) : null;
+  const typed = /^\+?[\d\s().-]+$/.test(query.trim()) ? normalizePairingPhone(query) : null;
   const recent = conversations.filter(item => !search ||
     `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""}`.toLocaleLowerCase("pt-BR").includes(search)
     || (digits.length >= 3 && item.remoteId.replace(/\D/g, "").includes(digits))).slice(0, search ? 60 : 20);
@@ -1987,7 +1983,6 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
         {!item.isGroup && <p>{formatWhatsAppPhone(item.remoteId)}</p>}
         <div className="wai-contact-shortcuts">
           <button type="button" disabled title="Chamadas não disponíveis nesta integração"><span><Phone size={26} /></span>Ligar</button>
-          <button type="button" disabled title="Chamadas de vídeo não disponíveis nesta integração"><span><Video size={26} /></span>Vídeo</button>
           <button type="button" onClick={onSearch}><span><Search size={26} /></span>Pesquisar</button>
         </div>
         {lists.some(list => list.conversationIds.includes(item.id)) && <div className="wai-contact-labels">
@@ -2023,7 +2018,7 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
         })}</div>
         <p className="wai-details-muted">Até 30 arquivos recentes. Os arquivos são buscados somente ao abrir.</p>
       </div>
-      <div className="wai-details-section wai-details-actions wai-details-theme"><ContactStarsAction conversationId={item.id} demo={demo} onPick={onPickFavorite}/>{item.channelKey==="qr" && <NativeMuteAction conversationId={item.id} enabled={canChange} demo={demo}/>}<ConversationThemeAction conversationId={item.id} /></div>
+      <div className="wai-details-section wai-details-actions"><ContactStarsAction conversationId={item.id} demo={demo} onPick={onPickFavorite}/>{item.channelKey==="qr" && <NativeMuteAction conversationId={item.id} enabled={canChange} demo={demo}/>}</div>
       {!item.isGroup && <div className="wai-details-section wai-common-groups">
         <h4>{data?.commonGroups ? `${data.commonGroups.groups.length} ${data.commonGroups.groups.length === 1 ? "grupo" : "grupos"} em comum${data.commonGroups.incomplete ? " confirmados" : ""}` : "Grupos em comum"}</h4>
         {loading && <p className="wai-details-muted">Consultando grupos…</p>}

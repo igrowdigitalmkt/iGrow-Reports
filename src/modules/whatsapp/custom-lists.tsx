@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { EmojiInput, type EmojiInputHandle } from "./emoji-input";
+import { EmojiPicker } from "./emoji-picker";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Edit3, ListFilter, Loader2, MoreVertical, Palette, Plus, Search, Smile, Trash2, UsersRound, X } from "lucide-react";
 import { colorFor, conversationTitle, initialsOf } from "./inbox-format";
 import type { InboxConversation } from "./inbox-types";
@@ -91,18 +94,18 @@ export function useCustomLists(channelKey: string, demo: boolean) {
 }
 
 /** Keep private WhatsApp media lazy; the user's session determines which pictures exist. */
-function ListAvatar({ item }: { item: InboxConversation }) {
+function ListAvatar({ item, demo }: { item: InboxConversation; demo:boolean }) {
   const [failed, setFailed] = useState(false);
   const name = conversationTitle(item);
   return <span className="wai-list-picker-avatar" style={{ background: item.isGroup ? "#341723" : colorFor(name) }}>
     {item.isGroup ? <UsersRound size={22} /> : initialsOf(name)}
-    {!failed && item.channelKey === "qr" && /* eslint-disable-next-line @next/next/no-img-element -- session-scoped WhatsApp avatar */
+    {!demo && !failed && item.channelKey === "qr" && /* eslint-disable-next-line @next/next/no-img-element -- session-scoped WhatsApp avatar */
       <img src={`/api/whatsapp/inbox/avatar/${item.id}`} alt="" loading="lazy" onError={() => setFailed(true)} />}
   </span>;
 }
 
-export function CustomListEditor({ list, conversations, busy, error, onClose, onSave }: {
-  list: CustomList | null; conversations: InboxConversation[]; busy: boolean; error: string; onClose: () => void;
+export function CustomListEditor({ list, conversations, busy, error, onClose, onSave, demo=false }: {
+  list: CustomList | null; conversations: InboxConversation[]; busy: boolean; error: string; onClose: () => void; demo?:boolean;
   onSave: (name: string, color: string, conversationIds: string[]) => Promise<boolean>;
 }) {
   const [name, setName] = useState(list?.name ?? "");
@@ -111,7 +114,8 @@ export function CustomListEditor({ list, conversations, busy, error, onClose, on
   const [pickerOpen, setPickerOpen] = useState(false);
   const [colorsOpen, setColorsOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [selectedEmoji, setSelectedEmoji] = useState(false);
+  const [emojisOpen, setEmojisOpen] = useState(false);
+  const nameInput = useRef<EmojiInputHandle>(null);
   const matches = conversations.filter(item =>
     !query.trim() || (conversationTitle(item) + " " + item.remoteId).toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")));
   function toggle(id: string) {
@@ -121,11 +125,11 @@ export function CustomListEditor({ list, conversations, busy, error, onClose, on
     <header className="wai-custom-editor-head"><button type="button" aria-label="Voltar" onClick={onClose}><ArrowLeft size={22} /></button>
       <strong>{list ? "Editar lista" : "Criar nova lista"}</strong></header>
     <div className="wai-custom-editor-scroll">
-      <label className="wai-custom-editor-label" htmlFor="wai-new-list-name">Nome da lista</label>
+      <span className="wai-custom-editor-label">Nome da lista</span>
       <div className="wai-custom-editor-name">
-        <input id="wai-new-list-name" autoFocus maxLength={40} value={name} onChange={event => { setName(event.target.value); setSelectedEmoji(false); }} placeholder="Nome da lista" />
-        <button type="button" aria-label="Adicionar emoji ao nome" title="Adicionar emoji ao nome" onClick={() => { setName(current => current + " 💬"); setSelectedEmoji(true); }}><Smile size={24} fill={selectedEmoji ? "#f1f1f1" : "none"} /></button>
-        <button type="button" className="wai-custom-color-button" title="Escolher cor" aria-label="Escolher cor" aria-expanded={colorsOpen} onClick={() => setColorsOpen(value => !value)}>
+        <EmojiInput ref={nameInput} label="Nome da lista" autoFocus multiline={false} maxLength={40} value={name} onChange={setName}/>
+        <button type="button" aria-label="Adicionar emoji ao nome" title="Adicionar emoji ao nome" aria-expanded={emojisOpen} onClick={() => { setColorsOpen(false); setEmojisOpen(value=>!value); }}><Smile size={24}/></button>
+        <button type="button" className="wai-custom-color-button" title="Escolher cor" aria-label="Escolher cor" aria-expanded={colorsOpen} onClick={() => {setEmojisOpen(false);setColorsOpen(value => !value);}}>
           <span style={{ background: color }} />
         </button>
         {colorsOpen && <div className="wai-custom-colors" role="radiogroup" aria-label="Cor da lista">
@@ -133,6 +137,7 @@ export function CustomListEditor({ list, conversations, busy, error, onClose, on
             onClick={() => { setColor(value); setColorsOpen(false); }}>{value === color && <Check size={16} />}</button>)}
         </div>}
       </div>
+      {emojisOpen && <div className="wai-custom-name-emojis" onKeyDown={event=>{if(event.key==="Escape"){event.stopPropagation();setEmojisOpen(false);nameInput.current?.focus();}}}><EmojiPicker onPick={emoji=>{nameInput.current?.insertText(emoji);setEmojisOpen(false);}}/></div>}
       {!name.trim() && !list && <div className="wai-custom-suggestions"><h3>Sugestões</h3>
         {SUGGESTIONS.map(item => <button type="button" key={item.name} onClick={() => { setName(item.name); setColor(item.color); }}>
           <span className="wai-custom-list-dot" style={{ background: item.color }} />{item.name}</button>)}
@@ -140,7 +145,7 @@ export function CustomListEditor({ list, conversations, busy, error, onClose, on
       <div className="wai-custom-members">
         <h3>Conversas incluídas</h3>
         {conversations.filter(item => selected.has(item.id)).map(item => <button key={item.id} type="button" className="wai-custom-member" title="Remover da lista" onClick={() => toggle(item.id)}>
-          <ListAvatar item={item}/><span>{conversationTitle(item)}</span><X size={17}/></button>)}
+          <ListAvatar item={item} demo={demo}/><span>{conversationTitle(item)}</span><X size={17}/></button>)}
         <button type="button" className="wai-custom-add-members" onClick={() => setPickerOpen(true)}>
           <span className="wai-custom-big-plus"><Plus size={29} /></span>Adicionar pessoas ou grupos</button>
       </div>
@@ -149,22 +154,22 @@ export function CustomListEditor({ list, conversations, busy, error, onClose, on
         {busy && <Loader2 size={15} className="wai-spin" />}{list ? "Salvar lista" : "Criar lista"}
       </button>
     </div>
-    {pickerOpen && <div className="wai-custom-picker-backdrop" role="presentation" onClick={() => setPickerOpen(false)}>
-      <section className="wai-custom-picker" role="dialog" aria-modal="true" aria-label="Adicionar à lista" onClick={event => event.stopPropagation()}>
-        <header><button type="button" aria-label="Fechar" onClick={() => setPickerOpen(false)}><X size={22} /></button><strong>Adicionar à lista</strong></header>
+    <Dialog.Root open={pickerOpen} onOpenChange={setPickerOpen}><Dialog.Overlay className="wai-custom-picker-backdrop">
+      <Dialog.Content className="wai-custom-picker" aria-describedby={undefined}>
+        <header><button type="button" aria-label="Fechar" onClick={() => setPickerOpen(false)}><X size={22} /></button><Dialog.Title asChild><strong>Adicionar à lista</strong></Dialog.Title></header>
         <label className="wai-custom-picker-search"><Search size={20}/><input autoFocus placeholder="Pesquisar nome, número ou @nomedeusuário"
           value={query} onChange={event => setQuery(event.target.value)}/></label>
         <div className="wai-custom-picker-list"><h4>Conversas recentes</h4>
           {matches.map(item => <label key={item.id} className="wai-custom-picker-row">
             <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} />
-            <ListAvatar item={item}/><span><strong>{conversationTitle(item)}</strong>
+            <ListAvatar item={item} demo={demo}/><span><strong>{conversationTitle(item)}</strong>
               {item.isGroup && <small>Grupo</small>}</span>
           </label>)}
           {!matches.length && <p className="wai-list-note">Nenhuma conversa encontrada.</p>}
         </div>
         <button type="button" className="wai-custom-picker-done" onClick={() => { setPickerOpen(false); setQuery(""); }} aria-label="Concluir seleção de conversas"><Check size={22}/></button>
-      </section>
-    </div>}
+      </Dialog.Content>
+    </Dialog.Overlay></Dialog.Root>
   </section>;
 }
 
