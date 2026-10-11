@@ -35,6 +35,7 @@ import "./inbox-pixel-precision.css";
 import "./inbox-screenshot-corrections.css";
 import "./voice-note.css";
 import "./contact-details.css";
+import "./composer-reference.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -1076,6 +1077,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           }], incomplete: false } } : details}
           loading={detailsLoading && !demo} demo={demo} canChange={canReply} messages={messages ?? []}
           onFavorite={() => toggleFavorite(open)}
+          onSearch={() => { setDetailsOpen(false); setChatSearchOpen(true); }}
           onContactSaved={name => setList(previous => previous ? { ...previous, conversations: previous.conversations.map(chat => chat.id === open.id ? { ...chat, title: name } : chat) } : previous)}
           conversations={conversations} onOpenGroup={group => { setChannelKey(group.channelKey); setShowArchived(group.archived); setFilter("all"); setQuery(""); setCustomFilterId(null); choose(group.id);
             requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }}
@@ -1704,6 +1706,23 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
   const [sending, setSending] = useState(false);
   const field = useRef<EmojiInputHandle>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const composerMenus = useRef<HTMLDivElement>(null);
+  const attachmentTrigger = useRef<HTMLButtonElement>(null);
+  const emojiTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const trigger = menu === "attach" ? attachmentTrigger : emojiTrigger;
+    composerMenus.current?.querySelector<HTMLElement>(menu === "attach" ? "[role=menuitem]" : "input")?.focus();
+    const pointer = (event: PointerEvent) => {
+      if (!composerMenus.current?.contains(event.target as Node)) setMenu(null);
+    };
+    const key = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); setMenu(null); trigger.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", pointer);
+    document.addEventListener("keydown", key);
+    return () => { document.removeEventListener("pointerdown", pointer); document.removeEventListener("keydown", key); };
+  }, [menu]);
   const reply = replyWindow(kind, conversation.lastInboundAt, now);
   const recorder = useRef<{ media: MediaRecorder; chunks: Blob[]; stream: MediaStream; send: boolean } | null>(null);
   const [recording, setRecording] = useState<{ startedAt: number; seconds: number } | null>(null);
@@ -1821,10 +1840,9 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
   return <footer className="wai-composer-area">
     {error && <p role="alert" className="wai-composer-error"><AlertCircle size={14} />{error}</p>}
     {replyTarget && <div className="wai-reply-banner">
-      <Reply size={18} />
-      <span><strong>Respondendo à {replyTarget.direction === "in" ? "mensagem recebida" : "mensagem enviada"}</strong>
+      <span><strong><WhatsAppEmojiText text={replyTarget.direction === "out" ? "Você" : replyTarget.author || (conversation.isGroup ? "Participante" : conversationTitle(conversation))} /></strong>
         <small><WhatsAppEmojiText text={replyTarget.body?.slice(0, 110) || kindLabel(replyTarget.kind)} /></small></span>
-      <button type="button" className="wai-icon-button" onClick={onClearReply} aria-label="Cancelar resposta"><X size={17} /></button>
+      <button type="button" className="wai-icon-button" onClick={() => { onClearReply(); field.current?.focus(); }} aria-label="Cancelar resposta"><X size={24} /></button>
     </div>}
     {file && <div className="wai-attachment">
       <FileText size={18} /><span><strong>{file.name}</strong><small>{asDocument ? "Documento" : "Mídia"} · {formatBytes(file.size)}{text ? " · o texto vai como legenda" : ""}</small></span>
@@ -1838,16 +1856,21 @@ function Composer({ conversation, kind, now, demo, canReply, replyTarget, onClea
       <span className="wai-recording-label">Gravando áudio…</span>
       <button type="button" className="wai-send" onClick={() => stopRecording(true)} aria-label="Enviar áudio"><SendHorizontal size={20} /></button>
     </div> : <div className="wai-composer">
-      <div className="wai-composer-menu">
-        <button type="button" className={`wai-icon-button${menu === "attach" ? " is-on" : ""}`} onClick={() => setMenu(menu === "attach" ? null : "attach")} aria-expanded={menu === "attach"} title="Anexar"><Plus size={22} /></button>
-        {menu === "attach" && <div className="wai-attach-menu" role="menu">
+      <div className="wai-composer-menu" ref={composerMenus}>
+        <button type="button" ref={attachmentTrigger} className={`wai-icon-button${menu === "attach" ? " is-on" : ""}`} onClick={() => setMenu(menu === "attach" ? null : "attach")} aria-expanded={menu === "attach"} title="Anexar"><Plus size={22} /></button>
+        {menu === "attach" && <div className="wai-attach-menu" role="menu" aria-label="Anexos" onKeyDown={event => {
+          if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("[role=menuitem]")];
+          const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+          const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[next]?.focus();
+        }}>
           <button type="button" role="menuitem" onClick={() => chooseFile(ACCEPTED_REPLY_FILES, true)}><FileText size={18} className="is-doc" />Documento</button>
           <button type="button" role="menuitem" onClick={() => chooseFile("image/jpeg,image/png,image/webp,video/mp4,video/3gpp", false)}><ImageIcon size={18} className="is-photo" />Fotos e vídeos</button>
           <button type="button" role="menuitem" onClick={() => chooseFile("audio/mpeg,audio/ogg,audio/mp4,audio/aac", false)}><Headphones size={18} className="is-audio" />Áudio</button>
         </div>}
-      </div>
-      <div className="wai-composer-menu">
-        <button type="button" className={`wai-icon-button${menu === "emoji" ? " is-on" : ""}`} onClick={() => setMenu(menu === "emoji" ? null : "emoji")} aria-expanded={menu === "emoji"} title="Emojis"><EmojiStickerIcon /></button>
+        <button type="button" ref={emojiTrigger} className={`wai-icon-button${menu === "emoji" ? " is-on" : ""}`} onClick={() => setMenu(menu === "emoji" ? null : "emoji")} aria-expanded={menu === "emoji"} title="Emojis"><EmojiStickerIcon /></button>
         {menu === "emoji" && <EmojiPicker onPick={insertEmoji} />}
       </div>
       <EmojiInput ref={field} value={text} maxLength={MAX_REPLY_TEXT} label="Mensagem"
@@ -1907,12 +1930,13 @@ function NewChat({ contacts, conversations, onExisting, onPick, onClose }: {
 }
 
 /** Contact and group details. The panel fetches only when requested and never preloads media. */
-function ContactDetails({ item, data, loading, demo, canChange, conversations, onOpenGroup, lists, listsBusy, messages, onFavorite, onContactSaved, onToggleList, onClose }: {
+function ContactDetails({ item, data, loading, demo, canChange, conversations, onOpenGroup, lists, listsBusy, messages, onFavorite, onSearch, onContactSaved, onToggleList, onClose }: {
   item: InboxConversation; data: DetailData | null; loading: boolean; demo: boolean;
   lists: CustomList[]; listsBusy: boolean; onToggleList: (list: CustomList,member: boolean) => void; onClose: () => void;
   messages: InboxMessageItem[]; canChange: boolean; onFavorite: () => Promise<void>;
   conversations: InboxConversation[]; onOpenGroup: (group: InboxConversation) => void;
   onContactSaved: (name: string) => void;
+  onSearch: () => void;
 }) {
   const [showLists, setShowLists] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -1950,10 +1974,17 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
     </header>
     <div className="wai-details-scroll">
       <div className="wai-details-identity">
-        <Avatar item={item} size={100} photo={!demo} />
+        <Avatar item={item} size={150} photo={!demo} />
         <h3><WhatsAppEmojiText text={name} /></h3>
         {!item.isGroup && <p>{formatWhatsAppPhone(item.remoteId)}</p>}
-        {item.clientName && <span className="wai-details-chip">Cliente: {item.clientName}</span>}
+        <div className="wai-contact-shortcuts">
+          <button type="button" disabled title="Chamadas não disponíveis nesta integração"><span><Phone size={26} /></span>Ligar</button>
+          <button type="button" disabled title="Chamadas de vídeo não disponíveis nesta integração"><span><Video size={26} /></span>Vídeo</button>
+          <button type="button" onClick={onSearch}><span><Search size={26} /></span>Pesquisar</button>
+        </div>
+        {lists.some(list => list.conversationIds.includes(item.id)) && <div className="wai-contact-labels">
+          {lists.filter(list => list.conversationIds.includes(item.id)).reverse().map(list => <span key={list.id}><i style={{ background:list.color }} /><WhatsAppEmojiText text={list.name} /></span>)}
+        </div>}
       </div>
       {item.isGroup && <div className="wai-details-section">
         <h4>Sobre o grupo</h4>
@@ -1969,18 +2000,19 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
         </div>)}
         {group.members != null && group.members > group.participants.length && <p className="wai-details-muted">Exibindo até {group.participants.length} participantes.</p>}
       </div>}
-      <div className="wai-details-section">
-        <h4>Mídia, links e documentos</h4>
+      <div className="wai-details-section wai-contact-media">
+        <h4><ImageIcon size={26} />Mídia, links e docs <span>{media.length}</span></h4>
         {loading && <p className="wai-details-muted">Carregando informações…</p>}
         {!loading && !media.length && <p className="wai-details-muted">Nenhum arquivo recente disponível.</p>}
-        {media.map(file => {
+        <div className="wai-contact-media-grid">{media.map(file => {
           const Icon = KIND_ICONS[file.kind] ?? FileText;
           return <a key={file.id} className="wai-details-file" target="_blank" rel="noopener noreferrer"
             href={`/api/whatsapp/inbox/media/${file.id}`}>
-            <Icon size={18} /><span><strong>{file.media_name || kindLabel(file.kind)}</strong>
+            {/* eslint-disable-next-line @next/next/no-img-element -- authenticated media endpoint requires the user's cookies, without optimizer caching */}
+            {file.kind === "image" ? <img src={`/api/whatsapp/inbox/media/${file.id}`} alt={file.media_name || "Imagem"} loading="lazy" /> : <Icon size={26} />}<span><strong>{file.media_name || kindLabel(file.kind)}</strong>
               <small>{listTime(file.sent_at)}</small></span><Download size={15} />
           </a>;
-        })}
+        })}</div>
         <p className="wai-details-muted">Até 30 arquivos recentes. Os arquivos são buscados somente ao abrir.</p>
       </div>
       <div className="wai-details-section wai-details-actions wai-details-theme"><ConversationThemeAction conversationId={item.id} /></div>

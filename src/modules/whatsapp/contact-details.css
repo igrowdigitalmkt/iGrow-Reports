@@ -1,4 +1,22 @@
 /* Reference 09: lower contact details, with the same space reserved by the chat. */
+.wai-shell .wai-details-identity { padding:25px 25px 28px; gap:18px; }
+.wai-shell .wai-details-identity h3 { margin:0; font-size:30px; font-weight:400; line-height:38px; }
+.wai-shell .wai-details-identity p { font-size:20px; line-height:26px; }
+.wai-contact-shortcuts { display:flex; justify-content:center; gap:20px; }
+.wai-contact-shortcuts button { display:grid; justify-items:center; gap:10px; padding:0; border:0; background:transparent; color:#f1f1f1; font:inherit; font-size:16px; cursor:pointer; }
+.wai-contact-shortcuts button>span { display:grid; place-items:center; width:75px; height:60px; background:#2e2f2f; border-radius:40px; }
+.wai-contact-shortcuts button:disabled { opacity:.5; cursor:default; }
+.wai-contact-shortcuts button:focus-visible { outline:2px solid #25d366; outline-offset:5px; border-radius:8px; }
+.wai-contact-labels { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:12px 20px; width:100%; padding:0 5px; font-size:18px; text-align:left; }
+.wai-contact-labels>span { display:flex; align-items:center; gap:10px; }
+.wai-contact-labels i { width:15px; height:15px; border-radius:50%; flex-shrink:0; }
+.wai-contact-media h4 { display:flex; align-items:center; gap:28px; }
+.wai-contact-media h4>span { margin-left:auto; }
+.wai-contact-media-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; max-height:250px; overflow-y:auto; }
+.wai-shell .wai-contact-media-grid .wai-details-file { display:flex; flex-direction:column; justify-content:center; padding:8px; min-height:105px; min-width:0; background:#1b1e1e; border-radius:10px; overflow:hidden; }
+.wai-contact-media-grid .wai-details-file img { width:100%; height:105px; object-fit:cover; border-radius:8px; }
+.wai-contact-media-grid .wai-details-file span { max-width:100%; overflow:hidden; font-size:12px; }
+@media(max-width:1100px) { .wai-contact-media-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .wai-shell .wai-messages { background-color:var(--wai-conversation-background,#0a0a0a); }
 .wai-theme-dialog fieldset { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; border:0; padding:0; margin:20px 0; }
 .wai-theme-dialog legend { margin-bottom:12px; color:#b5bcba; }

@@ -1,0 +1,27 @@
+/* References 11–13: composer popovers and quoted response. */
+.wai-shell .wai-composer-menu { display:flex; align-items:center; gap:16px; }
+.wai-shell .wai-composer-menu>.wai-emoji:not(.wai-emoji-reaction) { left:-253px; bottom:96px; width:700px; max-width:calc(100vw - 24px); height:min(687px,calc(100dvh - 130px)); padding:10px 20px; border:0; border-radius:22px; background:#1d2020; grid-template-rows:54px 54px minmax(0,1fr) 40px; gap:8px; }
+.wai-shell .wai-composer-menu .wai-emoji-tabs { border:0; gap:0; }
+.wai-shell .wai-composer-menu .wai-emoji-tabs button { flex:1; width:auto; min-width:0; height:50px; border-bottom:0; color:#a5a7a7; }
+.wai-shell .wai-composer-menu .wai-emoji-tabs button.is-active { color:#f1f1f1; background:linear-gradient(#21c063,#21c063) center bottom / 30px 4px no-repeat; }
+.wai-shell .wai-composer-menu .wai-emoji-search { margin:0; height:54px; background:transparent; border:2px solid #21c063; border-radius:28px; padding:0 20px; gap:20px; }
+.wai-shell .wai-composer-menu .wai-emoji-search input { font-size:18px; outline:none; }
+.wai-shell .wai-composer-menu .wai-emoji-content { min-height:0; overflow-y:auto; scrollbar-width:thin; scrollbar-color:#454949 transparent; }
+.wai-shell .wai-composer-menu .wai-emoji-title { margin:14px 0 10px; font-size:18px; font-weight:600; }
+.wai-shell .wai-composer-menu .wai-emoji-grid { grid-template-columns:repeat(12,minmax(0,1fr)); overflow:visible; }
+.wai-shell .wai-composer-menu .wai-emoji-grid button { height:55px; padding:0; }
+.wai-shell .wai-composer-menu .wai-original-emoji { width:36px; height:36px; }
+.wai-emoji-modes { display:flex; justify-content:center; }
+.wai-emoji-modes button { display:grid; place-items:center; width:88px; border:1px solid #383b3b; background:transparent; color:#a5a7a7; font:inherit; font-size:14px; }
+.wai-emoji-modes button:first-child { border-radius:22px 0 0 22px; color:#fff; }
+.wai-emoji-modes button:last-child { border-radius:0 22px 22px 0; }
+.wai-emoji-modes button:disabled { opacity:.5; cursor:default; }
+.wai-shell .wai-composer-menu>.wai-attach-menu { left:-55px; bottom:80px; width:206px; min-width:0; padding:8px 15px; border-radius:22px; background:#161717; }
+.wai-shell .wai-composer-menu>.wai-attach-menu button { height:45px; padding:0 6px; font-size:18px; gap:17px; border-radius:8px; }
+.wai-shell .wai-composer-area:has(.wai-reply-banner) { padding-top:10px; border-radius:24px; background:#242626!important; margin-left:15px; margin-bottom:15px; }
+.wai-shell .wai-reply-banner { margin:0 10px; min-height:73px; padding:10px 16px; border-left:5px solid #ff537a; border-radius:8px; background:#1d2020; }
+.wai-shell .wai-reply-banner strong { color:#ff537a; font-size:16px; font-weight:500; }
+.wai-shell .wai-reply-banner small { font-size:16px; line-height:22px; }
+.wai-shell .wai-reply-banner>.wai-icon-button { color:#fff; }
+@media(max-width:1100px) { .wai-shell .wai-composer-menu>.wai-emoji:not(.wai-emoji-reaction) { left:12px; width:min(700px,calc(100% - 24px)); } .wai-shell .wai-composer-menu>.wai-attach-menu { left:12px; } }
+@media(max-width:760px) { .wai-shell .wai-composer-menu>.wai-emoji:not(.wai-emoji-reaction) { bottom:80px; padding:10px 12px; } .wai-shell .wai-composer-menu .wai-emoji-grid { grid-template-columns:repeat(8,minmax(0,1fr)); } .wai-shell .wai-composer-menu .wai-emoji-grid button { height:44px; } .wai-shell .wai-composer-menu .wai-original-emoji { width:29px; height:29px; } .wai-shell .wai-composer-area:has(.wai-reply-banner) { margin-left:6px; margin-bottom:6px; } }

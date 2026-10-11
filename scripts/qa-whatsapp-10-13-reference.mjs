@@ -1,0 +1,64 @@
+import { chromium } from "@playwright/test";
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+const base=process.env.WA_QA_URL || "http://localhost:3158/demo/whatsapp";
+assert.equal(new URL(base).pathname,"/demo/whatsapp");
+await mkdir("artifacts",{recursive:true});
+const browser=await chromium.launch({headless:true,executablePath:"C:/Program Files/Google/Chrome/Application/chrome.exe"});
+try {
+  for(const [width,height,scale] of [[1920,1080,1],[1366,768,1],[1024,768,1],[390,844,1],[1536,864,1.25],[1280,720,1.5]]) {
+    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:scale});
+    const errors=[],mutations=[];
+    page.on("pageerror",error=>errors.push(error.message));
+    page.on("request",r=>{if(["POST","PATCH","DELETE"].includes(r.method()) && r.url().includes("/api/whatsapp/"))mutations.push(r.url());});
+    await page.goto(base,{waitUntil:"domcontentloaded"});
+    await page.locator(".wai-row").filter({hasText:"Lindaiane"}).click();
+    await page.getByTitle("Dados do contato",{exact:true}).click();
+    const panel=page.getByRole("complementary",{name:"Dados do contato",exact:true});
+    assert.equal(await panel.getByRole("button",{name:"Ligar",exact:true}).isDisabled(),true);
+    assert.equal(await panel.getByRole("button",{name:"Vídeo",exact:true}).isDisabled(),true);
+    const zoom=await page.locator(".wai-shell").evaluate(el=>Number(getComputedStyle(el).zoom)||1);
+    const avatar=await panel.locator(".wai-details-identity>.wai-avatar").boundingBox();
+    assert.ok(Math.abs(avatar.width-150*zoom)<1);
+    if(width===1920 || width===390)await page.screenshot({path:`artifacts/whatsapp-10-after-${width}.png`});
+    await panel.getByRole("button",{name:"Pesquisar",exact:true}).click();
+    await page.getByRole("textbox",{name:"Pesquisar nesta conversa"}).waitFor();
+    assert.equal(await panel.count(),0);
+    await page.keyboard.press("Escape");
+    await page.getByTitle("Emojis",{exact:true}).click();
+    const emoji=page.getByRole("dialog",{name:"Emojis",exact:true});
+    const box=await emoji.boundingBox();
+    assert.ok(box.x>=0 && box.y>=0 && box.x+box.width<=width+1 && box.y+box.height<=height+1,JSON.stringify(box));
+    if(width===1920){assert.equal(Math.round(box.width),700);assert.equal(Math.round(box.height),687);}
+    assert.equal(await emoji.getByRole("tab").count(),8);
+    assert.equal(await emoji.locator(".wai-emoji-grid").evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(" ").length),width<=760 ? 8 : 12);
+    await emoji.locator("img").evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
+    if(width===1920 || width===390)await page.screenshot({path:`artifacts/whatsapp-11-after-${width}.png`});
+    await emoji.getByRole("textbox",{name:"Pesquisar emoji"}).fill("coracao");
+    await emoji.locator(".wai-emoji-grid button").first().click();
+    assert.ok(await page.getByRole("textbox",{name:"Mensagem",exact:true}).locator("img").count()>0);
+    await page.keyboard.press("Escape");
+    assert.equal(await emoji.count(),0);
+    await page.getByTitle("Anexar",{exact:true}).click();
+    const attach=page.getByRole("menu",{name:"Anexos",exact:true});
+    assert.deepEqual(await attach.getByRole("menuitem").allTextContents(),["Documento","Fotos e vídeos","Áudio"]);
+    await page.keyboard.press("End");
+    assert.equal(await attach.getByRole("menuitem",{name:"Áudio",exact:true}).evaluate(el=>el===document.activeElement),true);
+    if(width===1920 || width===390)await page.screenshot({path:`artifacts/whatsapp-12-after-${width}.png`});
+    const chooser=page.waitForEvent("filechooser"); await attach.getByRole("menuitem",{name:"Documento",exact:true}).click();
+    await (await chooser).setFiles({name:"Teste.txt",mimeType:"text/plain",buffer:Buffer.from("Arquivo fictício")});
+    await page.getByRole("button",{name:"Remover arquivo",exact:true}).click();
+    const incoming=page.locator(".wai-bubble-row.is-in").last();
+    await incoming.locator(".wai-bubble-stack").hover(); await incoming.getByRole("button",{name:"Mais opções da mensagem"}).click();
+    await page.getByRole("dialog",{name:"Ações da mensagem"}).getByRole("button",{name:"Responder",exact:true}).click();
+    const quote=page.locator(".wai-reply-banner");
+    assert.equal(await quote.locator("strong").textContent(),"Lindaiane Lívia");
+    assert.ok((await quote.locator("small").textContent()).length>0);
+    assert.ok(await quote.evaluate(el=>parseFloat(getComputedStyle(el).borderLeftWidth)>=4));
+    if(width===1920 || width===390)await page.screenshot({path:`artifacts/whatsapp-13-after-${width}.png`});
+    await quote.getByRole("button",{name:"Cancelar resposta"}).click(); assert.equal(await quote.count(),0);
+    assert.deepEqual(errors,[]); assert.deepEqual(mutations,[]);
+    console.log(`PASS references 10–13 ${width} @${scale}: identity, search, original emoji, attachment, quote, keyboard and safe demo`);
+    await page.close();
+  }
+} finally {await browser.close();}

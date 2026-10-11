@@ -47,7 +47,7 @@ try {
     assert.equal(await dialog.count(),0);
     await page.getByRole("button",{name:"Emojis",exact:true}).click();
     const composer=page.getByRole("dialog",{name:"Emojis",exact:true});
-    assert.equal(await composer.getByRole("tab").count(),9);
+    assert.equal(await composer.getByRole("tab").count(),8);
     await composer.getByRole("textbox",{name:"Pesquisar emoji"}).fill("cafe");
     await composer.getByRole("button",{name:"☕ café",exact:true}).click();
     assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);

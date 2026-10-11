@@ -13,11 +13,11 @@ export function emojiAssetPath(emoji: string) {
 }
 
 /** Keep Unicode as the message/reaction payload; only the visible glyph uses WhatsApp artwork. */
-export function WhatsAppEmoji({ emoji }: { emoji: string }) {
+export function WhatsAppEmoji({ emoji, eager = false }: { emoji: string; eager?: boolean }) {
   const [failed, setFailed] = useState(false);
   return failed ? <span>{emoji}</span> : /* eslint-disable-next-line @next/next/no-img-element -- original fixed-size emoji glyph, no optimizer needed */
     <img className="wai-original-emoji" src={emojiAssetPath(emoji)} alt={emoji} width={32} height={32}
-      loading="lazy" decoding="async" referrerPolicy="no-referrer" draggable={false} onError={() => setFailed(true)} />;
+      loading={eager ? "eager" : "lazy"} decoding="async" referrerPolicy="no-referrer" draggable={false} onError={() => setFailed(true)} />;
 }
 
 export function WhatsAppEmojiText({ text }: { text: string }) {

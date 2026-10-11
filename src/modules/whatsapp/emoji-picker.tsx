@@ -2,7 +2,7 @@
 import { WhatsAppEmoji } from "./whatsapp-emoji";
 
 import { useRef, useState } from "react";
-import { Car, Clock3, Flag, Globe, Heart, Lightbulb, PawPrint, Search, Smile, ThumbsUp, UtensilsCrossed } from "lucide-react";
+import { Car, Clock3, Flag, Globe, Heart, Lightbulb, PawPrint, Search, Smile, Sticker, ThumbsUp, UtensilsCrossed } from "lucide-react";
 
 // Common emojis grouped like WhatsApp, each with Portuguese words for the search.
 const CATEGORIES: Array<{ key: string; label: string; icon: typeof Smile; items: string }> = [
@@ -17,7 +17,6 @@ const CATEGORIES: Array<{ key: string; label: string; icon: typeof Smile; items:
 ];
 const RECENT_KEY = "igrow:whatsapp-recent-emojis";
 const parse = (items: string) => items.split("|").map(entry => { const [emoji, ...words] = entry.split(" "); return { emoji, words: words.join(" ") }; });
-const ALL = CATEGORIES.flatMap(category => parse(category.items));
 const REACTION_CATEGORIES = [
   { ...CATEGORIES[0], items: CATEGORIES[0].items
     .replace("😊 sorriso tímido", "☺️ sorriso satisfeito|😊 sorriso tímido")
@@ -36,13 +35,13 @@ function readRecent(): string[] {
 /** Emoji panel in the WhatsApp layout: category tabs, search and the recently used ones. */
 export function EmojiPicker({ onPick, variant = "composer" }: { onPick: (emoji: string) => void; variant?: "composer" | "reaction" }) {
   const reaction = variant === "reaction";
-  const categories = reaction ? REACTION_CATEGORIES : CATEGORIES;
+  const categories = REACTION_CATEGORIES;
   const content = useRef<HTMLDivElement>(null);
   const [recent, setRecent] = useState<string[]>(readRecent);
   const [category, setCategory] = useState(!reaction && recent.length ? "recent" : "smileys");
   const [query, setQuery] = useState("");
   const search = query.trim().toLocaleLowerCase("pt-BR");
-  const shown = search ? (reaction ? REACTION_ALL : ALL).filter(item => normalize(`${item.emoji} ${item.words}`).includes(normalize(search)))
+  const shown = search ? REACTION_ALL.filter(item => normalize(`${item.emoji} ${item.words}`).includes(normalize(search)))
     : category === "recent" ? recent.map(emoji => ({ emoji, words: "" }))
     : parse(categories.find(item => item.key === category)?.items ?? "");
 
@@ -60,23 +59,24 @@ export function EmojiPicker({ onPick, variant = "composer" }: { onPick: (emoji: 
 
   const title = <p className="wai-emoji-title">{search ? "Resultados" : category === "recent" ? "Recentes" : categories.find(item => item.key === category)?.label}</p>;
   const grid = <div className="wai-emoji-grid">
-    {shown.length ? shown.map(item => <button key={item.emoji} type="button" onClick={() => pick(item.emoji)} aria-label={`${item.emoji} ${item.words}`} title={item.words || undefined}><WhatsAppEmoji emoji={item.emoji} /></button>)
+    {shown.length ? shown.map(item => <button key={item.emoji} type="button" onClick={() => pick(item.emoji)} aria-label={`${item.emoji} ${item.words}`} title={item.words || undefined}><WhatsAppEmoji emoji={item.emoji} eager /></button>)
       : <p className="wai-emoji-empty" role="status">{search ? "Nenhum emoji encontrado." : "Os emojis que você usar aparecem aqui."}</p>}
   </div>;
 
   return <div className={`wai-emoji${reaction ? " wai-emoji-reaction" : ""}`} role={reaction ? "group" : "dialog"} aria-label={reaction ? "Emojis para reagir" : "Emojis"}>
     <div className="wai-emoji-tabs" role="tablist" aria-label="Categorias de emojis" onKeyDown={event => {
-      if (!reaction || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       event.preventDefault();
       const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("[role=tab]")];
       const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
       const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-      selectCategory(categories[next].key); tabs[next]?.focus();
+      selectCategory(tabs[next].dataset.category ?? "recent"); tabs[next]?.focus();
     }}>
-      {!reaction && <button type="button" role="tab" aria-selected={category === "recent" && !search} className={category === "recent" && !search ? "is-active" : undefined} onClick={() => selectCategory("recent")} title="Recentes"><Clock3 size={18} /></button>}
-      {categories.map(item => <button key={item.key} type="button" role="tab" tabIndex={reaction && category !== item.key ? -1 : 0} aria-label={item.label} aria-selected={category === item.key && !search} className={category === item.key && !search ? "is-active" : undefined} onClick={() => selectCategory(item.key)} title={item.label}><item.icon size={reaction ? 26 : 18} /></button>)}
+      {!reaction && recent.length > 0 && <button type="button" role="tab" data-category="recent" aria-label="Recentes" aria-selected={category === "recent" && !search} className={category === "recent" && !search ? "is-active" : undefined} onClick={() => selectCategory("recent")} title="Recentes"><Clock3 size={26} /></button>}
+      {categories.map(item => <button key={item.key} data-category={item.key} type="button" role="tab" tabIndex={category !== item.key ? -1 : 0} aria-label={item.label} aria-selected={category === item.key && !search} className={category === item.key && !search ? "is-active" : undefined} onClick={() => selectCategory(item.key)} title={item.label}><item.icon size={26} /></button>)}
     </div>
     <label className="wai-search wai-emoji-search"><Search size={reaction ? 20 : 16} /><input autoFocus={reaction} value={query} onChange={event => { setQuery(event.target.value); content.current?.scrollTo({top:0}); }} placeholder={reaction ? "Pesquisar reação" : "Pesquisar emoji"} aria-label={reaction ? "Pesquisar reação" : "Pesquisar emoji"} /></label>
-    {reaction ? <div className="wai-emoji-content" ref={content}>{title}{grid}</div> : <>{title}{grid}</>}
+    <div className="wai-emoji-content" ref={content}>{title}{grid}</div>
+    {!reaction && <footer className="wai-emoji-modes" aria-label="Tipo de conteúdo"><button type="button" aria-pressed="true" aria-label="Emojis"><Smile size={21} /></button><button type="button" disabled title="GIFs não disponíveis nesta integração">GIF</button><button type="button" disabled title="Figurinhas não disponíveis neste seletor" aria-label="Figurinhas"><Sticker size={21} /></button></footer>}
   </div>;
 }
