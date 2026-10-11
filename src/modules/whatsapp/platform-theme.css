@@ -1,0 +1,33 @@
+/* The platform theme is authoritative, including conversations with a saved wallpaper. */
+.workspace .wai-shell {
+  position:relative!important;inset:auto!important;width:100%!important;height:calc(100dvh - 56px)!important;min-height:0;zoom:1!important;
+  --wai-rail:var(--sidebar);--wai-panel:var(--surface);--wai-chat:var(--bg);--wai-line:var(--border);
+  --wai-hover:var(--surface-hover);--wai-active:var(--accent-bg);--wai-text:var(--text);--wai-muted:var(--muted);
+  --wai-search:var(--surface-raised);--wai-in:var(--surface-raised);--wai-out:var(--accent-bg);--wai-out-text:var(--text);
+  --wai-green:var(--accent);--wai-green-text:var(--on-accent);--wai-pill-on:var(--accent-bg);--wai-pill-on-text:var(--accent);
+  --wai-day:var(--surface-raised);--wai-doc:var(--surface);--wai-blue:var(--blue);
+  --wai-ref-inbox-width:clamp(280px,30%,420px);background:var(--bg)!important;color:var(--text);color-scheme:inherit;
+}
+.workspace:has(.demo-banner) .wai-shell {height:calc(100dvh - 94px)!important;}
+.wai-shell :is(.wai-rail,.wai-list,.wai-new,.wai-details,.wai-chat-head,.wai-chat-search-panel,.wai-phone-panel,.wai-emoji,.wai-attach-menu,.wai-message-menu,.wai-forward-dialog,.wai-chat-menu,.wai-chat-lists-popover,.wai-account-menu,.wai-list-menu,.wai-filter-dropdown,.wai-bulk-menu,.wai-custom-manager-context) {background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
+.wai-shell :is(.wai-messages,.wai-empty,.wai-composer-area) {background:var(--bg)!important;}
+.wai-shell :is(.wai-composer,.wai-search,.wai-chat-search-input,.wai-reply-banner,.wai-reactions,.wai-reaction-picker,.wai-day span) {background:var(--surface-raised)!important;color:var(--text)!important;border-color:var(--border)!important;}
+.wai-shell .wai-bubble-row.is-in .wai-bubble {background:var(--surface-raised)!important;color:var(--text)!important;}
+.wai-shell .wai-bubble-row.is-out .wai-bubble {background:var(--accent-bg)!important;color:var(--text)!important;}
+.wai-shell .wai-bubble-row.is-in .wai-bubble.has-tail::before {border-color:var(--surface-raised) transparent transparent!important;}
+.wai-shell .wai-bubble-row.is-out .wai-bubble.has-tail::before {border-color:var(--accent-bg) transparent transparent!important;}
+.wai-shell :is(button,input,textarea,h2,h3,h4,strong,.wai-text,.wai-chat-title,.wai-row-top,.wai-emoji-input) {color:var(--text)!important;}
+.wai-shell :is(small,time,.wai-meta,.wai-row-preview,.wai-new-note,.wai-phone-instruction,.wai-details-muted,.wai-empty p,.wai-empty-lock,.wai-archived-row,.wai-icon-button) {color:var(--muted)!important;}
+.wai-shell :is(input,textarea) {background:var(--surface-raised)!important;border-color:var(--border-strong)!important;}
+.wai-shell input::placeholder,.wai-shell textarea::placeholder,.wai-shell .wai-emoji-input:empty::before {color:var(--muted)!important;}
+.wai-shell :is(.wai-send,.wai-list-head .wai-head-actions>.wai-icon-button:first-child) {background:var(--accent)!important;color:var(--on-accent)!important;}
+.wai-shell .wai-row.is-active,.wai-shell .wai-filters button.is-active {background:var(--accent-bg)!important;}
+.wai-shell .wai-row:hover {background:var(--surface-hover)!important;}
+.wai-shell a {color:var(--accent)!important;}
+.wai-shell :focus-visible {outline-color:var(--focus)!important;}
+.wai-extra-dialog {background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
+.wai-extra-dialog :is(input,.wai-emoji-input) {background:var(--surface-raised)!important;color:var(--text)!important;border-color:var(--border-strong)!important;}
+.wai-extra-dialog :is(p,label) {color:var(--secondary)!important;}
+.wai-extra-dialog button {background:var(--surface-raised)!important;color:var(--text)!important;}
+.wai-extra-dialog footer button:last-child {background:var(--accent)!important;color:var(--on-accent)!important;}
+@media(max-width:760px) {.workspace .wai-shell {--wai-ref-inbox-width:100%;}}

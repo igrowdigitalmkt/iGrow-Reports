@@ -42,6 +42,7 @@ import { CameraDialog } from "./camera-dialog";
 import { ContactStarsAction } from "./contact-stars-action";
 import { NativeMuteAction } from "./native-mute-action";
 import { PhonePanel } from "./phone-panel";
+import "./platform-theme.css";
 
 type Filter = "all" | "unread" | "favorites" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
