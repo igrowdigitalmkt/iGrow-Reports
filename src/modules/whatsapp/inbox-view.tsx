@@ -1552,7 +1552,10 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, reactionAvata
     if (!panel || !wrapper.current || !popover.current) return;
     const calculate = () => {
       if (!wrapper.current || !popover.current) return;
-      const anchor = (panel === "reactions" ? wrapper.current.querySelector(".wai-reactions-group") ?? wrapper.current : wrapper.current).getBoundingClientRect();
+      const quickReaction = panel === "emoji" && !allEmoji;
+      const anchorElement = panel === "reactions" ? wrapper.current.querySelector(".wai-reactions-group")
+        : quickReaction ? wrapper.current.querySelector(".wai-message-emoji-trigger") : wrapper.current;
+      const anchor = (anchorElement ?? wrapper.current).getBoundingClientRect();
       const panelBox = popover.current;
       const height = Math.min(panelBox.getBoundingClientRect().height, window.innerHeight - 80);
       const width = panelBox.getBoundingClientRect().width || 324;
@@ -1562,15 +1565,18 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, reactionAvata
       if (above >= height) top = anchor.top - height - 8;
       else if (below >= height) top = anchor.bottom + 8;
       else top = Math.max(68, Math.min(anchor.top - height / 2, window.innerHeight - height - 12));
-      const idealLeft = allEmoji || panel === "menu" ? (out ? anchor.left - width - 8 : anchor.right + 8) : out ? anchor.right - width : anchor.left;
+      const idealLeft = quickReaction ? anchor.left + anchor.width / 2 - width / 2
+        : allEmoji || panel === "menu" ? (out ? anchor.left - width - 8 : anchor.right + 8) : out ? anchor.right - width : anchor.left;
       const left = Math.max(12, Math.min(idealLeft, window.innerWidth - width - 12));
       const scale = Number(getComputedStyle(panelBox.closest(".wai-shell") ?? panelBox).zoom) || 1;
       const coordinates = { top: top / scale, left: left / scale };
       setPopupCoordinates(previous => previous?.top === coordinates.top && previous?.left === coordinates.left ? previous : coordinates);
     };
     calculate();
+    const scrollPane = wrapper.current.closest(".wai-messages");
+    scrollPane?.addEventListener("scroll", calculate);
     window.addEventListener("resize", calculate);
-    return () => window.removeEventListener("resize", calculate);
+    return () => { window.removeEventListener("resize", calculate); scrollPane?.removeEventListener("scroll", calculate); };
   }, [panel, allEmoji, out, reactionFilter]);
   useEffect(() => {
     if (panel === "menu" && !allEmoji && popupReady) popover.current?.querySelector<HTMLButtonElement>(".wai-message-menu-list button:not(:disabled)")?.focus();
