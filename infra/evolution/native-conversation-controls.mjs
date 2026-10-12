@@ -46,7 +46,7 @@ async igrowReadConversation(peer, snapshot) {
 igrowConversation(data) {
   const operation=this.igrowMuteQueue.then(async()=>{
     if(this.stateConnection.state!=='open')throw new f('WhatsApp disconnected');
-    if(data.peers){await this.client.signalRepository.lidMapping.getLIDsForPNs(data.peers.filter(peer=>peer.endsWith('@s.whatsapp.net')));const records=await this.igrowConversationSnapshot(),states=[];for(const peer of data.peers){try{const result=await this.igrowReadConversation(peer,records);states.push({peer,...result.state});}catch(error){if(error?.message!=='IGROW_CHAT_IDENTITY_UNAVAILABLE')throw error;}}return {states};}
+    if(data.peers){await this.client.signalRepository.lidMapping.getLIDsForPNs(data.peers.filter(peer=>peer.endsWith('@s.whatsapp.net')));const records=await this.igrowConversationSnapshot(),states=[];for(const peer of data.peers){try{const result=await this.igrowReadConversation(peer,records);states.push({peer,...result.state});}catch(error){const detail=typeof error?.getResponse==='function'?error.getResponse():error?.response||error;const messages=detail?.message||error?.message;if(!(Array.isArray(messages)?messages:[messages]).includes('IGROW_CHAT_IDENTITY_UNAVAILABLE'))throw error;}}return {states};}
     const before=await this.igrowReadConversation(data.peer);
     if(!data.action)return before.state;
     const field={pin:'pinned',archive:'archived',unread:'markedUnread'}[data.action];
