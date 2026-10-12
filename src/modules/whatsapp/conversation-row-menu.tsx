@@ -1,30 +1,20 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Archive, Contact, Loader2, MessageSquareText, Pin, PinOff, X } from "lucide-react";
+import { Archive, Contact, MessageSquareText, Pin, PinOff, X } from "lucide-react";
 import type { InboxConversation } from "./inbox-types";
 import { conversationTitle } from "./inbox-format";
 import { validNativeConversationState, type NativeConversationChange, type NativeConversationState } from "./conversation-controls";
 import { NativeMuteAction } from "./native-mute-action";
 import { CustomListMembership, type CustomList } from "./custom-lists";
-export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, onToggleList, onState, onClose }: {
+export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, initialState, onError, onToggleList, onState, onClose }: {
+  initialState?: NativeConversationState; onError: (message: string) => void;
   item: InboxConversation; anchor: DOMRect; lists: CustomList[]; listsBusy: boolean; demo: boolean;
   onToggleList: (list: CustomList, member: boolean) => void; onState: (state: NativeConversationState, action?: NativeConversationChange["action"]) => void; onClose: () => void;
 }) {
-  const [state, setState] = useState<NativeConversationState | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [showLists, setShowLists] = useState(false);
+  const [state, setState] = useState<NativeConversationState>(initialState ?? {pinned:false,archived:item.archived,markedUnread:item.unread > 0}), [error, setError] = useState(""), [busy, setBusy] = useState(false), [showLists, setShowLists] = useState(false);
   const menu = useRef<HTMLDivElement>(null), latch = useRef(false);
-  const onStateRef=useRef(onState);
-  useEffect(()=>{onStateRef.current=onState;},[onState]);
   const url = `/api/whatsapp/inbox/${item.id}/controls`;
-  useEffect(() => {
-    const controller = new AbortController();
-    if (!demo) void fetch(url, { cache: "no-store", signal: controller.signal }).then(async response => {
-      const body = await response.json();
-      if (!response.ok || !validNativeConversationState(body)) throw Error(body.error || "Estado indisponível.");
-      if (!controller.signal.aborted) {setState(body);onStateRef.current(body);}
-    }).catch(failure => { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Estado indisponível."); });
-    return () => controller.abort();
-  }, [url, demo]);
   useEffect(() => {
     menu.current?.focus();
     const outside = (event: PointerEvent) => { if (!latch.current && event.target instanceof Element && !menu.current?.contains(event.target) && !event.target.closest("[role=dialog],.wai-row-menu-trigger")) onClose(); };
@@ -33,17 +23,23 @@ export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, onTo
     return () => { document.removeEventListener("pointerdown", outside); window.removeEventListener("resize", scroll); window.removeEventListener("scroll",scroll,true); };
   }, [onClose]);
   async function change(action: NativeConversationChange["action"], value: boolean, expected: boolean) {
-    if (!state || latch.current) return;
-    latch.current = true; setBusy(true); setError("");
+    if (latch.current) return;
+    latch.current = true; setBusy(true); setError(""); onClose();
     try {
+      const snapshot = await fetch(url, {cache:"no-store"});
+      const current = await snapshot.json();
+      if (!snapshot.ok || !validNativeConversationState(current)) throw Error(current.error || "Estado indisponível.");
+      const field = {pin:"pinned",archive:"archived",unread:"markedUnread"} as const;
+      expected = current[field[action]];
+      if (expected === value) {onState(current,action);return;}
       const response = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, value, expected }) });
       const body = await response.json();
       if (!response.ok || !validNativeConversationState(body)) throw Error(body.error || "Sem confirmação do WhatsApp.");
       setState(body); onState(body,action);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : "Sem confirmação."); setState(null); }
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "Sem confirmação."); onError(failure instanceof Error ? failure.message : "Sem confirmação."); }
     finally { latch.current = false; setBusy(false); }
   }
-  const disabled = demo || busy || !state;
+  const disabled = demo || busy;
   const top=Math.max(8,Math.min(anchor.bottom+5,window.innerHeight-310));
   return createPortal(<div ref={menu} className="wai-row-native-menu" role="menu" aria-label={`Opções de ${conversationTitle(item)}`} tabIndex={-1}
     style={{ left: Math.max(8, Math.min(anchor.left - 10, window.innerWidth - 238)), top, maxHeight: window.innerHeight-top-12 }}
@@ -57,7 +53,6 @@ export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, onTo
       }
     }}>
     <button type="button" className="wai-row-menu-close" aria-label="Fechar opções da conversa" onClick={onClose} disabled={busy}><X size={16} /></button>
-    {!state && !error && !demo && <p role="status"><Loader2 size={15} />Sincronizando com WhatsApp…</p>}
     {error && <p role="alert">{error}</p>}
     <button role="menuitem" disabled={disabled} onClick={() => void change("archive", !state!.archived, state!.archived)}><Archive size={18} />{state?.archived ? "Desarquivar conversa" : "Arquivar conversa"}</button>
     <NativeMuteAction conversationId={item.id} enabled={item.channelKey === "qr"} demo={demo} menu />

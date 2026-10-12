@@ -1116,7 +1116,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           onClose={() => { setDetailsOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }} />}
       </>}
     </section>
-    {rowMenu && conversations.find(item => item.id === rowMenu.id) && <ConversationRowMenu
+    {rowMenu && conversations.find(item => item.id === rowMenu.id) && <ConversationRowMenu initialState={nativeChatStates[rowMenu.id]} onError={setActionError}
       key={rowMenu.id} item={conversations.find(item => item.id === rowMenu.id)!} anchor={rowMenu.anchor}
       demo={demo} lists={customLists.lists} listsBusy={customLists.membershipBlocked}
       onToggleList={(list, member) => customLists.setMember(list.id,rowMenu.id,member)} onClose={closeRowMenu}
