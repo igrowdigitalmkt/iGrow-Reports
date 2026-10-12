@@ -61,7 +61,7 @@ export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, onTo
     <NativeMuteAction conversationId={item.id} enabled={item.channelKey === "qr"} demo={demo} menu />
     <button role="menuitem" disabled={disabled} onClick={() => void change("pin", !state!.pinned, state!.pinned)}>{state?.pinned ? <PinOff size={18} /> : <Pin size={18} />}{state?.pinned ? "Desafixar conversa" : "Fixar conversa"}</button>
     <button role="menuitem" disabled={disabled} onClick={() => void change("unread", !state!.markedUnread, state!.markedUnread)}><MessageSquareText size={18} />{state?.markedUnread ? "Marcar como lida" : "Marcar como não lida"}</button>
-    <button role="menuitem" disabled={disabled || !state?.favoritesSupported} onClick={() => void change("favorite", !state!.favorite, state!.favorite)}><Heart size={18} />{state?.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</button>
+    <button role="menuitem" disabled={disabled || !state?.favoritesSupported} title={!state?.favoritesSupported?"Altere os favoritos no WhatsApp oficial. A alteração aparece na iGrow.":undefined} onClick={() => void change("favorite", !state!.favorite, state!.favorite)}><Heart size={18} />{state?.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</button>
     <button role="menuitem" onClick={() => setShowLists(value => !value)} aria-expanded={showLists}><Contact size={18} />Mudar lista</button>
     {showLists && <CustomListMembership lists={lists} conversationId={item.id} busy={listsBusy || demo} onToggle={onToggleList} />}
   </div>, document.body);

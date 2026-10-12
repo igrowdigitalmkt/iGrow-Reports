@@ -33,13 +33,13 @@ async igrowReadConversation(peer, snapshot) {
   const directLid=phone?.endsWith('@s.whatsapp.net')?await this.client.signalRepository.lidMapping.getLIDForPN(phone):undefined;
   const aliases=new Set([peer,phone,...(typeof directLid==='string'?[directLid]:[])]);
   for(const record of records){const jid=record.index?.[1];if(typeof jid==='string'&&jid.endsWith('@lid')){if(!records.igrowAliasPhones.has(jid))records.igrowAliasPhones.set(jid,await this.mappedPhoneJid(jid));if(records.igrowAliasPhones.get(jid)===phone)aliases.add(jid);}}
-  const state={jid:phone||peer,pinned:false,archived:false,markedUnread:false,favorite:false,favoritesSupported:false};
+  const state={jid:directLid||peer,pinned:false,archived:false,markedUnread:false,favorite:false,favoritesSupported:false,favoritesReadable:false};
   let favoritesRecord;
   for(const record of records){
     const value=record.syncAction?.value;
-    if(value?.favoritesAction){favoritesRecord=record;state.favorite=(value.favoritesAction.favorites||[]).some(item=>aliases.has(item.id));state.favoritesSupported=Number.isInteger(record.syncAction.version)&&record.syncAction.version>0;}
+    if(value?.favoritesAction){favoritesRecord=record;state.favorite=(value.favoritesAction.favorites||[]).some(item=>aliases.has(item.id));state.favoritesReadable=true;}
     if(!aliases.has(record.index?.[1]))continue;
-    if(value?.pinAction){state.pinned=value.pinAction.pinned===true;state.jid=record.index[1];}
+    if(value?.pinAction)state.pinned=value.pinAction.pinned===true;
     if(value?.archiveChatAction)state.archived=value.archiveChatAction.archived===true;
     if(value?.markChatAsReadAction)state.markedUnread=value.markChatAsReadAction.read===false;
   }
@@ -57,11 +57,8 @@ igrowConversation(data) {
       if(data.value&&before.records.filter(record=>record.syncAction?.value?.pinAction?.pinned===true).length>=3)throw new f('IGROW_CHAT_PIN_LIMIT');
       await this.client.chatModify({pin:data.value},before.state.jid);
     } else if(data.action==='favorite'){
-      const record=before.favoritesRecord;
-      if(!before.state.favoritesSupported||!record||typeof this.client.appPatch!=='function')throw new f('IGROW_FAVORITES_UNAVAILABLE');
-      const favorites=(record.syncAction.value.favoritesAction.favorites||[]).filter(item=>!before.aliases.has(item.id));
-      if(data.value)favorites.push({id:before.state.jid});
-      await this.client.appPatch({type:record.collection,index:record.index,apiVersion:record.syncAction.version,operation:0,syncAction:{favoritesAction:{favorites}}});
+      // Generic SDK patches are not a verified writer for WhatsApp favorites.
+      throw new f('IGROW_FAVORITES_UNAVAILABLE');
     } else {
       if(!data.lastMessages?.length)throw new f('IGROW_CHAT_MESSAGE_RANGE_UNAVAILABLE');
       const lastMessages=data.lastMessages.map(item=>({...item,key:{...item.key,remoteJid:before.state.jid}}));
@@ -78,6 +75,17 @@ igrowConversation(data) {
 }
 `;
 replace('async igrowReadMute(e){',methods+'async igrowReadMute(e){');
+replace('return typeof t=="string"&&/^[0-9]{8,15}@s[.]whatsapp[.]net$/.test(t)?t:void 0',
+  'return typeof t=="string"&&/^[0-9]{8,15}(?::[0-9]{1,5})?@s[.]whatsapp[.]net$/.test(t)?t.replace(/:[0-9]{1,5}@/,"@"):void 0');
+const muteStart=source.indexOf('async igrowReadMute(e){'),muteEnd=source.indexOf('igrowMute(e){',muteStart);
+if(muteStart<0||muteEnd<0)throw Error('Unsupported mute state reader');
+source=source.slice(0,muteStart)+String.raw`async igrowReadMute(peer){
+  const result=await this.igrowReadConversation(peer);let selected;
+  for(const record of result.records){const action=record.syncAction?.value?.muteAction;if(action&&result.aliases.has(record.index?.[1]))selected=action;}
+  const raw=selected?.muteEndTimestamp,until=raw==null?null:Number(typeof raw.toNumber==='function'?raw.toNumber():raw);
+  if(until!==null&&!Number.isSafeInteger(until))throw new f('IGROW_MUTE_STATE_UNAVAILABLE');
+  return {jid:result.state.jid,muted:selected?.muted===true&&(until===-1||until!==null&&until>Date.now()),until};
+}`+source.slice(muteEnd);
 replace('async igrowMute({instanceName:s},e){','async igrowConversation({instanceName:s},e){return this.waMonitor.waInstances[s].igrowConversation(e)}async igrowMute({instanceName:s},e){');
 replace('this.router.post(this.routerPath("igrowMute"),',String.raw`this.router.post(this.routerPath("igrowConversation"),...e,async(t,o)=>{
   const data=t.body;

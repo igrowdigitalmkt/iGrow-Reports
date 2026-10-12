@@ -36,7 +36,7 @@ async function execute(id: string, change?: z.infer<typeof schema>) {
     const { data: current, error: currentError } = await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id", context.agency.id).maybeSingle();
     if (currentError || current?.blocked || current?.fresh_after !== epoch) return Response.json({ error: "A conexão mudou. Atualize a página." }, { status: 409, headers });
     // Reconcile native metadata only. Never changes or hides message content.
-    if (result.favoritesSupported) await context.supabase.rpc("set_whatsapp_conversation_favorite", { p_conversation_id: id, p_favorite: result.favorite });
+    if (result.favoritesReadable) await context.supabase.rpc("set_whatsapp_conversation_favorite", { p_conversation_id: id, p_favorite: result.favorite });
     await context.supabase.rpc("set_whatsapp_conversation_archived", { p_conversation_id: id, p_archived: result.archived });
     if (change?.action === "unread" && chat.last_message_at) await service.from("whatsapp_conversations")
       .update({unread_count:result.markedUnread?Math.max(1,chat.unread_count):0}).eq("agency_id",context.agency.id).eq("id",id)

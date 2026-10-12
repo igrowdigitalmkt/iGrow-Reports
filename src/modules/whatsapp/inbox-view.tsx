@@ -117,7 +117,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         setNativeChatStates(Object.fromEntries(body.states.map(state => [state.id,state])));
         setList(current => current && {...current,conversations:current.conversations.map(item => {
           const state=body.states?.find(state => state.id===item.id);
-          return state?{...item,archived:state.archived,...(state.favoritesSupported?{favorite:state.favorite}:{})}:item;
+          return state?{...item,archived:state.archived,...(state.favoritesReadable?{favorite:state.favorite}:{})}:item;
         })});
       } catch { /* Preserve the last confirmed state if native synchronization is unavailable. */ }
       finally { loading = false; }
@@ -930,7 +930,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setDetails(null); setDetailsLoading(true); setDetailsOpen(true); }}><Info size={18} />{open.isGroup ? "Informações do grupo" : "Dados do contato"}</button>
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setDetailsOpen(false); setChatSearchOpen(true); setChatSearchQuery(""); setChatSearchDate(""); setChatSearchDateOpen(false); }}><Search size={18} />Pesquisar</button>
                 <button type="button" role="menuitem" disabled={!messages?.length} onClick={() => { setMenuOpen(false); setMessageSelectionOpen(true); setSelectedMessageIds(new Set()); setReplyTarget(null); }}><CheckSquare size={18} />Selecionar mensagens</button>
-                <button type="button" role="menuitem" disabled={demo} onClick={() => { setMenuOpen(false); toggleFavorite(open); }}><Heart size={18} />{open.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</button>
+                <button type="button" role="menuitem" disabled={demo || channel.kind === "qr"} title={channel.kind === "qr"?"Altere os favoritos no WhatsApp oficial. A alteração aparece na iGrow.":undefined} onClick={() => { setMenuOpen(false); toggleFavorite(open); }}><Heart size={18} />{open.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</button>
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setChatListsOpen(true); }}><Contact size={18} />Mudar lista</button>
                 <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setMessageSelectionOpen(false); setSelectedMessageIds(new Set()); setOpenId(null); }}><CircleX size={18} />Fechar conversa</button>
                 <hr />
@@ -2146,7 +2146,7 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
         {data?.commonGroups?.incomplete && <p className="wai-details-muted">Alguns participantes ainda não puderam ser identificados pelo WhatsApp.</p>}
       </div>}
       <div className="wai-details-section wai-details-actions">
-        <button type="button" disabled={demo || favoriteBusy} aria-busy={favoriteBusy} onClick={async () => { setFavoriteBusy(true); try { await onFavorite(); } finally { setFavoriteBusy(false); } }}><Heart size={26} /><span>{item.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</span></button>
+        <button type="button" disabled={demo || favoriteBusy || item.channelKey === "qr"} title={item.channelKey === "qr"?"Altere os favoritos no WhatsApp oficial. A alteração aparece na iGrow.":undefined} aria-busy={favoriteBusy} onClick={async () => { setFavoriteBusy(true); try { await onFavorite(); } finally { setFavoriteBusy(false); } }}><Heart size={26} /><span>{item.favorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}</span></button>
         <button type="button" aria-expanded={showLists} onClick={() => setShowLists(value => !value)}><ImageIcon size={26} /><span>Mudar lista</span></button>
         {showLists && <div className="wai-details-list-options"><CustomListMembership lists={lists} conversationId={item.id} busy={listsBusy || demo} onToggle={onToggleList} /></div>}
         <button type="button" ref={exportButton} disabled={!messages.length} onClick={() => setExportOpen(true)}><Download size={26} /><span>Exportar conversa</span></button>

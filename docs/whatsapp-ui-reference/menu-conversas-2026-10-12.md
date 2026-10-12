@@ -2,7 +2,9 @@
 
 O botão de seta em cada linha abre ações nativas sem abrir ou marcar a conversa como lida. Disponível ao passar o mouse, focar com o teclado ou usar uma tela de toque.
 
-O conector consulta snapshots autenticados das coleções `regular_low` e `regular_high`, sem persistir versões nem reproduzir eventos antigos. Fixação, arquivamento e leitura usam `chatModify`. Favoritos preservam a lista global completa e utilizam o índice, a coleção e a versão observados no registro nativo `favoritesAction`; a função fica indisponível quando esse registro não pode ser verificado. Cada escrita compara o estado esperado e só retorna sucesso após ler a confirmação do WhatsApp.
+O conector consulta snapshots e sequências completas de patches autenticados das coleções `regular_low` e `regular_high`, sem persistir versões nem reproduzir eventos antigos. Resolve PN/LID por USync e normaliza o sufixo de dispositivo `:0` retornado pelo SDK. Fixação, arquivamento e leitura usam `chatModify`. Cada escrita compara o estado esperado e só retorna sucesso após ler a confirmação do WhatsApp.
+
+Favoritos são sincronizados somente do WhatsApp para a iGrow. O teste de escrita genérica de `favoritesAction` causou erro de sincronização na aba oficial, apesar da confirmação de leitura no servidor. Essa escrita foi removida do conector e os controles de alteração ficaram desativados no menu, cabeçalho e detalhes. Uma resposta criptograficamente válida do servidor não comprova que todos os clientes aceitam uma operação não implementada pelo SDK.
 
 Silenciamento reaproveita a integração nativa existente, com duração e proteção contra estado alterado. Listas reutilizam a fila de associação existente. O menu não oferece bloqueio, limpeza, exclusão de conversas ou exclusão de mensagens.
 
