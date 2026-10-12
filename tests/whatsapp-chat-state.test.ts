@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
 
 describe("estado das conversas do WhatsApp QR", () => {
+  it("sincroniza a marcação nativa manual de não lida", () => {
+    expect(parseQrChatStates({event:"chats.update",data:{remoteJid:"5511999990000@s.whatsapp.net",unreadCount:-1}})).toEqual([{remoteId:"5511999990000",unread:1}]);
+  });
   it("normaliza conversa privada e preserva grupos", () => {
     expect(parseQrChatStates({
       event: "chats.update",

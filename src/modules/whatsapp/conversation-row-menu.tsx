@@ -42,9 +42,9 @@ export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, onTo
     finally { latch.current = false; setBusy(false); }
   }
   const disabled = demo || busy || !state;
-  const top=Math.max(8,Math.min(anchor.bottom+5,window.innerHeight-365));
+  const top=Math.max(8,Math.min(anchor.bottom+5,window.innerHeight-310));
   return createPortal(<div ref={menu} className="wai-row-native-menu" role="menu" aria-label={`Opções de ${conversationTitle(item)}`} tabIndex={-1}
-    style={{ left: Math.max(8, Math.min(anchor.right - 230, window.innerWidth - 238)), top, maxHeight: window.innerHeight-top-12 }}
+    style={{ left: Math.max(8, Math.min(anchor.left - 10, window.innerWidth - 238)), top, maxHeight: window.innerHeight-top-12 }}
     onKeyDown={event => {
       if (event.key === "Escape" && !busy) onClose();
       if (["ArrowUp","ArrowDown","Home","End"].includes(event.key)) {

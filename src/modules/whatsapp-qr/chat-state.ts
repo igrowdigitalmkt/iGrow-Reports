@@ -27,6 +27,8 @@ function remoteIdOf(value: unknown) {
 function finiteUnread(value: unknown) {
   if (value === null || value === undefined || value === "") return undefined;
   const number = Number(value);
+  // Baileys uses -1 for WhatsApp's explicit "mark as unread" flag.
+  if (number === -1) return 1;
   if (!Number.isFinite(number) || number < 0) return undefined;
   return Math.min(Math.trunc(number), 100_000);
 }
