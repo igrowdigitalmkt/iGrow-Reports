@@ -46,6 +46,7 @@
 .workspace .wai-shell .wai-filter-count {margin-left:auto;}
 .wai-shell :is(.wai-rail,.wai-list,.wai-new,.wai-details,.wai-chat-head,.wai-chat-search-panel,.wai-phone-panel,.wai-emoji,.wai-attach-menu,.wai-message-menu,.wai-forward-dialog,.wai-chat-menu,.wai-chat-lists-popover,.wai-account-menu,.wai-list-menu,.wai-filter-dropdown,.wai-bulk-menu,.wai-custom-manager-context) {background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
 .wai-shell :is(.wai-messages,.wai-empty,.wai-composer-area) {background:var(--bg)!important;}
+.workspace .wai-shell .wai-empty-icon {background:var(--accent-bg);color:var(--accent);border-color:var(--border);}
 .wai-shell :is(.wai-composer,.wai-search,.wai-chat-search-input,.wai-reply-banner,.wai-reactions,.wai-reaction-picker,.wai-day span) {background:var(--surface-raised)!important;color:var(--text)!important;border-color:var(--border)!important;}
 /* Light theme only: the rounded message typing bar is pure white, while the
    conversation background, other controls, and dark theme stay unchanged. */

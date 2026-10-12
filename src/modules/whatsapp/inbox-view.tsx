@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
-import { CalendarSearch, Heart, CircleX, Camera, ChartNoAxesGantt } from "lucide-react";
+import { CalendarSearch, Heart, CircleX, Camera, ChartNoAxesGantt, MessagesSquare } from "lucide-react";
 import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, QrCode, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
@@ -816,7 +816,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             {customFilterId && ([["all", "Tudo"], ["unread", "Não lidas"], ["favorites", "Favoritas"], ...(channel.kind === "qr" ? [["groups", "Grupos"]] : [])] as Array<[Filter, string]>).map(([key, label]) =>
               <button key={key} type="button" role="menuitem" onClick={() => {
                 setFilterMenuOpen(false); setCustomFilterId(null); setFilter(key);
-              }}><span className="wai-filter-check" aria-hidden="true" /><span className="wai-filter-symbol" aria-hidden="true">{key === "unread" ? <MessageSquareText size={18} /> : key === "favorites" ? <Heart size={18} /> : key === "groups" ? <UsersRound size={18} /> : null}</span><span>{label}</span>{key === "unread" && unreadHere > 0 && <small className="wai-filter-count">{unreadHere}</small>}</button>)}
+              }}><span className="wai-filter-check" aria-hidden="true" /><span className="wai-filter-symbol" aria-hidden="true">{key === "all" ? <MessagesSquare size={18} /> : key === "unread" ? <MessageSquareText size={18} /> : key === "favorites" ? <Heart size={18} /> : key === "groups" ? <UsersRound size={18} /> : null}</span><span>{label}</span>{key === "unread" && unreadHere > 0 && <small className="wai-filter-count">{unreadHere}</small>}</button>)}
             {customLists.lists.map(list => <button key={list.id} type="button" role="menuitemradio" aria-checked={customFilterId === list.id} onClick={() => {
               setFilterMenuOpen(false); setCustomFilterId(list.id); setFilter("all");
             }}><span className="wai-filter-check" aria-hidden="true">{customFilterId === list.id && <Check size={17} />}</span><span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
