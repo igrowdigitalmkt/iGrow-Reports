@@ -100,6 +100,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const customLists = useCustomLists(channelKey, demo);
   const [list, setList] = useState<InboxList | null>(demo ? { ready: true, conversations: demoConversations } : null);
   const [rowMenu, setRowMenu] = useState<{ id: string; anchor: DOMRect } | null>(null);
+  const closeRowMenu=useCallback(()=>setRowMenu(null),[]);
   const [nativeChatStates, setNativeChatStates] = useState<Record<string, NativeConversationState>>({});
   const nativeControlsVersion = useRef(0);
   useEffect(() => {
@@ -864,7 +865,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         {list && !list.ready && <p className="wai-list-note">A caixa de entrada precisa da atualização do banco de dados. Assim que ela for aplicada, as conversas passam a aparecer aqui.</p>}
         {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : customFilterId ? "Nenhuma conversa nesta lista." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
         {visible.map(item => <ConversationChoice key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} selecting={selecting}
-          pinned={nativeChatStates[item.id]?.pinned} onMenu={anchor => setRowMenu({id:item.id,anchor})}
+          pinned={nativeChatStates[item.id]?.pinned} onMenu={channel.kind === "qr"?anchor => setRowMenu({id:item.id,anchor}):undefined}
           selected={selectedIds.includes(item.id)} labels={customLists.lists.filter(list => list.conversationIds.includes(item.id))}
           onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
@@ -1131,13 +1132,13 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     {rowMenu && conversations.find(item => item.id === rowMenu.id) && <ConversationRowMenu
       key={rowMenu.id} item={conversations.find(item => item.id === rowMenu.id)!} anchor={rowMenu.anchor}
       demo={demo} lists={customLists.lists} listsBusy={customLists.membershipBlocked}
-      onToggleList={(list, member) => customLists.setMember(list.id,rowMenu.id,member)} onClose={() => setRowMenu(null)}
+      onToggleList={(list, member) => customLists.setMember(list.id,rowMenu.id,member)} onClose={closeRowMenu}
       onState={(state,action) => {
         nativeControlsVersion.current++;
         setNativeChatStates(current => ({...current,[rowMenu.id]:state}));
         if(action === "unread") setReadLocally(current => { const next={...current}; delete next[rowMenu.id]; return next; });
-        setList(current => current && {...current,conversations:current.conversations.map(item => item.id === rowMenu.id ? {...item,archived:state.archived,favorite:state.favorite,...(action === "unread"?{unread:state.markedUnread?Math.max(1,item.unread):0}:{})} : item)});
-        if((action === "unread" && state.markedUnread || state.archived) && openId === rowMenu.id) setOpenId(null);
+        setList(current => current && {...current,conversations:current.conversations.map(item => item.id === rowMenu.id ? {...item,archived:state.archived,...(state.favoritesReadable?{favorite:state.favorite}:{}),...(action === "unread"?{unread:state.markedUnread?Math.max(1,item.unread):0}:{})} : item)});
+        if((action === "unread" && state.markedUnread || action === "archive" && state.archived) && openId === rowMenu.id) setOpenId(null);
       }} />}
     {deletingList && <div className="wai-list-dialog-backdrop" role="presentation" onClick={() => setDeletingList(null)}>
       <section className="wai-list-delete-dialog" role="dialog" aria-modal="true" aria-label="Apagar lista" onClick={event => event.stopPropagation()}>

@@ -11,7 +11,7 @@ export function NativeMuteAction({conversationId,enabled,demo,menu=false}:{conve
       if(!signal?.aborted){setState(body);setError("");}
     }catch{if(!signal?.aborted){setState(null);setError("Não foi possível consultar o silenciamento.");}}
   },[conversationId]);
-  useEffect(()=>{if(demo)return;const controller=new AbortController();void Promise.resolve().then(()=>{if(!controller.signal.aborted)return load(controller.signal);});return()=>controller.abort();},[load,demo]);
+  useEffect(()=>{if(demo||!enabled)return;const controller=new AbortController();void Promise.resolve().then(()=>{if(!controller.signal.aborted)return load(controller.signal);});return()=>controller.abort();},[load,demo,enabled]);
   async function save() {
     if(!state || latch.current)return;latch.current=true;setBusy(true);setError("");
     try {const response=await fetch(`/api/whatsapp/inbox/${conversationId}/mute`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({duration:choice,expectedMuted:state.muted,expectedUntil:state.until})});

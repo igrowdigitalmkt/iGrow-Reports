@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { loadThread } from "@/modules/whatsapp/inbox-read";
-import { archiveQrChat, markQrRead } from "@/modules/whatsapp-qr/server";
+import { markQrRead } from "@/modules/whatsapp-qr/server";
 import { EvolutionClient, evolutionConfig } from "@/modules/whatsapp-qr/evolution";
 import { instanceNameFor } from "@/modules/whatsapp-qr/format";
 import { loadOwnModules } from "@/modules/team/admin";
 import { canOpenSection } from "@/modules/team/permissions";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { conversationMessageRange } from "@/modules/whatsapp/conversation-message-range";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "private, no-store" };
@@ -30,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   const context = await requireAgencyContext();
   const modules=["owner","admin"].includes(context.role)?null:await loadOwnModules(context.supabase,context.agency.id,context.user.id);
   if(!canOpenSection(context.role,modules,"whatsapp")||(body.data.action!=="read"&&context.role==="viewer"))return Response.json({error:"Sem permissão para esta ação."},{status:403,headers});
-  const { data: conversation } = await context.supabase.from("whatsapp_conversations").select("channel,remote_id,unread_count").eq("agency_id", context.agency.id).eq("id", id.data).maybeSingle();
+  const { data: conversation } = await context.supabase.from("whatsapp_conversations").select("channel,remote_id,unread_count,is_group").eq("agency_id", context.agency.id).eq("id", id.data).maybeSingle();
   if (!conversation) return Response.json({ error: "Conversa não encontrada." }, { status: 404, headers });
   const action = body.data;
   if (conversation.channel === "qr" && action.action === "favorite") {
@@ -62,10 +63,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
     }
   }
   if (conversation.channel === "qr" && action.action === "archive") {
-    const { data: last } = await context.supabase.from("whatsapp_messages").select("external_id,direction,sent_at").eq("agency_id", context.agency.id).eq("conversation_id", id.data)
-      .order("sent_at", { ascending: false }).limit(1).maybeSingle();
+    const config=evolutionConfig(),service=createSupabaseServiceClient();
+    if(!config||!service)return Response.json({error:"WhatsApp indisponível."},{status:503,headers});
+    const {data:guard,error:guardError}=await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id",context.agency.id).maybeSingle();
+    if(guardError||guard?.blocked)return Response.json({error:"Reconecte o WhatsApp."},{status:409,headers});
+    const { data: messages } = await context.supabase.from("whatsapp_messages").select("external_id,direction,sent_at,participant_jid").eq("agency_id", context.agency.id).eq("conversation_id", id.data)
+      .neq("kind","reaction").order("sent_at", { ascending: false }).limit(100);
+    const range=conversationMessageRange(messages??[],conversation.is_group);
+    if(!range)return Response.json({error:"Não foi possível confirmar as últimas mensagens da conversa."},{status:409,headers});
     try {
-      await archiveQrChat(context.agency.id, conversation.remote_id, last ? { id: last.external_id, fromMe: last.direction === "out", sentAt: last.sent_at } : null, action.value);
+      const client=new EvolutionClient(config),instance=instanceNameFor(context.agency.id);
+      const peer=conversation.remote_id.includes("@")?conversation.remote_id:`${conversation.remote_id}@s.whatsapp.net`;
+      const state=await client.conversationControl(instance,peer);
+      if(state.archived!==action.value)await client.conversationControl(instance,peer,{action:"archive",value:action.value,expected:state.archived},range);
+      const {data:current,error:currentError}=await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id",context.agency.id).maybeSingle();
+      if(currentError||current?.blocked||current?.fresh_after!==guard?.fresh_after)throw Error("Conexão alterada.");
     } catch {
       return Response.json({ error: "Não foi possível sincronizar o arquivamento com o WhatsApp." }, { status: 502, headers });
     }

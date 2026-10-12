@@ -9,17 +9,19 @@ import { NativeMuteAction } from "./native-mute-action";
 import { CustomListMembership, type CustomList } from "./custom-lists";
 export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, onToggleList, onState, onClose }: {
   item: InboxConversation; anchor: DOMRect; lists: CustomList[]; listsBusy: boolean; demo: boolean;
-  onToggleList: (list: CustomList, member: boolean) => void; onState: (state: NativeConversationState, action: NativeConversationChange["action"]) => void; onClose: () => void;
+  onToggleList: (list: CustomList, member: boolean) => void; onState: (state: NativeConversationState, action?: NativeConversationChange["action"]) => void; onClose: () => void;
 }) {
   const [state, setState] = useState<NativeConversationState | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [showLists, setShowLists] = useState(false);
   const menu = useRef<HTMLDivElement>(null), latch = useRef(false);
+  const onStateRef=useRef(onState);
+  useEffect(()=>{onStateRef.current=onState;},[onState]);
   const url = `/api/whatsapp/inbox/${item.id}/controls`;
   useEffect(() => {
     const controller = new AbortController();
     if (!demo) void fetch(url, { cache: "no-store", signal: controller.signal }).then(async response => {
       const body = await response.json();
       if (!response.ok || !validNativeConversationState(body)) throw Error(body.error || "Estado indisponível.");
-      if (!controller.signal.aborted) setState(body);
+      if (!controller.signal.aborted) {setState(body);onStateRef.current(body);}
     }).catch(failure => { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Estado indisponível."); });
     return () => controller.abort();
   }, [url, demo]);

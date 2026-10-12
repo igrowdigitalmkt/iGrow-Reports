@@ -29,7 +29,7 @@ export class EvolutionClient {
     return result.states;
   }
   async conversationControl(name: string, peer: string, change?: import("@/modules/whatsapp/conversation-controls").NativeConversationChange,
-    lastMessages?: Array<{ key: { id: string; fromMe: boolean }; messageTimestamp: number }>) {
+    lastMessages?: Array<{ key: { id: string; fromMe: boolean; participant?:string }; messageTimestamp: number }>) {
     const result = await this.request<unknown>(`/label/igrowConversation/${encodeURIComponent(name)}`, {
       method: "POST", timeoutMs: 60_000, body: { peer, ...change, ...(lastMessages ? { lastMessages } : {}) },
     });
