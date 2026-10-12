@@ -54,8 +54,6 @@ igrowConversation(data) {
     if(data.action==='pin'){
       if(data.value&&before.records.filter(record=>record.syncAction?.value?.pinAction?.pinned===true).length>=3)throw new f('IGROW_CHAT_PIN_LIMIT');
       await this.client.chatModify({pin:data.value},before.state.jid);
-      // Generic SDK patches are not a verified writer for WhatsApp favorites.
-      throw new f('IGROW_FAVORITES_UNAVAILABLE');
     } else {
       if(!data.lastMessages?.length)throw new f('IGROW_CHAT_MESSAGE_RANGE_UNAVAILABLE');
       const lastMessages=data.lastMessages.map(item=>({...item,key:{...item.key,remoteJid:before.state.jid}}));

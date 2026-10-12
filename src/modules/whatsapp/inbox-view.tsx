@@ -123,8 +123,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       } catch { /* Preserve the last confirmed state if native synchronization is unavailable. */ }
       finally { loading = false; }
     };
-    void load(); const timer=setInterval(() => void load(),30_000);
-    return () => {controller.abort();clearInterval(timer);};
+    const refresh = () => {if(document.visibilityState === "visible") void load();};
+    refresh(); const timer=setInterval(refresh,10_000);
+    window.addEventListener("focus",refresh);document.addEventListener("visibilitychange",refresh);
+    return () => {controller.abort();clearInterval(timer);window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);};
   }, [channelKey,demo]);
   const filterMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
