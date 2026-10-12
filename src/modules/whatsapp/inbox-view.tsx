@@ -399,7 +399,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const visible = inChannel.filter(item => (!customFilterId
     ? (filter === "all" || (filter === "unread" && item.unread > 0) || (filter === "groups" && item.isGroup))
     : !!customLists.lists.find(list => list.id === customFilterId)?.conversationIds.includes(item.id))
-    && (!search || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""} ${item.preview ?? ""}`.toLocaleLowerCase("pt-BR").includes(search))).sort((a,b) => Number(nativeChatStates[b.id]?.pinned ?? false) - Number(nativeChatStates[a.id]?.pinned ?? false));
+    && (!search || `${conversationTitle(item)} ${item.remoteId} ${item.clientName ?? ""} ${item.preview ?? ""}`.toLocaleLowerCase("pt-BR").includes(search))).sort((a,b) => Number(nativeChatStates[b.id]?.pinned ?? false) - Number(nativeChatStates[a.id]?.pinned ?? false) || (nativeChatStates[a.id]?.pinned && nativeChatStates[b.id]?.pinned ? (nativeChatStates[b.id]?.pinnedAt ?? 0) - (nativeChatStates[a.id]?.pinnedAt ?? 0) : 0));
   const unreadHere = inChannel.filter(item => item.unread > 0).length;
   const open = conversations.find(item => item.id === openId) ?? null;
   const channel = allChannels.find(item => item.key === channelKey) ?? allChannels[0];

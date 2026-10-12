@@ -27,7 +27,7 @@ export async function GET() {
     const states=[];
     for(const state of native){
       const chat=scoped.find(chat=>chat.peer===state.peer);if(!chat)continue;
-      states.push({id:chat.id,pinned:state.pinned,archived:state.archived,markedUnread:state.markedUnread});
+      states.push({id:chat.id,pinned:state.pinned,pinnedAt:state.pinnedAt,archived:state.archived,markedUnread:state.markedUnread});
       const patch:{archived?:boolean}={};
       if(chat.archived!==state.archived)patch.archived=state.archived;
       if(Object.keys(patch).length)await service.from("whatsapp_conversations").update(patch).eq("agency_id",context.agency.id).eq("id",chat.id).eq("channel","qr").eq("updated_at",chat.updated_at);

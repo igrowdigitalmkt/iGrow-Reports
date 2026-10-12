@@ -33,11 +33,11 @@ async igrowReadConversation(peer, snapshot) {
   const directLid=phone?.endsWith('@s.whatsapp.net')?await this.client.signalRepository.lidMapping.getLIDForPN(phone):undefined;
   const aliases=new Set([peer,phone,...(typeof directLid==='string'?[directLid]:[])]);
   for(const record of records){const jid=record.index?.[1];if(typeof jid==='string'&&jid.endsWith('@lid')){if(!records.igrowAliasPhones.has(jid))records.igrowAliasPhones.set(jid,await this.mappedPhoneJid(jid));if(records.igrowAliasPhones.get(jid)===phone)aliases.add(jid);}}
-  const state={jid:directLid||peer,pinned:false,archived:false,markedUnread:false};
+  const state={jid:directLid||peer,pinned:false,pinnedAt:null,archived:false,markedUnread:false};
   for(const record of records){
     const value=record.syncAction?.value;
     if(!aliases.has(record.index?.[1]))continue;
-    if(value?.pinAction)state.pinned=value.pinAction.pinned===true;
+    if(value?.pinAction){state.pinned=value.pinAction.pinned===true;const raw=value.timestamp;const timestamp=Number(typeof raw?.toNumber==='function'?raw.toNumber():raw||0);state.pinnedAt=state.pinned&&Number.isSafeInteger(timestamp)?timestamp:null;}
     if(value?.archiveChatAction)state.archived=value.archiveChatAction.archived===true;
     if(value?.markChatAsReadAction)state.markedUnread=value.markChatAsReadAction.read===false;
   }
