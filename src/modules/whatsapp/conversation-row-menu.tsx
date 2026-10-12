@@ -7,10 +7,12 @@ import { conversationTitle } from "./inbox-format";
 import { validNativeConversationState, type NativeConversationChange, type NativeConversationState } from "./conversation-controls";
 import { NativeMuteAction } from "./native-mute-action";
 import { CustomListMembership, type CustomList } from "./custom-lists";
-export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, initialState, onError, onToggleList, onState, onClose }: {
-  initialState?: NativeConversationState; onError: (message: string) => void;
+const commandQueues=new Map<string,Promise<void>>();
+const commandVersions=new Map<string,number>();
+export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, initialState, onError, onRollback, onToggleList, onState, onClose }: {
+  onRollback: () => void; initialState?: NativeConversationState; onError: (message: string) => void;
   item: InboxConversation; anchor: DOMRect; lists: CustomList[]; listsBusy: boolean; demo: boolean;
-  onToggleList: (list: CustomList, member: boolean) => void; onState: (state: NativeConversationState, action?: NativeConversationChange["action"]) => void; onClose: () => void;
+  onToggleList: (list: CustomList, member: boolean) => void; onState: (state: NativeConversationState, action?: NativeConversationChange["action"], pending?:boolean) => void; onClose: () => void;
 }) {
   const [state, setState] = useState<NativeConversationState>(initialState ?? {pinned:false,archived:item.archived,markedUnread:item.unread > 0}), [error, setError] = useState(""), [busy, setBusy] = useState(false), [showLists, setShowLists] = useState(false);
   const menu = useRef<HTMLDivElement>(null), latch = useRef(false);
@@ -24,20 +26,26 @@ export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, init
   }, [onClose]);
   async function change(action: NativeConversationChange["action"], value: boolean, expected: boolean) {
     if (latch.current) return;
-    latch.current = true; setBusy(true); setError(""); onClose();
+    latch.current = true; setBusy(true); setError("");
+    const field = {pin:"pinned",archive:"archived",unread:"markedUnread"} as const;
+    const version=(commandVersions.get(item.id)??0)+1;commandVersions.set(item.id,version);
+    onState({...state,[field[action]]:value,...(action==="pin"?{pinnedAt:value?Date.now():null}:{})},action,true);onClose();
+    const operation=(commandQueues.get(item.id)??Promise.resolve()).then(async()=>{
     try {
       const snapshot = await fetch(url, {cache:"no-store"});
       const current = await snapshot.json();
       if (!snapshot.ok || !validNativeConversationState(current)) throw Error(current.error || "Estado indisponível.");
-      const field = {pin:"pinned",archive:"archived",unread:"markedUnread"} as const;
       expected = current[field[action]];
-      if (expected === value) {onState(current,action);return;}
+      if (expected === value) {if(commandVersions.get(item.id)===version)onState(current,action);return;}
       const response = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, value, expected }) });
       const body = await response.json();
       if (!response.ok || !validNativeConversationState(body)) throw Error(body.error || "Sem confirmação do WhatsApp.");
-      setState(body); onState(body,action);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : "Sem confirmação."); onError(failure instanceof Error ? failure.message : "Sem confirmação."); }
+      setState(body); if(commandVersions.get(item.id)===version)onState(body,action);
+    } catch (failure) { if(commandVersions.get(item.id)===version)onRollback(); setError(failure instanceof Error ? failure.message : "Sem confirmação."); onError(failure instanceof Error ? failure.message : "Sem confirmação."); }
     finally { latch.current = false; setBusy(false); }
+    });
+    commandQueues.set(item.id,operation);await operation;
+    if(commandQueues.get(item.id)===operation)commandQueues.delete(item.id);
   }
   const disabled = demo || busy;
   const top=Math.max(8,Math.min(anchor.bottom+5,window.innerHeight-310));

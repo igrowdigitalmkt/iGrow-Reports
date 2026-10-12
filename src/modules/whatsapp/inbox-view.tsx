@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { CalendarSearch, CircleX, Camera, ChartNoAxesGantt, MessagesSquare } from "lucide-react";
 import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, QrCode, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
-import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus } from "./inbox-types";
+import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus, InboxThread } from "./inbox-types";
 import { EmojiPicker } from "./emoji-picker";
 import { WhatsAppEmoji, WhatsAppEmojiText } from "./whatsapp-emoji";
 import { EmojiInput, type EmojiInputHandle } from "./emoji-input";
@@ -45,6 +45,7 @@ import { ConversationRowMenu } from "./conversation-row-menu";
 import type { NativeConversationState } from "./conversation-controls";
 import { PhonePanel } from "./phone-panel";
 import "./platform-theme.css";
+import {withOwnReaction} from "./optimistic-reactions";
 
 type Filter = "all" | "unread" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };
@@ -103,6 +104,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const closeRowMenu=useCallback(()=>setRowMenu(null),[]);
   const [nativeChatStates, setNativeChatStates] = useState<Record<string, NativeConversationState>>({});
   const nativeControlsVersion = useRef(0);
+  const pendingNativeControls=useRef(new Set<string>());
   useEffect(() => {
     if (demo || channelKey !== "qr") return;
     const controller = new AbortController();
@@ -115,9 +117,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         const response = await fetch("/api/whatsapp/inbox/native-controls", {cache:"no-store",signal:controller.signal});
         const body = await response.json() as {states?:Array<NativeConversationState & {id:string}>};
         if (!response.ok || !body.states || controller.signal.aborted || version !== nativeControlsVersion.current) return;
-        setNativeChatStates(Object.fromEntries(body.states.map(state => [state.id,state])));
+        setNativeChatStates(current=>({...Object.fromEntries(body.states!.filter(state=>!pendingNativeControls.current.has(state.id)).map(state=>[state.id,state])),...Object.fromEntries(Object.entries(current).filter(([id])=>pendingNativeControls.current.has(id)))}));
         setList(current => current && {...current,conversations:current.conversations.map(item => {
-          const state=body.states?.find(state => state.id===item.id);
+          const state=body.states?.find(state => state.id===item.id && !pendingNativeControls.current.has(item.id));
           return state?{...item,archived:state.archived}:item;
         })});
       } catch { /* Preserve the last confirmed state if native synchronization is unavailable. */ }
@@ -203,7 +205,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const [downloadingSelection, setDownloadingSelection] = useState(false);
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const [messageActionBusy, setMessageActionBusy] = useState(false);
-  const [reactingId, setReactingId] = useState<string | null>(null);
+  const [reactionOverrides,setReactionOverrides]=useState<Record<string, {emoji:string;version:number}>>({});
+  const reactionQueues=useRef(new Map<string,Promise<void>>());
+  const reactionVersions=useRef(new Map<string,number>());
   const bottom = useRef<HTMLDivElement>(null);
 
   async function refreshStars() {
@@ -352,9 +356,14 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     return () => { cancelled = true; clearInterval(timer); };
   }, [openId, demo]);
 
-  const loaded = demo ? openId ? demoThreads[openId] ?? [] : [] : thread?.id === openId ? thread.messages : null;
+  const loaded = useMemo(()=>demo ? openId ? demoThreads[openId] ?? [] : [] : thread?.id === openId ? thread.messages : null,[demo,openId,thread,demoThreads]);
   const pending = openId ? outbox[openId] ?? [] : [];
-  const messages = loaded ? [...loaded, ...pending] : pending.length ? pending : null;
+  useEffect(()=>{if(!loaded)return;setReactionOverrides(current=>{
+    let changed=false;const next={...current};
+    for(const [id,override] of Object.entries(current)){if(reactionQueues.current.has(id))continue;const message=loaded.find(item=>item.id===id);if(message&&(message.reactions?.find(item=>item.mine)?.emoji??"")===override.emoji){delete next[id];changed=true;}}
+    return changed?next:current;
+  });},[loaded]);
+  const messages = (loaded ? [...loaded, ...pending] : pending.length ? pending : null)?.map(message=>reactionOverrides[message.id]?{...message,reactions:withOwnReaction(message.reactions,reactionOverrides[message.id].emoji)}:message) ?? null;
   // WhatsApp displays group participants beneath the title. Only use actual
   // authors found in the recent, connected conversation (never fake names).
   const recentGroupAuthors = [...new Set((messages ?? [])
@@ -483,26 +492,28 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     }
   }
 
-  async function reactTo(message: InboxMessageItem, emoji: string) {
-    if (!openId || demo || reactingId || message.id.startsWith("local-")) return;
-    setReactingId(message.id);
-    setActionError("");
-    // Tapping the emoji already used by this account removes the reaction.
-    const value = message.reactions?.some(reaction => reaction.mine && reaction.emoji === emoji) ? "" : emoji;
-    try {
-      const response = await fetch(`/api/whatsapp/inbox/${openId}/react`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: message.id, emoji: value }),
-      });
-      const body = await response.json().catch(() => null) as { error?: string; recorded?: boolean } | null;
-      if (!response.ok) throw new Error(body?.error || "O WhatsApp não confirmou a reação.");
-      if (body?.recorded === false) setActionError("Reação enviada, mas ainda não foi possível atualizar o histórico local.");
-      reload(openId);
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Não foi possível reagir.");
-    } finally {
-      setReactingId(null);
-    }
+  function reactTo(message: InboxMessageItem, emoji: string) {
+    if (!openId || demo || message.id.startsWith("local-")) return;
+    const conversationId=openId;
+    const value=message.reactions?.some(item=>item.mine&&item.emoji===emoji)?"":emoji;
+    const version=(reactionVersions.current.get(message.id)??0)+1;reactionVersions.current.set(message.id,version);
+    setReactionOverrides(current=>({...current,[message.id]:{emoji:value,version}}));setActionError("");
+    const operation=(reactionQueues.current.get(message.id)??Promise.resolve()).then(async()=>{
+      try {
+        const response=await fetch(`/api/whatsapp/inbox/${conversationId}/react`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:message.id,emoji:value})});
+        const result=await response.json().catch(()=>null) as {error?:string;recorded?:boolean}|null;
+        if(!response.ok)throw Error(result?.error||"O WhatsApp não confirmou a reação.");
+        if(result?.recorded===false)setActionError("Reação enviada; a atualização do histórico ainda está pendente.");
+        const refreshed=await fetch(`/api/whatsapp/inbox/${conversationId}`,{cache:"no-store"});
+        if(refreshed.ok){const body=await refreshed.json() as InboxThread;
+          setThread(current=>current?.id===conversationId?{id:conversationId,messages:body.messages}:current);
+          const confirmed=body.messages.find(item=>item.id===message.id)?.reactions?.find(item=>item.mine)?.emoji??"";
+          if(confirmed===value&&reactionVersions.current.get(message.id)===version)setReactionOverrides(current=>{const next={...current};delete next[message.id];return next;});
+        }
+      } catch(error){if(reactionVersions.current.get(message.id)===version)setReactionOverrides(current=>{const next={...current};delete next[message.id];return next;});setActionError(error instanceof Error?error.message:"Não foi possível reagir.");}
+    });
+    reactionQueues.current.set(message.id,operation);
+    void operation.finally(()=>{if(reactionQueues.current.get(message.id)===operation)reactionQueues.current.delete(message.id);});
   }
 
   async function copyMessage(message: InboxMessageItem) {
@@ -564,6 +575,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       setActionError("Só é permitido apagar mensagens enviadas pelo seu número.");
       return;
     }
+    const previousMessages=messages;
+    if(action==="pin"||action==="unpin")setThread(current=>current?.id===openId?{...current,messages:current.messages.map(item=>ids.includes(item.id)?{...item,pinned:action==="pin"}:item)}:current);
+    setDeleteIds([]);setSelectedMessageIds(new Set());
     setMessageActionBusy(true); setActionError("");
     try {
       const response = await fetch(`/api/whatsapp/inbox/${openId}/messages/actions`, {
@@ -577,6 +591,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       setSelectedMessageIds(new Set());
       reload(openId);
     } catch (error) {
+      if(action==="pin"||action==="unpin")setThread(current=>current?.id===openId?{...current,messages:current.messages.map(item=>ids.includes(item.id)?{...item,pinned:previousMessages?.find(previous=>previous.id===item.id)?.pinned}:item)}:current);
       if (action === "revoke") {
         // A batch may have completed partially on WhatsApp. Reconcile all
         // visible messages to prevent re-sending a revocation of the same key.
@@ -615,6 +630,8 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       setActionError("Um dos destinatários está fora da janela de atendimento de 24 horas."); return;
     }
     const batch = (messages ?? []).filter(item => forwardIds.includes(item.id));
+    const forwarded=targetIds.flatMap(targetId=>batch.map(item=>{const id=`local-forward-${crypto.randomUUID()}`;queue(targetId,{...item,id,direction:"out",status:"pending",sentAt:new Date().toISOString(),reactions:[],pinned:false,author:null,canRevokeForEveryone:false});return {targetId,id};}));
+    setForwardIds([]);setForwardTargets([]);setSelectedMessageIds(new Set());
     let confirmed = 0;
     setForwardBusy(true); setActionError("");
     try {
@@ -641,11 +658,12 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         const response = await fetch(`/api/whatsapp/inbox/${targetId}/send`, { method: "POST", body: form });
         const result = await response.json().catch(() => null) as { error?: string } | null;
         if (!response.ok) throw new Error(`${confirmed} de ${total} envios confirmados. ${result?.error || "O WhatsApp recusou o próximo envio."}`);
-        confirmed++;
+        const pendingForward=forwarded[confirmed];settle(pendingForward.targetId,pendingForward.id,"sent");confirmed++;
       }
       setForwardIds([]); setForwardTargets([]); setSelectedMessageIds(new Set());
       if (openId && targetIds.includes(openId)) reload(openId);
     } catch (error) {
+      forwarded.slice(confirmed).forEach(item=>settle(item.targetId,item.id,"failed"));
       if (confirmed) { setForwardIds([]); setForwardTargets([]); setSelectedMessageIds(new Set()); }
       setActionError((error instanceof Error ? error.message : "Não foi possível encaminhar.") +
         (confirmed ? " O encaminhamento parcial foi encerrado para evitar envios duplicados. Confira as conversas antes de tentar novamente." : ""));
@@ -655,6 +673,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   async function markSelectedRead(ids: string[]) {
     if (!ids.length || bulkBusy) return;
     setListMenuOpen(false); setBulkBusy(true); setBulkProgress({ completed: 0, total: ids.length }); setActionError("");
+    const previousUnread=new Map(conversations.filter(item=>ids.includes(item.id)).map(item=>[item.id,item.unread]));
+    setList(current=>current&&{...current,conversations:current.conversations.map(item=>ids.includes(item.id)?{...item,unread:0}:item)});
+    setSelectedIds([]);setSelecting(false);
     let done = 0;
     const failures: string[] = [];
     // At most two phone calls concurrently; an entire WhatsApp account must not
@@ -684,6 +705,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     }
     setBulkBusy(false);
     if (failures.length) {
+      setList(current=>current&&{...current,conversations:current.conversations.map(item=>failures.includes(item.id)?{...item,unread:Math.max(item.unread,previousUnread.get(item.id)??0)}:item)});
       setSelectedIds(failures);
       setSelecting(true);
       setActionError(`${failures.length} conversa(s) não foram confirmadas pelo WhatsApp. Elas permanecem selecionadas para tentar novamente.`);
@@ -958,7 +980,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                   voiceAvatarSrc={channel.kind === "qr" && (message.direction === "in" || selfConversation)
                     ? `/api/whatsapp/inbox/avatar/${message.direction === "in" ? open.id : selfConversation?.id}`
                     : undefined}
-                  live={!demo && !message.id.startsWith("local-")} canReact={canReply && reactingId === null} reactionBusy={reactingId === message.id}
+                  live={!demo && !message.id.startsWith("local-")} canReact={canReply} reactionBusy={false}
                   selected={selectedMessageIds.has(message.id)} selectMode={messageSelectionActive}
                   starred={starredIds.has(message.id)}
                   onReply={() => { setReplyTarget(message); setSelectedMessageIds(new Set()); }}
@@ -1118,11 +1140,12 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           onClose={() => { setDetailsOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }} />}
       </>}
     </section>
-    {rowMenu && conversations.find(item => item.id === rowMenu.id) && <ConversationRowMenu initialState={nativeChatStates[rowMenu.id]} onError={setActionError}
+    {rowMenu && conversations.find(item => item.id === rowMenu.id) && <ConversationRowMenu onRollback={()=>{pendingNativeControls.current.delete(rowMenu.id);const original=conversations.find(item=>item.id===rowMenu.id);if(original)setList(current=>current&&{...current,conversations:current.conversations.map(item=>item.id===original.id?{...item,archived:original.archived,unread:original.unread}:item)});setNativeChatStates(current=>{const next={...current};if(nativeChatStates[rowMenu.id])next[rowMenu.id]=nativeChatStates[rowMenu.id];else delete next[rowMenu.id];return next;});nativeControlsVersion.current++;}} initialState={nativeChatStates[rowMenu.id]} onError={setActionError}
       key={rowMenu.id} item={conversations.find(item => item.id === rowMenu.id)!} anchor={rowMenu.anchor}
       demo={demo} lists={customLists.lists} listsBusy={customLists.membershipBlocked}
       onToggleList={(list, member) => customLists.setMember(list.id,rowMenu.id,member)} onClose={closeRowMenu}
-      onState={(state,action) => {
+      onState={(state,action,pending) => {
+        if(pending)pendingNativeControls.current.add(rowMenu.id);else pendingNativeControls.current.delete(rowMenu.id);
         nativeControlsVersion.current++;
         setNativeChatStates(current => ({...current,[rowMenu.id]:state}));
         if(action === "unread") setReadLocally(current => { const next={...current}; delete next[rowMenu.id]; return next; });

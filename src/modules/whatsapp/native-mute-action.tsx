@@ -14,10 +14,12 @@ export function NativeMuteAction({conversationId,enabled,demo,menu=false}:{conve
   useEffect(()=>{if(demo||!enabled)return;const controller=new AbortController();void Promise.resolve().then(()=>{if(!controller.signal.aborted)return load(controller.signal);});return()=>controller.abort();},[load,demo,enabled]);
   async function save() {
     if(latch.current)return;latch.current=true;setBusy(true);setError("");
-    try {const confirmed=state ?? await load();if(!confirmed)throw Error("Não foi possível consultar o silenciamento.");const response=await fetch(`/api/whatsapp/inbox/${conversationId}/mute`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({duration:choice,expectedMuted:confirmed.muted,expectedUntil:confirmed.until})});
+    const previous=state;setOpen(false);
+    setState({muted:choice!=="off",until:choice==="off"?null:choice==="always"?-1:Date.now()+(choice==="8h"?8*60*60*1000:7*24*60*60*1000)});
+    try {const confirmed=previous ?? await load();if(!confirmed)throw Error("Não foi possível consultar o silenciamento.");const response=await fetch(`/api/whatsapp/inbox/${conversationId}/mute`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({duration:choice,expectedMuted:confirmed.muted,expectedUntil:confirmed.until})});
       const body=await response.json();if(!response.ok || typeof body.muted!=="boolean")throw Error(body.error || "Sem confirmação.");
       setState(body);setOpen(false);
-    }catch(failure){setError(failure instanceof Error?failure.message:"Sem confirmação.");setState(null);}
+    }catch(failure){setError(failure instanceof Error?failure.message:"Sem confirmação.");setState(previous);}
     finally{latch.current=false;setBusy(false);}
   }
   return <Dialog.Root open={open} onOpenChange={value=>{if(!latch.current){setOpen(value);if(value)setChoice(state?.muted?"off":"8h");}}}><Dialog.Trigger asChild><button type="button" role={menu?"menuitem":undefined} disabled={demo || !enabled}><Bell size={menu?18:26}/><span>{menu && state?.muted?"Reativar notificações":"Silenciar notificações"}</span>{!menu && <span className={`wai-mute-switch${state?.muted?" is-on":""}`} role="img" aria-label={state ? state.muted?"Ativado":"Desativado":"Indisponível"}/>}</button></Dialog.Trigger>
