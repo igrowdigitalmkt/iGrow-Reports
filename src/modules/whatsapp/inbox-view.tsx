@@ -856,7 +856,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                   : "Adicionar à lista"}</span><ChevronDown size={16} />
               </button>
               {chatListsOpen && <div className="wai-chat-lists-popover" role="dialog" aria-label="Adicionar à lista">
-                <CustomListMembership lists={customLists.lists} conversationId={open.id} busy={customLists.busy || demo}
+                <CustomListMembership lists={customLists.lists} conversationId={open.id} busy={customLists.membershipBlocked || demo}
                   onToggle={(list,member) => void customLists.setMember(list.id,open.id,member)} />
                 {customLists.error && <p className="wai-list-membership-empty" role="alert">{customLists.error}</p>}
                 <div className="wai-chat-lists-actions">
@@ -1076,7 +1076,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           onContactSaved={name => setList(previous => previous ? { ...previous, conversations: previous.conversations.map(chat => chat.id === open.id ? { ...chat, title: name } : chat) } : previous)}
           conversations={conversations} onOpenGroup={group => { setChannelKey(group.channelKey); setShowArchived(group.archived); setFilter("all"); setQuery(""); setCustomFilterId(null); choose(group.id);
             requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }}
-          lists={customLists.lists} listsBusy={customLists.busy}
+          lists={customLists.lists} listsBusy={customLists.membershipBlocked}
           onToggleList={(list,member) => void customLists.setMember(list.id,open.id,member)}
           onClose={() => { setDetailsOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".wai-contact-trigger")?.focus()); }} />}
       </>}

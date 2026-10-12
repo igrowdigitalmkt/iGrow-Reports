@@ -8,6 +8,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Edit3, ListFilter, L
 import { colorFor, conversationTitle, initialsOf } from "./inbox-format";
 import type { InboxConversation } from "./inbox-types";
 import { CUSTOM_LABEL_COLORS } from "./native-labels";
+import { ListMembershipQueue, applyMembershipChanges, type MembershipChange } from "./list-membership-queue";
 
 export type CustomList = { id: string; name: string; color: string; sortOrder: number; conversationIds: string[]; };
 const PALETTE = CUSTOM_LABEL_COLORS;
@@ -30,20 +31,22 @@ const DEMO_LISTS: CustomList[] = [
 export function useCustomLists(channelKey: string, demo: boolean) {
   const API = channelKey === "qr" ? "/api/whatsapp/inbox/native-labels" : "/api/whatsapp/inbox/lists";
   const [listState, setListState] = useState<{ channelKey: string; items: CustomList[] }>({ channelKey, items: [] });
-  const lists = demo ? channelKey === "qr" ? DEMO_LISTS : [] : listState.channelKey === channelKey ? listState.items : [];
-  const [busy, setBusy] = useState(false);
+  const [pendingMemberships, setPendingMemberships] = useState<MembershipChange[]>([]);
+  const lists = demo ? channelKey === "qr" ? DEMO_LISTS : [] : listState.channelKey === channelKey ? applyMembershipChanges(listState.items, pendingMemberships) : [];
+  const [saving, setBusy] = useState(false);
+  const busy = saving || pendingMemberships.length > 0;
   const [error, setError] = useState("");
   const writing = useRef(false);
   const refreshVersion = useRef(0);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (preserveError = false) => {
     if (demo) return;
     const version = ++refreshVersion.current;
     const response = await fetch(API + "?channelKey=" + encodeURIComponent(channelKey), { cache: "no-store" });
     const body = await response.json().catch(() => null) as { lists?: CustomList[]; error?: string } | null;
     if (version !== refreshVersion.current) return;
     if (!response.ok) throw new Error(body?.error ?? "Não foi possível carregar as listas.");
-    if (version === refreshVersion.current) { setListState({ channelKey, items: body?.lists ?? [] }); setError(""); }
+    if (version === refreshVersion.current) { setListState({ channelKey, items: body?.lists ?? [] }); if (!preserveError) setError(""); }
   }, [API, channelKey, demo]);
 
   useEffect(() => {
@@ -66,22 +69,37 @@ export function useCustomLists(channelKey: string, demo: boolean) {
     return () => { active = false; controller.abort(); };
   }, [API, channelKey, demo]);
 
+  const membershipQueue = useRef<ListMembershipQueue | null>(null);
+  useEffect(() => { membershipQueue.current = null; }, [API, channelKey, refresh]);
+  function getMembershipQueue() {
+    if (membershipQueue.current) return membershipQueue.current;
+    const queue = new ListMembershipQueue({
+    send: async change => {
+      const response = await fetch(API, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? "Não foi possível salvar a seleção.");
+    },
+    pending: changes => { if (membershipQueue.current !== queue) return; refreshVersion.current++; setPendingMemberships(changes); },
+    confirmed: change => { if (membershipQueue.current === queue) setListState(current => current.channelKey !== channelKey ? current :
+      { ...current, items: applyMembershipChanges(current.items, [change]) }); },
+    failed: message => { if (membershipQueue.current === queue) setError(message); },
+    idle: failed => {
+      if (membershipQueue.current !== queue) return;
+      const version = refreshVersion.current + 1;
+      void refresh(failed).catch(() => {
+        if (version === refreshVersion.current) setError("Não foi possível atualizar as listas. Aguarde a sincronização.");
+      });
+    },
+    });
+    membershipQueue.current = queue;
+    return queue;
+  }
+
   async function request(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>, id?: string) {
-    if (demo || writing.current) return false;
+    if (demo || writing.current || membershipQueue.current?.size) return false;
     writing.current = true;
     refreshVersion.current++;
     setBusy(true); setError("");
-    const membership = method === "PATCH" && typeof body.conversationId === "string" && typeof body.member === "boolean"
-      ? { id: body.id, conversationId: body.conversationId, member: body.member } : null;
-    const previousMember = membership ? listState.items.find(list => list.id === membership.id)?.conversationIds.includes(membership.conversationId) : undefined;
-    const showMembership = (member: boolean) => {
-      if (!membership) return;
-      setListState(current => current.channelKey !== channelKey ? current : { ...current, items: current.items.map(list =>
-        list.id !== membership.id ? list : { ...list, conversationIds: member
-          ? [...new Set([...list.conversationIds, membership.conversationId])]
-          : list.conversationIds.filter(chat => chat !== membership.conversationId) }) });
-    };
-    if (membership) showMembership(membership.member);
     try {
       const response = await fetch(id ? API + "?id=" + encodeURIComponent(id) : API, {
         method, headers: method === "DELETE" ? undefined : { "Content-Type": "application/json" },
@@ -97,14 +115,10 @@ export function useCustomLists(channelKey: string, demo: boolean) {
           if (version === refreshVersion.current) setError("Alteração salva no WhatsApp. Não foi possível atualizar a exibição; aguarde a sincronização.");
         });
       };
-      // Single-contact membership is already reflected locally. Release the
-      // controls after the write; the slower snapshot must not block another click.
-      if (membership) void refreshAfterWrite();
-      else await refreshAfterWrite();
+      await refreshAfterWrite();
       if(payload?.warning)setError(payload.warning);
       return true;
     } catch (failure) {
-      if (membership && previousMember !== undefined) showMembership(previousMember);
       // Some remote changes can have succeeded before a later peer fails. Re-read the device state.
       if (channelKey === "qr") await refresh().catch(() => undefined);
       setError(failure instanceof Error ? failure.message : "Não foi possível atualizar a lista.");
@@ -113,13 +127,17 @@ export function useCustomLists(channelKey: string, demo: boolean) {
   }
 
   return {
-    lists, busy, error, refresh, clearError: () => setError(""),
+    lists, busy, membershipBlocked: saving, error, refresh, clearError: () => setError(""),
     create: (name: string, color: string, conversationIds: string[]) =>
       request("POST", { name, color, conversationIds, channelKey }),
     update: (id: string, value: Partial<Pick<CustomList, "name" | "color" | "conversationIds" | "sortOrder">>) =>
       request("PATCH", { id, ...value }),
-    setMember: (id: string, conversationId: string, member: boolean) =>
-      request("PATCH", { id, conversationId, member }),
+    setMember: (id: string, conversationId: string, member: boolean) => {
+      if (demo || writing.current) return;
+      const queue = getMembershipQueue();
+      if (!queue.size) setError("");
+      queue.enqueue({ id, conversationId, member });
+    },
     remove: (id: string) => request("DELETE", {}, id),
   };
 }
