@@ -27,6 +27,7 @@ import {
   WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Table2, GripVertical, ArrowLeftRight,
 } from "lucide-react";
 import { collectDashboardData } from "./analytics-actions";
+import { generateCommentDraft } from "@/modules/ai/actions";
 import { getCampaignScopedAnalytics, getClientAnalyticsHierarchy } from "./analytics-scope-actions";
 import { deleteDashboardReport, generateDashboardReport } from "./report-actions";
 import { publishReportVersion } from "@/modules/reports/actions";
@@ -217,6 +218,22 @@ export function ClientAnalyticsDashboard({
   const [analysisNote, setAnalysisNote] = useState("");
   const [presenting, setPresenting] = useState(false);
   const [customizing, setCustomizing] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMessage, setAiMessage] = useState("");
+  const [aiNudge, setAiNudge] = useState<string | null>(null);
+  async function requestAiDraft() {
+    if (analysisNote.trim() && !window.confirm("Substituir o comentário atual pelo rascunho da IA?")) return;
+    setAiBusy(true); setAiMessage(""); setAiNudge(null);
+    try {
+      const result = await generateCommentDraft({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds });
+      if (result.ok) {
+        setAnalysisNote(result.text.slice(0, 5000));
+        setAiMessage("Rascunho gerado pela IA com os dados confirmados do período. Revise e ajuste antes de gerar o relatório.");
+        setAiNudge(result.nudge);
+      } else setAiMessage(result.message);
+    } catch { setAiMessage("Não foi possível gerar o rascunho agora. Tente novamente."); }
+    finally { setAiBusy(false); }
+  }
   const [compareKey, setCompareKey] = useState<string | null>(null);
   const [platforms, setPlatforms] = useState<PlatformPreference[]>(DEFAULT_PLATFORMS);
   const platformKey = `igrow:platforms:${preferenceKey}`;
@@ -1125,7 +1142,7 @@ export function ClientAnalyticsDashboard({
             <small>{canManageReports ? "O PDF será baixado e salvo em Relatórios. Publique após revisar para liberar o acesso ao cliente." : "O PDF será baixado para o seu dispositivo."}</small>
           </div>
         </section>
-        {canManageReports && <section><h3>Comentários e próximos passos</h3><label htmlFor="analysis-note">Contextualize os resultados para o cliente</label><textarea id="analysis-note" className="input" rows={4} maxLength={5000} value={analysisNote} onChange={event => setAnalysisNote(event.target.value)} placeholder="O que aconteceu, o que merece atenção e quais serão as próximas ações." /><p className="analytics-footnote">Rascunho salvo neste navegador. Ao gerar, o comentário será preservado no relatório vertical ou horizontal.</p></section>}
+        {canManageReports && <section><h3>Comentários e próximos passos</h3><label htmlFor="analysis-note">Contextualize os resultados para o cliente</label><textarea id="analysis-note" className="input" rows={4} maxLength={5000} value={analysisNote} onChange={event => setAnalysisNote(event.target.value)} placeholder="O que aconteceu, o que merece atenção e quais serão as próximas ações." /><p className="analytics-footnote">Rascunho salvo neste navegador. Ao gerar, o comentário será preservado no relatório vertical ou horizontal.</p><div className="analytics-ai-draft"><button type="button" className="button button-secondary button-sm" disabled={aiBusy || demo || scopeData !== null || data.coverage.status !== "complete"} onClick={() => void requestAiDraft()}><Sparkles size={14} />{aiBusy ? "Gerando rascunho…" : "Gerar rascunho com IA"}</button>{scopeData !== null && <p className="analytics-footnote">Para usar a IA, volte à seleção completa de campanhas: o rascunho considera todas as campanhas das contas selecionadas.</p>}{demo && <p className="analytics-footnote">A IA fica disponível nos clientes reais.</p>}{aiMessage && <p role="status" className="analytics-footnote">{aiMessage}</p>}{aiNudge && <p className="analytics-footnote">{aiNudge} Abra as configurações do cliente, aba Perfil do cliente.</p>}</div></section>}
       </div>
     </Dialog>
   </section>;

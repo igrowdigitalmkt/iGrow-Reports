@@ -7,6 +7,7 @@ import type { AnalyticsEntity } from "@/modules/client-portal/analytics-hierarch
 import { getSavedReportDocument } from "@/modules/client-portal/report-actions";
 import { buildPresentationPdf } from "./pdf-presentation";
 import { toReportPdfInput, usesReportPdfV2 } from "./pdf/adapter";
+import type { ReportPdfInput } from "./pdf/types";
 import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts } from "./report-presentation";
 
 export type DashboardPdfInput = {
@@ -16,6 +17,8 @@ export type DashboardPdfInput = {
   entityRows?: AnalyticsEntity[]; campaignMetrics?: AnalyticsMetric[];
   orientation?: "vertical" | "horizontal";
   analysisNote?: string;
+  // Só o PDF novo usa estes dois blocos; chegam preenchidos quando o relatório salvo é aberto no servidor.
+  audience?: ReportPdfInput["audience"]; balances?: ReportPdfInput["balances"];
 };
 
 export function buildDashboardPdf(originalInput: DashboardPdfInput) {

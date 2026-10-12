@@ -811,3 +811,20 @@ Leitura **somente de consulta** (SELECT) no Supabase de produção, autorizada p
 **Validações locais:** lint limpo; 145 arquivos / 924 testes; `pnpm test:db` sem falhas; `pnpm build` com a chave ligada passou. Estado: implementado e testado localmente; **não commitado nem publicado** (a árvore tem mudanças de WhatsApp de outra frente em arquivos compartilhados, como `src/types/database.ts`); homologação real pendente.
 
 **Pendências:** homologar o PDF novo com relatório real e no celular (abrir, enviar pelo WhatsApp); congelar público e saldo no relatório salvo; guardar só entidades com investimento ao salvar a versão (3,8 MB por versão hoje); campanhas do período anterior (custo anterior) e anúncios nos fatos; tela de uso/orçamento e de liga/desliga da IA; rota e botão que gerem o comentário como rascunho a aprovar; perfil opcional do cliente (`client_profiles`); remover `primaryMetricKey` e o aviso antigo do banco por migração. Decidir formato de página para celular (proporção ~9:16).
+
+## 12/10/2026 (noite) — IA ligada de ponta a ponta, perfil do cliente e PDF com público e saldo
+
+Decisões tomadas de forma autônoma por autorização do responsável (ele estava ausente); refazer o que discordar.
+
+**Banco (aplicado em produção, `apply_migration`, NÃO reaplicar):** `client_profiles` (versão registrada como `client_profiles`; arquivo `supabase/migrations/202610120003_client_profiles.sql`; RLS: membros leem, dono/admin/editor gravam, outro espaço e anônimo sem acesso; teste `supabase/tests/client-profiles.test.sql` e suíte inteira sem falhas antes da aplicação).
+
+**IA (o que o usuário vê):**
+- Botão **"Gerar rascunho com IA"** em Personalizar relatório → Comentários e próximos passos (`analytics-dashboard.tsx`). Ação `generateCommentDraft` (`src/modules/ai/actions.ts`): só dono/admin do espaço; lê os dados confirmados no servidor (`getFreshClientAnalytics`, hierarquia do período e do período anterior), monta os fatos e chama `generateReportComment`. O texto vai para o campo de comentário como rascunho, com aviso de revisão, e só vira relatório se o responsável gerar. Desabilitado quando há seleção parcial de campanhas, cobertura incompleta ou demonstração.
+- **Fatos mais ricos:** custo por tipo do período anterior e variação, anúncios (maior investimento, menor e maior custo por tipo, sem resultado confirmado), `resultConfirmed` (Meta não confirmou ≠ zero), perfil do cliente. Teste real com dados do RM Imobiliária: o texto citou a melhora de custo de R$ 15,12 para R$ 10,88 (−28,1%), os anúncios com melhor custo (R$ 5,61, R$ 5,88, R$ 5,89), o anúncio sem resultado confirmado, tudo aprovado pelo verificador (custo ≈ US$ 0,02).
+- **Configuração:** painel "Inteligência artificial" em Configurações (dono/admin): liga/desliga, orçamento mensal em US$, gasto do mês e contagens (`ai-settings-panel.tsx`, `settings-actions.ts`). Liga/desliga por cliente na aba Perfil do cliente.
+- **Perfil do cliente:** aba "Perfil do cliente" nas configurações do cliente (7 campos opcionais), indicador de preenchimento e o aviso "Complete o perfil do cliente para receber comentários mais precisos." (também mostrado no editor de comentário quando o perfil está incompleto). Só texto de negócio vai à IA.
+- Rótulos do comentário em texto simples (sem Markdown); o PDF deixa o rótulo em negrito.
+
+**PDF (A4, mantido para impressão):** blocos de público (rosquinhas) e saldo e pagamentos (com dados do cartão) agora são lidos da Meta ao abrir o relatório salvo, apenas com `NEXT_PUBLIC_REPORT_PDF_V2=1` (`pdf/extras.ts`, `pdf/extras-map.ts`); falha nesses blocos só os omite. Campanhas e anúncios vêm da hierarquia salva.
+
+**Pendências/decisões em aberto:** conferir `ANTHROPIC_API_KEY` na Vercel e a variável `NEXT_PUBLIC_REPORT_PDF_V2`; homologar com sessão real (gerar rascunho, salvar perfil, orçamento, PDF novo no celular e impresso); guardar só entidades com gasto ao salvar versões (3,8 MB por versão); remover `primaryMetricKey` e o aviso antigo do banco; ainda sem comentário automático no envio agendado e sem pergunta mensal de vendas (etapa 8 do plano de IA).

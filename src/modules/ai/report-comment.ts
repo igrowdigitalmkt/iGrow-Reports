@@ -5,12 +5,13 @@ import { createHash } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { ReportFacts } from "@/modules/reports/report-facts";
 import { COMMENT_SYSTEM_PROMPT } from "./comment-prompt";
+import { DEFAULT_MONTHLY_BUDGET_USD } from "./defaults";
 import { verifyNumbers } from "./number-guard";
 import { formatFactsForPrompt } from "./prompt-facts";
 
 export const COMMENT_MODEL = "claude-sonnet-5-5";
 const MAX_TOKENS = 1500;
-export const DEFAULT_MONTHLY_BUDGET_USD = 5;
+export { DEFAULT_MONTHLY_BUDGET_USD };
 
 // US$ por milhão de tokens (Claude Sonnet 5.5). Conferir a tabela de preços ao trocar de modelo.
 const PRICE_PER_MTOK = { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 };
@@ -23,7 +24,7 @@ export function estimateCostUsd(tokens: UsageTokens): number {
   return Math.round(cost * 1e6) / 1e6;
 }
 
-export type CommentInput = { agencyId: string; clientId: string; userId: string | null; facts: ReportFacts; sourceRef?: string };
+export type CommentInput = { agencyId: string; clientId: string; userId: string | null; facts: ReportFacts; profile?: Record<string, string> | null; sourceRef?: string };
 
 export type CommentResult =
   | { ok: true; text: string; costUsd: number }
@@ -41,7 +42,7 @@ export async function generateReportComment(input: CommentInput, deps: CommentDe
   const supabase = deps.supabase ?? createSupabaseServiceClient();
   if (!supabase) return { ok: false, reason: "unavailable", message: "A IA não está disponível neste ambiente." };
 
-  const promptFacts = formatFactsForPrompt(input.facts);
+  const promptFacts = formatFactsForPrompt(input.facts, input.profile);
   const factsText = JSON.stringify(promptFacts, null, 2);
   const factsHash = createHash("sha256").update(factsText).digest("hex").slice(0, 32);
 

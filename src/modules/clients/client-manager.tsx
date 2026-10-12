@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { Archive, ArrowUpRight, DatabaseZap, Mail, Pencil, Plus, RotateCcw, Settings, ShieldCheck, Users } from "lucide-react";
+import { Archive, ArrowUpRight, DatabaseZap, Mail, Pencil, Plus, RotateCcw, Settings, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { RowMenu, type RowMenuItem } from "@/components/ui/row-menu";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,13 @@ import { demoClients } from "@/modules/operations/demo-data";
 import { saveClient, setClientArchived } from "./actions";
 import { clientInputSchema, type ClientItem, type ClientResult } from "./schema";
 import { RecipientManager } from "./recipient-manager";
+import { ClientProfileForm } from "./client-profile-form";
 import { ClientAccessManager } from "@/modules/client-portal/client-access-manager";
 import type { ClientPortalAdminAccess, ClientPortalPendingInvitation } from "@/modules/client-portal/types";
 import { ClientMetaManager } from "@/modules/meta/client-meta-manager";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
 
-type SettingsTab = "dados" | "destinatarios" | "acesso" | "meta" | "arquivo";
+type SettingsTab = "dados" | "perfil" | "destinatarios" | "acesso" | "meta" | "arquivo";
 
 const samples: ClientItem[] = demoClients.map((client, index) => ({ id: `demo-${index}`, name: client.name, notes: client.segment, archived_at: null, updated_at: "2026-09-30T12:00:00Z" }));
 
@@ -68,6 +69,7 @@ export function ClientManager({ demo, initialClients = [], agencyId, canEdit = f
   function settingsTabs(client: ClientItem): Array<{ key: SettingsTab; label: string; title: string; hint: string; icon: ReactNode }> {
     return [
       { key: "dados", label: allowed && !client.archived_at ? "Dados do cliente" : "Detalhes", title: "Dados do cliente", hint: "Nome e observações internas.", icon: <Pencil size={15} /> },
+      { key: "perfil", label: "Perfil do cliente", title: "Perfil do cliente", hint: "Informações básicas do negócio para a IA comentar os resultados com mais precisão.", icon: <Sparkles size={15} /> },
       { key: "destinatarios", label: "Destinatários", title: "Destinatários", hint: "Quem recebe os relatórios, com autorização de recebimento e histórico.", icon: <Mail size={15} /> },
       ...(canEdit && !demo ? [{ key: "meta" as const, label: "Contas Meta", title: "Contas Meta", hint: "Contas de anúncios deste cliente.", icon: <DatabaseZap size={15} /> }] : []),
       ...(canManageClientAccess && clientPortalAdminReady && !demo ? [{ key: "acesso" as const, label: "Acesso do cliente", title: "Acesso do cliente", hint: "Quem pode entrar na Área do Cliente.", icon: <ShieldCheck size={15} /> }] : []),
@@ -132,6 +134,7 @@ export function ClientManager({ demo, initialClients = [], agencyId, canEdit = f
         {error && <p role="alert" className="mt-4 text-rose-400 text-sm">{error}</p>}
         {allowed && !client?.archived_at && <Button className="mt-6 w-full" disabled={pending} type="submit">{pending ? "Salvando…" : "Salvar cliente"}</Button>}
       </form>}
+            {active.key === "perfil" && <ClientProfileForm key={client.id} demo={demo} agencyId={agencyId} clientId={client.id} canEdit={canEdit} archived={!!client.archived_at} />}
             {active.key === "destinatarios" && <RecipientManager key={client.id} demo={demo} agencyId={agencyId} clientId={client.id} canEdit={canEdit} archived={!!client.archived_at} />}
             {active.key === "acesso" && agencyId && <ClientAccessManager key={client.id} agencyId={agencyId} clientId={client.id} clientName={client.name} archived={!!client.archived_at} initialAccesses={portalAccesses.filter(access => access.clientId === client.id)} initialInvitations={portalInvitations.filter(invitation => invitation.clientId === client.id)} />}
             {active.key === "meta" && agencyId && <ClientMetaManager key={client.id} agencyId={agencyId} clientId={client.id} clientName={client.name} archived={!!client.archived_at} ready={metaSnapshot.serverReadiness.databaseReady} accounts={metaSnapshot.accounts.filter(account => metaSnapshot.connections.some(connection => connection.clientId === client.id && connection.id === account.connectionId))} initialLinks={metaSnapshot.links.filter(link => link.clientId === client.id)} initialMapping={metaSnapshot.mappings.find(mapping => mapping.clientId === client.id) ?? null} connected={metaSnapshot.connections.some(connection => connection.clientId === client.id)} />}

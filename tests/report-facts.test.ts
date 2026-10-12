@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
+import type { AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 import { buildReportFacts, percentChange } from "@/modules/reports/report-facts";
 
 const MESSAGES = "result:provider:action:onsite_conversion.messaging_conversation_started_7d";
@@ -90,6 +91,30 @@ describe("fatos do relatório", () => {
     expect(facts.campaignsWithSpend).toBe(12);
     expect(facts.limitations.join(" ")).toContain("só as 10 de maior investimento, de 12");
     expect(buildReportFacts(data()).campaignsWithSpend).toBe(3);
+  });
+
+  it("compara o custo por resultado com o período anterior quando as campanhas anteriores são fornecidas", () => {
+    const previous: AnalyticsEntity[] = [{ key: "campaign:p1", id: "p1", level: "campaign", name: "Mensagens", parentId: null, campaignId: null, accountId: "b", accountName: "Conta", currency: "BRL", values: { spend: 2700, "result:provider_known": 1, [MESSAGES]: 180 } }];
+    const facts = buildReportFacts(data(), undefined, previous);
+    const messages = facts.results.find(result => result.label.startsWith("Conversas"));
+    expect(messages?.previousCostPerResult).toBeNull();
+    const reconciled = buildReportFacts({ ...data(), previousSummary: { ...data().previousSummary, spend: 2700, [VISITS]: 0, [ENGAGEMENT]: 0 } }, undefined, previous);
+    const m = reconciled.results.find(result => result.label.startsWith("Conversas"));
+    expect(m?.previousCostPerResult).toBeCloseTo(15, 5);
+    expect(m?.costChangePct).toBeCloseTo(-13.33, 1);
+    expect(reconciled.limitations.join(" ")).not.toContain("período anterior não está disponível");
+  });
+
+  it("lista os anúncios de maior investimento com o custo do único tipo de resultado", () => {
+    const ad = (id: string, spend: number, quantity: number): AnalyticsEntity => ({ key: `ad:${id}`, id, level: "ad", name: `Anúncio ${id}`, parentId: "s1", campaignId: "c1", accountId: "b", accountName: "Conta", currency: "BRL", values: { spend, "result:provider_known": 1, [MESSAGES]: quantity } });
+    const campaign: AnalyticsEntity = { key: "campaign:c1", id: "c1", level: "campaign", name: "Mensagens", parentId: null, campaignId: null, accountId: "b", accountName: "Conta", currency: "BRL", values: { spend: 2613, "result:provider_known": 1, [MESSAGES]: 201 } };
+    const entities = [campaign, ...Array.from({ length: 7 }, (_, i) => ad(String(i), 100 + i, 10 + i))];
+    const facts = buildReportFacts(data(), entities);
+    expect(facts.ads).toHaveLength(5);
+    expect(facts.adsWithSpend).toBe(7);
+    expect(facts.ads[0]).toMatchObject({ name: "Anúncio 6", campaignName: "Mensagens" });
+    expect(facts.ads[0]?.costPerResult).toBeCloseTo(106 / 16, 5);
+    expect(facts.limitations.join(" ")).toContain("só os 5 de maior investimento, de 7");
   });
 
   it("não trata divisão por zero nem valor ausente como variação", () => {

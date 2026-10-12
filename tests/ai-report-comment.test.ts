@@ -7,14 +7,14 @@ const facts: ReportFacts = {
   period: { from: "2026-09-30", to: "2026-10-06", previousFrom: "2026-09-23", previousTo: "2026-09-29", comparable: true },
   currency: "BRL",
   spend: { current: 896.54, previous: 785.75, changePct: 14.099904549793187 },
-  results: [{ key: "messages", label: "Conversas por mensagem iniciadas", quantity: 66, previousQuantity: 46, changePct: 43.47826086956522, spend: 717.9, costPerResult: 10.877272727272727 }],
+  results: [{ key: "messages", label: "Conversas por mensagem iniciadas", quantity: 66, previousQuantity: 46, changePct: 43.47826086956522, spend: 717.9, costPerResult: 10.877272727272727, previousCostPerResult: null, costChangePct: null }],
   delivery: {
     reach: { current: 53095, previous: 28157, changePct: 88.5676741130092 }, impressions: { current: 76201, previous: 47409, changePct: 60.7 },
     cpm: { current: 11.765462395506619, previous: 16.57385728448185, changePct: -29.011924058724368 },
     frequency: { current: 1.4351822205480742, previous: 1.6837376140924105, changePct: -14.762121571912246 },
     linkClicks: { current: 1384, previous: 389, changePct: 255.7840616966581 }, reachEstimated: false,
   },
-  campaigns: [], campaignsWithSpend: 0, accounts: [], limitations: [],
+  campaigns: [], campaignsWithSpend: 0, ads: [], adsWithSpend: 0, adHighlights: { lowestCost: [], highestCost: [], unconfirmed: [] }, accounts: [], limitations: [],
 };
 const input = { agencyId: "agency-1", clientId: "client-1", userId: "user-1", facts, sourceRef: "report-1" };
 

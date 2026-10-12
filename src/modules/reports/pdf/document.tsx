@@ -4,7 +4,7 @@ import { brDate, int, money, share, shortDate } from "../format";
 import { reportUpdatedAt } from "../report-presentation";
 import type { ReportFacts } from "../report-facts";
 import { AreaChart, Donut } from "./charts";
-import { changeLabel, summaryParts, toneFor, type Tone } from "./summary";
+import { analysisLines, changeLabel, summaryParts, toneFor, type Tone } from "./summary";
 import { COLORS, PALETTE, SIZE } from "./theme";
 import type { PdfBlockKey, ReportPdfInput } from "./types";
 
@@ -156,7 +156,11 @@ function Analysis({ ctx }: { ctx: Ctx }) {
   return (
     <View style={{ borderWidth: 0.7, borderColor: COLORS.line, borderLeftWidth: 5, borderLeftColor: ctx.brand, borderRadius: 6, backgroundColor: COLORS.paper, padding: 16, marginBottom: 22 }}>
       <Text style={{ fontSize: SIZE.note, color: ctx.brand, fontWeight: 500, letterSpacing: 1, marginBottom: 8 }}>ANÁLISE E DIRECIONAMENTOS</Text>
-      <Text style={{ fontSize: 16, lineHeight: 1.5 }}>{note}</Text>
+      {analysisLines(note).map((parts, index) => (
+        <Text key={index} style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 6 }}>
+          {parts.map((part, position) => <Text key={position} style={part.bold ? { fontWeight: 700 } : undefined}>{part.text}</Text>)}
+        </Text>
+      ))}
     </View>
   );
 }

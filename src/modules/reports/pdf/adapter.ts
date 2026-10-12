@@ -14,6 +14,6 @@ export function usesReportPdfV2(input: Pick<DashboardPdfInput, "orientation">): 
 export function toReportPdfInput(input: DashboardPdfInput): ReportPdfInput {
   return {
     clientName: input.clientName, workspaceName: input.workspaceName, analysisNote: input.analysisNote,
-    data: input.data, entityRows: input.entityRows,
+    data: input.data, entityRows: input.entityRows, audience: input.audience, balances: input.balances,
   };
 }

@@ -108,6 +108,11 @@ type AuditRow = {
   id: string; agency_id: string; actor_id: string | null; action: string;
   entity_id: string | null; metadata: Json; created_at: string;
 };
+type ClientProfileRow = {
+  client_id: string; agency_id: string; segment: string | null; offering: string | null; location: string | null;
+  audience: string | null; ticket_range: string | null; contact_flow: string | null; goal: string | null;
+  updated_by: string | null; updated_at: string;
+};
 type AiSettingsRow = {
   agency_id: string; enabled: boolean; monthly_budget_usd: number; updated_by: string | null; updated_at: string;
 };
@@ -310,6 +315,7 @@ export type Database = {
       automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
       report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
+      client_profiles: Table<ClientProfileRow, Pick<ClientProfileRow, "client_id" | "agency_id"> & Partial<ClientProfileRow>, Partial<ClientProfileRow>>;
       ai_settings: Table<AiSettingsRow, Pick<AiSettingsRow, "agency_id"> & Partial<AiSettingsRow>, Partial<AiSettingsRow>>;
       ai_client_settings: Table<AiClientSettingsRow, Pick<AiClientSettingsRow, "client_id" | "agency_id"> & Partial<AiClientSettingsRow>, Partial<AiClientSettingsRow>>;
       ai_usage: Table<AiUsageRow, Pick<AiUsageRow, "agency_id" | "feature" | "model" | "status"> & Partial<AiUsageRow>, Partial<AiUsageRow>>;

@@ -3,6 +3,15 @@ import type { ReportFacts } from "../report-facts";
 
 export type TextPart = { text: string; bold?: boolean };
 
+// Divide o comentário em linhas; um rótulo curto antes de dois-pontos ("Oportunidade: ...") fica em negrito.
+export function analysisLines(note: string): TextPart[][] {
+  return note.split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
+    const match = /^([^:]{3,40}):\s+(.*)$/.exec(line);
+    if (!match || match[1]!.trim().split(/\s+/).length > 5) return [{ text: line }];
+    return [{ text: `${match[1]}:`, bold: true }, { text: ` ${match[2]}` }];
+  });
+}
+
 // Frase de abertura gerada por regra (sem IA): cita todos os tipos de resultado, cada um com o
 // seu custo, e nunca escolhe um "resultado principal".
 export function summaryParts(facts: ReportFacts): TextPart[] {
