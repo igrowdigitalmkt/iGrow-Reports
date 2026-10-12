@@ -47,6 +47,9 @@ export type CampaignFact = {
   costPerResult: number | null;
 };
 
+// Vendas informadas à mão pelo responsável (a Meta não as confirma). O código calcula custo por venda e retorno.
+export type CommercialFact = { sales: number; revenue: number | null; costPerSale: number | null; revenuePerSpend: number | null };
+
 export type ReportFacts = {
   period: { from: string; to: string; previousFrom: string; previousTo: string; comparable: boolean };
   currency: string | null;
@@ -60,6 +63,7 @@ export type ReportFacts = {
   adsWithSpend: number;
   // Destaques entre anúncios do mesmo tipo de resultado (custos de tipos diferentes não se comparam).
   adHighlights: { lowestCost: AdFact[]; highestCost: AdFact[]; unconfirmed: AdFact[] };
+  commercial: CommercialFact | null;
   accounts: Array<{ name: string; spend: number; shareOfSpend: number | null }>;
   // Limites conhecidos desta leitura; o texto da IA deve respeitá-los.
   limitations: string[];
@@ -85,6 +89,17 @@ function frequency(values: AnalyticsValues): number | null {
 
 const TOP_CAMPAIGNS = 10;
 const TOP_ADS = 5;
+
+function commercialFact(input: { sales: number; revenue?: number | null } | undefined, spend: number | null | undefined): CommercialFact | null {
+  if (!input || !Number.isFinite(input.sales) || input.sales < 0) return null;
+  const revenue = input.revenue != null && Number.isFinite(input.revenue) && input.revenue >= 0 ? input.revenue : null;
+  const validSpend = finite(spend) && spend > 0 ? spend : null;
+  return {
+    sales: input.sales, revenue,
+    costPerSale: validSpend != null && input.sales > 0 ? validSpend / input.sales : null,
+    revenuePerSpend: validSpend != null && revenue != null && revenue > 0 ? revenue / validSpend : null,
+  };
+}
 
 const HIGHLIGHTS_PER_TYPE = 3;
 
@@ -113,7 +128,10 @@ function campaignSources(data: AnalyticsDashboardData, entities?: AnalyticsEntit
   return fromEntities.length > 0 ? fromEntities : data.campaigns;
 }
 
-export function buildReportFacts(data: AnalyticsDashboardData, entities?: AnalyticsEntity[], previousEntities?: AnalyticsEntity[]): ReportFacts {
+export function buildReportFacts(
+  data: AnalyticsDashboardData, entities?: AnalyticsEntity[], previousEntities?: AnalyticsEntity[],
+  commercial?: { sales: number; revenue?: number | null },
+): ReportFacts {
   const sources = campaignSources(data, entities);
   const comparable = data.coverage.status === "complete" && data.coverage.previousStatus === "complete";
   const limitations: string[] = [];
@@ -209,6 +227,8 @@ export function buildReportFacts(data: AnalyticsDashboardData, entities?: Analyt
       linkClicks: change(data.summary.link_clicks, data.previousSummary.link_clicks, comparable),
       reachEstimated,
     },
-    campaigns, campaignsWithSpend: withSpend.length, ads, adsWithSpend: adSources.length, adHighlights, accounts, limitations,
+    campaigns, campaignsWithSpend: withSpend.length, ads, adsWithSpend: adSources.length, adHighlights,
+    commercial: commercialFact(commercial, spendNow),
+    accounts, limitations,
   };
 }

@@ -2,7 +2,7 @@ import { resultBreakdown } from "@/modules/client-portal/analytics-results";
 import { jsPDF } from "jspdf";
 import type { DashboardPdfInput } from "./pdf-download";
 import { formatAnalyticsValue } from "@/modules/client-portal/analytics-format";
-import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts } from "./report-presentation";
+import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts, reportedEntityRows } from "./report-presentation";
 
 const C = { background: "#0d1724", panel: "#152536", border: "#2b4055", ink: "#e5edf8", muted: "#97afc8", cyan: "#55d7eb", purple: "#948aee", gold: "#e4bf78" };
 const accents = [C.cyan, C.purple, "#55c7a1", C.gold, "#df8ab6", "#7aa2ee"];
@@ -161,7 +161,7 @@ export function buildPresentationPdf(originalInput: DashboardPdfInput) {
     });
     text("Tipos de ação podem se sobrepor; não são somados como uma conversão única.", 80, 970, 18, C.muted);
   }
-  const rows = input.entityRows ?? [], columns = input.campaignMetrics?.length ? input.campaignMetrics : input.metrics.filter(m => ["spend", "reach", "impressions", "cpm"].includes(m.key));
+  const rows = reportedEntityRows(input.entityRows), columns = input.campaignMetrics?.length ? input.campaignMetrics : input.metrics.filter(m => ["spend", "reach", "impressions", "cpm"].includes(m.key));
   for (let group = 0; group < columns.length; group += 4) for (let offset = 0; offset < rows.length; offset += 8) {
     slide("Seleção incluída na análise", "DE ONDE VÊM OS RESULTADOS");
     const metrics = columns.slice(group, group + 4); panel(80, 240, 1760, 730);

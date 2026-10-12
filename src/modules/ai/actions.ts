@@ -12,6 +12,9 @@ import { generateReportComment } from "./report-comment";
 const inputSchema = z.object({
   clientId: z.uuid(), dateFrom: z.iso.date(), dateTo: z.iso.date(),
   accountIds: z.array(z.uuid()).min(1).max(100),
+  // Informados à mão pelo responsável; ambos opcionais.
+  sales: z.number().int().min(0).max(1_000_000).optional(),
+  revenue: z.number().min(0).max(1_000_000_000).optional(),
 });
 
 export type CommentDraftResult =
@@ -23,7 +26,7 @@ export type CommentDraftResult =
 export async function generateCommentDraft(input: unknown): Promise<CommentDraftResult> {
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Período ou contas inválidos para gerar o comentário." };
-  const { clientId, dateFrom, dateTo, accountIds } = parsed.data;
+  const { clientId, dateFrom, dateTo, accountIds, sales, revenue } = parsed.data;
   const context = await requireClientDashboardAccess(clientId);
   if (!context.agencyMode || !context.canManageReports) return { ok: false, message: "Seu perfil não pode gerar comentários com IA neste cliente." };
 
@@ -49,7 +52,7 @@ export async function generateCommentDraft(input: unknown): Promise<CommentDraft
     .select(PROFILE_FIELDS.map(item => item.key).join(",")).eq("client_id", clientId).maybeSingle();
   const profile: ClientProfile = { ...EMPTY_PROFILE, ...((profileRow ?? {}) as unknown as Partial<ClientProfile>) };
 
-  const facts = buildReportFacts(confirmedReportData(analytics), entities, previousEntities);
+  const facts = buildReportFacts(confirmedReportData(analytics), entities, previousEntities, sales == null ? undefined : { sales, revenue });
   const result = await generateReportComment({
     agencyId: context.access.agencyId, clientId, userId: context.user.id, facts,
     profile: profileForPrompt(profile), sourceRef: `${dateFrom}..${dateTo}`,

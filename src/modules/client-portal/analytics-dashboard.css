@@ -452,3 +452,9 @@
   .audience-grid { grid-template-columns: minmax(0, 1fr); }
   .audience-donut svg { width: 130px; height: 130px; }
 }
+
+/* Rascunho de comentário com IA (Personalizar relatório). */
+.analytics-ai-draft { display: grid; gap: 10px; margin-top: 12px; }
+.analytics-ai-sales { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.analytics-ai-sales label { display: grid; gap: 6px; font-size: 13px; }
+.analytics-ai-draft > button { justify-self: start; }

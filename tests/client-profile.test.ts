@@ -34,7 +34,7 @@ describe("perfil opcional do cliente", () => {
   it("o perfil entra nos fatos da IA apenas quando existe", () => {
     const facts = { period: { from: "2026-09-30", to: "2026-10-06", previousFrom: "2026-09-23", previousTo: "2026-09-29", comparable: true }, currency: "BRL", spend: { current: 1, previous: 1, changePct: 0 }, results: [],
       delivery: { reach: { current: 1, previous: 1, changePct: 0 }, impressions: { current: 1, previous: 1, changePct: 0 }, cpm: { current: 1, previous: 1, changePct: 0 }, frequency: { current: 1, previous: 1, changePct: 0 }, linkClicks: { current: 1, previous: 1, changePct: 0 }, reachEstimated: false },
-      campaigns: [], campaignsWithSpend: 0, ads: [], adsWithSpend: 0, adHighlights: { lowestCost: [], highestCost: [], unconfirmed: [] }, accounts: [], limitations: [] } satisfies ReportFacts;
+      campaigns: [], campaignsWithSpend: 0, ads: [], adsWithSpend: 0, adHighlights: { lowestCost: [], highestCost: [], unconfirmed: [] }, commercial: null, accounts: [], limitations: [] } satisfies ReportFacts;
     expect(formatFactsForPrompt(facts)).not.toHaveProperty("perfil_do_cliente");
     expect(formatFactsForPrompt(facts, null)).not.toHaveProperty("perfil_do_cliente");
     expect(formatFactsForPrompt(facts, { segmento: "Escola" }).perfil_do_cliente).toEqual({ segmento: "Escola" });

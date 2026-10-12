@@ -14,7 +14,7 @@ const facts: ReportFacts = {
     frequency: { current: 1.4351822205480742, previous: 1.6837376140924105, changePct: -14.762121571912246 },
     linkClicks: { current: 1384, previous: 389, changePct: 255.7840616966581 }, reachEstimated: false,
   },
-  campaigns: [], campaignsWithSpend: 0, ads: [], adsWithSpend: 0, adHighlights: { lowestCost: [], highestCost: [], unconfirmed: [] }, accounts: [], limitations: [],
+  campaigns: [], campaignsWithSpend: 0, ads: [], adsWithSpend: 0, adHighlights: { lowestCost: [], highestCost: [], unconfirmed: [] }, commercial: null, accounts: [], limitations: [],
 };
 const input = { agencyId: "agency-1", clientId: "client-1", userId: "user-1", facts, sourceRef: "report-1" };
 

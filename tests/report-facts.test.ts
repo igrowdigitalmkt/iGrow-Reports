@@ -117,6 +117,17 @@ describe("fatos do relatório", () => {
     expect(facts.limitations.join(" ")).toContain("só os 5 de maior investimento, de 7");
   });
 
+  it("vendas informadas à mão geram custo por venda e retorno só com o investimento total", () => {
+    const facts = buildReportFacts(data(), undefined, undefined, { sales: 12, revenue: 48500 });
+    expect(facts.commercial?.sales).toBe(12);
+    expect(facts.commercial?.costPerSale).toBeCloseTo(3649.69 / 12, 5);
+    expect(facts.commercial?.revenuePerSpend).toBeCloseTo(48500 / 3649.69, 5);
+    expect(buildReportFacts(data()).commercial).toBeNull();
+    const noRevenue = buildReportFacts(data(), undefined, undefined, { sales: 0 });
+    expect(noRevenue.commercial).toEqual({ sales: 0, revenue: null, costPerSale: null, revenuePerSpend: null });
+    expect(buildReportFacts(data(), undefined, undefined, { sales: -1 }).commercial).toBeNull();
+  });
+
   it("não trata divisão por zero nem valor ausente como variação", () => {
     expect(percentChange(5, 0)).toBeNull();
     expect(percentChange(null, 5)).toBeNull();

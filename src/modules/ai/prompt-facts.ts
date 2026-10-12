@@ -61,6 +61,13 @@ export function formatFactsForPrompt(facts: ReportFacts, profile?: Record<string
     anuncios_com_menor_custo_por_resultado: facts.adHighlights.lowestCost.map(adText),
     anuncios_com_maior_custo_por_resultado: facts.adHighlights.highestCost.map(adText),
     anuncios_sem_resultado_confirmado: facts.adHighlights.unconfirmed.map(adText),
+    ...(facts.commercial ? { vendas_informadas_pelo_responsavel: {
+      aviso: "Informado manualmente pelo responsável; a Meta não confirma vendas.",
+      vendas: int(facts.commercial.sales),
+      faturamento_informado: facts.commercial.revenue == null ? null : money(facts.commercial.revenue, currency),
+      custo_por_venda_investimento_total_dividido_pelas_vendas: facts.commercial.costPerSale == null ? null : money(facts.commercial.costPerSale, currency),
+      faturamento_por_real_investido: facts.commercial.revenuePerSpend == null ? null : dec(facts.commercial.revenuePerSpend),
+    } } : {}),
     contas: facts.accounts.map(account => ({ nome: account.name, investimento: money(account.spend, currency), participacao: share(account.shareOfSpend) })),
     limites_da_leitura: facts.limitations,
   };

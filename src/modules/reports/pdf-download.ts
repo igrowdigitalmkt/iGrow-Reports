@@ -8,7 +8,7 @@ import { getSavedReportDocument } from "@/modules/client-portal/report-actions";
 import { buildPresentationPdf } from "./pdf-presentation";
 import { toReportPdfInput, usesReportPdfV2 } from "./pdf/adapter";
 import type { ReportPdfInput } from "./pdf/types";
-import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts } from "./report-presentation";
+import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts, reportedEntityRows } from "./report-presentation";
 
 export type DashboardPdfInput = {
   title: string; clientName: string; workspaceName: string; headerDetails: string;
@@ -158,7 +158,7 @@ export function buildDashboardPdf(originalInput: DashboardPdfInput) {
   if(actions.length){section("Resultados em detalhe","Tipos de ação podem se sobrepor e não são somados como uma conversão única.");
     table(["Ação da plataforma","Resultado"],actions.map(m=>[m.label,formatAnalyticsValue(input.data.summary[m.key],m,input.data.currency)]),[132,42]);}
   section("Seleção incluída na análise","Campanhas, conjuntos e anúncios incluídos nos resultados. Linhas de diferentes níveis não devem ser somadas.");
-  const rows=input.entityRows??[];
+  const rows=reportedEntityRows(input.entityRows);
   const columns=[...new Map([...input.metrics.filter(m=>["spend","reach","impressions","cpm"].includes(m.key)),...(input.campaignMetrics??[])].map(m=>[m.key,m])).values()];
   if(rows.length)for(let offset=0;offset<columns.length;offset+=3){
     const group=columns.slice(offset,offset+3);if(offset){ensure(30);y+=6;}

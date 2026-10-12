@@ -18,6 +18,11 @@ export function confirmedReportData(data: AnalyticsDashboardData): AnalyticsDash
 export function reportResultCosts(data: AnalyticsDashboardData, entityRows?: AnalyticsEntity[]) {
   return resultCostBreakdown(data.summary, entityRows?.length ? entityRows : data.campaigns);
 }
+// Tabela de campanhas, conjuntos e anúncios do PDF antigo: só quem teve investimento no período. Antes entravam todas as
+// entidades da conta (centenas, quase todas sem gasto) e um relatório de 7 dias chegava a 233 páginas.
+export function reportedEntityRows(rows?: AnalyticsEntity[]) {
+  return (rows ?? []).filter(row => Number.isFinite(row.values.spend) && (row.values.spend ?? 0) > 0);
+}
 export const reportDate = (date: string) => date.split("-").reverse().join("/");
 export function reportUpdatedAt(data: AnalyticsDashboardData) {
   const date = [data.coverage.latestCollectedAt, data.metaAggregate?.collectedAt].filter((value): value is string => !!value)

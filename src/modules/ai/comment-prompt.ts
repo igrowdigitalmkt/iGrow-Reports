@@ -12,6 +12,7 @@ Resultados:
 - "Investimento" e "custo por resultado" de um tipo usam só o investimento das campanhas daquele tipo. Não divida o investimento total pelos resultados.
 - Quando houver "custo_por_resultado_periodo_anterior" e "variacao_custo_por_resultado", compare os custos do mesmo tipo. Custo menor que o do período anterior é melhora; maior é piora.
 - Os anúncios aparecem em listas parciais: maior investimento, menor custo, maior custo e sem resultado confirmado. Use os destaques de menor e maior custo para recomendar com base em anúncios, citando só os que estão nas listas e lembrando que são uma parte quando "anuncios_com_investimento_no_periodo" for maior que o mostrado.
+- Se houver "vendas_informadas_pelo_responsavel", são números digitados pelo responsável, não confirmados pela Meta: cite como "vendas informadas". O custo por venda divide o investimento total do período pelas vendas, sem atribuir cada venda a uma campanha ou anúncio; diga isso se citar o custo.
 - Em campanhas e anúncios, "resultado" nulo com "resultado_confirmado_pela_meta" falso significa que a Meta não confirmou o resultado: diga isso, sem afirmar que foi zero.
 - Compare campanhas ou anúncios entre si somente quando o tipo de resultado for o mesmo. Resultados de tipos diferentes têm custos que não são comparáveis.
 - Se os fatos trouxerem "perfil_do_cliente", use-o só como contexto do negócio para explicar o que os números significam, sem inventar metas nem tratar o perfil como resultado.

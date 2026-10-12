@@ -221,11 +221,18 @@ export function ClientAnalyticsDashboard({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
   const [aiNudge, setAiNudge] = useState<string | null>(null);
+  const [aiSales, setAiSales] = useState("");
+  const [aiRevenue, setAiRevenue] = useState("");
   async function requestAiDraft() {
     if (analysisNote.trim() && !window.confirm("Substituir o comentário atual pelo rascunho da IA?")) return;
     setAiBusy(true); setAiMessage(""); setAiNudge(null);
     try {
-      const result = await generateCommentDraft({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds });
+      const salesCount = aiSales.trim() === "" ? undefined : Number(aiSales.replace(",", "."));
+      const revenueValue = aiRevenue.trim() === "" ? undefined : Number(aiRevenue.replace(/\./g, "").replace(",", "."));
+      if ((salesCount !== undefined && (!Number.isInteger(salesCount) || salesCount < 0)) || (revenueValue !== undefined && (!Number.isFinite(revenueValue) || revenueValue < 0))) {
+        setAiMessage("Informe vendas como número inteiro e faturamento como valor, ou deixe em branco."); return;
+      }
+      const result = await generateCommentDraft({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: data.selectedAccountIds, ...(salesCount === undefined ? {} : { sales: salesCount }), ...(revenueValue === undefined ? {} : { revenue: revenueValue }) });
       if (result.ok) {
         setAnalysisNote(result.text.slice(0, 5000));
         setAiMessage("Rascunho gerado pela IA com os dados confirmados do período. Revise e ajuste antes de gerar o relatório.");
@@ -1142,7 +1149,7 @@ export function ClientAnalyticsDashboard({
             <small>{canManageReports ? "O PDF será baixado e salvo em Relatórios. Publique após revisar para liberar o acesso ao cliente." : "O PDF será baixado para o seu dispositivo."}</small>
           </div>
         </section>
-        {canManageReports && <section><h3>Comentários e próximos passos</h3><label htmlFor="analysis-note">Contextualize os resultados para o cliente</label><textarea id="analysis-note" className="input" rows={4} maxLength={5000} value={analysisNote} onChange={event => setAnalysisNote(event.target.value)} placeholder="O que aconteceu, o que merece atenção e quais serão as próximas ações." /><p className="analytics-footnote">Rascunho salvo neste navegador. Ao gerar, o comentário será preservado no relatório vertical ou horizontal.</p><div className="analytics-ai-draft"><button type="button" className="button button-secondary button-sm" disabled={aiBusy || demo || scopeData !== null || data.coverage.status !== "complete"} onClick={() => void requestAiDraft()}><Sparkles size={14} />{aiBusy ? "Gerando rascunho…" : "Gerar rascunho com IA"}</button>{scopeData !== null && <p className="analytics-footnote">Para usar a IA, volte à seleção completa de campanhas: o rascunho considera todas as campanhas das contas selecionadas.</p>}{demo && <p className="analytics-footnote">A IA fica disponível nos clientes reais.</p>}{aiMessage && <p role="status" className="analytics-footnote">{aiMessage}</p>}{aiNudge && <p className="analytics-footnote">{aiNudge} Abra as configurações do cliente, aba Perfil do cliente.</p>}</div></section>}
+        {canManageReports && <section><h3>Comentários e próximos passos</h3><label htmlFor="analysis-note">Contextualize os resultados para o cliente</label><textarea id="analysis-note" className="input" rows={4} maxLength={5000} value={analysisNote} onChange={event => setAnalysisNote(event.target.value)} placeholder="O que aconteceu, o que merece atenção e quais serão as próximas ações." /><p className="analytics-footnote">Rascunho salvo neste navegador. Ao gerar, o comentário será preservado no relatório vertical ou horizontal.</p><div className="analytics-ai-draft"><div className="analytics-ai-sales"><label>Vendas fechadas no período <span className="muted">(opcional)</span><input className="input" inputMode="numeric" value={aiSales} onChange={event => setAiSales(event.target.value)} placeholder="Ex.: 12" disabled={aiBusy} /></label><label>Faturamento do período em R$ <span className="muted">(opcional)</span><input className="input" inputMode="decimal" value={aiRevenue} onChange={event => setAiRevenue(event.target.value)} placeholder="Ex.: 48.500,00" disabled={aiBusy} /></label></div><button type="button" className="button button-secondary button-sm" disabled={aiBusy || demo || scopeData !== null || data.coverage.status !== "complete"} onClick={() => void requestAiDraft()}><Sparkles size={14} />{aiBusy ? "Gerando rascunho…" : "Gerar rascunho com IA"}</button>{scopeData !== null && <p className="analytics-footnote">Para usar a IA, volte à seleção completa de campanhas: o rascunho considera todas as campanhas das contas selecionadas.</p>}{demo && <p className="analytics-footnote">A IA fica disponível nos clientes reais.</p>}{aiMessage && <p role="status" className="analytics-footnote">{aiMessage}</p>}{aiNudge && <p className="analytics-footnote">{aiNudge} Abra as configurações do cliente, aba Perfil do cliente.</p>}</div></section>}
       </div>
     </Dialog>
   </section>;

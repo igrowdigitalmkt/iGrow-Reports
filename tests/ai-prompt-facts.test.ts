@@ -17,7 +17,7 @@ const facts: ReportFacts = {
     linkClicks: { current: 1384, previous: 389, changePct: 255.7840616966581 }, reachEstimated: true,
   },
   campaigns: [{ id: "1", name: "SETEMBRO 001 [INSTAGRAM] [MSGM]", accountName: "Ronaldo Moreira", spend: 717.9, shareOfSpend: 80.0745086666518, result: { key: "messages", label: "Conversas por mensagem iniciadas", quantity: 66 }, mixedResults: false, resultConfirmed: true, costPerResult: 10.877272727272727 }],
-  campaignsWithSpend: 1, ads: [], adsWithSpend: 0, adHighlights: { lowestCost: [], highestCost: [], unconfirmed: [] },
+  campaignsWithSpend: 1, ads: [], adsWithSpend: 0, adHighlights: { lowestCost: [], highestCost: [], unconfirmed: [] }, commercial: null,
   accounts: [{ name: "RM Imobiliária", spend: 0, shareOfSpend: 0 }, { name: "Ronaldo Moreira", spend: 896.54, shareOfSpend: 100 }],
   limitations: ["O custo por resultado do período anterior não está disponível; só as quantidades são comparadas."],
 };
@@ -42,6 +42,12 @@ describe("fatos para a IA", () => {
     const allowed = [JSON.stringify(formatFactsForPrompt(facts))];
     expect(verifyNumbers("66 conversas (+43,5%), a R$ 10,88 cada, com 80,1% do investimento.", allowed).ok).toBe(true);
     expect(verifyNumbers("67 conversas a R$ 10,88 cada.", allowed).unverified).toEqual(["67"]);
+  });
+  it("vendas informadas entram rotuladas como informadas pelo responsável", () => {
+    const text = formatFactsForPrompt({ ...facts, commercial: { sales: 12, revenue: 48500, costPerSale: 74.72, revenuePerSpend: 12.5 } });
+    expect(text.vendas_informadas_pelo_responsavel).toMatchObject({ vendas: "12", faturamento_informado: "R$ 48.500,00", custo_por_venda_investimento_total_dividido_pelas_vendas: "R$ 74,72", faturamento_por_real_investido: "12,50" });
+    expect(text.vendas_informadas_pelo_responsavel?.aviso).toContain("não confirma");
+    expect(formatFactsForPrompt(facts)).not.toHaveProperty("vendas_informadas_pelo_responsavel");
   });
   it("o prompt proíbe resultado principal e exige os cinco destaques", () => {
     expect(COMMENT_SYSTEM_PROMPT).toContain("nunca escolha um \"resultado principal\"");
