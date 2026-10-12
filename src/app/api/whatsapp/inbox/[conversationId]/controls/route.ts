@@ -18,6 +18,7 @@ async function execute(id: string, change?: z.infer<typeof schema>) {
   const { data: chat } = await context.supabase.from("whatsapp_conversations").select("id,channel,remote_id,is_group,unread_count,last_message_at").eq("agency_id", context.agency.id).eq("id", id).maybeSingle();
   if (!chat) return Response.json({ error: "Conversa não encontrada." }, { status: 404, headers });
   if (chat.channel !== "qr") return Response.json({ error: "A sincronização exige conexão por QR Code." }, { status: 409, headers });
+  if(change?.action === "favorite")return Response.json({error:"Altere os favoritos no WhatsApp oficial. A alteração aparece na iGrow."},{status:409,headers});
   const config = evolutionConfig(), service = createSupabaseServiceClient();
   if (!config || !service) return Response.json({ error: "WhatsApp indisponível." }, { status: 503, headers });
   const { data: guard, error: guardError } = await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id", context.agency.id).maybeSingle();

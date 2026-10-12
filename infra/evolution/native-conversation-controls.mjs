@@ -48,7 +48,8 @@ async igrowReadConversation(peer, snapshot) {
 igrowConversation(data) {
   const operation=this.igrowMuteQueue.then(async()=>{
     if(this.stateConnection.state!=='open')throw new f('WhatsApp disconnected');
-    if(data.peers){await this.client.signalRepository.lidMapping.getLIDsForPNs(data.peers.filter(peer=>peer.endsWith('@s.whatsapp.net')));const records=await this.igrowConversationSnapshot(),states=[];for(const peer of data.peers){const result=await this.igrowReadConversation(peer,records);states.push({peer,...result.state});}return {states};}
+    if(data.action==='favorite')throw new f('IGROW_FAVORITES_UNAVAILABLE');
+    if(data.peers){await this.client.signalRepository.lidMapping.getLIDsForPNs(data.peers.filter(peer=>peer.endsWith('@s.whatsapp.net')));const records=await this.igrowConversationSnapshot(),states=[];for(const peer of data.peers){try{const result=await this.igrowReadConversation(peer,records);states.push({peer,...result.state});}catch(error){if(error?.message!=='IGROW_CHAT_IDENTITY_UNAVAILABLE')throw error;}}return {states};}
     const before=await this.igrowReadConversation(data.peer);
     if(!data.action)return before.state;
     const field={pin:'pinned',archive:'archived',unread:'markedUnread',favorite:'favorite'}[data.action];
@@ -89,7 +90,7 @@ source=source.slice(0,muteStart)+String.raw`async igrowReadMute(peer){
 replace('async igrowMute({instanceName:s},e){','async igrowConversation({instanceName:s},e){return this.waMonitor.waInstances[s].igrowConversation(e)}async igrowMute({instanceName:s},e){');
 replace('this.router.post(this.routerPath("igrowMute"),',String.raw`this.router.post(this.routerPath("igrowConversation"),...e,async(t,o)=>{
   const data=t.body;
-  const validPeer=peer=>typeof peer==='string'&&/^[0-9]{8,20}@(s[.]whatsapp[.]net|lid|g[.]us)$/.test(peer);
+  const validPeer=peer=>typeof peer==='string'&&/^(?:[0-9]{8,20}@(s[.]whatsapp[.]net|lid)|[0-9]{5,20}(?:-[0-9]{5,20})?@g[.]us)$/.test(peer);
   if(!data||!(validPeer(data.peer)||(Array.isArray(data.peers)&&data.peers.length<=500&&data.peers.every(validPeer)&&data.action===undefined))||Object.keys(data).some(key=>!['peer','peers','action','value','expected','lastMessages'].includes(key))||
     (data.action!==undefined&&(!['pin','archive','unread','favorite'].includes(data.action)||typeof data.value!=='boolean'||typeof data.expected!=='boolean'))||
     (data.lastMessages!==undefined&&(!Array.isArray(data.lastMessages)||data.lastMessages.length>100||data.lastMessages.some(item=>!item?.key||typeof item.key.id!=='string'||typeof item.key.fromMe!=='boolean'||!Number.isSafeInteger(item.messageTimestamp)))))return o.status(400).json({error:'Invalid conversation control'});

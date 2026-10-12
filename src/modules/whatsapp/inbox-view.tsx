@@ -460,10 +460,10 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     setList(current => current && { ...current, conversations: current.conversations.map(entry => entry.id === item.id ? { ...entry, favorite: !item.favorite } : entry) });
     try {
       const response = await fetch(`/api/whatsapp/inbox/${item.id}`, { method: "POST", body: JSON.stringify({ action: "favorite", value: !item.favorite }) });
-      if (!response.ok) throw Error("Não foi possível atualizar os favoritos.");
-    } catch {
+      if (!response.ok) { const body=await response.json().catch(()=>null) as {error?:string}|null; throw Error(body?.error||"Não foi possível atualizar os favoritos."); }
+    } catch (error) {
       setList(current => current && { ...current, conversations: current.conversations.map(entry => entry.id === item.id ? { ...entry, favorite: item.favorite } : entry) });
-      setActionError("Não foi possível atualizar os favoritos. Tente novamente.");
+      setActionError(error instanceof Error?error.message:"Não foi possível atualizar os favoritos. Tente novamente.");
     }
   }
 

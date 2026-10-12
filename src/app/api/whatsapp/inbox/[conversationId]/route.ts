@@ -35,21 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   if (!conversation) return Response.json({ error: "Conversa não encontrada." }, { status: 404, headers });
   const action = body.data;
   if (conversation.channel === "qr" && action.action === "favorite") {
-    const config=evolutionConfig();
-    if(!config)return Response.json({error:"WhatsApp indisponível."},{status:503,headers});
-    const service=createSupabaseServiceClient();
-    if(!service)return Response.json({error:"WhatsApp indisponível."},{status:503,headers});
-    const {data:guard,error:guardError}=await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id",context.agency.id).maybeSingle();
-    if(guardError||guard?.blocked)return Response.json({error:"Reconecte o WhatsApp."},{status:409,headers});
-    try {
-      const client=new EvolutionClient(config),instance=instanceNameFor(context.agency.id);
-      const peer=conversation.remote_id.includes("@")?conversation.remote_id:`${conversation.remote_id}@s.whatsapp.net`;
-      const state=await client.conversationControl(instance,peer);
-      if(!state.favoritesSupported)throw Error("Favoritos indisponíveis.");
-      if(state.favorite!==action.value)await client.conversationControl(instance,peer,{action:"favorite",value:action.value,expected:state.favorite});
-      const {data:current,error:currentError}=await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id",context.agency.id).maybeSingle();
-      if(currentError||current?.blocked||current?.fresh_after!==guard?.fresh_after)throw Error("Conexão alterada.");
-    }catch{return Response.json({error:"Não foi possível sincronizar os favoritos com o WhatsApp."},{status:502,headers});}
+    return Response.json({error:"Altere os favoritos no WhatsApp oficial. A alteração aparece na iGrow."},{status:409,headers});
   }
   // Read and archive also happen on the phone for the QR Code session, like WhatsApp Web.
   if (conversation.channel === "qr" && action.action === "read" && conversation.unread_count > 0) {
