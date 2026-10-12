@@ -42,9 +42,11 @@ for (const message of messages) {
   const [current] = await db("whatsapp_qr_reset_guards", { select: "blocked,fresh_after", agency_id: `eq.${agency}` });
   if (current?.blocked || current?.fresh_after !== guard.fresh_after) throw Error("Pairing changed during repair");
   if (message.body === null || (message.kind === "template" && [content.originalBody,content.withoutClock].includes(message.body) && content.body !== message.body)) {
-    const repaired = await db("whatsapp_messages", { agency_id: `eq.${agency}`, id: `eq.${message.id}`, conversation_id: `eq.${chat.id}`, external_id: `eq.${message.external_id}`, body: message.body === null ? "is.null" : "eq."+content.originalBody, revoked_at: "is.null" }, { body: content.body });
-    if (repaired.length) counts.recovered++;
-    await db("whatsapp_conversations", { agency_id: `eq.${agency}`, channel_key: "eq.qr", id: `eq.${chat.id}`, last_message_at: `eq.${message.sent_at}` }, { last_message_preview: content.body.slice(0, 300), updated_at: new Date().toISOString() });
+    const repaired = await db("whatsapp_messages", { agency_id: `eq.${agency}`, id: `eq.${message.id}`, conversation_id: `eq.${chat.id}`, external_id: `eq.${message.external_id}`, body: message.body === null ? "is.null" : "eq."+message.body, revoked_at: "is.null" }, { body: content.body });
+    if (repaired.length) {
+      counts.recovered++;
+      await db("whatsapp_conversations", { agency_id: `eq.${agency}`, channel_key: "eq.qr", id: `eq.${chat.id}`, last_message_at: `eq.${message.sent_at}` }, { last_message_preview: content.body.slice(0, 300), updated_at: new Date().toISOString() });
+    }
   }
   if (message.kind === "template" && content.buttons.length) await db("whatsapp_messages", { agency_id:`eq.${agency}`,conversation_id:`eq.${chat.id}`,id:`eq.${message.id}`,media_ref:"is.null",revoked_at:"is.null" }, {media_ref:{type:"templateMessage",data:{buttons:content.buttons}}});
   if (!chat.title && content.name) {
