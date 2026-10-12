@@ -96,6 +96,15 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
   const allChannels = useMemo(() => [{ ...QR_CHANNEL, phone: qrPhone }, ...channels], [channels, qrPhone]);
   const [channelKey, setChannelKey] = useState("qr");
   const customLists = useCustomLists(channelKey, demo);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filterMenuOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !filterMenuRef.current?.contains(event.target)) setFilterMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [filterMenuOpen]);
   const [customFilterId, setCustomFilterId] = useState<string | null>(null);
   const [managingLists, setManagingLists] = useState(false);
   const [editingList, setEditingList] = useState<CustomList | null | undefined>(undefined);
@@ -790,13 +799,16 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
       </> : <>
       {!selecting && <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar ou começar uma nova conversa" aria-label="Pesquisar conversas" /></label>}
       {!selecting && <div className="wai-filters" role="group" aria-label="Filtrar conversas">
+        <div className="wai-filter-chips">
         {([["all", "Tudo"], ["unread", unreadHere ? `Não lidas ${unreadHere}` : "Não lidas"], ["favorites", "Favoritas"], ...(channel.kind === "qr" ? [["groups", "Grupos"]] : [])] as Array<[Filter, string]>).map(([key, label]) =>
           <button key={key} type="button" aria-pressed={filter === key} className={filter === key ? "is-active" : undefined} onClick={() => { setFilter(key); setCustomFilterId(null); }}>{label}</button>)}
         {customFilterId && customLists.lists.filter(list => list.id === customFilterId).map(list =>
           <button type="button" key={list.id} className="is-active" onClick={() => setCustomFilterId(null)}>
             <span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
-        <div className="wai-filter-dropdown-anchor">
+        </div>
+        <div ref={filterMenuRef} className="wai-filter-dropdown-anchor" onKeyDown={event => { if (event.key === "Escape") setFilterMenuOpen(false); }}>
           <button type="button" className="wai-list-add-filter" aria-expanded={filterMenuOpen}
+            aria-label="Outras listas e nova lista" aria-haspopup="menu"
             onClick={() => setFilterMenuOpen(value => !value)} title="Outras listas e nova lista">
             <ChevronDown size={17} />
           </button>

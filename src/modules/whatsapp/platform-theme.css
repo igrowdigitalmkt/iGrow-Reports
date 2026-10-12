@@ -28,9 +28,15 @@
   --wai-search:var(--surface-raised);--wai-in:var(--surface-raised);--wai-out:var(--accent-bg);--wai-out-text:var(--text);
   --wai-green:var(--accent);--wai-green-text:var(--on-accent);--wai-pill-on:var(--accent-bg);--wai-pill-on-text:var(--accent);
   --wai-day:var(--surface-raised);--wai-doc:var(--surface);--wai-blue:var(--blue);
-  --wai-ref-inbox-width:clamp(280px,30%,420px);background:var(--bg)!important;color:var(--text);color-scheme:inherit;
+  --wai-ref-inbox-width:clamp(340px,32%,480px);background:var(--bg)!important;color:var(--text);color-scheme:inherit;
 }
 .workspace:has(.demo-banner) .wai-shell {height:calc((100dvh - 94px) / .8)!important;}
+/* Reserve a visible list-menu trigger even when filters need horizontal scroll. */
+.workspace .wai-shell .wai-filters {overflow:visible;position:relative;z-index:26;gap:8px;padding-inline:18px;}
+.workspace .wai-shell .wai-filter-chips {display:flex;align-items:center;gap:8px;min-width:0;flex:1;overflow-x:auto;scrollbar-width:none;}
+.workspace .wai-shell .wai-filter-chips::-webkit-scrollbar {display:none;}
+.workspace .wai-shell .wai-list .wai-filters .wai-filter-chips>button {font-size:16px;padding-inline:12px;}
+.workspace .wai-shell .wai-filter-dropdown {left:auto;right:0;top:calc(100% + 8px);max-height:calc(100dvh - 240px);overflow-y:auto;}
 .wai-shell :is(.wai-rail,.wai-list,.wai-new,.wai-details,.wai-chat-head,.wai-chat-search-panel,.wai-phone-panel,.wai-emoji,.wai-attach-menu,.wai-message-menu,.wai-forward-dialog,.wai-chat-menu,.wai-chat-lists-popover,.wai-account-menu,.wai-list-menu,.wai-filter-dropdown,.wai-bulk-menu,.wai-custom-manager-context) {background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
 .wai-shell :is(.wai-messages,.wai-empty,.wai-composer-area) {background:var(--bg)!important;}
 .wai-shell :is(.wai-composer,.wai-search,.wai-chat-search-input,.wai-reply-banner,.wai-reactions,.wai-reaction-picker,.wai-day span) {background:var(--surface-raised)!important;color:var(--text)!important;border-color:var(--border)!important;}
