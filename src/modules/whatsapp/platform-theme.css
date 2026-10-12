@@ -37,6 +37,8 @@
 .workspace .wai-shell .wai-filter-chips::-webkit-scrollbar {display:none;}
 .workspace .wai-shell .wai-list .wai-filters .wai-filter-chips>button {font-size:16px;padding-inline:12px;}
 .workspace .wai-shell .wai-filter-dropdown {left:auto;right:0;top:calc(100% + 8px);max-height:calc(100dvh - 240px);overflow-y:auto;}
+.workspace .wai-shell .wai-filter-dropdown-anchor>.wai-list-add-filter {background:var(--surface-raised)!important;border-color:var(--border-strong)!important;}
+.workspace .wai-shell .wai-filter-dropdown-anchor>.wai-list-add-filter:hover {background:var(--surface-hover)!important;}
 .wai-shell :is(.wai-rail,.wai-list,.wai-new,.wai-details,.wai-chat-head,.wai-chat-search-panel,.wai-phone-panel,.wai-emoji,.wai-attach-menu,.wai-message-menu,.wai-forward-dialog,.wai-chat-menu,.wai-chat-lists-popover,.wai-account-menu,.wai-list-menu,.wai-filter-dropdown,.wai-bulk-menu,.wai-custom-manager-context) {background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
 .wai-shell :is(.wai-messages,.wai-empty,.wai-composer-area) {background:var(--bg)!important;}
 .wai-shell :is(.wai-composer,.wai-search,.wai-chat-search-input,.wai-reply-banner,.wai-reactions,.wai-reaction-picker,.wai-day span) {background:var(--surface-raised)!important;color:var(--text)!important;border-color:var(--border)!important;}
