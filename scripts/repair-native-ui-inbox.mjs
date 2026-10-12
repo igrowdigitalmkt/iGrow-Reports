@@ -22,10 +22,11 @@ for (const row of exported) {
   const name = row.contactName ?? /^\[[^\]]+\] (.+): $/.exec(row.pre ?? "")?.[1];
   const clock = /^\[(\d{1,2}:\d{2}),/.exec(row.pre ?? "")?.[1];
   const originalBody = row.body;
-  const body = clock && originalBody.trimEnd().endsWith("\n"+clock) ? originalBody.trimEnd().slice(0,-clock.length-1).trimEnd() : originalBody;
+  const withoutClock = clock && originalBody.trimEnd().endsWith("\n"+clock) ? originalBody.trimEnd().slice(0,-clock.length-1).trimEnd() : originalBody;
+  const body = withoutClock.replace(/\n{3,}/g,"\n\n");
   if (native.has(row.externalId) && native.get(row.externalId).body !== body) throw Error("Conflicting native message exports");
   const buttons = Array.isArray(row.buttons) ? row.buttons.slice(0,8).filter(button => typeof button?.label === "string" && button.label.trim() && button.label.length<=120).map(button=>({label:button.label})) : [];
-  native.set(row.externalId, { body, originalBody, buttons, name: typeof name === "string" && name.trim() && name.length <= 200 && !/[\x00-\x1f]/.test(name) ? name : null });
+  native.set(row.externalId, { body, originalBody, withoutClock, buttons, name: typeof name === "string" && name.trim() && name.length <= 200 && !/[\x00-\x1f]/.test(name) ? name : null });
 }
 const conversations = await db("whatsapp_conversations", { select: "id,title,last_message_at", agency_id: `eq.${agency}`, channel_key: "eq.qr" });
 const chats = new Map(conversations.map(chat => [chat.id, chat]));
@@ -40,7 +41,7 @@ for (const message of messages) {
   if (process.argv.includes("--dry-run")) continue;
   const [current] = await db("whatsapp_qr_reset_guards", { select: "blocked,fresh_after", agency_id: `eq.${agency}` });
   if (current?.blocked || current?.fresh_after !== guard.fresh_after) throw Error("Pairing changed during repair");
-  if (message.body === null || (message.kind === "template" && message.body === content.originalBody && content.body !== content.originalBody)) {
+  if (message.body === null || (message.kind === "template" && [content.originalBody,content.withoutClock].includes(message.body) && content.body !== message.body)) {
     const repaired = await db("whatsapp_messages", { agency_id: `eq.${agency}`, id: `eq.${message.id}`, conversation_id: `eq.${chat.id}`, external_id: `eq.${message.external_id}`, body: message.body === null ? "is.null" : "eq."+content.originalBody, revoked_at: "is.null" }, { body: content.body });
     if (repaired.length) counts.recovered++;
     await db("whatsapp_conversations", { agency_id: `eq.${agency}`, channel_key: "eq.qr", id: `eq.${chat.id}`, last_message_at: `eq.${message.sent_at}` }, { last_message_preview: content.body.slice(0, 300), updated_at: new Date().toISOString() });
