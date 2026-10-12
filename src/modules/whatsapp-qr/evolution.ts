@@ -35,7 +35,7 @@ export class EvolutionClient {
     });
     const { validNativeConversationState } = await import("@/modules/whatsapp/conversation-controls");
     if (!validNativeConversationState(result)) throw new EvolutionError("O WhatsApp não confirmou o estado da conversa.");
-    if(change){const field=({pin:"pinned",archive:"archived",unread:"markedUnread",favorite:"favorite"} as const)[change.action];if(result[field]!==change.value)throw new EvolutionError("O WhatsApp não confirmou a alteração.");}
+    if(change){const field=({pin:"pinned",archive:"archived",unread:"markedUnread"} as const)[change.action];if(result[field]!==change.value)throw new EvolutionError("O WhatsApp não confirmou a alteração.");}
     return result;
   }
   async mute(name:string,peer:string,change?:{duration:"8h"|"7d"|"always"|"off";expectedMuted:boolean;expectedUntil:number|null}) {

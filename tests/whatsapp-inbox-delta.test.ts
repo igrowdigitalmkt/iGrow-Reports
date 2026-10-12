@@ -5,7 +5,7 @@ import { parseEvolutionRecentHistory } from "@/modules/whatsapp/inbox-parse";
 
 const old: InboxConversation = {
   id:"old", channelKey:"qr", remoteId:"5586999000000", isGroup:false, title:"Pessoa",
-  clientId:null, clientName:null, favorite:false, unread:0,
+  clientId:null, clientName:null, unread:0,
   lastAt:"2026-10-07T10:00:00Z", preview:"Anterior", lastDirection:"in",
   lastKind:"text", lastStatus:null, lastInboundAt:"2026-10-07T10:00:00Z",
   archived:false, updatedAt:"2026-10-07T10:00:01Z",

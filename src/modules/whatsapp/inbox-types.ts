@@ -8,7 +8,7 @@ export type InboxChannel = {
 
 export type InboxConversation = {
   id: string; channelKey: string; remoteId: string; isGroup: boolean; title: string | null;
-  clientId: string | null; clientName: string | null; favorite: boolean; unread: number;
+  clientId: string | null; clientName: string | null; unread: number;
   lastAt: string | null; preview: string | null; lastDirection: "in" | "out" | null; lastKind: string | null; lastStatus: InboxStatus;
   lastInboundAt: string | null; archived: boolean; updatedAt?: string;
 };

@@ -16,7 +16,7 @@ export async function GET() {
   if(!config||!service)return Response.json({error:"WhatsApp indisponível."},{status:503,headers});
   const {data:guard,error:guardError}=await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id",context.agency.id).maybeSingle();
   if(guardError||guard?.blocked)return Response.json({error:"Reconecte o WhatsApp."},{status:409,headers});
-  const {data:chats,error}=await context.supabase.from("whatsapp_conversations").select("id,remote_id,favorite,archived,updated_at")
+  const {data:chats,error}=await context.supabase.from("whatsapp_conversations").select("id,remote_id,archived,updated_at")
     .eq("agency_id",context.agency.id).eq("channel","qr").gte("last_message_at",new Date(Date.now()-WHATSAPP_QR_RECENT_DAYS*86_400_000).toISOString()).limit(500);
   if(error)return Response.json({error:"Conversas indisponíveis."},{status:503,headers});
   const scoped=(chats??[]).map(chat=>({...chat,peer:chat.remote_id.includes("@")?chat.remote_id:`${chat.remote_id}@s.whatsapp.net`}));
@@ -27,9 +27,8 @@ export async function GET() {
     const states=[];
     for(const state of native){
       const chat=scoped.find(chat=>chat.peer===state.peer);if(!chat)continue;
-      states.push({id:chat.id,pinned:state.pinned,archived:state.archived,markedUnread:state.markedUnread,favorite:state.favorite,favoritesSupported:state.favoritesSupported,favoritesReadable:state.favoritesReadable});
-      const patch:{favorite?:boolean;archived?:boolean}={};
-      if(state.favoritesReadable&&chat.favorite!==state.favorite)patch.favorite=state.favorite;
+      states.push({id:chat.id,pinned:state.pinned,archived:state.archived,markedUnread:state.markedUnread});
+      const patch:{archived?:boolean}={};
       if(chat.archived!==state.archived)patch.archived=state.archived;
       if(Object.keys(patch).length)await service.from("whatsapp_conversations").update(patch).eq("agency_id",context.agency.id).eq("id",chat.id).eq("channel","qr").eq("updated_at",chat.updated_at);
     }

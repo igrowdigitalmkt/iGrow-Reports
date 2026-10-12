@@ -402,7 +402,6 @@ export type Database = {
       resume_whatsapp_qr_after_reset: { Args: { p_agency_id: string }; Returns: undefined };
       prune_whatsapp_qr_messages: { Args: { p_batch_size: number }; Returns: number };
       set_whatsapp_conversation_archived: { Args: { p_conversation_id: string; p_archived: boolean }; Returns: undefined };
-      set_whatsapp_conversation_favorite: { Args: { p_conversation_id: string; p_favorite: boolean }; Returns: undefined };
       service_client_analytics: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };
       record_whatsapp_webhook: { Args: { p_dedup_key: string; p_payload: Json }; Returns: boolean };
       delete_integration_secret: { Args: { p_agency_id: string; p_integration_id: string; p_secret_kind: string }; Returns: undefined };

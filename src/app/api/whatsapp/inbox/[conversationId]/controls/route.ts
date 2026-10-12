@@ -9,7 +9,7 @@ import { conversationMessageRange } from "@/modules/whatsapp/conversation-messag
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const headers = { "Cache-Control": "private, no-store" };
-const schema = z.object({ action: z.enum(["archive", "pin", "unread", "favorite"]), value: z.boolean(), expected: z.boolean() }).strict();
+const schema = z.object({ action: z.enum(["archive", "pin", "unread"]), value: z.boolean(), expected: z.boolean() }).strict();
 async function execute(id: string, change?: z.infer<typeof schema>) {
   if (!z.uuid().safeParse(id).success) return Response.json({ error: "Conversa inválida." }, { status: 400, headers });
   const context = await requireAgencyContext();
@@ -18,7 +18,6 @@ async function execute(id: string, change?: z.infer<typeof schema>) {
   const { data: chat } = await context.supabase.from("whatsapp_conversations").select("id,channel,remote_id,is_group,unread_count,last_message_at").eq("agency_id", context.agency.id).eq("id", id).maybeSingle();
   if (!chat) return Response.json({ error: "Conversa não encontrada." }, { status: 404, headers });
   if (chat.channel !== "qr") return Response.json({ error: "A sincronização exige conexão por QR Code." }, { status: 409, headers });
-  if(change?.action === "favorite")return Response.json({error:"Altere os favoritos no WhatsApp oficial. A alteração aparece na iGrow."},{status:409,headers});
   const config = evolutionConfig(), service = createSupabaseServiceClient();
   if (!config || !service) return Response.json({ error: "WhatsApp indisponível." }, { status: 503, headers });
   const { data: guard, error: guardError } = await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id", context.agency.id).maybeSingle();
@@ -38,7 +37,6 @@ async function execute(id: string, change?: z.infer<typeof schema>) {
     const { data: current, error: currentError } = await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id", context.agency.id).maybeSingle();
     if (currentError || current?.blocked || current?.fresh_after !== epoch) return Response.json({ error: "A conexão mudou. Atualize a página." }, { status: 409, headers });
     // Reconcile native metadata only. Never changes or hides message content.
-    if (result.favoritesReadable) await context.supabase.rpc("set_whatsapp_conversation_favorite", { p_conversation_id: id, p_favorite: result.favorite });
     await context.supabase.rpc("set_whatsapp_conversation_archived", { p_conversation_id: id, p_archived: result.archived });
     if (change?.action === "unread" && chat.last_message_at) await service.from("whatsapp_conversations")
       .update({unread_count:result.markedUnread?Math.max(1,chat.unread_count):0}).eq("agency_id",context.agency.id).eq("id",id)

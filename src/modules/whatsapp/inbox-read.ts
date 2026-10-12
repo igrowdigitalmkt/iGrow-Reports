@@ -13,7 +13,7 @@ type Client = SupabaseClient<Database>;
 
 /** The QR inbox is for recent follow-ups, not for browsing the account's entire archive. */
 export function inRecentWhatsAppInbox(row: Pick<WhatsAppConversationRow,
-  "channel" | "last_message_at" | "unread_count" | "favorite" | "archived"
+  "channel" | "last_message_at" | "unread_count" | "archived"
 >, now = Date.now()) {
   if (row.channel !== "qr") return true;
   const timestamp = row.last_message_at ? Date.parse(row.last_message_at) : NaN;
@@ -23,7 +23,7 @@ export function inRecentWhatsAppInbox(row: Pick<WhatsAppConversationRow,
 function toConversation(row: WhatsAppConversationRow, clientNames: Map<string, string>): InboxConversation {
   return {
     id: row.id, channelKey: row.channel_key, remoteId: row.remote_id, isGroup: row.is_group, title: row.title,
-    clientId: row.client_id, clientName: row.client_id ? clientNames.get(row.client_id) ?? null : null, favorite: row.favorite, unread: row.unread_count,
+    clientId: row.client_id, clientName: row.client_id ? clientNames.get(row.client_id) ?? null : null, unread: row.unread_count,
     lastAt: row.last_message_at, preview: row.last_message_preview, lastDirection: row.last_message_direction, lastKind: row.last_message_kind,
     lastStatus: row.last_message_status, lastInboundAt: row.last_inbound_at, archived: row.archived ?? false, updatedAt: row.updated_at,
   };

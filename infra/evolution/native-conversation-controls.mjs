@@ -33,31 +33,27 @@ async igrowReadConversation(peer, snapshot) {
   const directLid=phone?.endsWith('@s.whatsapp.net')?await this.client.signalRepository.lidMapping.getLIDForPN(phone):undefined;
   const aliases=new Set([peer,phone,...(typeof directLid==='string'?[directLid]:[])]);
   for(const record of records){const jid=record.index?.[1];if(typeof jid==='string'&&jid.endsWith('@lid')){if(!records.igrowAliasPhones.has(jid))records.igrowAliasPhones.set(jid,await this.mappedPhoneJid(jid));if(records.igrowAliasPhones.get(jid)===phone)aliases.add(jid);}}
-  const state={jid:directLid||peer,pinned:false,archived:false,markedUnread:false,favorite:false,favoritesSupported:false,favoritesReadable:false};
-  let favoritesRecord;
+  const state={jid:directLid||peer,pinned:false,archived:false,markedUnread:false};
   for(const record of records){
     const value=record.syncAction?.value;
-    if(value?.favoritesAction){favoritesRecord=record;state.favorite=(value.favoritesAction.favorites||[]).some(item=>aliases.has(item.id));state.favoritesReadable=true;}
     if(!aliases.has(record.index?.[1]))continue;
     if(value?.pinAction)state.pinned=value.pinAction.pinned===true;
     if(value?.archiveChatAction)state.archived=value.archiveChatAction.archived===true;
     if(value?.markChatAsReadAction)state.markedUnread=value.markChatAsReadAction.read===false;
   }
-  return {state,aliases,favoritesRecord,records};
+  return {state,aliases,records};
 }
 igrowConversation(data) {
   const operation=this.igrowMuteQueue.then(async()=>{
     if(this.stateConnection.state!=='open')throw new f('WhatsApp disconnected');
-    if(data.action==='favorite')throw new f('IGROW_FAVORITES_UNAVAILABLE');
     if(data.peers){await this.client.signalRepository.lidMapping.getLIDsForPNs(data.peers.filter(peer=>peer.endsWith('@s.whatsapp.net')));const records=await this.igrowConversationSnapshot(),states=[];for(const peer of data.peers){try{const result=await this.igrowReadConversation(peer,records);states.push({peer,...result.state});}catch(error){if(error?.message!=='IGROW_CHAT_IDENTITY_UNAVAILABLE')throw error;}}return {states};}
     const before=await this.igrowReadConversation(data.peer);
     if(!data.action)return before.state;
-    const field={pin:'pinned',archive:'archived',unread:'markedUnread',favorite:'favorite'}[data.action];
+    const field={pin:'pinned',archive:'archived',unread:'markedUnread'}[data.action];
     if(!field||before.state[field]!==data.expected)throw new f('IGROW_CHAT_STATE_CHANGED');
     if(data.action==='pin'){
       if(data.value&&before.records.filter(record=>record.syncAction?.value?.pinAction?.pinned===true).length>=3)throw new f('IGROW_CHAT_PIN_LIMIT');
       await this.client.chatModify({pin:data.value},before.state.jid);
-    } else if(data.action==='favorite'){
       // Generic SDK patches are not a verified writer for WhatsApp favorites.
       throw new f('IGROW_FAVORITES_UNAVAILABLE');
     } else {
@@ -92,7 +88,7 @@ replace('this.router.post(this.routerPath("igrowMute"),',String.raw`this.router.
   const data=t.body;
   const validPeer=peer=>typeof peer==='string'&&/^(?:[0-9]{8,20}@(s[.]whatsapp[.]net|lid)|[0-9]{5,20}(?:-[0-9]{5,20})?@g[.]us)$/.test(peer);
   if(!data||!(validPeer(data.peer)||(Array.isArray(data.peers)&&data.peers.length<=500&&data.peers.every(validPeer)&&data.action===undefined))||Object.keys(data).some(key=>!['peer','peers','action','value','expected','lastMessages'].includes(key))||
-    (data.action!==undefined&&(!['pin','archive','unread','favorite'].includes(data.action)||typeof data.value!=='boolean'||typeof data.expected!=='boolean'))||
+    (data.action!==undefined&&(!['pin','archive','unread'].includes(data.action)||typeof data.value!=='boolean'||typeof data.expected!=='boolean'))||
     (data.lastMessages!==undefined&&(!Array.isArray(data.lastMessages)||data.lastMessages.length>100||data.lastMessages.some(item=>!item?.key||typeof item.key.id!=='string'||typeof item.key.fromMe!=='boolean'||!Number.isSafeInteger(item.messageTimestamp)))))return o.status(400).json({error:'Invalid conversation control'});
   const result=await this.dataValidate({request:t,schema:null,ClassRef:Ye,execute:instance=>rt.igrowConversation(instance,data)});return o.status(200).json(result);
 }).post(this.routerPath("igrowMute"),`);

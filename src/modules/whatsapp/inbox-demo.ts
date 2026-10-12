@@ -9,7 +9,7 @@ export const demoInboxChannels: InboxChannel[] = [
 ];
 
 const conversation = (partial: Partial<InboxConversation> & Pick<InboxConversation, "id" | "channelKey" | "remoteId">): InboxConversation => ({
-  isGroup: false, title: null, clientId: null, clientName: null, favorite: false, unread: 0, lastAt: null, preview: null,
+  isGroup: false, title: null, clientId: null, clientName: null, unread: 0, lastAt: null, preview: null,
   lastDirection: null, lastKind: "text", lastStatus: null, lastInboundAt: null, archived: false, ...partial,
 });
 
@@ -17,7 +17,7 @@ export const demoInboxConversations: InboxConversation[] = [
   conversation({ id: "d1", channelKey: "qr", remoteId: "5586988214153", title: "Lindaiane Lívia", clientName: "Colégio Crescer", unread: 1, lastAt: minutesAgo(36), preview: "Oiê! Bom dia!!!! Não esqueceeee 🙏", lastDirection: "in", lastInboundAt: minutesAgo(36) }),
   conversation({ id: "d2", channelKey: "qr", remoteId: "120363000000000001@g.us", isGroup: true, title: "Diretoria Colégio Crescer", clientName: "Colégio Crescer", unread: 2, lastAt: minutesAgo(62), preview: "Os números da semana ficaram ótimos", lastDirection: "in" }),
   conversation({ id: "d3", channelKey: "qr", remoteId: "5586999990000", title: "Paulo Henrique", clientName: "RM Imobiliária", lastAt: minutesAgo(60 * 26), preview: "Pode ser, combinado", lastDirection: "out", lastStatus: "read" }),
-  conversation({ id: "d4", channelKey: "qr", remoteId: "5586977773040", lastAt: minutesAgo(60 * 24 * 3), preview: "Relatorio-Escola-Horizonte.pdf", lastKind: "document", lastDirection: "out", lastStatus: "delivered", favorite: true }),
+  conversation({ id: "d4", channelKey: "qr", remoteId: "5586977773040", lastAt: minutesAgo(60 * 24 * 3), preview: "Relatorio-Escola-Horizonte.pdf", lastKind: "document", lastDirection: "out", lastStatus: "delivered" }),
   conversation({ id: "d5", channelKey: demoInboxChannels[0].key, remoteId: "5586988887777", title: "Mariana Costa", clientName: "Escola Horizonte", unread: 1, lastAt: minutesAgo(18), preview: "Recebi! O CPC caiu bastante, né?", lastDirection: "in", lastInboundAt: minutesAgo(18) }),
   conversation({ id: "d6", channelKey: demoInboxChannels[0].key, remoteId: "5586977773040", title: "Paulo Henrique", clientName: "Escola Horizonte", lastAt: minutesAgo(60 * 5), preview: "Escola-Horizonte-2026-09-06-2026-10-05.pdf", lastKind: "document", lastDirection: "out", lastStatus: "read" }),
   conversation({ id: "d7", channelKey: demoInboxChannels[1].key, remoteId: "5586991112222", title: "Ana Beatriz", clientName: "Clínica Sotero", lastAt: minutesAgo(90), preview: "Áudio", lastKind: "audio", lastDirection: "in", lastInboundAt: minutesAgo(90) }),
