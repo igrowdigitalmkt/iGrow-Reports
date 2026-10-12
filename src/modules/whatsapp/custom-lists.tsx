@@ -71,6 +71,17 @@ export function useCustomLists(channelKey: string, demo: boolean) {
     writing.current = true;
     refreshVersion.current++;
     setBusy(true); setError("");
+    const membership = method === "PATCH" && typeof body.conversationId === "string" && typeof body.member === "boolean"
+      ? { id: body.id, conversationId: body.conversationId, member: body.member } : null;
+    const previousMember = membership ? listState.items.find(list => list.id === membership.id)?.conversationIds.includes(membership.conversationId) : undefined;
+    const showMembership = (member: boolean) => {
+      if (!membership) return;
+      setListState(current => current.channelKey !== channelKey ? current : { ...current, items: current.items.map(list =>
+        list.id !== membership.id ? list : { ...list, conversationIds: member
+          ? [...new Set([...list.conversationIds, membership.conversationId])]
+          : list.conversationIds.filter(chat => chat !== membership.conversationId) }) });
+    };
+    if (membership) showMembership(membership.member);
     try {
       const response = await fetch(id ? API + "?id=" + encodeURIComponent(id) : API, {
         method, headers: method === "DELETE" ? undefined : { "Content-Type": "application/json" },
@@ -80,10 +91,20 @@ export function useCustomLists(channelKey: string, demo: boolean) {
       if (!response.ok) throw new Error(payload?.error ?? "Falha ao atualizar a lista.");
       // A successful native write must not become a failed create just because
       // its follow-up read failed: retrying could create a duplicate label.
-      await refresh().catch(() => setError("Alteração salva no WhatsApp. Não foi possível atualizar a exibição; aguarde a sincronização."));
+      const refreshAfterWrite = () => {
+        const version = refreshVersion.current + 1;
+        return refresh().catch(() => {
+          if (version === refreshVersion.current) setError("Alteração salva no WhatsApp. Não foi possível atualizar a exibição; aguarde a sincronização.");
+        });
+      };
+      // Single-contact membership is already reflected locally. Release the
+      // controls after the write; the slower snapshot must not block another click.
+      if (membership) void refreshAfterWrite();
+      else await refreshAfterWrite();
       if(payload?.warning)setError(payload.warning);
       return true;
     } catch (failure) {
+      if (membership && previousMember !== undefined) showMembership(previousMember);
       // Some remote changes can have succeeded before a later peer fails. Re-read the device state.
       if (channelKey === "qr") await refresh().catch(() => undefined);
       setError(failure instanceof Error ? failure.message : "Não foi possível atualizar a lista.");
@@ -226,7 +247,7 @@ export function CustomListMembership({ lists, conversationId, busy, onToggle }: 
   lists: CustomList[]; conversationId: string; busy: boolean; onToggle: (list: CustomList, member: boolean) => void;
 }) {
   if (!lists.length) return <p className="wai-list-membership-empty">Nenhuma lista personalizada criada.</p>;
-  return <div className="wai-list-membership" role="group" aria-label="Adicionar a listas">
+  return <div className="wai-list-membership" role="group" aria-label="Adicionar a listas" aria-busy={busy}>
     {lists.map(list => { const checked = list.conversationIds.includes(conversationId); return <label key={list.id}>
       <span className="wai-list-dot" style={{ background: list.color }} /><span>{list.name}</span>
       <input type="checkbox" checked={checked} disabled={busy} onChange={() => onToggle(list,!checked)} /></label>; })}
