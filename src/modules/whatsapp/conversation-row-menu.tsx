@@ -27,7 +27,7 @@ export function ConversationRowMenu({ item, anchor, lists, listsBusy, demo, onTo
   }, [url, demo]);
   useEffect(() => {
     menu.current?.focus();
-    const outside = (event: PointerEvent) => { if (!latch.current && event.target instanceof Element && !menu.current?.contains(event.target) && !event.target.closest("[role=dialog]")) onClose(); };
+    const outside = (event: PointerEvent) => { if (!latch.current && event.target instanceof Element && !menu.current?.contains(event.target) && !event.target.closest("[role=dialog],.wai-row-menu-trigger")) onClose(); };
     const scroll = (event: Event) => { if (!latch.current && !(event.target instanceof Node && menu.current?.contains(event.target))) onClose(); };
     document.addEventListener("pointerdown", outside); window.addEventListener("resize", scroll); window.addEventListener("scroll",scroll,true);
     return () => { document.removeEventListener("pointerdown", outside); window.removeEventListener("resize", scroll); window.removeEventListener("scroll",scroll,true); };

@@ -865,7 +865,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         {list && !list.ready && <p className="wai-list-note">A caixa de entrada precisa da atualização do banco de dados. Assim que ela for aplicada, as conversas passam a aparecer aqui.</p>}
         {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : customFilterId ? "Nenhuma conversa nesta lista." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
         {visible.map(item => <ConversationChoice key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} selecting={selecting}
-          pinned={nativeChatStates[item.id]?.pinned} onMenu={channel.kind === "qr"?anchor => setRowMenu({id:item.id,anchor}):undefined}
+          pinned={nativeChatStates[item.id]?.pinned} menuOpen={rowMenu?.id===item.id} onMenu={channel.kind === "qr"?anchor => setRowMenu(current=>current?.id===item.id?null:{id:item.id,anchor}):undefined}
           selected={selectedIds.includes(item.id)} labels={customLists.lists.filter(list => list.conversationIds.includes(item.id))}
           onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
@@ -1204,15 +1204,15 @@ function Ticks({ status }: { status: InboxStatus }) {
 
 const KIND_ICONS: Record<string, typeof ImageIcon> = { image: ImageIcon, video: Video, audio: Mic, document: FileText, sticker: Sticker, location: MapPin, contact: Contact };
 
-function ConversationChoice({ item, active, now, photo, selecting, selected, labels = [], onOpen, onSelect, onMenu, pinned }: {
+function ConversationChoice({ item, active, now, photo, selecting, selected, labels = [], onOpen, onSelect, onMenu, pinned, menuOpen }: {
   item: InboxConversation; active: boolean; now: Date; photo: boolean; selecting: boolean; selected: boolean; labels?: CustomList[];
-  onOpen: () => void; onSelect: () => void; onMenu?: (anchor: DOMRect) => void; pinned?: boolean;
+  onOpen: () => void; onSelect: () => void; onMenu?: (anchor: DOMRect) => void; pinned?: boolean; menuOpen?:boolean;
 }) {
   return <div className={`wai-select-row${selected ? " is-selected" : ""}`}>
     {selecting && <input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Selecionar ${conversationTitle(item)}`} />}
     <ConversationRow item={item} active={active} now={now} photo={photo} labels={labels} onOpen={onOpen} />
     {pinned && <Pin size={14} className="wai-row-pin" aria-label="Conversa fixada" />}
-    {!selecting && onMenu && <button type="button" className="wai-row-menu-trigger" aria-label={`Opções de ${conversationTitle(item)}`} aria-haspopup="menu" onClick={event => onMenu(event.currentTarget.getBoundingClientRect())}><ChevronDown size={18} /></button>}
+    {!selecting && onMenu && <button type="button" className="wai-row-menu-trigger" aria-label={`Opções de ${conversationTitle(item)}`} aria-haspopup="menu" aria-expanded={menuOpen??false} onClick={event => onMenu(event.currentTarget.getBoundingClientRect())}><ChevronDown size={18} /></button>}
   </div>;
 }
 
