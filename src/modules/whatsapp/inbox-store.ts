@@ -34,6 +34,17 @@ export async function recordInboxMessage(service: Service, input: {
     return null;
   }
   const row = data?.[0];
+  // A fuller native replay may arrive after the original unsupported placeholder.
+  // Fill missing text only; preserve received content, unread counters and deletions.
+  if (row?.conversation_id && !row.inserted && message.body) {
+    const { data: hydrated, error: hydrationError } = await service.from("whatsapp_messages")
+      .update({ body: message.body }).eq("agency_id", input.agencyId).eq("conversation_id", row.conversation_id)
+      .eq("external_id", message.externalId).eq("direction", message.direction).is("body", null).is("revoked_at", null).select("id");
+    if (hydrationError) console.error("whatsapp-message-hydration", { code: hydrationError.code });
+    else if (hydrated?.length) await service.from("whatsapp_conversations")
+      .update({ last_message_preview: message.body.slice(0, 300), updated_at: new Date().toISOString() })
+      .eq("agency_id", input.agencyId).eq("id", row.conversation_id).eq("last_message_at", message.sentAt);
+  }
   if (row?.conversation_id && message.isGroup && message.participantJid
     && /^\d{8,20}@(lid|s\.whatsapp\.net)$/.test(message.participantJid)) {
     // Preserve sender metadata only on the exact message. One-time group
