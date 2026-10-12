@@ -813,9 +813,13 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
             <ChevronDown size={17} />
           </button>
           {filterMenuOpen && <div className="wai-filter-dropdown" role="menu">
-            {customLists.lists.map(list => <button key={list.id} type="button" role="menuitem" onClick={() => {
+            {customFilterId && ([["all", "Tudo"], ["unread", "Não lidas"], ["favorites", "Favoritas"], ...(channel.kind === "qr" ? [["groups", "Grupos"]] : [])] as Array<[Filter, string]>).map(([key, label]) =>
+              <button key={key} type="button" role="menuitem" onClick={() => {
+                setFilterMenuOpen(false); setCustomFilterId(null); setFilter(key);
+              }}><span className="wai-filter-check" aria-hidden="true" /><span className="wai-filter-symbol" aria-hidden="true">{key === "unread" ? <MessageSquareText size={18} /> : key === "favorites" ? <Heart size={18} /> : key === "groups" ? <UsersRound size={18} /> : null}</span><span>{label}</span>{key === "unread" && unreadHere > 0 && <small className="wai-filter-count">{unreadHere}</small>}</button>)}
+            {customLists.lists.map(list => <button key={list.id} type="button" role="menuitemradio" aria-checked={customFilterId === list.id} onClick={() => {
               setFilterMenuOpen(false); setCustomFilterId(list.id); setFilter("all");
-            }}><span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
+            }}><span className="wai-filter-check" aria-hidden="true">{customFilterId === list.id && <Check size={17} />}</span><span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
             <div className="wai-filter-dropdown-divider" />
             <button type="button" role="menuitem" onClick={() => { setFilterMenuOpen(false); setEditingList(null); }}><Plus size={17} />Nova lista</button>
             <button type="button" role="menuitem" onClick={() => { setFilterMenuOpen(false); setManagingLists(true); }}><ListFilter size={17} />Gerenciar listas</button>
