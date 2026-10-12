@@ -9,20 +9,29 @@ async igrowConversationSnapshot() {
   const collections=await Pt.extractSyncdPatches(response,{}),records=[];
   const key=async id=>(await this.client.authState.keys.get('app-state-sync-key',[id]))[id];
   for(const name of names){
-    const collection=collections[name];
-    if(!collection?.snapshot||collection.hasMorePatches)throw new f('IGROW_CHAT_STATE_UNAVAILABLE_'+name+'_'+Boolean(collection?.snapshot)+'_'+Boolean(collection?.hasMorePatches));
-    const decoded=await Pt.decodeSyncdSnapshot(name,collection.snapshot,key,undefined,true);
-    const mutations={...decoded.mutationMap};
-    if(collection.patches?.length){const patches=await Pt.decodePatches(name,collection.patches,decoded.state,key,{},undefined,undefined,true);Object.assign(mutations,patches.mutationMap);}
+    let collection=collections[name];
+    if(!collection||(!collection.snapshot&&!collection.patches?.length))throw new f('IGROW_CHAT_STATE_UNAVAILABLE');
+    const decoded=collection.snapshot?await Pt.decodeSyncdSnapshot(name,collection.snapshot,key,undefined,true):{state:Pt.newLTHashState(),mutationMap:{}};
+    const mutations={...decoded.mutationMap};let state=decoded.state;
+    for(let page=0;page<20;page++){
+      if(collection.patches?.length){const patches=await Pt.decodePatches(name,collection.patches,state,key,{},undefined,undefined,true);Object.assign(mutations,patches.mutationMap);state=patches.state;}
+      if(!collection.hasMorePatches)break;
+      if(page===19)throw new f('IGROW_CHAT_STATE_UNAVAILABLE');
+      const next=await this.client.query({tag:'iq',attrs:{to:'s.whatsapp.net',xmlns:'w:sync:app:state',type:'set'},content:[{tag:'sync',attrs:{},content:[{tag:'collection',attrs:{name,version:String(state.version),return_snapshot:'false'}}]}]});
+      collection=(await Pt.extractSyncdPatches(next,{}))[name];
+      if(!collection||!collection.patches?.length)throw new f('IGROW_CHAT_STATE_UNAVAILABLE');
+    }
     for(const mutation of Object.values(mutations))records.push({...mutation,collection:name});
   }
-  records.igrowAliasPhones=new Map();return records;
+  const timestamp=record=>{const value=record.syncAction?.value?.timestamp;return Number(typeof value?.toNumber==='function'?value.toNumber():value||0);};
+  records.sort((a,b)=>timestamp(a)-timestamp(b));records.igrowAliasPhones=new Map();return records;
 }
 async igrowReadConversation(peer, snapshot) {
   const phone=peer.endsWith('@lid')?await this.mappedPhoneJid(peer):peer;
   if(peer.endsWith('@lid')&&!phone)throw new f('IGROW_CHAT_IDENTITY_UNAVAILABLE');
   const records=snapshot||await this.igrowConversationSnapshot();
-  const aliases=new Set([peer,phone]);
+  const directLid=phone?.endsWith('@s.whatsapp.net')?await this.client.signalRepository.lidMapping.getLIDForPN(phone):undefined;
+  const aliases=new Set([peer,phone,...(typeof directLid==='string'?[directLid]:[])]);
   for(const record of records){const jid=record.index?.[1];if(typeof jid==='string'&&jid.endsWith('@lid')){if(!records.igrowAliasPhones.has(jid))records.igrowAliasPhones.set(jid,await this.mappedPhoneJid(jid));if(records.igrowAliasPhones.get(jid)===phone)aliases.add(jid);}}
   const state={jid:phone||peer,pinned:false,archived:false,markedUnread:false,favorite:false,favoritesSupported:false};
   let favoritesRecord;
@@ -39,7 +48,7 @@ async igrowReadConversation(peer, snapshot) {
 igrowConversation(data) {
   const operation=this.igrowMuteQueue.then(async()=>{
     if(this.stateConnection.state!=='open')throw new f('WhatsApp disconnected');
-    if(data.peers){const records=await this.igrowConversationSnapshot(),states=[];for(const peer of data.peers){const result=await this.igrowReadConversation(peer,records);states.push({peer,...result.state});}return {states};}
+    if(data.peers){await this.client.signalRepository.lidMapping.getLIDsForPNs(data.peers.filter(peer=>peer.endsWith('@s.whatsapp.net')));const records=await this.igrowConversationSnapshot(),states=[];for(const peer of data.peers){const result=await this.igrowReadConversation(peer,records);states.push({peer,...result.state});}return {states};}
     const before=await this.igrowReadConversation(data.peer);
     if(!data.action)return before.state;
     const field={pin:'pinned',archive:'archived',unread:'markedUnread',favorite:'favorite'}[data.action];
