@@ -34,6 +34,7 @@
 /* Reserve a visible list-menu trigger even when filters need horizontal scroll. */
 .workspace .wai-shell .wai-filters {overflow:visible;position:relative;z-index:26;gap:8px;padding-inline:18px;}
 .workspace .wai-shell .wai-filter-chips {display:flex;align-items:center;gap:8px;min-width:0;flex:0 1 auto;overflow-x:auto;scrollbar-width:none;}
+.workspace .wai-shell .wai-filter-chips>button {display:inline-flex;align-items:center;gap:7px;}
 .workspace .wai-shell .wai-filter-chips::-webkit-scrollbar {display:none;}
 .workspace .wai-shell .wai-list .wai-filters .wai-filter-chips>button {font-size:16px;padding-inline:12px;}
 .workspace .wai-shell .wai-filter-dropdown {left:auto;right:0;top:calc(100% + 8px);max-height:calc(100dvh - 240px);overflow-y:auto;}

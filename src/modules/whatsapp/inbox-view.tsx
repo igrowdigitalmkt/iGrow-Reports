@@ -797,13 +797,13 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
       </> : <>
-      {!selecting && <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Pesquisar ou começar uma nova conversa" aria-label="Pesquisar conversas" /></label>}
+      {!selecting && <label className="wai-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={customFilterId ? `Pesquisar em ${customLists.lists.find(list => list.id === customFilterId)?.name ?? "lista"}...` : "Pesquisar ou começar uma nova conversa"} aria-label="Pesquisar conversas" /></label>}
       {!selecting && <div className="wai-filters" role="group" aria-label="Filtrar conversas">
         <div className="wai-filter-chips">
         {([["all", "Tudo"], ["unread", unreadHere ? `Não lidas ${unreadHere}` : "Não lidas"], ["favorites", "Favoritas"], ...(channel.kind === "qr" ? [["groups", "Grupos"]] : [])] as Array<[Filter, string]>).map(([key, label]) =>
-          <button key={key} type="button" aria-pressed={filter === key} className={filter === key ? "is-active" : undefined} onClick={() => { setFilter(key); setCustomFilterId(null); }}>{label}</button>)}
+          (!customFilterId || key === "all") && <button key={key} type="button" aria-pressed={!customFilterId && filter === key} className={!customFilterId && filter === key ? "is-active" : undefined} onClick={() => { setFilter(key); setCustomFilterId(null); }}>{label}</button>)}
         {customFilterId && customLists.lists.filter(list => list.id === customFilterId).map(list =>
-          <button type="button" key={list.id} className="is-active" onClick={() => setCustomFilterId(null)}>
+          <button type="button" key={list.id} aria-pressed="true" className="is-active">
             <span className="wai-list-dot" style={{ background: list.color }} />{list.name}</button>)}
         </div>
         <div ref={filterMenuRef} className="wai-filter-dropdown-anchor" onKeyDown={event => { if (event.key === "Escape") setFilterMenuOpen(false); }}>
