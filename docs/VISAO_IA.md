@@ -134,3 +134,20 @@ Segunda conversa compartilhada do ChatGPT (análise do PDF de teste) apontou que
 Ordem atual: (1) camada de dados nível 2 + PDF novo; (2) camada de IA com registro de uso e cota; (3) comentário em 5 destaques com rótulos de prova; (4) perfil do cliente no cadastro; (5) pergunta mensal de vendas; demais etapas como no plano.
 
 Resquício a limpar: `AnalyticsDashboardData` ainda tem `primaryMetricKey` e `primaryActionType` (herança do conceito removido); remover junto com a coluna/função antiga do banco quando o responsável aprovar a migração.
+
+## 12. Estado de execução em 12/10/2026 (fim do dia)
+
+| Etapa do plano (seção 9) | Estado |
+|---|---|
+| 1 Teste offline do comentário | Feito, com dados reais do RM Imobiliária (≈ US$ 0,02 por comentário) |
+| 2 Conta e chave da API | Chave em `.env.local`; **Vercel: não verificado pelo assistente** (conferir `ANTHROPIC_API_KEY` em Production e novo deploy) |
+| 3 Camada de IA, registro e cota | Pronta e publicada: tabelas aplicadas em produção, serviço `generateReportComment`, painel de orçamento em Configurações, liga/desliga por cliente |
+| 4 Comentário no relatório com aprovação | **No ar**: botão "Gerar rascunho com IA" em Personalizar relatório; o texto cai no campo de comentário para revisão |
+| 5 Resumo semanal ao cliente pelo WhatsApp | Não implementado (envio real de mensagem não autorizado) |
+| 6 Triagem diária ao gestor | Não implementado |
+| 7 Perguntas e respostas no WhatsApp | Não implementado |
+| 8 Pergunta mensal de vendas | Versão manual: campos opcionais de vendas e faturamento no editor de comentário; automática por WhatsApp não implementada |
+| Perfil do cliente (seção 11) | Pronto e publicado (`client_profiles`, aba Perfil do cliente, aviso de preenchimento) |
+| Nível 2 de dados | Resultados por tipo contra o anterior, custo anterior, campanhas, anúncios (maior investimento, menor e maior custo, sem resultado confirmado), frequência, vendas informadas |
+
+Para as etapas 5 a 7, reutilizar `generateReportComment`/`buildReportFacts` e passar pela cota existente; qualquer envio exige aprovação do responsável.
