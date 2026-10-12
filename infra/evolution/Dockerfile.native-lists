@@ -1,0 +1,5 @@
+# Apply only this verified fix to the deployed stable image; exclude unpublished bridges.
+FROM igrow/evolution-api:2.3.7-native-settings-3@sha256:fbd831eab460b377fca2ab1923ce53f5ec25beb7aa8803e54635e1f8e8ba6f15
+WORKDIR /evolution
+COPY native-list-metadata.mjs /tmp/native-list-metadata.mjs
+RUN node /tmp/native-list-metadata.mjs && node --check dist/main.js && node --check node_modules/baileys/lib/Utils/chat-utils.js

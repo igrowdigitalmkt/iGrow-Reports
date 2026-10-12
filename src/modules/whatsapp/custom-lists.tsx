@@ -92,7 +92,7 @@ export function useCustomLists(channelKey: string, demo: boolean) {
   }
 
   return {
-    lists, busy, error, clearError: () => setError(""),
+    lists, busy, error, refresh, clearError: () => setError(""),
     create: (name: string, color: string, conversationIds: string[]) =>
       request("POST", { name, color, conversationIds, channelKey }),
     update: (id: string, value: Partial<Pick<CustomList, "name" | "color" | "conversationIds" | "sortOrder">>) =>

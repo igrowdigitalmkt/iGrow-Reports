@@ -45,7 +45,11 @@ async function snapshot(scope: Access) {
   const byPeer = new Map((chats ?? []).map(chat => [chat.remote_id, chat.id]));
   // WhatsApp also transmits its built-in filters as IDs 1–3 with an LRM-prefixed name.
   // Those filters already have dedicated tabs and must not appear as editable labels.
-  const labels = result.labels.filter(label => !(Number(label.id) <= 3 && label.name.startsWith("\u200e"))).map((label, index) => ({
+  const labels = result.labels.filter(label => !label.deleted && label.isActive !== false && !label.isImmutable
+    && ![1, 2, 3].includes(label.type ?? -1)
+    && !(Number(label.id) <= 3 && label.name.startsWith("\u200e")))
+    .sort((a,b) => (a.orderIndex ?? Number(a.id)) - (b.orderIndex ?? Number(b.id)))
+    .map((label, index) => ({
     id: "wa:" + label.id, name: label.name, color: WHATSAPP_LABEL_COLORS[Number(label.color)] ?? WHATSAPP_LABEL_COLORS[0], sortOrder: index,
     conversationIds: [...new Set(result.chats.filter(chat => chat.labels.includes(label.id)).flatMap(chat => {
       const chatId = byPeer.get(labelChatKey(peers.get(chat.remoteJid) ?? chat.remoteJidAlt ?? chat.remoteJid));

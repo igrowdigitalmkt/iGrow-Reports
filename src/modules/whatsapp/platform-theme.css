@@ -85,6 +85,8 @@
 /* Interactive states and secondary screens share the platform palette. */
 .workspace .wai-shell :is(.wai-details-actions>button,.wai-custom-manager-options>button)[aria-expanded="true"],
 .workspace .wai-shell :is(.wai-forward-choice,.wai-list-membership label):has(input:checked) {background:var(--accent-bg)!important;color:var(--text)!important;}
+.workspace .wai-shell .wai-chat-lists-popover .wai-list-membership label:has(input:checked) {background:transparent!important;}
+.workspace .wai-shell .wai-chat-lists-popover .wai-list-membership label:has(input:checked):hover {background:var(--surface-hover)!important;}
 .workspace .wai-shell :is(.wai-custom-editor,.wai-custom-manager,.wai-custom-editor-head,.wai-custom-manager-head,.wai-custom-picker,.wai-custom-colors,.wai-custom-options-menu,.wai-list-dialog,.wai-list-delete-dialog,.wai-forward-search,.wai-forward-head) {background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
 .workspace .wai-shell :is(.wai-custom-editor-label,.wai-custom-manager-item,.wai-custom-picker-list h4,.wai-list-field,.wai-list-field-label,.wai-list-contacts-head span,.wai-list-delete-dialog>p,.wai-details-export>p,.wai-voice-duration,.wai-block-status) {color:var(--secondary)!important;}
 .workspace .wai-shell :is(.wai-custom-manager-item,.wai-custom-picker-row,.wai-list-contact-item,.wai-list-membership label,.wai-forward-choice,.wai-common-group,.wai-custom-member,.wai-custom-add-members,.wai-custom-suggestions button,.wai-custom-manager-context button,.wai-custom-editor-head button,.wai-custom-manager-head button):hover:not(:disabled) {background:var(--surface-hover)!important;}

@@ -843,9 +843,12 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <div className="wai-head-actions">
             <div className="wai-chat-lists" ref={chatListsHost}>
               <button ref={chatListsTrigger} type="button" className="wai-chat-lists-trigger" aria-label="Adicionar conversa à lista" aria-haspopup="dialog"
-                aria-expanded={chatListsOpen} onClick={() => { setMenuOpen(false); setChatListsOpen(value => !value); }}>
+                aria-expanded={chatListsOpen} onClick={() => {
+                  setMenuOpen(false); setChatListsOpen(value => !value);
+                  if (!chatListsOpen && !customLists.busy) void customLists.refresh().catch(() => setActionError("Não foi possível atualizar as listas do WhatsApp."));
+                }}>
                 {customLists.lists.some(item => item.conversationIds.includes(open.id))
-                  ? <span className="wai-chat-list-colors">{customLists.lists.filter(item => item.conversationIds.includes(open.id)).slice(-2).reverse()
+                  ? <span className="wai-chat-list-colors">{customLists.lists.filter(item => item.conversationIds.includes(open.id)).slice(0,2).reverse()
                     .map(item => <span key={item.id} style={{ backgroundColor: item.color }} />)}</span>
                   : <Contact size={18} />}
                 <span className="wai-chat-lists-label">{customLists.lists.filter(item => item.conversationIds.includes(open.id)).length

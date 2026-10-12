@@ -9,7 +9,7 @@ export type EvolutionState = "open" | "connecting" | "close";
 export type EvolutionInstance = { name: string; connectionStatus: string; ownerJid: string | null; profileName: string | null; profilePicUrl: string | null };
 export type EvolutionGroup = { id: string; subject: string; size: number | null };
 export type EvolutionLabelSnapshot = {
-  labels: Array<{ id: string; name: string; color: string }>;
+  labels: Array<{ id: string; name: string; color: string | number; orderIndex?: number; type?: number; isActive?: boolean; isImmutable?: boolean; deleted?: boolean }>;
   chats: Array<{ remoteJid: string; remoteJidAlt?: string; labels: string[] }>;
 };
 

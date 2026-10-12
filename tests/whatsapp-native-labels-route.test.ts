@@ -10,9 +10,11 @@ const user = "22222222-2222-4222-8222-222222222222";
 const chat = "44444444-4444-4444-8444-444444444444";
 let validChat: boolean, blocked: boolean, unavailable: boolean, invalidState: boolean, membershipRejected:boolean, role: string;
 let writes: Array<{ path: string; body: Record<string, unknown> }>;
+let nativeSnapshot: unknown;
 const reply = (body: unknown, status=200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 beforeEach(() => {
   validChat=true; blocked=false; unavailable=false; invalidState=false; membershipRejected=false; role="owner"; writes=[];
+  nativeSnapshot={labels:[{id:"1",name:"\u200eNão lidas",color:"0"},{id:"3",name:"Pagamento pendente",color:"3"}],chats:[{remoteJid:"123456789012@lid",labels:["3"]}]};
   vi.stubEnv("EVOLUTION_API_URL", "https://evo.example.test");
   vi.stubEnv("EVOLUTION_API_KEY", "test-key");
   const supabase = createClient("https://db.example.test", "test-key", { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: async(input) => {
@@ -35,7 +37,7 @@ beforeEach(() => {
     if (path.startsWith("/instance/connectionState/")) return reply({instance:{state:"open"}});
     if (path.startsWith("/label/igrowSnapshot/")) return invalidState
       ? reply({response:{message:["IGROW_LABEL_STATE_UNAVAILABLE"]}},400)
-      : reply({labels:[{id:"1",name:"\u200eNão lidas",color:"0"},{id:"3",name:"Pagamento pendente",color:"3"}],chats:[{remoteJid:"123456789012@lid",labels:["3"]}]});
+      : reply(nativeSnapshot);
     writes.push({path,body:JSON.parse(String(init?.body))});
     const rejected=unavailable || (membershipRejected && path.startsWith("/label/handleLabel/"));
     return reply(rejected?{error:"provider rejected"}:{id:"4"},rejected?500:200);
@@ -51,6 +53,19 @@ it("reads the native ID, name, color and proven LID membership",async()=>{
   expect(body.lists).toHaveLength(1);
   expect(body.lists[0]).toMatchObject({id:"wa:3",name:"Pagamento pendente",color:"#c15add",conversationIds:[chat]});
   expect(writes).toEqual([]);
+});
+it("uses native order and excludes inactive, deleted and built-in lists",async()=>{
+  nativeSnapshot={labels:[
+    {id:"8",name:"Teste",color:18,type:5,isActive:true},
+    {id:"5",name:"Lead",color:18,type:5,isActive:true},
+    {id:"4",name:"Novo cliente",color:1,type:5,isActive:true},
+    {id:"9",name:"Inativa",color:0,type:5,isActive:false},
+    {id:"10",name:"Excluída",color:0,type:5,deleted:true},
+    {id:"11",name:"Favoritas",color:0,type:3,isActive:true},
+    {id:"12",name:"Primeira",color:0,type:5,orderIndex:0},
+  ],chats:[]};
+  const result=await (await GET()).json();
+  expect(result.lists.map((list:{name:string})=>list.name)).toEqual(["Primeira","Novo cliente","Lead","Teste"]);
 });
 it("adds and removes the native label on the real peer",async()=>{
   expect((await PATCH(request({id:"wa:3",conversationId:chat,member:true}))).status).toBe(200);

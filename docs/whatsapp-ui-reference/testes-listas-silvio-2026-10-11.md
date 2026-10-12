@@ -1,5 +1,7 @@
 # Testes de listas — Silvio — 11/10/2026
 
+> Atualização em 12/10: o navegador voltou a funcionar e a comparação visual revelou que a leitura da API abaixo não comprovava equivalência com o seletor nativo. A lista 8 existia como etiqueta no contato, mas faltavam `type` e `isActive` para aparecer no seletor de listas. A seleção visual encontrada foi 4, 5 e 8, diferente da projeção antiga 4, 5, 6, 7 e 8. Veja a rodada seguinte em `testes-listas-silvio-2026-10-12.md`.
+
 Testes reais na integração conectada da iGrow, restritos ao contato Silvio. O controle do navegador não respondeu em duas tentativas; portanto, esta rodada verificou o protocolo real pela API da integração, sem declarar conferência visual no WhatsApp Web.
 
 ## Resultados práticos
