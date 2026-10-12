@@ -11,6 +11,12 @@ A Área do Cliente autenticada é central: cada cliente acessa apenas os própri
 
 O escopo integral está em `docs/PLANEJAMENTO_V1.md`. Não acrescentar cobrança, Google Ads, TikTok ou IA generativa nesta V1. As instruções iniciais desse planejamento descrevem uma época anterior à implementação; não representam o estado atual. Comentários/insights devem respeitar o escopo aprovado, sem introduzir uma integração de IA generativa.
 
+A visão e o plano de IA da V2 (fases, plataformas, custo, conta única) estão em `docs/VISAO_IA.md`; é planejamento, não escopo da V1.
+
+O novo relatório em PDF (definição de conteúdo, blocos, layout e plano) está em `docs/RELATORIO_PDF.md`; ele melhora um item da V1 e substitui o PDF atual quando homologado.
+
+Estado de 12/10/2026: migração `ai_layer` (`202610120002`) **aplicada em produção; não reaplicar**. Serviço de IA e PDF novo implementados e testados localmente, o PDF atrás da chave `NEXT_PUBLIC_REPORT_PDF_V2` (desligada). Detalhes na última entrada de `docs/IMPLEMENTACAO.md`.
+
 ## 2. Ambiente e revisão confirmada
 
 - Repositório local: `C:\Users\Silvio Melo\Desktop\iGrow-Reports`.

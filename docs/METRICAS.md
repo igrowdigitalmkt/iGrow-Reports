@@ -29,9 +29,9 @@ As fórmulas abaixo são requisitos aprovados, ainda sem cálculo de produção.
 | CTR de link | Cliques de link ÷ impressões × 100 |
 | CPC de link | Investimento ÷ cliques de link |
 | CPM | Investimento ÷ impressões × 1.000 |
-| CPL | Investimento ÷ leads mapeados |
-| Custo por conversa | Investimento ÷ conversas mapeadas |
-| CPA | Investimento ÷ resultado principal configurado |
+| CPL | Investimento ÷ leads |
+| Custo por conversa | Investimento ÷ conversas por mensagem iniciadas |
+| Custo por resultado | Investimento ÷ resultados de um tipo; calculado por tipo, nunca misturando tipos (não existe "resultado principal" por cliente) |
 | Receita atribuída | Valor do evento de compra configurado; não é faturamento confirmado |
 | ROAS | Receita atribuída ÷ investimento |
 | Variação percentual | (Atual − anterior) ÷ anterior × 100 |

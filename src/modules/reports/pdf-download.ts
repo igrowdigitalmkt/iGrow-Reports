@@ -6,6 +6,7 @@ import type { AnalyticsDashboardData, AnalyticsMetric } from "@/modules/client-p
 import type { AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 import { getSavedReportDocument } from "@/modules/client-portal/report-actions";
 import { buildPresentationPdf } from "./pdf-presentation";
+import { toReportPdfInput, usesReportPdfV2 } from "./pdf/adapter";
 import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts } from "./report-presentation";
 
 export type DashboardPdfInput = {
@@ -173,8 +174,21 @@ export function buildDashboardPdf(originalInput: DashboardPdfInput) {
   return doc;
 }
 
+async function renderV2(input: DashboardPdfInput) {
+  const { renderReportPdf } = await import("./pdf/render");
+  return renderReportPdf(toReportPdfInput(input));
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export async function downloadDashboardPdf(input: DashboardPdfInput) {
   const safeName = input.clientName.replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 80);
+  if (usesReportPdfV2(input)) { saveBlob(await renderV2(input), `${safeName}-${input.data.dateFrom}-${input.data.dateTo}.pdf`); return; }
   buildDashboardPdf(input).save(`${safeName}-${input.data.dateFrom}-${input.data.dateTo}${input.orientation === "horizontal" ? "-apresentacao" : ""}.pdf`);
 }
 
@@ -186,7 +200,7 @@ export async function buildSavedReportPdfFile(clientId: string, versionId: strin
   const safeName = input.clientName.replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "-").slice(0, 80) || "relatorio";
   const brDate = (value: string) => value.split("-").reverse().join("/");
   return {
-    blob: buildDashboardPdf(input).output("blob"),
+    blob: usesReportPdfV2(input) ? await renderV2(input) : buildDashboardPdf(input).output("blob"),
     filename: `${safeName}-${input.data.dateFrom}-${input.data.dateTo}.pdf`,
     period: `${brDate(input.data.dateFrom)} a ${brDate(input.data.dateTo)}`,
   };

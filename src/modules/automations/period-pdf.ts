@@ -31,3 +31,16 @@ export function buildPeriodPdf(input: { clientName: string; workspaceName: strin
     period,
   };
 }
+
+/** Mesmo envio com o PDF novo do relatório (assíncrono). Só é usado quando a chave do PDF novo está ligada. */
+export async function buildPeriodPdfV2(input: { clientName: string; workspaceName: string; data: AnalyticsDashboardData }) {
+  if (input.data.coverage.status !== "complete") throw new PeriodPdfUnavailableError("Os dados do período ainda não estão completos para gerar o PDF.");
+  const { renderReportPdf } = await import("@/modules/reports/pdf/render");
+  const period = `${brDate(input.data.dateFrom)} a ${brDate(input.data.dateTo)}`;
+  const safeName = input.clientName.replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "-").slice(0, 80) || "relatorio";
+  return {
+    blob: await renderReportPdf({ clientName: input.clientName, workspaceName: input.workspaceName, data: input.data }),
+    filename: `${safeName}-${input.data.dateFrom}-${input.data.dateTo}.pdf`,
+    period,
+  };
+}

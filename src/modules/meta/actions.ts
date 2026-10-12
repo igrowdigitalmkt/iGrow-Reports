@@ -17,14 +17,6 @@ const accountLinkSchema = z.object({
   active: z.boolean(),
 });
 
-const mappingSchema = z.object({
-  agencyId: z.uuid(),
-  clientId: z.uuid(),
-  primaryMetricKey: z.enum(["leads", "conversations", "purchases"]),
-  primaryActionType: z.string().trim().min(1).max(240),
-  revenueActionType: z.string().trim().max(240).optional().nullable(),
-});
-
 export type MetaAdminActionResult =
   | { success: true }
   | { error: string };
@@ -61,39 +53,6 @@ export async function setClientAdAccount(
         ? "Não foi possível associar esta conta de anúncios ao cliente."
         : "Não foi possível remover esta associação.",
     };
-  }
-
-  revalidatePath("/dashboard/clientes");
-  revalidatePath(`/cliente/${parsed.data.clientId}`);
-  revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
-  return { success: true };
-}
-
-export async function setClientMetricMapping(
-  input: unknown,
-): Promise<MetaAdminActionResult> {
-  const context = await requireAgencyContext();
-  if (!canConfigureMeta(context.role)) {
-    return { error: "Seu perfil não pode configurar o resultado principal." };
-  }
-  const parsed = mappingSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: "Configure o resultado principal e a ação Meta correspondente." };
-  }
-  if (parsed.data.agencyId !== context.agency.id) {
-    return { error: "O espaço de trabalho selecionado mudou. Recarregue a página." };
-  }
-
-  const { error } = await context.supabase.rpc("set_client_metric_mapping", {
-    p_agency_id: context.agency.id,
-    p_client_id: parsed.data.clientId,
-    p_primary_metric_key: parsed.data.primaryMetricKey,
-    p_primary_action_type: parsed.data.primaryActionType,
-    p_revenue_action_type: parsed.data.revenueActionType?.trim() || null,
-  });
-
-  if (error) {
-    return { error: "Não foi possível salvar o mapeamento de métricas." };
   }
 
   revalidatePath("/dashboard/clientes");

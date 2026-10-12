@@ -108,6 +108,20 @@ type AuditRow = {
   id: string; agency_id: string; actor_id: string | null; action: string;
   entity_id: string | null; metadata: Json; created_at: string;
 };
+type AiSettingsRow = {
+  agency_id: string; enabled: boolean; monthly_budget_usd: number; updated_by: string | null; updated_at: string;
+};
+type AiClientSettingsRow = {
+  client_id: string; agency_id: string; enabled: boolean; updated_by: string | null; updated_at: string;
+};
+type AiUsageRow = {
+  id: string; agency_id: string; client_id: string | null; user_id: string | null;
+  feature: "report_comment"; model: string;
+  status: "ok" | "blocked_disabled" | "blocked_budget" | "rejected_numbers" | "error";
+  input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_write_tokens: number;
+  cost_usd: number; verifier_passed: boolean | null; facts_hash: string | null;
+  source_ref: string | null; request_id: string | null; created_at: string;
+};
 type ReportTemplateRow = {
   id: string; agency_id: string; name: string; description: string | null;
   kind: "leads" | "conversations" | "sales" | "custom"; archived_at: string | null;
@@ -296,9 +310,13 @@ export type Database = {
       automation_messages: Table<AutomationMessageRow, Pick<AutomationMessageRow, "agency_id" | "run_id" | "automation_id" | "client_id" | "destination_label"> & Partial<AutomationMessageRow>, Partial<AutomationMessageRow>>;
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
       report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
+      ai_settings: Table<AiSettingsRow, Pick<AiSettingsRow, "agency_id"> & Partial<AiSettingsRow>, Partial<AiSettingsRow>>;
+      ai_client_settings: Table<AiClientSettingsRow, Pick<AiClientSettingsRow, "client_id" | "agency_id"> & Partial<AiClientSettingsRow>, Partial<AiClientSettingsRow>>;
+      ai_usage: Table<AiUsageRow, Pick<AiUsageRow, "agency_id" | "feature" | "model" | "status"> & Partial<AiUsageRow>, Partial<AiUsageRow>>;
     };
     Views: { [_ in never]: never };
     Functions: {
+      ai_month_cost: { Args: { p_agency_id: string }; Returns: number };
       list_client_snapshot_accounts: { Args: { p_client_id: string }; Returns: { id: string; connection_id: string; external_id: string; name: string; currency: string; timezone_name: string }[] };
       get_confirmed_collection_snapshot: { Args: { p_client_id: string; p_connection_id: string; p_provider: string; p_external_account_id: string; p_date_from: string; p_date_to: string; p_entity_level: string; p_api_version: string; p_contract_version: number }; Returns: Json };
       authorize_integration_collection_job: { Args: { p_job_id: string; p_attempt_count: number }; Returns: string };

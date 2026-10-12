@@ -131,7 +131,8 @@ export function normalizeClientAnalytics(value: unknown, automaticResults = true
       previousCoveredDays: analyticsNumber(coverage.previousCoveredDays) ?? 0,
       totalDays: analyticsNumber(coverage.totalDays) ?? 0,
     },
-    warnings: array(payload.warnings).map(text).filter(Boolean),
+    // A análise não usa mais um resultado principal por cliente; avisos antigos do banco sobre isso são descartados.
+    warnings: array(payload.warnings).map(text).filter(Boolean).filter(warning => !/resultado principal/i.test(warning)),
     estimatedMetricKeys: array(payload.estimatedMetricKeys).map(text).filter(Boolean),
     metaAggregate: { confirmed: metaAggregate.confirmed === true,
       collectedAt: nullableText(metaAggregate.collectedAt), version: analyticsNumber(metaAggregate.version) },

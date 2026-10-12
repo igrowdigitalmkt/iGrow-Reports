@@ -161,7 +161,7 @@ export async function generateManualReport(
     return {
       error: isMissingSchemaError(error)
         ? "A fundação de relatórios ainda não foi habilitada no banco de produção."
-        : "Não foi possível gerar a versão. Confirme a coleta e o resultado principal do cliente.",
+        : "Não foi possível gerar a versão. Confirme que a coleta do período foi concluída e tente novamente.",
     };
   }
 
