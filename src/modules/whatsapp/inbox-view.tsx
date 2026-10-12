@@ -854,7 +854,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         {list && !list.ready && <p className="wai-list-note">A caixa de entrada precisa da atualização do banco de dados. Assim que ela for aplicada, as conversas passam a aparecer aqui.</p>}
         {list?.ready && !visible.length && <p className="wai-list-note">{search ? "Nenhuma conversa encontrada." : customFilterId ? "Nenhuma conversa nesta lista." : filter === "all" ? "As conversas deste número aparecem aqui a partir de agora, conforme as mensagens chegam ou são enviadas." : "Nenhuma conversa neste filtro."}</p>}
         {visible.map(item => <ConversationChoice key={item.id} item={item} active={item.id === openId} now={now} photo={!demo} selecting={selecting}
-          pinned={nativeChatStates[item.id]?.pinned} menuOpen={rowMenu?.id===item.id} onMenu={channel.kind === "qr"?anchor => setRowMenu(current=>current?.id===item.id?null:{id:item.id,anchor}):undefined}
+          manualUnread={nativeChatStates[item.id]?.markedUnread} pinned={nativeChatStates[item.id]?.pinned} menuOpen={rowMenu?.id===item.id} onMenu={channel.kind === "qr"?anchor => setRowMenu(current=>current?.id===item.id?null:{id:item.id,anchor}):undefined}
           selected={selectedIds.includes(item.id)} labels={customLists.lists.filter(list => list.conversationIds.includes(item.id))}
           onOpen={() => selecting ? toggleSelected(item.id) : choose(item.id)} onSelect={() => toggleSelected(item.id)} />)}
       </div>
@@ -1191,19 +1191,18 @@ function Ticks({ status }: { status: InboxStatus }) {
 
 const KIND_ICONS: Record<string, typeof ImageIcon> = { image: ImageIcon, video: Video, audio: Mic, document: FileText, sticker: Sticker, location: MapPin, contact: Contact };
 
-function ConversationChoice({ item, active, now, photo, selecting, selected, labels = [], onOpen, onSelect, onMenu, pinned, menuOpen }: {
+function ConversationChoice({ item, active, now, photo, selecting, selected, labels = [], onOpen, onSelect, onMenu, pinned, menuOpen, manualUnread }: {
   item: InboxConversation; active: boolean; now: Date; photo: boolean; selecting: boolean; selected: boolean; labels?: CustomList[];
-  onOpen: () => void; onSelect: () => void; onMenu?: (anchor: DOMRect) => void; pinned?: boolean; menuOpen?:boolean;
+  onOpen: () => void; onSelect: () => void; onMenu?: (anchor: DOMRect) => void; pinned?: boolean; menuOpen?:boolean; manualUnread?:boolean;
 }) {
   return <div className={`wai-select-row${selected ? " is-selected" : ""}`}>
     {selecting && <input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Selecionar ${conversationTitle(item)}`} />}
-    <ConversationRow item={item} active={active} now={now} photo={photo} labels={labels} onOpen={onOpen} />
-    {pinned && <Pin size={14} className="wai-row-pin" aria-label="Conversa fixada" />}
+    <ConversationRow item={item} active={active} now={now} photo={photo} labels={labels} onOpen={onOpen} pinned={pinned} manualUnread={manualUnread} />
     {!selecting && onMenu && <button type="button" className="wai-row-menu-trigger" aria-label={`Opções de ${conversationTitle(item)}`} aria-haspopup="menu" aria-expanded={menuOpen??false} onClick={event => onMenu(event.currentTarget.getBoundingClientRect())}><ChevronDown size={18} /></button>}
   </div>;
 }
 
-function ConversationRow({ item, active, now, photo, labels, onOpen }: { item: InboxConversation; active: boolean; now: Date; photo: boolean; labels: CustomList[]; onOpen: () => void }) {
+function ConversationRow({ item, active, now, photo, labels, onOpen, pinned, manualUnread }: { pinned?:boolean; manualUnread?:boolean; item: InboxConversation; active: boolean; now: Date; photo: boolean; labels: CustomList[]; onOpen: () => void }) {
   const Icon = item.lastKind ? KIND_ICONS[item.lastKind] : undefined;
   const preview = item.preview || kindLabel(item.lastKind);
   return <button type="button" className={`wai-row${active ? " is-active" : ""}`} onClick={onOpen}>
@@ -1216,7 +1215,10 @@ function ConversationRow({ item, active, now, photo, labels, onOpen }: { item: I
           {Icon && <Icon size={15} className="wai-row-kind" />}
           <span><WhatsAppEmojiText text={preview} /></span>
         </span>
-        {item.unread > 0 && <span className="wai-unread">{item.unread}</span>}
+        <span className="wai-row-indicators">
+          {pinned && <Pin size={14} className="wai-row-pin" aria-label="Conversa fixada" />}
+          {item.unread > 0 && <span className={`wai-unread${manualUnread ? " is-manual" : ""}`} aria-label={manualUnread ? "Conversa marcada como não lida" : `${item.unread} mensagens não lidas`}>{manualUnread ? null : item.unread}</span>}
+        </span>
       </span>
       {item.clientName && <span className="wai-row-client">{item.clientName}</span>}
       {!!labels.length && <span className="wai-row-list-labels" aria-label={labels.map(item => item.name).join(", ")}>
