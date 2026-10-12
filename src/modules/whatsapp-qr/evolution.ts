@@ -22,6 +22,22 @@ export function evolutionConfig() {
 // Thin client for the agency's own Evolution API server (WhatsApp Web sessions by QR Code).
 export class EvolutionClient {
   constructor(private readonly config: { url: string; key: string }, private readonly fetcher: typeof fetch = fetch) {}
+  async conversationStates(name: string, peers: string[]) {
+    const result = await this.request<{states?: Array<import("@/modules/whatsapp/conversation-controls").NativeConversationState & {peer:string}>}>(`/label/igrowConversation/${encodeURIComponent(name)}`, {method:"POST",timeoutMs:60_000,body:{peers}});
+    const {validNativeConversationState} = await import("@/modules/whatsapp/conversation-controls");
+    if (!Array.isArray(result?.states) || result.states.some(state => !validNativeConversationState(state) || !peers.includes(state.peer))) throw new EvolutionError("Estado nativo inválido.");
+    return result.states;
+  }
+  async conversationControl(name: string, peer: string, change?: import("@/modules/whatsapp/conversation-controls").NativeConversationChange,
+    lastMessages?: Array<{ key: { id: string; fromMe: boolean }; messageTimestamp: number }>) {
+    const result = await this.request<unknown>(`/label/igrowConversation/${encodeURIComponent(name)}`, {
+      method: "POST", timeoutMs: 60_000, body: { peer, ...change, ...(lastMessages ? { lastMessages } : {}) },
+    });
+    const { validNativeConversationState } = await import("@/modules/whatsapp/conversation-controls");
+    if (!validNativeConversationState(result)) throw new EvolutionError("O WhatsApp não confirmou o estado da conversa.");
+    if(change){const field=({pin:"pinned",archive:"archived",unread:"markedUnread",favorite:"favorite"} as const)[change.action];if(result[field]!==change.value)throw new EvolutionError("O WhatsApp não confirmou a alteração.");}
+    return result;
+  }
   async mute(name:string,peer:string,change?:{duration:"8h"|"7d"|"always"|"off";expectedMuted:boolean;expectedUntil:number|null}) {
     const result=await this.request<{muted:boolean;until:number|null}>(`/label/igrowMute/${encodeURIComponent(name)}`,{method:"POST",timeoutMs:45000,body:{peer,...change}});
     if(typeof result?.muted!=="boolean" || !(result.until===null || Number.isSafeInteger(result.until)))throw new EvolutionError("O WhatsApp não confirmou o silenciamento.");

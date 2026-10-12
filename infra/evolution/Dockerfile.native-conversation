@@ -1,0 +1,4 @@
+FROM igrow/evolution-api:2.3.7-native-inbox-5@sha256:442271c0bc7c511e17f18ccdec92cd7fb152aa78e06ceedec62168f87b6efaf5
+WORKDIR /evolution
+COPY native-conversation-controls.mjs /tmp/native-conversation-controls.mjs
+RUN node /tmp/native-conversation-controls.mjs && node --check dist/main.js

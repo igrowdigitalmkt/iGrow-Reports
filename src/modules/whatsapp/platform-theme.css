@@ -44,6 +44,19 @@
 .workspace .wai-shell .wai-filter-check {display:inline-flex;align-items:center;justify-content:center;width:17px;min-width:17px;}
 .workspace .wai-shell .wai-filter-symbol {display:inline-flex;align-items:center;justify-content:center;width:18px;min-width:18px;}
 .workspace .wai-shell .wai-filter-count {margin-left:auto;}
+.workspace .wai-shell .wai-select-row {position:relative;}
+.workspace .wai-shell .wai-row-menu-trigger {position:absolute;right:15px;top:43px;display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:var(--surface);color:var(--muted);opacity:0;pointer-events:none;}
+.workspace .wai-shell .wai-select-row:is(:hover,:focus-within) .wai-row-menu-trigger {opacity:1;pointer-events:auto;}
+.workspace .wai-shell .wai-row-pin {position:absolute;right:20px;bottom:17px;color:var(--muted);}
+.wai-row-native-menu {position:fixed;z-index:1000;width:230px;overflow-y:auto;padding:8px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 8px 24px #0003;font-size:14px;}
+.wai-row-native-menu>button {display:flex;align-items:center;gap:12px;min-height:38px;width:100%;padding:8px;border:0;border-radius:6px;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer;}
+.wai-row-native-menu>button:hover:not(:disabled) {background:var(--surface-hover);}
+.wai-row-native-menu>button:disabled {opacity:.5;cursor:default;}
+.wai-row-native-menu>button.wai-row-menu-close {width:24px;min-height:24px;margin-left:auto;padding:4px;}
+.wai-row-native-menu p {display:flex;gap:6px;margin:8px;color:var(--muted);font-size:12px;}
+.wai-row-native-menu .wai-list-membership label {display:flex;align-items:center;gap:8px;padding:8px;}
+.wai-row-native-menu .wai-list-membership input {margin-left:auto;}
+@media(hover:none){.workspace .wai-shell .wai-row-menu-trigger {opacity:1;pointer-events:auto;}}
 .wai-shell :is(.wai-rail,.wai-list,.wai-new,.wai-details,.wai-chat-head,.wai-chat-search-panel,.wai-phone-panel,.wai-emoji,.wai-attach-menu,.wai-message-menu,.wai-forward-dialog,.wai-chat-menu,.wai-chat-lists-popover,.wai-account-menu,.wai-list-menu,.wai-filter-dropdown,.wai-bulk-menu,.wai-custom-manager-context) {background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
 .wai-shell :is(.wai-messages,.wai-empty,.wai-composer-area) {background:var(--bg)!important;}
 .workspace .wai-shell .wai-empty-icon {background:var(--accent-bg);color:var(--accent);border-color:var(--border);}

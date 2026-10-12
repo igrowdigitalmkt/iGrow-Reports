@@ -2,6 +2,11 @@ import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { loadThread } from "@/modules/whatsapp/inbox-read";
 import { archiveQrChat, markQrRead } from "@/modules/whatsapp-qr/server";
+import { EvolutionClient, evolutionConfig } from "@/modules/whatsapp-qr/evolution";
+import { instanceNameFor } from "@/modules/whatsapp-qr/format";
+import { loadOwnModules } from "@/modules/team/admin";
+import { canOpenSection } from "@/modules/team/permissions";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "private, no-store" };
@@ -23,9 +28,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   ]).safeParse(await request.json().catch(() => null));
   if (!id.success || !body.success) return Response.json({ error: "Pedido inválido." }, { status: 400, headers });
   const context = await requireAgencyContext();
+  const modules=["owner","admin"].includes(context.role)?null:await loadOwnModules(context.supabase,context.agency.id,context.user.id);
+  if(!canOpenSection(context.role,modules,"whatsapp")||(body.data.action!=="read"&&context.role==="viewer"))return Response.json({error:"Sem permissão para esta ação."},{status:403,headers});
   const { data: conversation } = await context.supabase.from("whatsapp_conversations").select("channel,remote_id,unread_count").eq("agency_id", context.agency.id).eq("id", id.data).maybeSingle();
   if (!conversation) return Response.json({ error: "Conversa não encontrada." }, { status: 404, headers });
   const action = body.data;
+  if (conversation.channel === "qr" && action.action === "favorite") {
+    const config=evolutionConfig();
+    if(!config)return Response.json({error:"WhatsApp indisponível."},{status:503,headers});
+    const service=createSupabaseServiceClient();
+    if(!service)return Response.json({error:"WhatsApp indisponível."},{status:503,headers});
+    const {data:guard,error:guardError}=await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id",context.agency.id).maybeSingle();
+    if(guardError||guard?.blocked)return Response.json({error:"Reconecte o WhatsApp."},{status:409,headers});
+    try {
+      const client=new EvolutionClient(config),instance=instanceNameFor(context.agency.id);
+      const peer=conversation.remote_id.includes("@")?conversation.remote_id:`${conversation.remote_id}@s.whatsapp.net`;
+      const state=await client.conversationControl(instance,peer);
+      if(!state.favoritesSupported)throw Error("Favoritos indisponíveis.");
+      if(state.favorite!==action.value)await client.conversationControl(instance,peer,{action:"favorite",value:action.value,expected:state.favorite});
+      const {data:current,error:currentError}=await service.from("whatsapp_qr_reset_guards").select("blocked,fresh_after").eq("agency_id",context.agency.id).maybeSingle();
+      if(currentError||current?.blocked||current?.fresh_after!==guard?.fresh_after)throw Error("Conexão alterada.");
+    }catch{return Response.json({error:"Não foi possível sincronizar os favoritos com o WhatsApp."},{status:502,headers});}
+  }
   // Read and archive also happen on the phone for the QR Code session, like WhatsApp Web.
   if (conversation.channel === "qr" && action.action === "read" && conversation.unread_count > 0) {
     const { data: unread, error: unreadError } = await context.supabase.from("whatsapp_messages").select("external_id").eq("agency_id", context.agency.id).eq("conversation_id", id.data)
