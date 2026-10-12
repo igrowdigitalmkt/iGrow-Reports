@@ -1,5 +1,6 @@
 // Turns WhatsApp webhooks (Evolution for the QR Code session, Cloud API for official numbers)
 // into inbox messages. Pure functions: no database or network here.
+import { commercialButtons } from "./commercial-messages";
 
 export type InboxKind = "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contact" | "reaction" | "template" | "other";
 
@@ -26,6 +27,8 @@ export function baileysMediaRef(message: BaileysContent | undefined): MediaRef |
   if (!message) return null;
   const inner = message.ephemeralMessage?.message ?? message.viewOnceMessage?.message ?? message.viewOnceMessageV2?.message ?? message.documentWithCaptionMessage?.message;
   if (inner) return baileysMediaRef(inner);
+  const buttons = commercialButtons(message);
+  if (buttons.length) return { type: "templateMessage", data: { buttons } };
   for (const type of MEDIA_TYPES) {
     const media = message[type] as Record<string, unknown> | undefined;
     if (!media || typeof media !== "object" || (!media.directPath && !media.url) || !media.mediaKey) continue;
@@ -51,6 +54,9 @@ type BaileysContent = Record<string, unknown> & {
   listResponseMessage?: { title?: string }; pollCreationMessage?: { name?: string }; pollCreationMessageV3?: { name?: string };
   ephemeralMessage?: { message?: BaileysContent }; viewOnceMessage?: { message?: BaileysContent }; viewOnceMessageV2?: { message?: BaileysContent };
   protocolMessage?: unknown; senderKeyDistributionMessage?: unknown; messageContextInfo?: unknown;
+  highlyStructuredMessage?: { hydratedHsm?: BaileysContent };
+  buttonsMessage?: { contentText?: string; footerText?: string };
+  interactiveMessage?: { body?: { text?: string }; footer?: { text?: string }; header?: { title?: string } };
 };
 
 /** Kind, text and file of a Baileys message; null for technical messages (deletes, key exchange…). */
@@ -73,7 +79,22 @@ export function describeBaileysContent(message: BaileysContent | undefined): Pic
   if (answer) return { kind: "text", body: answer, mediaName: null, mediaMime: null };
   const poll = text(message.pollCreationMessage?.name) ?? text(message.pollCreationMessageV3?.name);
   if (poll) return { kind: "other", body: `📊 ${poll}`, mediaName: null, mediaMime: null };
-  if (message.templateMessage) return { kind: "template", body: null, mediaName: null, mediaMime: null };
+  if (message.highlyStructuredMessage?.hydratedHsm) return describeBaileysContent(message.highlyStructuredMessage.hydratedHsm);
+  if (message.buttonsMessage) {
+    const body = [text(message.buttonsMessage.contentText),text(message.buttonsMessage.footerText)].filter(Boolean).join("\n\n");
+    return {kind:"template",body:body || null,mediaName:null,mediaMime:null};
+  }
+  if (message.interactiveMessage) return describeBaileysContent({templateMessage:{interactiveMessageTemplate:message.interactiveMessage}});
+  if (message.templateMessage) {
+    const template = message.templateMessage as { hydratedTemplate?: Record<string, unknown>; hydratedFourRowTemplate?: Record<string, unknown>; interactiveMessageTemplate?: { body?: { text?: string }; footer?: { text?: string }; header?: { title?: string } } };
+    const hydrated = template.hydratedTemplate ?? template.hydratedFourRowTemplate;
+    const interactive = template.interactiveMessageTemplate;
+    const body = hydrated?.maskLinkedDevices === true
+      ? "Você recebeu uma senha descartável. Para mais segurança, você só pode acessar essa senha no seu dispositivo principal."
+      : [text(hydrated?.hydratedTitleText ?? interactive?.header?.title), text(hydrated?.hydratedContentText ?? interactive?.body?.text), text(hydrated?.hydratedFooterText ?? interactive?.footer?.text)]
+      .filter(Boolean).join("\n\n");
+    return { kind: "template", body: body ? body.slice(0, 8000) : null, mediaName: null, mediaMime: null };
+  }
   if (message.protocolMessage || message.senderKeyDistributionMessage) return null;
   const known = Object.keys(message).filter(key => key !== "messageContextInfo");
   return known.length ? { kind: "other", body: null, mediaName: null, mediaMime: null } : null;
@@ -85,7 +106,7 @@ type EvolutionPayload = {
   event?: string;
   data?: {
     key?: { remoteJid?: string; remoteJidAlt?: string; senderPn?: string; fromMe?: boolean; id?: string; participant?: string; participantAlt?: string };
-    pushName?: string; message?: BaileysContent; messageTimestamp?: unknown; status?: string;
+    pushName?: string; verifiedBizName?: string; message?: BaileysContent; messageTimestamp?: unknown; status?: string;
   };
 };
 const EVOLUTION_MESSAGE_EVENTS = new Set(["messages.upsert", "MESSAGES_UPSERT", "send.message", "SEND_MESSAGE"]);
@@ -114,7 +135,7 @@ export function parseEvolutionMessage(body: unknown, now = new Date()): InboxMes
   const content = describeBaileysContent(payload.data?.message);
   if (!content) return null;
   const fromMe = key.fromMe === true || payload.event === "send.message" || payload.event === "SEND_MESSAGE";
-  const receivedPushName = text(payload.data?.pushName, 200);
+  const receivedPushName = text(payload.data?.verifiedBizName, 200) ?? text(payload.data?.pushName, 200);
   // The numeric @lid identity is not the contact's name.
   const pushName = receivedPushName && !/^\d{12,20}$/.test(receivedPushName) ? receivedPushName : null;
   return {

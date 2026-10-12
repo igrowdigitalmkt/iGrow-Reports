@@ -20,6 +20,7 @@ export type InboxMessageItem = {
   pinned?: boolean;
   /** Duration from WhatsApp encrypted media metadata, in seconds. */
   mediaDurationSeconds?: number | null;
+  templateButtons?: Array<{ label: string; href?: string }>;
   revoked?: boolean;
   canRevokeForEveryone?: boolean;
 };

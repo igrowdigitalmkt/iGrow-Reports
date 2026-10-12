@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   const event = (body as { event?: unknown } | null)?.event;
   // Contact-name changes only update existing metadata: never merge/delete inbox rows.
-  if (event === "contacts.upsert" || event === "CONTACTS_UPSERT") {
+  if (["contacts.upsert", "CONTACTS_UPSERT", "contacts.update", "CONTACTS_UPDATE"].includes(String(event))) {
     if (guard && !scoped) return Response.json({ ok: true, ignored: "old_session_contacts" });
     try {
       const updated = await syncQrContactNames(service, agencyId, guard?.fresh_after, body);

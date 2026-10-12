@@ -62,6 +62,20 @@ describe("referência do arquivo (QR Code)", () => {
 });
 
 describe("describeBaileysContent", () => {
+  it("preserves hydrated business text, title and footer through wrappers", () => {
+    const templateMessage = { hydratedTemplate: { hydratedTitleText: "Aviso", hydratedContentText: "Olá,\n\nTexto comercial completo.", hydratedFooterText: "Mensagem automática" } };
+    expect(describeBaileysContent({ viewOnceMessage: { message: { templateMessage } } })).toMatchObject({ kind: "template", body: "Aviso\n\nOlá,\n\nTexto comercial completo.\n\nMensagem automática" });
+    expect(describeBaileysContent({ templateMessage: { hydratedFourRowTemplate: { hydratedContentText: "Outra mensagem" } } })?.body).toBe("Outra mensagem");
+  });
+  it("keeps OTP content masked on companion devices", () => {
+    expect(describeBaileysContent({ templateMessage: { hydratedTemplate: { maskLinkedDevices: true, hydratedContentText: "secret-code" } } })?.body).toContain("dispositivo principal");
+    expect(describeBaileysContent({ templateMessage: { hydratedTemplate: { maskLinkedDevices: true, hydratedContentText: "secret-code" } } })?.body).not.toContain("secret-code");
+  });
+  it("reads interactive bodies, legacy button cards and hydrated HSM wrappers", () => {
+    expect(describeBaileysContent({interactiveMessage:{body:{text:"Interativa"},footer:{text:"Rodapé"}}})?.body).toBe("Interativa\n\nRodapé");
+    expect(describeBaileysContent({buttonsMessage:{contentText:"Botões",footerText:"Rodapé"}})?.body).toBe("Botões\n\nRodapé");
+    expect(describeBaileysContent({highlyStructuredMessage:{hydratedHsm:{templateMessage:{hydratedTemplate:{hydratedContentText:"HSM"}}}}})?.body).toBe("HSM");
+  });
   it("documento, áudio, figurinha e mensagens temporárias", () => {
     expect(describeBaileysContent({ documentMessage: { fileName: "Relatorio.pdf", mimetype: "application/pdf" } })).toMatchObject({ kind: "document", mediaName: "Relatorio.pdf" });
     expect(describeBaileysContent({ audioMessage: { ptt: true, mimetype: "audio/ogg" } })?.kind).toBe("audio");

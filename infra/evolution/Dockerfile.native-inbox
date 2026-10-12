@@ -1,0 +1,4 @@
+FROM igrow/evolution-api:2.3.7-native-lists-4@sha256:185f6df5c6f652090698fbd59087d3bb2fb0810074573922105f1b43de59df57
+WORKDIR /evolution
+COPY native-inbox-recovery.mjs /tmp/native-inbox-recovery.mjs
+RUN node /tmp/native-inbox-recovery.mjs && node --check dist/main.js

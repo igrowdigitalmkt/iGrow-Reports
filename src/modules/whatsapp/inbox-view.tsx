@@ -1662,6 +1662,9 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, reactionAvata
         {message.kind === "other" && !message.body && <div className="wai-media">Mensagem não suportada nesta tela</div>}
         {message.body && message.kind !== "contact" && message.kind !== "location" && <p className={`wai-text${message.revoked ? " is-revoked" : ""}`}><WhatsAppText text={message.body} />{meta}</p>}
         {(!message.body || message.kind === "contact" || message.kind === "location") && <div className="wai-meta-row">{meta}</div>}
+        {!!message.templateButtons?.length && <div className="wai-template-options">{message.templateButtons.map((button,index) => button.href
+          ? <a key={index} href={button.href} target="_blank" rel="noopener noreferrer"><WhatsAppEmojiText text={button.label}/></a>
+          : <span key={index}><WhatsAppEmojiText text={button.label}/></span>)}</div>}
       </div>
       {message.pinned && <span className="wai-message-pinned-indicator" title="Fixada no iGrow"><Pin size={12} />Fixada</span>}
       {/* Badge in the document flow AFTER the bubble: never covers timestamp or checkmarks. */}

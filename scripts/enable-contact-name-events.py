@@ -1,4 +1,4 @@
-"""Preserve the existing signed webhook; enable saved contact-name events only."""
+"""Preserve the signed webhook; enable native saved/business/profile name events."""
 import json
 import pathlib
 import subprocess
@@ -21,8 +21,9 @@ url = urlparse(webhook["url"])
 assert webhook["enabled"] and url.scheme == "https" and url.hostname == "i-grow-reports.vercel.app" and url.path == "/api/webhooks/evolution"
 assert webhook["headers"].get("x-igrow-token")
 events = list(webhook["events"])
-if "CONTACTS_UPSERT" not in events:
-    events.append("CONTACTS_UPSERT")
+missing_events = [event for event in ["CONTACTS_UPSERT", "CONTACTS_UPDATE"] if event not in events]
+if missing_events:
+    events.extend(missing_events)
     api("/webhook/set/" + instance, {"webhook": {"enabled": True, "url": webhook["url"], "headers": webhook["headers"],
         "events": events, "byEvents": webhook["webhookByEvents"], "base64": webhook["webhookBase64"]}})
 updated = api("/webhook/find/" + instance)

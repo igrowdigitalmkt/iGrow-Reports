@@ -7,6 +7,7 @@ import { WHATSAPP_QR_RECENT_DAYS } from "./recent-policy";
 import { groupReactions } from "./inbox-reactions";
 import { canRevokeForEveryone } from "./message-actions";
 import { voiceDurationFromRef } from "./voice-metadata";
+import { commercialButtonsFromRef } from "./commercial-messages";
 
 type Client = SupabaseClient<Database>;
 
@@ -120,6 +121,8 @@ export async function loadThread(supabase: Client, agencyId: string, conversatio
       mediaName: message.revoked_at ? null : message.media_name,
       mediaMime: message.revoked_at ? null : message.media_mime,
       mediaDurationSeconds: !message.revoked_at && message.kind === "audio" ? voiceDurationFromRef(message.media_ref) : null,
+      ...(!message.revoked_at && message.kind === "template" && commercialButtonsFromRef(message.media_ref).length
+        ? { templateButtons: commercialButtonsFromRef(message.media_ref) } : {}),
       author: message.author, status: message.status, sentAt: message.sent_at,
       reactions: message.revoked_at ? [] : groupReactions(byTarget.get(message.id) ?? []),
       pinned: pinnedIds.has(message.id), revoked: !!message.revoked_at,

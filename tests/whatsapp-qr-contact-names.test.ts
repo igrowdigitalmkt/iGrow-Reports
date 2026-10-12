@@ -3,6 +3,19 @@ import { expect, it, vi } from "vitest";
 import type { Database } from "@/types/database";
 vi.mock("server-only", () => ({}));
 import { parseQrContactNames, syncQrContactNames } from "@/modules/whatsapp-qr/contact-names";
+it("accepts native business/profile updates as fallback names without treating numeric LIDs as names", () => {
+  expect(parseQrContactNames({event:"CONTACTS_UPDATE",data:[
+    {remoteJid:"123456789@lid",igrowVerifiedName:"Banco PAN"},
+    {remoteJid:"123456788@lid",igrowProfileName:"123456788"},
+    {remoteJid:"123456787@lid",igrowSavedName:"Meu contato",igrowVerifiedName:"Empresa"},
+  ]})).toEqual([{remoteId:"123456789@lid",name:"Banco PAN",fallback:true},{remoteId:"123456787@lid",name:"Meu contato"}]);
+});
+it("does not overwrite an existing saved title with a business fallback", async () => {
+  const calls: URL[]=[];
+  const client=createClient<Database>("https://db.example.test","test-key",{auth:{persistSession:false},global:{fetch:async input=>{calls.push(new URL(String(input)));return new Response("[]",{headers:{"Content-Type":"application/json"}});}}});
+  await syncQrContactNames(client,"agency",undefined,{event:"contacts.update",data:[{remoteJid:"5586999999999@s.whatsapp.net",igrowVerifiedName:"Empresa"}]});
+  expect(calls.at(-1)?.searchParams.get("title")).toBe("is.null");
+});
 it("accepts only native saved names from contact events, with valid identities and bounded text", () => {
   const rows = [
     { remoteJid: "5586999999999@s.whatsapp.net", igrowSavedName: " Amor ❤️ " },
