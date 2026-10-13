@@ -7,7 +7,7 @@ import type { GuardedResult } from "@/modules/ai/guarded-text";
 import type { Database, ReportAutomationRow, ReportAutomationRunRow } from "@/types/database";
 import { renderMessage, renderSeparatedMessage, usedVariables, type AccountBlock } from "./message";
 import { summarizeBalance } from "@/modules/meta/balance";
-import { getClientAccountBilling } from "@/modules/meta/server";
+import { getClientAccountBilling, refreshMetaDashboardScope } from "@/modules/meta/server";
 import { localDate, nextRunAt, resolvePeriod } from "./schedule";
 import { deliverToDestinations, runStatus, type MessageDestination, type MessageSender } from "./sender";
 
@@ -104,7 +104,7 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo,
     });
     if (analyticsError || !payload) return await finish("failed", { error_message: "Não foi possível ler os números do período." });
-    const data = normalizeClientAnalytics(payload);
+    let data = normalizeClientAnalytics(payload);
     if (official) {
       const outcome = await options.sendOfficialPdf!({
         agencyId: automation.agency_id, connectionId: automation.whatsapp_connection_id!, clientId: automation.client_id,
@@ -125,6 +125,22 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       }));
       if (loaded.some(item => !item)) return await finish("failed", { error_message: "Não foi possível ler os números de uma das contas do cliente." });
       perAccount = loaded.filter(item => item !== null);
+    }
+    // A análise da IA só usa números confirmados pela Meta para o recorte exato (cada conta, ou todas somadas).
+    // Sem agregado confirmado, o envio pede a confirmação à Meta aqui mesmo antes de gerar o texto.
+    if (!options.approval && !options.generateSummary && usedVariables(automation.message_template).includes("analise_ia")) {
+      const confirm = async (part: AnalyticsData, accountIds: string[] | null): Promise<AnalyticsData> => {
+        if (part.metaAggregate?.confirmed || part.coverage.status !== "complete") return part;
+        try {
+          await refreshMetaDashboardScope({ agencyId: automation.agency_id, clientId: automation.client_id, data: part });
+          const { data: again } = accountIds
+            ? await service.rpc("service_client_analytics_accounts", { p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo, p_account_ids: accountIds })
+            : await service.rpc("service_client_analytics", { p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo });
+          return again ? normalizeClientAnalytics(again) : part;
+        } catch { return part; }
+      };
+      if (perAccount) perAccount = await Promise.all(perAccount.map(async account => ({ ...account, data: await confirm(account.data, [account.id]) })));
+      else data = await confirm(data, null);
     }
     // The balance is read live from Meta only when the message shows it.
     const billing = usedVariables(automation.message_template).includes("saldo")
