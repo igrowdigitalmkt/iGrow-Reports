@@ -458,3 +458,6 @@
 .analytics-ai-sales { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .analytics-ai-sales label { display: grid; gap: 6px; font-size: 13px; }
 .analytics-ai-draft > button { justify-self: start; }
+
+.analytics-consolidate { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
+.analytics-consolidate small { display: block; color: var(--text-secondary); font-size: 12px; }

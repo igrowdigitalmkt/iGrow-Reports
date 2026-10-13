@@ -880,3 +880,8 @@ Decisão do responsável: contas de uma mesma plataforma são tratadas **separad
 - **Mensagem de WhatsApp (QR Code):** com mais de uma conta e sem consolidar, a saudação e o fechamento saem uma vez e o miolo com os números se repete por conta (`📌 Conta: nome`), com saldo/pagamento de cada conta (`renderSeparatedMessage`). A análise da IA recebe os fatos por conta e analisa uma de cada vez. Checkbox no editor do agendamento.
 - **Efeito em agendamentos existentes:** os de QR Code de clientes com várias contas passam a sair separados no próximo envio. O PDF do número oficial **ainda sai consolidado** (próxima etapa).
 - **Próximas etapas:** (B) caixa "Consolidar resultados" no dashboard (contas selecionadas separadas por padrão) e no PDF baixado; (C) PDF oficial/agendado por conta; (D) multiplataforma (mockup aprovado em parte).
+
+### 13/10/2026 (6) — Dashboard: contas separadas por padrão e "Consolidar resultados"
+- No filtro de contas do dashboard há a caixa **Consolidar resultados** (desmarcada; parâmetro `consolidar=1` na URL). Com mais de uma conta selecionada e a caixa desmarcada, a Visão geral mostra **Resultados por conta** (`account-comparison.tsx`): um cartão por conta com investimento, alcance, impressões, cliques e resultados com custo, e o botão "Ver detalhes desta conta". O servidor lê e confirma cada conta como uma conta só (`accountViews` em `client-analytics-screen.tsx`), então os resultados por tipo são os mesmos da visão de uma conta.
+- Marcando a caixa, o dashboard volta ao comportamento anterior (contas somadas).
+- **Limitação deliberada:** com contas separadas, exportar PDF pede escolher uma conta ou consolidar (mensagem na tela). PDF por conta no mesmo arquivo e PDF oficial agendado por conta ficam para a próxima etapa.

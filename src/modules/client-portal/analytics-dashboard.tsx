@@ -16,6 +16,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { AudienceBreakdowns } from "./audience-breakdowns";
 import { demoAudience } from "./demo-analytics";
 import { BillingSummary } from "./billing-section";
+import { AccountComparison } from "./account-comparison";
 import { sortActionsByImportance } from "./action-priority";
 import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "./platform-picker";
 import type { ClientAccountBilling } from "@/modules/meta/server";
@@ -42,6 +43,8 @@ import {
 import "./analytics-dashboard.css";
 type DashboardProps = {
   data: AnalyticsDashboardData;
+  // Uma leitura por conta selecionada, para mostrar os resultados de cada conta separadamente.
+  accountViews?: Array<{ id: string; name: string; data: AnalyticsDashboardData }>;
   entities: AnalyticsEntity[]; workspaceName: string; clientName: string;
   clientId: string;
   workspaceId: string;
@@ -169,7 +172,7 @@ function makeObservations(data: AnalyticsDashboardData) {
 const retryClock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 export function ClientAnalyticsDashboard({
-  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, detailedAnalysisHref, demo = false, demoBilling,
+  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, detailedAnalysisHref, demo = false, demoBilling, accountViews,
 }: DashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -178,6 +181,9 @@ export function ClientAnalyticsDashboard({
   const [from, setFrom] = useState(data.dateFrom);
   const [to, setTo] = useState(data.dateTo);
   const [accounts, setAccounts] = useState(data.selectedAccountIds);
+  // Contas separadas por padrão; "Consolidar resultados" soma as contas selecionadas como uma conta só.
+  const [consolidate, setConsolidate] = useState(query.get("consolidar") === "1");
+  const separated = !(query.get("consolidar") === "1") && data.selectedAccountIds.length > 1;
   const [optionalMetricKeys, setOptionalMetricKeys] = useState<string[]>(
     DEFAULT_OPTIONAL_METRICS.filter((key) => data.metrics.some((metric) => metric.key === key)),
   );
@@ -475,6 +481,7 @@ export function ClientAnalyticsDashboard({
     if (selectedAccounts.length && selectedAccounts.length < data.accounts.length) {
       next.set("accounts", selectedAccounts.join(","));
     }
+    if (consolidate && selectedAccounts.length > 1) next.set("consolidar", "1");
     const selectedLabel = PERIODS.find((item) => item.key === nextPeriod)?.label ?? "período selecionado";
     setApplyingPeriodLabel(nextPeriod === "custom"
       ? `${displayDate(customFrom)} a ${displayDate(customTo)}`
@@ -580,6 +587,10 @@ export function ClientAnalyticsDashboard({
 
   function exportPdf(orientation: "vertical" | "horizontal" = "vertical") {
     setError(""); setNotice("");
+    if (separated) {
+      setError("Para gerar o PDF, escolha uma conta ou marque “Consolidar resultados” no filtro de contas.");
+      return;
+    }
     if (!analyticsReady) {
       setError("O relatório só pode ser gerado quando todos os dias do período estiverem confirmados.");
       return;
@@ -770,6 +781,8 @@ export function ClientAnalyticsDashboard({
                   ? current.filter((id) => id !== account.id) : [...current, account.id])} />
               <span>{account.name}<small>{account.externalId}</small></span>
             </label>)}
+            <label className="analytics-consolidate"><input type="checkbox" checked={consolidate} onChange={event => setConsolidate(event.target.checked)} />
+              <span>Consolidar resultados<small>Soma as contas selecionadas como se fossem uma só</small></span></label>
           </div>
         </details>}
         <button type="submit" className="analytics-button analytics-button-apply" disabled={navigating}>
@@ -850,7 +863,8 @@ export function ClientAnalyticsDashboard({
       </details></div>}
     </div>
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
-      {tab === "overview" && analyticsReady && <>
+      {tab === "overview" && analyticsReady && separated && <AccountComparison data={scopedData} views={accountViews} onOpen={accountId => navigate(period, [accountId])} />}
+      {tab === "overview" && analyticsReady && !separated && <>
         <div className="analytics-kpi-grid analytics-kpi-grid-fixed">
           {fixedMetrics.map((metric) => {
             const change = changeDescription(scopedData, metric);
