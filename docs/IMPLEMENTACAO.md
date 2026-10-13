@@ -863,8 +863,12 @@ Com o responsável logado no navegador do assistente (Vercel, Supabase e a plata
 ## 13/10/2026 (3) — Análise da IA no WhatsApp, com aprovação antes de cada envio
 
 - **Migração `202610130002_ai_whatsapp_approval` aplicada em produção** (NÃO reaplicar): `report_automation_runs.ai_text`, status `awaiting_approval` e `discarded`, feature `whatsapp_summary` em `ai_usage`. Teste em `supabase/tests/ai-layer.test.sql`.
-- **Variável `{{analise_ia}}`** (envio por QR Code): quando o modelo da mensagem a usa, a execução gera um resumo curto (≤ 70 palavras, `src/modules/ai/whatsapp-summary.ts`, mesmo caminho protegido `runGuardedGeneration`: cota, verificador de números, registro de custo) e **não envia nada**: a execução fica `Aguardando aprovação`. Exige período completo e agregado da Meta confirmado; se a IA falhar ou estiver sem orçamento, a execução falha e nada é enviado.
+- **Variável `{{analise_ia}}`** (envio por QR Code): quando o modelo da mensagem a usa, a execução gera um resumo curto (≤ 110 palavras, `src/modules/ai/whatsapp-summary.ts`, mesmo caminho protegido `runGuardedGeneration`: cota, verificador de números, registro de custo) e **não envia nada**: a execução fica `Aguardando aprovação`. Exige período completo e agregado da Meta confirmado; se a IA falhar ou estiver sem orçamento, a execução falha e nada é enviado.
 - **Aprovações pendentes** (topo de Agendamentos): o responsável edita o texto e clica em "Aprovar e enviar" ou "Descartar" (`approveAutomationRunAction` / `discardAutomationRunAction`). A aprovação troca o status `awaiting_approval → running` de forma condicional, o que impede envio duplicado. Leitores não aprovam.
 - Agendamentos existentes não mudam, a menos que o modelo inclua `{{analise_ia}}`. Nenhuma mensagem de teste foi enviada a clientes. A API oficial (PDF) não usa a variável.
 - Testes: `tests/automation-ai-approval.test.ts` (segura o envio, falha da IA, aprovação envia o texto aprovado, segunda aprovação não envia). `pnpm check` passou.
 - **Próximo passo:** o responsável cria/edita um agendamento com `{{analise_ia}}`, usa "Enviar agora" para um destinatário de teste dele e confere a tela de aprovação; depois escolhe "Novo" em Configurações → Layout do PDF.
+
+### 13/10/2026 (4) — Ajuste da análise do WhatsApp após o primeiro envio real
+- Migração `202610130003_service_client_hierarchy` aplicada em produção (NÃO reaplicar): leitura da hierarquia de anúncios pela chave de serviço.
+- Prompt do WhatsApp: não confundir "cliques" com "cliques no link", concentração do investimento só com base no investimento por tipo, não repetir os números já presentes na mensagem, até 3 melhores e 3 piores anúncios (mesmo tipo de resultado) pelo nome com o custo. Limite de ~110 palavras.

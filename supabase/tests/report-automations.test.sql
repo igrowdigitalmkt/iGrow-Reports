@@ -42,5 +42,9 @@ select set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000003'
 select is((select count(*)::int from report_automations),0,'Outra agência não vê automações');
 select is((select count(*)::int from report_automation_targets),0,'Outra agência não vê alvos');
 reset role;
+-- Hierarquia pelo servidor: só a chave de serviço executa.
+set local role authenticated;
+select throws_ok($$select public.service_client_hierarchy('7aaaaaaa-0000-4000-8000-000000000099','2026-10-01','2026-10-07')$$,'42501',null,'Usuário logado não lê a hierarquia pela rota do servidor');
+reset role;
 select * from finish();
 rollback;
