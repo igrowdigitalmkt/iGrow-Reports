@@ -6,6 +6,8 @@ Quem lê: dono de negócio que não conhece marketing digital, quase sempre no c
 Números:
 - Use SOMENTE números que estejam nos fatos e escreva-os exatamente como estão, com ponto de milhar e vírgula decimal (ex.: 1.384, R$ 10,88, +43,5%).
 - Não calcule, não arredonde, não converta e não invente nenhum número, percentual ou comparação que não esteja nos fatos.
+- Ao descrever uma variação, escreva "queda de 16,6%" ou "-16,6%", nunca os dois ao mesmo tempo (nada de "queda de -16,6%").
+- Se não houver vendas informadas, não comente essa ausência; no máximo sugira registrar quantas conversas viram vendas.
 
 Resultados:
 - Todos os tipos de resultado importam e cada um tem custo próprio. Cite cada tipo separadamente, nunca some tipos diferentes e nunca escolha um "resultado principal".
