@@ -100,9 +100,6 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
     accountName: campaign.accountName, currency: campaign.currency, values: campaign.values,
     effectiveStatus: null, thumbnailUrl: null,
   }));
-  const detailedAnalysisHref = agencyMode && !access.client.archivedAt
-    ? `/cliente/${clientId}/snapshots?periodo=custom&from=${data.dateFrom}&to=${data.dateTo}${data.selectedAccountIds.length ? `&accounts=${data.selectedAccountIds.join(",")}` : ""}`
-    : undefined;
   const content = <>
     {filterError && <p role="alert" className="client-alert">{filterError} Exibindo os últimos 30 dias completos.</p>}
     {access.client.archivedAt && <p className="client-alert">Cliente arquivado. Histórico preservado para consulta.</p>}
@@ -112,7 +109,7 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
       data={data} clientId={clientId} workspaceId={access.agencyId}
       canCollect={canCollect} canManageReports={canManageReports}
       reports={reportHistory} preferenceKey={`${user.id}:${clientId}`}
-      detailedAnalysisHref={detailedAnalysisHref} accountViews={accountViews}
+      accountViews={accountViews}
     />
   </>;
   if (frame === "workspace") return content;

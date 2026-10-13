@@ -893,3 +893,7 @@ Decisão do responsável: contas de uma mesma plataforma são tratadas **separad
 
 ### 13/10/2026 (9) — Dashboard: informações dentro da seção da plataforma
 Pedido do responsável (anotações sobre a tela): cada informação fica na sua seção (Meta Ads, depois Google etc.). Saíram do topo: o subtítulo "Meta Ads · N contas de anúncio", o fuso e a moeda. A **seleção de contas** (com "Consolidar resultados" e o botão "Aplicar contas") e a **Qualidade dos dados** passaram para o cabeçalho da seção Meta Ads. O topo ficou com cliente, ações, período e "Atualizado em". Fuso e moeda deixaram de aparecer na tela.
+
+### 13/10/2026 (10) — "Análise por conta" removida; Qualidade dos dados ao lado de "Meta Ads"
+- A página `/cliente/[clientId]/snapshots` ("Análise por conta"), seus módulos (`snapshot-dashboard*`, `snapshot-series*`, `snapshot-unavailable`, gráfico), os módulos de leitura/comparação/exportação de snapshot que ficaram sem uso e 190 testes dessa função foram removidos a pedido do responsável ("nunca serviu pra nada"). Mantidos: `integrations/snapshot-projection` (usado pelo teste do adaptador do worker da Meta) e todo o banco (tabelas e funções de coleta não foram alterados).
+- O botão "Análise por conta" saiu do dashboard. A "Qualidade dos dados" agora fica na mesma linha do título "Meta Ads", ao lado de "N conta(s) de M".

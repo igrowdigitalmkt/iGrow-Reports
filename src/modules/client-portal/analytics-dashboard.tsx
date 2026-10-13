@@ -25,7 +25,7 @@ import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
   Download, FileText, Filter, Info, Layers3, Lock,
   RefreshCw, Search, Sparkles, Target, Trash2, TrendingUp,
-  WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Table2, GripVertical, ArrowLeftRight,
+  WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, GripVertical, ArrowLeftRight,
 } from "lucide-react";
 import { collectDashboardData } from "./analytics-actions";
 import { generateCommentDraft } from "@/modules/ai/actions";
@@ -53,7 +53,6 @@ type DashboardProps = {
   reports: AnalyticsReportItem[];
   preferenceKey: string;
   /** Link to the per-account, per-level confirmed analysis (agency only). */
-  detailedAnalysisHref?: string;
   /** Demo workspace: fictitious data, no server calls. */
   demo?: boolean;
   demoBilling?: ClientAccountBilling[];
@@ -172,7 +171,7 @@ function makeObservations(data: AnalyticsDashboardData) {
 const retryClock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 export function ClientAnalyticsDashboard({
-  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, detailedAnalysisHref, demo = false, demoBilling, accountViews,
+  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, demo = false, demoBilling, accountViews,
 }: DashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -756,7 +755,6 @@ export function ClientAnalyticsDashboard({
       </div>
       <div className="analytics-command-actions">
         <PlatformPicker value={platforms} onChange={changePlatforms} />
-        {detailedAnalysisHref && <Link className="analytics-button" href={detailedAnalysisHref}><Table2 size={15} />Análise por conta</Link>}
         {tab === "overview" && analyticsReady && <button type="button" className="analytics-button" onClick={async () => {
           try {
             if (document.fullscreenElement === dashboardRef.current) await document.exitFullscreen();
@@ -842,6 +840,10 @@ export function ClientAnalyticsDashboard({
     </div>}
     {metaVisible ? <section className="platform-section" aria-label="Meta Ads">
     <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
+      {!!data.warnings.length && <details className="analytics-quality-menu">
+        <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
+        <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
+      </details>}
       <div className="platform-heading-actions">{data.accounts.length > 1 && <details className="analytics-filter-menu">
           <summary><WalletCards size={14} />{accounts.length === data.accounts.length ? "Todas as contas" : accounts.length === 1 ? "1 conta" : `${accounts.length} contas`}<ChevronDown size={13} /></summary>
           <div className="analytics-filter-popover"><strong>Contas de anúncios</strong>
@@ -857,10 +859,6 @@ export function ClientAnalyticsDashboard({
               <span>Consolidar resultados<small>Soma as contas selecionadas como se fossem uma só</small></span></label>
           </div>
         </details>}</div></div>
-    <div className="platform-subbar">{!!data.warnings.length && <details className="analytics-quality-menu">
-        <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
-        <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
-      </details>}</div>
     <BillingSummary clientId={clientId} dailySpend={dailySpend} accountIds={data.selectedAccountIds} demoAccounts={demo ? demoBilling ?? [] : undefined} />
     <div className="analytics-section-toolbar">
       <div className="analytics-tabs" role="tablist" aria-label="Seções do painel">
