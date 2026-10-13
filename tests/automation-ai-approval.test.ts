@@ -131,3 +131,27 @@ describe("conta sem investimento", () => {
     expect(text).not.toMatch(/Parada\*[\s\S]*Investimento: R\$\s0,00/);
   });
 });
+
+describe("mais de uma plataforma", () => {
+  it("cada plataforma ganha o seu título e as contas ficam sob ela", async () => {
+    const { renderSeparatedMessage } = await import("@/modules/automations/message");
+    const demo = getDemoClientAnalytics();
+    const text = renderSeparatedMessage("Resumo\n\nInvestimento: {{investimento}}", { clientName: "RM" }, [
+      { name: "Conta A", platform: "Meta Ads", data: demo },
+      { name: "Conta B", platform: "Meta Ads", data: demo },
+      { name: "Conta G", platform: "Google Ads", data: demo },
+    ]);
+    expect(text.match(/\*Meta Ads\*/g)).toHaveLength(1);
+    expect(text.match(/\*Google Ads\*/g)).toHaveLength(1);
+    expect(text.indexOf("*Meta Ads*")).toBeLessThan(text.indexOf("Conta: Conta A"));
+    expect(text.indexOf("Conta: Conta B")).toBeLessThan(text.indexOf("*Google Ads*"));
+  });
+  it("com uma só plataforma não repete o título", async () => {
+    const { renderSeparatedMessage } = await import("@/modules/automations/message");
+    const demo = getDemoClientAnalytics();
+    const text = renderSeparatedMessage("Resumo\n\nInvestimento: {{investimento}}", { clientName: "RM" }, [
+      { name: "A", platform: "Meta Ads", data: demo }, { name: "B", platform: "Meta Ads", data: demo },
+    ]);
+    expect(text).not.toContain("*Meta Ads*");
+  });
+});

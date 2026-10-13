@@ -9,7 +9,7 @@ Construir uma plataforma de relatórios de performance para a iGrow e, futuramen
 
 A Área do Cliente autenticada é central: cada cliente acessa apenas os próprios indicadores, filtros, evolução e histórico, sem configurações internas da agência. A V1 termina quando o fluxo inteiro funciona com dados reais, usuários autorizados e agendamento, incluindo entrega e acompanhamento. Código, fixtures e testes locais isoladamente não significam conclusão.
 
-O escopo integral está em `docs/PLANEJAMENTO_V1.md`. Não acrescentar cobrança, Google Ads, TikTok ou IA generativa nesta V1. As instruções iniciais desse planejamento descrevem uma época anterior à implementação; não representam o estado atual. Comentários/insights devem respeitar o escopo aprovado, sem introduzir uma integração de IA generativa.
+O escopo integral está em `docs/PLANEJAMENTO_V1.md`. Não acrescentar cobrança nesta V1. (Atualização de 13/10/2026: IA generativa já foi implementada e a estrutura multiplataforma entrou no escopo; ver `docs/MULTIPLATAFORMA.md`.) As instruções iniciais desse planejamento descrevem uma época anterior à implementação; não representam o estado atual. Comentários/insights devem respeitar o escopo aprovado, sem introduzir uma integração de IA generativa.
 
 A visão e o plano de IA da V2 (fases, plataformas, custo, conta única) estão em `docs/VISAO_IA.md`; é planejamento, não escopo da V1.
 

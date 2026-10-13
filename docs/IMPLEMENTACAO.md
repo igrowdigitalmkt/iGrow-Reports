@@ -913,3 +913,6 @@ O painel agora encosta na barra do topo (e no fim da página) cancelando o espa�
 
 ### 13/10/2026 (15) — Barra de rolagem horizontal no modo Apresentar
 A linha de divisão do cabeçalho (`::after`) saía 32 px para fora da tela cheia, criando uma barra de rolagem horizontal sem conteúdo. Em tela cheia ela agora ocupa exatamente a largura do cabeçalho.
+
+### 13/10/2026 (16) — Base multiplataforma
+`src/modules/platforms/` (registro de plataformas e contrato de conector), título por plataforma na mensagem de WhatsApp, capa/cor por plataforma no PDF e nota "Dados fornecidos pela …" por plataforma. Plano, regras e pendências em `docs/MULTIPLATAFORMA.md`. Conectores do Google, TikTok e LinkedIn **não** existem ainda: dependem de aprovações externas de API.

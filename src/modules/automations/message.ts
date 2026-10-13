@@ -205,7 +205,8 @@ export function renderMessage(template: string, context: MessageContext) {
   return template.replace(PATTERN, (whole, key: string) => values[key.toLowerCase()] ?? whole).replace(/\n{3,}/g, "\n\n").trim();
 }
 
-export type AccountBlock = { name: string; data: AnalyticsDashboardData | null; balance?: BalanceSummary | null };
+// `platform`: nome da plataforma da conta (Meta Ads, Google Ads…). Com mais de uma plataforma, cada uma ganha o seu título.
+export type AccountBlock = { name: string; data: AnalyticsDashboardData | null; balance?: BalanceSummary | null; platform?: string };
 
 // Variáveis que descrevem a conversa (quem, qual período) e não os números de uma conta.
 const FRAME_KEYS = new Set(["nome", "cliente", "periodo", "equipe", "link_painel", "analise_ia"]);
@@ -223,15 +224,17 @@ export function renderSeparatedMessage(template: string, context: Omit<MessageCo
   if (first < 0 || accounts.length < 2) return renderMessage(template, { ...context, data: lead, balance: accounts[0]?.balance });
   const render = (parts: string[], block: AccountBlock) => renderMessage(parts.join("\n\n"), { ...context, data: block.data, balance: block.balance });
   const head = paragraphs.slice(0, first), middle = paragraphs.slice(first, last + 1), tail = paragraphs.slice(last + 1);
+  const manyPlatforms = new Set(accounts.map(block => block.platform).filter(Boolean)).size > 1;
   return [
     head.length ? render(head, accounts[0]) : "",
-    ...accounts.map(block => {
+    ...accounts.flatMap((block, index) => {
+      const heading = manyPlatforms && block.platform && block.platform !== accounts[index - 1]?.platform ? [`🌐 *${block.platform}*`] : [];
       // Conta sem investimento no período: uma linha curta (com o saldo, se a mensagem o mostra), sem tabela de zeros.
       if (block.data && !(block.data.summary.spend ?? 0)) {
         const funds = block.balance && usedVariables(middle.join("\n")).includes("saldo") ? `\n🏦 Saldo disponível: ${balanceText(block.balance)}` : "";
-        return `📌 *Conta: ${block.name}*\nSem investimento neste período.${funds}`;
+        return [...heading, `📌 *Conta: ${block.name}*\nSem investimento neste período.${funds}`];
       }
-      return `📌 *Conta: ${block.name}*\n${render(middle, block)}`;
+      return [...heading, `📌 *Conta: ${block.name}*\n${render(middle, block)}`];
     }),
     tail.length ? render(tail, accounts[0]) : "",
   ].filter(Boolean).join("\n\n").replace(/\n{3,}/g, "\n\n").trim();

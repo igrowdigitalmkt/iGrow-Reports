@@ -198,3 +198,14 @@ describe("relatório de uma conta", () => {
     expect(toReportPdfInput({ ...doc, data: { ...base, selectedAccountIds: ["a", "b"] } } as never).accountLabel).toBeUndefined();
   });
 });
+
+describe("PDF com mais de uma plataforma", () => {
+  it("monta um arquivo com seções de plataformas diferentes", async () => {
+    const one = pageCount(await render(input({ audience: undefined, balances: undefined })));
+    const out = await buildPeriodPdfV2({ clientName: "RM", workspaceName: "iGrow", data: data(), accounts: [
+      { name: "Conta Meta", data: data(), platform: "meta" }, { name: "Conta Google", data: data(), platform: "google" },
+    ] });
+    const bytes = Buffer.from(await out.blob.arrayBuffer());
+    expect(pageCount(bytes)).toBeGreaterThan(one);
+  });
+});

@@ -274,8 +274,8 @@ function Balances({ ctx }: { ctx: Ctx }) {
 function DataNotes({ ctx }: { ctx: Ctx }) {
   const { data } = ctx.input;
   const lines = [
-    `Dados fornecidos pela Meta Ads, confirmados em ${reportUpdatedAt(data)} (horário de Brasília). Período completo: ${data.coverage.coveredDays} de ${data.coverage.totalDays} dias.`,
-    "Cada conta usa o fuso e o calendário da própria conta na Meta.",
+    `Dados fornecidos pela ${ctx.input.platformLabel ?? "Meta Ads"}, confirmados em ${reportUpdatedAt(data)} (horário de Brasília). Período completo: ${data.coverage.coveredDays} de ${data.coverage.totalDays} dias.`,
+    "Cada conta usa o fuso e o calendário da própria conta na plataforma.",
     ...ctx.facts.limitations,
   ];
   return (

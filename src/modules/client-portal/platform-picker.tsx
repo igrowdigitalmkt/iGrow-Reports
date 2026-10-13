@@ -3,15 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, GripVertical, Layers } from "lucide-react";
 
-export type PlatformKey = "meta" | "google" | "tiktok";
+import { PLATFORM_INFO, PLATFORM_ORDER, type PlatformKey } from "@/modules/platforms/registry";
+
+export type { PlatformKey };
 export type PlatformPreference = { key: PlatformKey; enabled: boolean };
 
-export const PLATFORMS: Record<PlatformKey, { label: string; available: boolean; mark: string }> = {
-  meta: { label: "Meta Ads", available: true, mark: "∞" },
-  google: { label: "Google Ads", available: false, mark: "G" },
-  tiktok: { label: "TikTok Ads", available: false, mark: "♪" },
-};
-export const DEFAULT_PLATFORMS: PlatformPreference[] = [{ key: "meta", enabled: true }, { key: "google", enabled: false }, { key: "tiktok", enabled: false }];
+export const PLATFORMS = PLATFORM_INFO;
+export const DEFAULT_PLATFORMS: PlatformPreference[] = PLATFORM_ORDER.map(key => ({ key, enabled: key === "meta" }));
 
 // Choose which platforms appear (one, several or all) and drag to set their order on the page.
 export function PlatformPicker({ value, onChange }: { value: PlatformPreference[]; onChange: (next: PlatformPreference[]) => void }) {

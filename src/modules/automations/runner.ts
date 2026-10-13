@@ -150,7 +150,7 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       ? await getClientAccountBilling({ agencyId: automation.agency_id, clientId: automation.client_id }).catch(() => null) : null;
     const balance = billing ? summarizeBalance(billing) : null;
     const blocks: AccountBlock[] | null = perAccount && perAccount.map(account => ({
-      name: account.name, data: account.data, balance: billing ? summarizeBalance(billing.filter(item => item.accountId === account.id)) : null,
+      name: account.name, platform: "Meta Ads", data: account.data, balance: billing ? summarizeBalance(billing.filter(item => item.accountId === account.id)) : null,
     }));
     const dashboardUrl = options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null;
     const compose = (recipientName: string, aiText: string | null) => blocks
