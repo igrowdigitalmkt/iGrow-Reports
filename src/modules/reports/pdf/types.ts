@@ -12,6 +12,8 @@ export type ReportPdfInput = {
   analysisNote?: string;
   // Relatório de uma conta dentro de um PDF com várias contas: o nome aparece no cabeçalho.
   accountLabel?: string;
+  // Plataforma da seção (aparece na capa). Sem valor, Meta Ads.
+  platformLabel?: string;
   data: AnalyticsDashboardData;
   // Hierarquia do relatório salvo; as campanhas dela têm prioridade sobre `data.campaigns`.
   entityRows?: AnalyticsEntity[];

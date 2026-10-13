@@ -191,6 +191,27 @@ function saveBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+// Vários relatórios (uma conta ou plataforma cada) num só PDF, um em seguida do outro, cada um com a sua capa.
+// O layout clássico não tem essa montagem: nele cada relatório é baixado separadamente.
+export async function downloadCombinedPdf(inputs: DashboardPdfInput[]) {
+  if (!inputs.length) return;
+  if (!usesReportPdfV2(inputs[0])) { for (const input of inputs) await downloadDashboardPdf(input); return; }
+  const { renderReportPdfSections } = await import("./pdf/render");
+  const first = inputs[0];
+  const safeName = first.clientName.replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 80);
+  saveBlob(await renderReportPdfSections(inputs.map(toReportPdfInput)), `${safeName}-${first.data.dateFrom}-${first.data.dateTo}.pdf`);
+}
+
+export async function downloadCombinedSavedReports(clientId: string, versionIds: string[]) {
+  const documents: DashboardPdfInput[] = [];
+  for (const versionId of versionIds) {
+    const result = await getSavedReportDocument({ clientId, versionId });
+    if ("error" in result) throw new Error(result.error);
+    documents.push(result.document);
+  }
+  await downloadCombinedPdf(documents);
+}
+
 export async function downloadDashboardPdf(input: DashboardPdfInput) {
   const safeName = input.clientName.replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 80);
   if (usesReportPdfV2(input)) { saveBlob(await renderV2(input), `${safeName}-${input.data.dateFrom}-${input.data.dateTo}.pdf`); return; }

@@ -61,7 +61,7 @@ describe("PDF novo do relatório", () => {
     const bytes = await render(input());
     expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pageCount(bytes)).toBeGreaterThanOrEqual(3);
-    expect(pageCount(bytes)).toBeLessThanOrEqual(8);
+    expect(pageCount(bytes)).toBeLessThanOrEqual(9);
     if (process.env.IGROW_PDF_QA_DIR) writeFileSync(`${process.env.IGROW_PDF_QA_DIR}/report-v2.pdf`, bytes);
   });
 
@@ -74,12 +74,12 @@ describe("PDF novo do relatório", () => {
     const full = pageCount(await render(input()));
     const short = pageCount(await render(input({ audience: undefined, balances: undefined, analysisNote: "", blocks: { campaigns: false, performance: false, accounts: false, delivery: false } })));
     expect(short).toBeLessThan(full);
-    expect(short).toBeGreaterThanOrEqual(1);
+    expect(short).toBeGreaterThanOrEqual(2);
   });
 
   it("aguenta sem resultados confirmados e sem série diária", async () => {
     const bare = data({ summary: { spend: 100, impressions: 1000, reach: 900, cpm: 100 }, previousSummary: {}, daily: [], campaigns: [], accountTotals: [] });
-    expect(pageCount(await render(input({ data: bare, audience: undefined, balances: undefined })))).toBeGreaterThanOrEqual(1);
+    expect(pageCount(await render(input({ data: bare, audience: undefined, balances: undefined })))).toBeGreaterThanOrEqual(2);
   });
 });
 

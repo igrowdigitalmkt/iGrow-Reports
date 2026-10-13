@@ -10,7 +10,7 @@ import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
 import { CampaignTree } from "./campaign-tree";
 import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKeys, relevantCampaignHierarchy, type AnalyticsEntity } from "./analytics-hierarchy";
-import { downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
+import { downloadCombinedPdf, downloadCombinedSavedReports, downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
 import { AudienceBreakdowns } from "./audience-breakdowns";
@@ -592,11 +592,12 @@ export function ClientAnalyticsDashboard({
       return;
     }
     if (separated) {
-      // Contas separadas: um relatório por conta, cada um com os números da própria conta.
+      // Contas separadas: cada conta tem o seu relatório (salvo em Relatórios, para o gestor) e todos saem num só PDF, um em seguida do outro.
       const targets = data.accounts.filter(account => data.selectedAccountIds.includes(account.id));
       startTransition(async () => {
         try {
-          let done = 0;
+          const versionIds: string[] = [];
+          const documents: Parameters<typeof downloadCombinedPdf>[0] = [];
           for (const [index, account] of targets.entries()) {
             const title = `${reportTitle} - ${account.name}`;
             const note = index === 0 ? analysisNote : "";
@@ -604,22 +605,25 @@ export function ClientAnalyticsDashboard({
               const result = await generateDashboardReport({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
                 accountIds: [account.id], metricKeys: overviewMetrics.map(metric => metric.key), entityKeys: [],
                 campaignMetricKeys, comparison, chartType, orientation, header: { name: headerName, details: headerDetails, analysisNote: note }, title });
-              if ("error" in result) { setError(`${account.name}: ${result.error ?? "não foi possível gerar o relatório."}`); break; }
-              await downloadSavedReportPdf(clientId, result.reportVersionId);
+              if ("error" in result) { setError(`${account.name}: ${result.error ?? "não foi possível gerar o relatório."}`); return; }
+              versionIds.push(result.reportVersionId);
             } else {
               const view = accountViews?.find(item => item.id === account.id)?.data;
-              if (!view) { setError(`${account.name}: os números desta conta ainda não estão prontos.`); break; }
-              await downloadDashboardPdf({ title, clientName, workspaceName: headerName || workspaceName, headerDetails, analysisNote: note,
+              if (!view) { setError(`${account.name}: os números desta conta ainda não estão prontos.`); return; }
+              documents.push({ title, clientName, workspaceName: headerName || workspaceName, headerDetails, analysisNote: note,
                 data: view, metrics: overviewMetrics, entityLabels: ["Todas as campanhas"], accountLabels: [account.name], comparison, chartType,
                 entityRows: entities.filter(entity => entity.accountId === account.id), campaignMetrics, orientation });
             }
-            done += 1;
           }
-          if (canManageReports) router.refresh();
-          if (done) setNotice(done === targets.length
-            ? `${done} relatórios gerados, um por conta${canManageReports ? ". Eles estão em Relatórios, prontos para revisar e publicar" : ""}. Se o navegador pedir, permita baixar vários arquivos.`
-            : `${done} de ${targets.length} relatórios gerados.`);
-        } catch { setError("Não foi possível gerar todos os relatórios. Confira os que já foram salvos em Relatórios."); }
+          if (canManageReports) {
+            router.refresh();
+            try { await downloadCombinedSavedReports(clientId, versionIds); }
+            catch { setError("Os relatórios foram salvos. Baixe o PDF de cada conta pela seção Relatórios."); return; }
+            setNotice(`PDF único com ${targets.length} contas baixado. Cada conta também ficou salva em Relatórios, pronta para revisar e publicar.`);
+          } else {
+            await downloadCombinedPdf(documents);
+          }
+        } catch { setError("Não foi possível gerar o relatório. Tente novamente."); }
       });
       return;
     }

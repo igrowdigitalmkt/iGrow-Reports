@@ -12,23 +12,23 @@ type Ctx = { input: ReportPdfInput; facts: ReportFacts; brand: string; period: s
 
 const toneColor = (tone: Tone) => tone === "good" ? COLORS.good : tone === "bad" ? COLORS.bad : COLORS.muted;
 
-function Header({ ctx }: { ctx: Ctx }) {
+// Capa de cada seção do relatório (uma por conta ou plataforma): as informações do cabeçalho, centralizadas na página.
+function SectionCoverPage({ ctx }: { ctx: Ctx }) {
   return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ height: 8, backgroundColor: ctx.brand, marginHorizontal: -SIZE.page, marginTop: -SIZE.page }} />
-      <View style={{ backgroundColor: COLORS.tint, marginHorizontal: -SIZE.page, paddingHorizontal: SIZE.page, paddingVertical: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-          <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: ctx.brand, marginRight: 10 }} />
-          <Text style={{ fontSize: 16, fontWeight: 700 }}>{ctx.input.workspaceName}</Text>
+    <Page size="A4" style={{ fontFamily: "Inter", color: COLORS.ink, backgroundColor: COLORS.tint, justifyContent: "center", alignItems: "center", padding: SIZE.page }}>
+      <View style={{ alignItems: "center", maxWidth: 440 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 36 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 11, backgroundColor: ctx.brand, marginRight: 14 }} />
+          <Text style={{ fontSize: 24, fontWeight: 700 }}>{ctx.input.workspaceName}</Text>
         </View>
-        <Text style={{ fontSize: 12.5, color: ctx.brand, fontWeight: 500, letterSpacing: 1.2, marginBottom: 6 }}>RELATÓRIO DE DESEMPENHO · META ADS</Text>
-        <Text style={{ fontSize: 32, fontWeight: 700, lineHeight: 1.1 }}>{ctx.input.clientName}</Text>
-        <View style={{ alignSelf: "flex-start", marginTop: 8, backgroundColor: COLORS.white, borderRadius: 12, paddingVertical: 5, paddingHorizontal: 13, borderWidth: 0.7, borderColor: COLORS.line }}>
-          <Text style={{ fontSize: 15, color: COLORS.muted, fontWeight: 500 }}>{ctx.period}</Text>
+        <Text style={{ fontSize: 16, color: ctx.brand, fontWeight: 500, letterSpacing: 1.6, marginBottom: 14, textAlign: "center" }}>{`RELATÓRIO DE DESEMPENHO · ${(ctx.input.platformLabel ?? "Meta Ads").toUpperCase()}`}</Text>
+        <Text style={{ fontSize: 46, fontWeight: 700, lineHeight: 1.1, textAlign: "center" }}>{ctx.input.clientName}</Text>
+        {ctx.input.accountLabel ? <Text style={{ fontSize: 24, fontWeight: 700, marginTop: 16, color: ctx.brand, textAlign: "center" }}>{`Conta: ${ctx.input.accountLabel}`}</Text> : null}
+        <View style={{ marginTop: 24, backgroundColor: COLORS.white, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 20, borderWidth: 0.7, borderColor: COLORS.line }}>
+          <Text style={{ fontSize: 19, color: COLORS.muted, fontWeight: 500 }}>{ctx.period}</Text>
         </View>
-        {ctx.input.accountLabel ? <Text style={{ fontSize: 20, fontWeight: 700, marginTop: 10, color: ctx.brand }}>{`Conta: ${ctx.input.accountLabel}`}</Text> : null}
       </View>
-    </View>
+    </Page>
   );
 }
 
@@ -155,7 +155,7 @@ function Analysis({ ctx }: { ctx: Ctx }) {
   const note = ctx.input.analysisNote?.trim();
   if (!note) return null;
   return (
-    <View style={{ borderWidth: 0.7, borderColor: COLORS.line, borderLeftWidth: 5, borderLeftColor: ctx.brand, borderRadius: 6, backgroundColor: COLORS.paper, padding: 16, marginBottom: 22 }}>
+    <View wrap={false} style={{ borderWidth: 0.7, borderColor: COLORS.line, borderLeftWidth: 5, borderLeftColor: ctx.brand, borderRadius: 6, backgroundColor: COLORS.paper, padding: 16, marginBottom: 22 }}>
       <Text style={{ fontSize: SIZE.note, color: ctx.brand, fontWeight: 500, letterSpacing: 1, marginBottom: 8 }}>ANÁLISE E DIRECIONAMENTOS</Text>
       {analysisLines(note).map((parts, index) => (
         <Text key={index} style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 6 }}>
@@ -292,9 +292,10 @@ function ReportPage({ input, facts }: { input: ReportPdfInput; facts: ReportFact
     on: key => input.blocks?.[key] !== false,
   };
   return (
+    <>
+      <SectionCoverPage ctx={ctx} />
       <Page size="A4" style={{ fontFamily: "Inter", color: COLORS.ink, padding: SIZE.page, paddingBottom: 60 }}>
-        <View fixed render={({ subPageNumber }) => (subPageNumber > 1 ? <MiniHeader ctx={ctx} /> : null)} />
-        <Header ctx={ctx} />
+        <View fixed><MiniHeader ctx={ctx} /></View>
         <Cover ctx={ctx} />
         {ctx.on("analysis") ? <Analysis ctx={ctx} /> : null}
         {ctx.on("delivery") ? <Delivery ctx={ctx} /> : null}
@@ -309,6 +310,7 @@ function ReportPage({ input, facts }: { input: ReportPdfInput; facts: ReportFact
           <Text style={{ fontSize: SIZE.footer, color: COLORS.faint }} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
+    </>
   );
 }
 
