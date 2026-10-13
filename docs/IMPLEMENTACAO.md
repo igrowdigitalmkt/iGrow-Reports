@@ -890,3 +890,6 @@ Decisão do responsável: contas de uma mesma plataforma são tratadas **separad
 - Decisão do responsável: contas (e, depois, plataformas) saem **num só PDF, uma seção em seguida da outra**. Cada seção tem uma **capa**: workspace, "RELATÓRIO DE DESEMPENHO · plataforma", cliente, conta e período, centralizados na página; o cabeçalho grande saiu das páginas de conteúdo (ficou só a linha pequena com cliente, conta e período). `ReportPdfInput.platformLabel` já prepara Google/TikTok.
 - Dashboard com contas separadas: gera um relatório salvo por conta (Relatórios) e baixa **um único PDF** (`downloadCombinedSavedReports`/`downloadCombinedPdf`). No layout clássico não há montagem única: baixa um arquivo por conta.
 - Envio agendado pelo número oficial: já era um PDF com uma seção por conta (agora com capas).
+
+### 13/10/2026 (9) — Dashboard: informações dentro da seção da plataforma
+Pedido do responsável (anotações sobre a tela): cada informação fica na sua seção (Meta Ads, depois Google etc.). Saíram do topo: o subtítulo "Meta Ads · N contas de anúncio", o fuso e a moeda. A **seleção de contas** (com "Consolidar resultados" e o botão "Aplicar contas") e a **Qualidade dos dados** passaram para o cabeçalho da seção Meta Ads. O topo ficou com cliente, ações, período e "Atualizado em". Fuso e moeda deixaram de aparecer na tela.

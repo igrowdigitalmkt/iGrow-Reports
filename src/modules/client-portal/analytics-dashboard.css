@@ -461,3 +461,7 @@
 
 .analytics-consolidate { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
 .analytics-consolidate small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+.platform-heading-actions { margin-left: auto; }
+.platform-subbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.platform-subbar:empty { display: none; }

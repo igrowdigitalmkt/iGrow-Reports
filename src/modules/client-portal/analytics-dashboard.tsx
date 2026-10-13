@@ -23,7 +23,7 @@ import type { ClientAccountBilling } from "@/modules/meta/server";
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type FormEvent } from "react";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
-  Clock3, Download, FileText, Filter, Info, Layers3, Lock,
+  Download, FileText, Filter, Info, Layers3, Lock,
   RefreshCw, Search, Sparkles, Target, Trash2, TrendingUp,
   WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Table2, GripVertical, ArrowLeftRight,
 } from "lucide-react";
@@ -463,12 +463,6 @@ export function ClientAnalyticsDashboard({
       .includes(reportSearch.toLocaleLowerCase("pt-BR"))
   ), [reports, reportSearch, reportState]);
 
-  const selectedTimezones = new Set(data.accounts
-    .filter((account) => data.selectedAccountIds.includes(account.id))
-    .map((account) => account.timezoneName));
-  const timezoneLabel = selectedTimezones.size > 1
-    ? `${selectedTimezones.size} fusos`
-    : [...selectedTimezones][0] ?? data.timezoneName ?? "Fuso não informado";
   const observations = makeObservations(scopedData);
 
   function navigate(nextPeriod: string, selectedAccounts = accounts, customFrom = from, customTo = to) {
@@ -758,7 +752,7 @@ export function ClientAnalyticsDashboard({
     <header className="analytics-header">
       <div className="analytics-identity">
         <span className="client-avatar large blue" aria-hidden="true">{clientName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
-        <div><h1>{clientName}</h1><p>Meta Ads · {data.accounts.length} {data.accounts.length === 1 ? "conta de anúncio" : "contas de anúncio"}</p></div>
+        <div><h1>{clientName}</h1></div>
       </div>
       <div className="analytics-command-actions">
         <PlatformPicker value={platforms} onChange={changePlatforms} />
@@ -804,19 +798,6 @@ export function ClientAnalyticsDashboard({
           <span className="sr-only">Data final</span>
           <input type="date" value={to} onChange={(event) => { setTo(event.target.value); setPeriod("custom"); }} required />
         </label>
-        {data.accounts.length > 1 && <details className="analytics-filter-menu">
-          <summary><WalletCards size={14} />{accounts.length === data.accounts.length ? "Todas as contas" : `${accounts.length} contas`}<ChevronDown size={13} /></summary>
-          <div className="analytics-filter-popover"><strong>Contas de anúncios</strong>
-            {data.accounts.map((account) => <label key={account.id}>
-              <input type="checkbox" checked={accounts.includes(account.id)}
-                onChange={() => setAccounts((current) => current.includes(account.id)
-                  ? current.filter((id) => id !== account.id) : [...current, account.id])} />
-              <span>{account.name}<small>{account.externalId}</small></span>
-            </label>)}
-            <label className="analytics-consolidate"><input type="checkbox" checked={consolidate} onChange={event => setConsolidate(event.target.checked)} />
-              <span>Consolidar resultados<small>Soma as contas selecionadas como se fossem uma só</small></span></label>
-          </div>
-        </details>}
         <button type="submit" className="analytics-button analytics-button-apply" disabled={navigating}>
           {navigating ? "Aplicando…" : "Aplicar"}
         </button>
@@ -825,12 +806,6 @@ export function ClientAnalyticsDashboard({
     </form>
     <div className="analytics-context-strip">
       <span><CalendarRange size={14} /><strong>{displayDate(data.dateFrom)} – {displayDate(data.dateTo)}</strong></span>
-      <span title={[...selectedTimezones].join(" · ")}><Clock3 size={13} />{timezoneLabel}</span>
-      <span>{data.currency ?? "Moeda não consolidada"}</span>
-      {!!data.warnings.length && <details className="analytics-quality-menu">
-        <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
-        <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
-      </details>}
       <span className="analytics-last-update"><span className="analytics-status-dot" />Atualizado em {latest}</span>
     </div>
 
@@ -866,7 +841,26 @@ export function ClientAnalyticsDashboard({
       </button>}
     </div>}
     {metaVisible ? <section className="platform-section" aria-label="Meta Ads">
-    <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.accounts.length} {data.accounts.length === 1 ? "conta" : "contas"}</span></div>
+    <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.accounts.length} {data.accounts.length === 1 ? "conta" : "contas"}</span>
+      <div className="platform-heading-actions">{data.accounts.length > 1 && <details className="analytics-filter-menu">
+          <summary><WalletCards size={14} />{accounts.length === data.accounts.length ? "Todas as contas" : `${accounts.length} contas`}<ChevronDown size={13} /></summary>
+          <div className="analytics-filter-popover"><strong>Contas de anúncios</strong>
+            {data.accounts.map((account) => <label key={account.id}>
+              <input type="checkbox" checked={accounts.includes(account.id)}
+                onChange={() => setAccounts((current) => current.includes(account.id)
+                  ? current.filter((id) => id !== account.id) : [...current, account.id])} />
+              <span>{account.name}<small>{account.externalId}</small></span>
+            </label>)}
+            <button type="button" className="analytics-button analytics-button-apply" disabled={navigating || !accounts.length}
+              onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); if (accounts.length) navigate(period); }}>Aplicar contas</button>
+            <label className="analytics-consolidate"><input type="checkbox" checked={consolidate} onChange={event => setConsolidate(event.target.checked)} />
+              <span>Consolidar resultados<small>Soma as contas selecionadas como se fossem uma só</small></span></label>
+          </div>
+        </details>}</div></div>
+    <div className="platform-subbar">{!!data.warnings.length && <details className="analytics-quality-menu">
+        <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
+        <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
+      </details>}</div>
     <BillingSummary clientId={clientId} dailySpend={dailySpend} demoAccounts={demo ? demoBilling ?? [] : undefined} />
     <div className="analytics-section-toolbar">
       <div className="analytics-tabs" role="tablist" aria-label="Seções do painel">
