@@ -105,6 +105,15 @@ describe("fatos do relatório", () => {
     expect(reconciled.limitations.join(" ")).not.toContain("período anterior não está disponível");
   });
 
+  it("completa a hierarquia com campanhas do período que ela omitiu", () => {
+    const partial: AnalyticsEntity[] = [{ key: "campaign:c1", id: "c1", level: "campaign", name: "Mensagens", parentId: null, campaignId: null, accountId: "b", accountName: "Ronaldo Moreira", currency: "BRL", values: { spend: 2613, "result:provider_known": 1, [MESSAGES]: 201 } }];
+    const facts = buildReportFacts(data(), partial);
+    const visits = facts.results.find(result => result.label.startsWith("Visitas"));
+    expect(visits?.costPerResult).toBeCloseTo(707.54 / 4162, 6);
+    expect(facts.campaignsWithSpend).toBe(3);
+    expect(facts.limitations.join(" ")).not.toContain("conciliado");
+  });
+
   it("lista os anúncios de maior investimento com o custo do único tipo de resultado", () => {
     const ad = (id: string, spend: number, quantity: number): AnalyticsEntity => ({ key: `ad:${id}`, id, level: "ad", name: `Anúncio ${id}`, parentId: "s1", campaignId: "c1", accountId: "b", accountName: "Conta", currency: "BRL", values: { spend, "result:provider_known": 1, [MESSAGES]: quantity } });
     const campaign: AnalyticsEntity = { key: "campaign:c1", id: "c1", level: "campaign", name: "Mensagens", parentId: null, campaignId: null, accountId: "b", accountName: "Conta", currency: "BRL", values: { spend: 2613, "result:provider_known": 1, [MESSAGES]: 201 } };

@@ -37,6 +37,10 @@ export async function generateCommentDraft(input: unknown): Promise<CommentDraft
     return { ok: false, message: "O comentário só é gerado quando todos os dias do período estão confirmados. Atualize os dados e tente de novo." };
   }
 
+  if (!analytics.metaAggregate?.confirmed) {
+    return { ok: false, message: "A Meta ainda não confirmou os números agregados deste período. Atualize os dados e tente de novo." };
+  }
+
   const hierarchy = async (from: string, to: string) => {
     const { data, error } = await context.supabase.rpc("get_client_analytics_hierarchy", {
       p_client_id: clientId, p_date_from: from, p_date_to: to, p_ad_account_ids: accountIds,

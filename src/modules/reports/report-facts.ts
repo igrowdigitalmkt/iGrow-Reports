@@ -123,9 +123,13 @@ function adRankings(all: AdFact[]) {
 }
 
 // Relatórios salvos guardam as campanhas na hierarquia (`entities`); o painel, em `data.campaigns`.
+// A hierarquia pode omitir uma campanha com investimento; as campanhas do período completam a lista,
+// para o investimento por tipo de resultado continuar conciliando com o total.
 function campaignSources(data: AnalyticsDashboardData, entities?: AnalyticsEntity[]) {
   const fromEntities = entities?.filter(entity => entity.level === "campaign") ?? [];
-  return fromEntities.length > 0 ? fromEntities : data.campaigns;
+  if (fromEntities.length === 0) return data.campaigns;
+  const known = new Set(fromEntities.map(entity => `${entity.accountId}:${entity.id}`));
+  return [...fromEntities, ...data.campaigns.filter(campaign => !known.has(`${campaign.accountId}:${campaign.id}`))];
 }
 
 export function buildReportFacts(
