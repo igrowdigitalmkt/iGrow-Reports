@@ -13,7 +13,11 @@ export function usesReportPdfV2(input: Pick<DashboardPdfInput, "orientation" | "
 }
 
 export function toReportPdfInput(input: DashboardPdfInput): ReportPdfInput {
+  // Relatório de uma conta de um cliente com várias: o nome da conta aparece no cabeçalho (o cliente pode ter o mesmo nome da conta).
+  const only = input.data.selectedAccountIds.length === 1 && input.data.accounts.length > 1
+    ? input.data.accounts.find(account => account.id === input.data.selectedAccountIds[0]) : undefined;
   return {
+    accountLabel: only?.name,
     clientName: input.clientName, workspaceName: input.workspaceName, analysisNote: input.analysisNote,
     data: input.data, entityRows: input.entityRows, audience: input.audience, balances: input.balances,
   };

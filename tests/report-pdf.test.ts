@@ -186,3 +186,15 @@ describe("rótulos do relatório", () => {
     expect(labels).not.toContain("Cliques no link");
   });
 });
+
+describe("relatório de uma conta", () => {
+  it("mostra o nome da conta quando o cliente tem várias e só uma foi escolhida", () => {
+    const base = data({ accounts: [
+      { id: "a", name: "Escola Crescer", externalId: "1", timezoneName: "America/Sao_Paulo", currency: "BRL" },
+      { id: "b", name: "Colégio Crescer", externalId: "2", timezoneName: "America/Sao_Paulo", currency: "BRL" },
+    ] });
+    const doc = { title: "t", clientName: "Colégio Crescer", workspaceName: "w", headerDetails: "", data: base, metrics: [], entityLabels: [], accountLabels: [], comparison: false, chartType: "line" as const };
+    expect(toReportPdfInput({ ...doc, data: { ...base, selectedAccountIds: ["a"] } } as never).accountLabel).toBe("Escola Crescer");
+    expect(toReportPdfInput({ ...doc, data: { ...base, selectedAccountIds: ["a", "b"] } } as never).accountLabel).toBeUndefined();
+  });
+});
