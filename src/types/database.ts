@@ -113,6 +113,9 @@ type ClientProfileRow = {
   audience: string | null; ticket_range: string | null; contact_flow: string | null; goal: string | null;
   updated_by: string | null; updated_at: string;
 };
+type GoogleConnectionRow = { id: string; agency_id: string; integration_id: string; login_customer_id: string | null; google_email: string | null; scopes: string[]; connected_at: string | null; last_accounts_sync_at: string | null; created_at: string; updated_at: string };
+type GoogleAdAccountRow = { id: string; agency_id: string; google_connection_id: string; customer_id: string; name: string; currency: string; timezone_name: string; status: string | null; archived_at: string | null; created_at: string; updated_at: string };
+type ClientGoogleAccountRow = { agency_id: string; client_id: string; google_ad_account_id: string; active: boolean; created_by: string | null; created_at: string; updated_at: string };
 type ReportSettingsRow = { agency_id: string; pdf_layout: "classic" | "modern"; updated_by: string | null; updated_at: string };
 type AiSettingsRow = {
   agency_id: string; enabled: boolean; monthly_budget_usd: number; updated_by: string | null; updated_at: string;
@@ -321,6 +324,9 @@ export type Database = {
       message_templates: Table<MessageTemplateRow, Pick<MessageTemplateRow, "agency_id" | "name" | "body"> & Partial<MessageTemplateRow>, Partial<MessageTemplateRow>>;
       report_automation_runs: Table<ReportAutomationRunRow, Pick<ReportAutomationRunRow, "agency_id" | "automation_id" | "scheduled_for"> & Partial<ReportAutomationRunRow>, Partial<ReportAutomationRunRow>>;
       client_profiles: Table<ClientProfileRow, Pick<ClientProfileRow, "client_id" | "agency_id"> & Partial<ClientProfileRow>, Partial<ClientProfileRow>>;
+      google_connections: Table<GoogleConnectionRow, Pick<GoogleConnectionRow, "agency_id" | "integration_id"> & Partial<GoogleConnectionRow>, Partial<GoogleConnectionRow>>;
+      google_ad_accounts: Table<GoogleAdAccountRow, Pick<GoogleAdAccountRow, "agency_id" | "google_connection_id" | "customer_id" | "name"> & Partial<GoogleAdAccountRow>, Partial<GoogleAdAccountRow>>;
+      client_google_accounts: Table<ClientGoogleAccountRow, Pick<ClientGoogleAccountRow, "agency_id" | "client_id" | "google_ad_account_id"> & Partial<ClientGoogleAccountRow>, Partial<ClientGoogleAccountRow>>;
       report_settings: Table<ReportSettingsRow, Pick<ReportSettingsRow, "agency_id"> & Partial<ReportSettingsRow>, Partial<ReportSettingsRow>>;
       ai_settings: Table<AiSettingsRow, Pick<AiSettingsRow, "agency_id"> & Partial<AiSettingsRow>, Partial<AiSettingsRow>>;
       ai_client_settings: Table<AiClientSettingsRow, Pick<AiClientSettingsRow, "client_id" | "agency_id"> & Partial<AiClientSettingsRow>, Partial<AiClientSettingsRow>>;

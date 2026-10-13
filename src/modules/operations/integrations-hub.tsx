@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, Mail, Music2, QrCode, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -10,10 +11,16 @@ import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import { QrConnection } from "@/modules/whatsapp-qr/qr-connection";
 import type { QrStatus } from "@/modules/whatsapp-qr/server";
 import { WhatsAppManager, type WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
+import { getGoogleAdsStatus, type GoogleAdsStatus } from "@/modules/google-ads/actions";
+import { GoogleAdsPanel } from "@/modules/google-ads/google-panel";
 import { demoMetaClients, demoMetaSnapshot } from "./demo-integrations";
 
 type Tone = "green" | "amber" | "blue" | "neutral";
-type Panel = "meta" | "qr" | "official" | null;
+type Panel = "meta" | "qr" | "official" | "google" | null;
+const GOOGLE_RETURN: Record<string, string> = {
+  conectado: "Google conectado. Informe o gerente e busque as contas.", negado: "O acesso ao Google foi negado.", falhou: "Não foi possível concluir a conexão com o Google.",
+  "estado-invalido": "A conexão expirou. Tente conectar de novo.", "sem-permissao": "Apenas proprietários e administradores conectam o Google Ads.", "nao-configurado": "O Google Ads ainda não está configurado neste ambiente.",
+};
 
 const dateTime = (value: string) => new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 
@@ -38,9 +45,14 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
   whatsapp: WhatsAppSummary; whatsappReadiness: { ready: boolean; missing: string[] }; whatsappEmbedded: { configId: string; apiVersion: string; appId: string } | null;
 }) {
   // Returning from the Facebook login (?client=…) reopens the Meta panel on that client.
-  const [panel, setPanel] = useState<Panel>(!demo && initialMetaClientId ? "meta" : null);
+  // Voltando do login do Google (?google=…), o painel do Google Ads reabre com o resultado.
+  const googleReturn = GOOGLE_RETURN[useSearchParams().get("google") ?? ""];
+  const [panel, setPanel] = useState<Panel>(!demo && googleReturn ? "google" : !demo && initialMetaClientId ? "meta" : null);
   const [qr, setQr] = useState<QrStatus | null>(null);
   const live = !demo && !!agencyId;
+  const [google, setGoogle] = useState<GoogleAdsStatus | null>(null);
+  const loadGoogle = useCallback(() => { if (live) getGoogleAdsStatus().then(setGoogle).catch(() => undefined); }, [live]);
+  useEffect(() => { loadGoogle(); }, [loadGoogle]);
 
   const loadQr = useCallback(() => {
     if (!live) return;
@@ -69,7 +81,11 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
           status={demo ? "Simulada" : metaError ? "Com erro" : metaConnected ? "Conectada" : "Não conectada"} tone={demo ? "blue" : metaError ? "amber" : metaConnected ? "green" : "neutral"}
           fact={demo ? <><strong>6 clientes</strong><span>dados fictícios</span></> : metaConnected ? <><strong>{metaClients.size} de {activeClients.length} {activeClients.length === 1 ? "cliente" : "clientes"}</strong><span>{metaAccounts.length} {metaAccounts.length === 1 ? "conta de anúncio" : "contas de anúncio"}{lastSync ? ` · sincronizado ${dateTime(lastSync)}` : ""}</span></> : <span>Conecte a conta de anúncios de cada cliente pelo login do Facebook.</span>}
           action={demo || metaConnected ? "Gerenciar" : "Conectar"} onAction={demo || (live && metaSnapshot) ? () => setPanel("meta") : undefined} featured={!metaConnected && !demo} />
-        <IntegrationCard logo={<span className="font-semibold">G</span>} logoClass="neutral" name="Google Ads" description="Pesquisa, display e YouTube no mesmo painel do cliente." status="Em breve" tone="neutral" planned />
+        <IntegrationCard logo={<span className="font-semibold">G</span>} logoClass="neutral" name="Google Ads" description="Pesquisa, display e YouTube no mesmo painel do cliente."
+          status={!live ? "Em breve" : !google ? "Verificando" : !google.configured ? "Falta configurar" : google.connected ? "Conectado" : "Não conectado"}
+          tone={!live || !google ? "neutral" : !google.configured ? "amber" : google.connected ? "green" : "neutral"}
+          fact={google?.connected ? <><strong>{google.accounts.length} {google.accounts.length === 1 ? "conta" : "contas"}</strong><span>{google.accounts.filter(account => account.clientIds.length).length} vinculadas a clientes</span></> : undefined}
+          action={google?.connected ? "Gerenciar" : "Configurar"} onAction={live && google ? () => setPanel("google") : undefined} planned={!live} />
         <IntegrationCard logo={<Music2 size={17} />} logoClass="neutral" name="TikTok Ads" description="Campanhas e resultados do TikTok junto com as demais plataformas." status="Em breve" tone="neutral" planned />
       </div>
     </section>
@@ -95,6 +111,9 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
     {live && <>
       <Sheet open={panel === "meta"} onOpenChange={open => setPanel(open ? "meta" : null)} title="Meta Ads" description="Cada cliente tem a própria conexão. Escolha o cliente e as contas de anúncio.">
         {metaSnapshot && <MetaIntegrationManager agencyId={agencyId!} clients={activeClients} initialClientId={initialMetaClientId} snapshot={metaSnapshot} canManage={canManage} />}
+      </Sheet>
+      <Sheet open={panel === "google"} onOpenChange={open => setPanel(open ? "google" : null)} title="Google Ads" description="Conecte a conta do Google, informe o gerente e vincule cada conta de anúncios a um cliente.">
+        {google && <GoogleAdsPanel status={google} clients={activeClients} onChanged={loadGoogle} callbackMessage={googleReturn} />}
       </Sheet>
       <Sheet open={panel === "qr"} onOpenChange={open => { setPanel(open ? "qr" : null); if (!open) loadQr(); }} title="Seu WhatsApp" description="Conecte o número que vai enviar os agendamentos.">
         <QrConnection canManage={canManage} onStatus={setQr} />
