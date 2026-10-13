@@ -1,10 +1,13 @@
 /* Client performance dashboard. Uses the global design tokens (globals.css). */
 .analytics-dashboard { display: flex; flex-direction: column; gap: 16px; min-width: 0; color: var(--text); font-size: 14px;
   /* Tudo depois do cabeçalho fica sobre um fundo levemente mais escuro, para separar do cabeçalho. */
-  background: color-mix(in srgb, var(--bg) 93%, black); padding: 0 16px 16px; border-radius: 12px; }
+  /* O fundo vai de uma lateral à outra da área de conteúdo (sombra gigante recortada na vertical). */
+  --analytics-head-bg: #12161c; --analytics-body-bg: #080a0d;
+  background: var(--analytics-body-bg); box-shadow: 0 0 0 100vmax var(--analytics-body-bg); clip-path: inset(0 -100vmax); padding: 0 0 24px; }
 .analytics-dashboard > * { flex-shrink: 0; }
+[data-theme="light"] .analytics-dashboard { --analytics-head-bg: #f8f9fb; --analytics-body-bg: #e9ebef; }
 .analytics-dashboard h1, .analytics-dashboard h2, .analytics-dashboard h3, .analytics-dashboard h4, .analytics-dashboard p { margin: 0; }
-.analytics-dashboard:fullscreen { overflow: auto; padding: 0 32px 32px; border-radius: 0; }
+.analytics-dashboard:fullscreen { overflow: auto; padding: 0 32px 32px; box-shadow: none; clip-path: none; }
 
 /* Header */
 .analytics-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -24,8 +27,8 @@
 
 /* Filters */
 /* Cabeçalho fixo: identidade, ações, período e data de atualização. A linha fina fecha o cabeçalho. */
-.analytics-sticky-header { position: sticky; top: 56px; z-index: 12; display: flex; flex-direction: column; gap: 10px; margin: 0 -16px; padding: 4px 16px 10px; border-bottom: 1px solid var(--border); border-radius: 12px 12px 0 0; background: var(--bg); }
-.analytics-dashboard:fullscreen .analytics-sticky-header { top: 0; margin: 0 -32px; padding: 32px 32px 10px; border-radius: 0; }
+.analytics-sticky-header { position: sticky; top: 56px; z-index: 12; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 10px; border-bottom: 1px solid var(--border); background: var(--analytics-head-bg); box-shadow: 0 0 0 100vmax var(--analytics-head-bg); clip-path: inset(0 -100vmax); }
+.analytics-dashboard:fullscreen .analytics-sticky-header { top: 0; margin: 0 -32px; padding: 32px 32px 10px; box-shadow: none; clip-path: none; }
 .analytics-filter-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin: 0 -2px; padding: 0 2px; }
 .analytics-period-options { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .analytics-period-options button { min-height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; }

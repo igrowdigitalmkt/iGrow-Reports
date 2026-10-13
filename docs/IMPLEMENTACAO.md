@@ -904,3 +904,6 @@ O cabeçalho (cliente, ações, período, data/hora de atualização) agora é u
 ### 13/10/2026 (12) — Apresentação rolando até o fim e fundo do corpo mais escuro
 - Bug do modo Apresentar: em tela cheia o painel tem altura fixa e os blocos (flex em coluna) encolhiam em vez de rolar, então a página parava no meio. Agora os filhos do painel não encolhem (`flex-shrink: 0`).
 - Tudo depois do cabeçalho fica sobre um fundo levemente mais escuro (`color-mix(var(--bg) 93%, black)`), o cabeçalho mantém o fundo normal. Vale no claro e no escuro.
+
+### 13/10/2026 (13) — Fundo do cabeçalho e do corpo de ponta a ponta
+O fundo do cabeçalho (mais claro) e o do corpo (mais escuro) agora vão de uma lateral à outra da área de conteúdo (sombra grande recortada na vertical + `overflow-x: clip` em `.workspace` e `.client-portal`, que não quebra o cabeçalho fixo). Cores: escuro cabeçalho `#12161c`/corpo `#080a0d`; claro `#f8f9fb`/`#e9ebef`.
