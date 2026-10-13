@@ -2,6 +2,8 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeClientAnalytics } from "@/modules/client-portal/analytics-calculations";
+import { generateWhatsAppSummary } from "@/modules/ai/whatsapp-summary";
+import type { GuardedResult } from "@/modules/ai/guarded-text";
 import type { Database, ReportAutomationRow, ReportAutomationRunRow } from "@/types/database";
 import { renderMessage, usedVariables } from "./message";
 import { summarizeBalance } from "@/modules/meta/balance";
@@ -31,8 +33,15 @@ export function planRun(automation: Pick<ReportAutomationRow, "frequency" | "wee
   return { scheduledFor, period: resolvePeriod(automation.period_key, runDate), next: nextRunAt(rule, after) };
 }
 
-export type RunOutcome = { status: "sent" | "partial" | "failed" | "skipped"; sent: number; failed: number; message: string | null; runId: string | null };
-type ExecuteOptions = { resolveSender: SenderResolver; sendOfficialPdf?: OfficialPdfSender; pause?: () => number; appUrl?: string | null };
+export type RunOutcome = { status: "sent" | "partial" | "failed" | "skipped" | "awaiting_approval"; sent: number; failed: number; message: string | null; runId: string | null };
+export type SummaryGenerator = (input: { agencyId: string; clientId: string; data: ReturnType<typeof normalizeClientAnalytics> }) => Promise<GuardedResult>;
+export type ExecuteOptions = {
+  resolveSender: SenderResolver; sendOfficialPdf?: OfficialPdfSender; pause?: () => number; appUrl?: string | null;
+  /** Escreve a análise de {{analise_ia}}; sem ele usa a IA real. */
+  generateSummary?: SummaryGenerator;
+  /** Envio de uma execução que estava aguardando aprovação, com o texto aprovado (já revisado) pelo responsável. */
+  approval?: { runId: string; aiText: string };
+};
 
 /**
  * Sends one automation for a period and records the run. The unique (automation, slot) row is the
@@ -45,15 +54,26 @@ export async function executeAutomation(service: Service, automation: ReportAuto
   };
   // "schedule" is the column default; the origin column only exists after migration 202610070003.
   const payload: typeof base & Partial<ReportAutomationRunRow> = run.trigger === "manual" ? { ...base, trigger: "manual" } : base;
-  let claim = await service.from("report_automation_runs").insert(payload).select("id").single();
-  if (claim.error?.code === "PGRST204" && run.trigger === "manual") claim = await service.from("report_automation_runs").insert(base).select("id").single();
-  const { data: row, error: claimError } = claim;
-  if (claimError || !row) return null;
+  let row: { id: string } | null = null;
+  if (options.approval) {
+    // Aprovação: a execução já existe. A troca condicional de status é a trava contra duplo envio (duplo clique, duas abas).
+    const { data: taken } = await service.from("report_automation_runs")
+      .update({ status: "running", ai_text: options.approval.aiText })
+      .eq("id", options.approval.runId).eq("agency_id", automation.agency_id).eq("automation_id", automation.id).eq("status", "awaiting_approval")
+      .select("id").maybeSingle();
+    row = taken;
+  } else {
+    let claim = await service.from("report_automation_runs").insert(payload).select("id").single();
+    if (claim.error?.code === "PGRST204" && run.trigger === "manual") claim = await service.from("report_automation_runs").insert(base).select("id").single();
+    if (!claim.error) row = claim.data;
+  }
+  if (!row) return null;
+  const runId = row.id;
 
   const finish = async (status: RunOutcome["status"], patch: { message_text?: string; sent_count?: number; failed_count?: number; error_message?: string | null }): Promise<RunOutcome> => {
     const message = patch.error_message?.slice(0, 1000) ?? null;
-    await service.from("report_automation_runs").update({ status, finished_at: new Date().toISOString(), ...patch, error_message: message }).eq("id", row.id);
-    return { status, sent: patch.sent_count ?? 0, failed: patch.failed_count ?? 0, message, runId: row.id };
+    await service.from("report_automation_runs").update({ status, finished_at: new Date().toISOString(), ...patch, error_message: message }).eq("id", runId);
+    return { status, sent: patch.sent_count ?? 0, failed: patch.failed_count ?? 0, message, runId };
   };
 
   try {
@@ -87,7 +107,7 @@ export async function executeAutomation(service: Service, automation: ReportAuto
     if (official) {
       const outcome = await options.sendOfficialPdf!({
         agencyId: automation.agency_id, connectionId: automation.whatsapp_connection_id!, clientId: automation.client_id,
-        clientName: client.name, workspaceName: agency?.name ?? "", runId: row.id, data, recipients: people,
+        clientName: client.name, workspaceName: agency?.name ?? "", runId, data, recipients: people,
       });
       const sentCount = outcome.results.filter(item => item.status === "accepted").length;
       const failures = outcome.results.filter(item => item.status === "failed").map(item => `${item.name}: ${item.message ?? "falhou"}`);
@@ -96,7 +116,17 @@ export async function executeAutomation(service: Service, automation: ReportAuto
     // The balance is read live from Meta only when the message shows it.
     const balance = usedVariables(automation.message_template).includes("saldo")
       ? await getClientAccountBilling({ agencyId: automation.agency_id, clientId: automation.client_id }).then(summarizeBalance, () => null) : null;
-    const context = { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null };
+    const aiText: string | null = options.approval?.aiText ?? null;
+    if (!aiText && usedVariables(automation.message_template).includes("analise_ia")) {
+      // A IA escreve uma vez por execução e nada sai antes de o responsável aprovar o texto.
+      const generate: SummaryGenerator = options.generateSummary ?? (input => generateWhatsAppSummary({ ...input, service }));
+      const written = await generate({ agencyId: automation.agency_id, clientId: automation.client_id, data });
+      if (!written.ok) return await finish("failed", { error_message: `Análise com IA indisponível: ${written.message}` });
+      const preview = renderMessage(automation.message_template, { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, aiText: written.text, recipientName: people[0]?.name ?? "pessoal", dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null });
+      await service.from("report_automation_runs").update({ status: "awaiting_approval", ai_text: written.text, message_text: preview.slice(0, 6000), error_message: null }).eq("id", runId);
+      return { status: "awaiting_approval", sent: 0, failed: 0, message: null, runId };
+    }
+    const context = { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, aiText, dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null };
 
     let sent = 0; let failed = 0; const errors: string[] = [];
     const recipientIdOf = new Map(people.map(person => [person.phone, person.id]));
@@ -110,7 +140,7 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       sent += report.sent; failed += report.failed; errors.push(...report.errors);
       // Best effort: without migration 202610070006 the send still counts, only receipts are missing.
       await service.from("automation_messages").insert(report.details.map(detail => ({
-        agency_id: automation.agency_id, run_id: row.id, automation_id: automation.id, client_id: automation.client_id,
+        agency_id: automation.agency_id, run_id: runId, automation_id: automation.id, client_id: automation.client_id,
         recipient_id: detail.destination.kind === "phone" ? recipientIdOf.get(detail.destination.phone) ?? null : null,
         group_id: detail.destination.kind === "group" ? detail.destination.groupId : null,
         destination_label: detail.destination.label.slice(0, 200), message_id: detail.messageId,
@@ -133,7 +163,7 @@ export async function runDueAutomations(service: Service, options: ExecuteOption
   const { data: due, error } = await service.from("report_automations").select("*").eq("active", true).lte("next_run_at", now.toISOString())
     .order("next_run_at").limit(25);
   if (error) throw new Error("automations-list-failed");
-  const summary = { due: due?.length ?? 0, sent: 0, partial: 0, failed: 0, skipped: 0, deferred: 0 };
+  const summary = { due: due?.length ?? 0, sent: 0, partial: 0, failed: 0, skipped: 0, awaiting_approval: 0, deferred: 0 };
 
   for (const automation of due ?? []) {
     if (Date.now() - started > budget) { summary.deferred += 1; continue; }

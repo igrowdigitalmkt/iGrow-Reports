@@ -11,6 +11,8 @@ export type MessageContext = {
   data: AnalyticsDashboardData | null;
   /** Funds left in the ad accounts, read from Meta when the message uses {{saldo}}. */
   balance?: BalanceSummary | null;
+  /** Texto escrito pela IA e aprovado pelo responsável, usado em {{analise_ia}}. */
+  aiText?: string | null;
 };
 
 export type MessageVariable = { key: string; label: string; group: "Geral" | "Investimento" | "Alcance" | "Resultados" | "Custos" };
@@ -22,6 +24,7 @@ export const MESSAGE_VARIABLES: MessageVariable[] = [
   { key: "periodo", label: "Período", group: "Geral" },
   { key: "equipe", label: "Nome da sua empresa", group: "Geral" },
   { key: "link_painel", label: "Link do painel", group: "Geral" },
+  { key: "analise_ia", label: "Análise escrita por IA (o envio espera a sua aprovação)", group: "Geral" },
   { key: "investimento", label: "Valor investido", group: "Investimento" },
   { key: "receita", label: "Receita das compras", group: "Investimento" },
   { key: "roas", label: "ROAS", group: "Investimento" },
@@ -168,6 +171,8 @@ export function messageValues(context: MessageContext): Record<string, string> {
     periodo: data ? periodText(data.dateFrom, data.dateTo) : "—",
     equipe: context.workspaceName || "",
     link_painel: context.dashboardUrl || "",
+    // Na prévia o texto ainda não existe: ele é escrito no envio e só sai depois da aprovação.
+    analise_ia: context.aiText?.trim() || "[Análise escrita por IA no momento do envio, enviada só depois da sua aprovação]",
     investimento: format.money(summary.spend),
     saldo: balanceText(context.balance),
     receita: format.money(revenue),

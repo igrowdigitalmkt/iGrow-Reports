@@ -14,6 +14,7 @@ import { AutomationEditor, emptyDraft, type EditorDraft } from "./automation-edi
 import { ClientRail, rememberClient } from "./client-rail";
 import { addDays, describeSchedule, localDate, PERIOD_LABELS, upcomingRuns, WEEKDAY_SHORT } from "./schedule";
 import { SendNowButton } from "./send-now";
+import { PendingApprovals } from "./pending-approvals";
 import type { AutomationItem, AutomationsSnapshot } from "./types";
 import "./automations.css";
 import type { WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
@@ -24,6 +25,8 @@ export const RUN_STATUS: Record<ReportAutomationRunStatus, { label: string; tone
   partial: { label: "Parcial", tone: "amber" },
   failed: { label: "Falhou", tone: "amber" },
   skipped: { label: "Não enviado", tone: "neutral" },
+  awaiting_approval: { label: "Aguardando aprovação", tone: "amber" },
+  discarded: { label: "Descartado", tone: "neutral" },
 };
 
 // Schedules split by client: pick a client on the left, see and manage only theirs on the right.
@@ -82,7 +85,14 @@ export function AutomationsView({ snapshot, clients, recipients, canEdit, timezo
   }
   const upcoming = [...calendar.values()].flat().sort((a, b) => a.at.getTime() - b.at.getTime()).slice(0, 5);
 
+  const pending = snapshot.runs.filter(run => run.status === "awaiting_approval").flatMap(run => {
+    const automation = snapshot.automations.find(item => item.id === run.automationId);
+    if (!automation) return [];
+    return [{ run, name: automation.name, client: activeClients.find(item => item.id === automation.clientId)?.name ?? "Cliente", recipients: automation.targets.length }];
+  });
+
   return <div className="automations">
+    <PendingApprovals rows={pending} canEdit={canEdit} demo={demo} />
     {!channelReady && <div className="automation-channel">
       <span className="automation-channel-icon"><QrCode size={18} /></span>
       <div><strong>Os envios automáticos saem do seu próprio WhatsApp</strong><p>Conecte o número por QR Code em Integrações. Até lá, os agendamentos ficam salvos e começam a enviar assim que o número for conectado.</p></div>

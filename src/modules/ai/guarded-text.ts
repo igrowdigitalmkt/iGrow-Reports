@@ -21,7 +21,7 @@ export function estimateCostUsd(tokens: UsageTokens): number {
   return Math.round(cost * 1e6) / 1e6;
 }
 
-export type AiFeature = "report_comment" | "portfolio_summary";
+export type AiFeature = "report_comment" | "portfolio_summary" | "whatsapp_summary";
 
 export type GuardedInput = {
   agencyId: string;

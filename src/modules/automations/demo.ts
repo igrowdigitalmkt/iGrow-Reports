@@ -39,9 +39,9 @@ export const demoAutomations: AutomationsSnapshot = {
     },
   ],
   runs: [
-    { id: "d3000000-0000-4000-8000-000000000001", automationId: "d2000000-0000-4000-8000-000000000002", scheduledFor: "2026-10-06T12:00:00.000Z", status: "sent", dateFrom: "2026-10-05", dateTo: "2026-10-05", sentCount: 1, failedCount: 0, errorMessage: null, messageText: null, trigger: "schedule" },
-    { id: "d3000000-0000-4000-8000-000000000002", automationId: "d2000000-0000-4000-8000-000000000001", scheduledFor: "2026-10-05T11:30:00.000Z", status: "partial", dateFrom: "2026-09-28", dateTo: "2026-10-04", sentCount: 1, failedCount: 1, errorMessage: "Um número não tem WhatsApp.", messageText: null, trigger: "schedule" },
-    { id: "d3000000-0000-4000-8000-000000000003", automationId: "d2000000-0000-4000-8000-000000000002", scheduledFor: "2026-10-05T12:00:00.000Z", status: "sent", dateFrom: "2026-10-04", dateTo: "2026-10-04", sentCount: 1, failedCount: 0, errorMessage: null, messageText: null, trigger: "schedule" },
+    { id: "d3000000-0000-4000-8000-000000000001", automationId: "d2000000-0000-4000-8000-000000000002", scheduledFor: "2026-10-06T12:00:00.000Z", status: "sent", dateFrom: "2026-10-05", dateTo: "2026-10-05", sentCount: 1, failedCount: 0, errorMessage: null, messageText: null, trigger: "schedule", aiText: null },
+    { id: "d3000000-0000-4000-8000-000000000002", automationId: "d2000000-0000-4000-8000-000000000001", scheduledFor: "2026-10-05T11:30:00.000Z", status: "partial", dateFrom: "2026-09-28", dateTo: "2026-10-04", sentCount: 1, failedCount: 1, errorMessage: "Um número não tem WhatsApp.", messageText: null, trigger: "schedule", aiText: null },
+    { id: "d3000000-0000-4000-8000-000000000003", automationId: "d2000000-0000-4000-8000-000000000002", scheduledFor: "2026-10-05T12:00:00.000Z", status: "sent", dateFrom: "2026-10-04", dateTo: "2026-10-04", sentCount: 1, failedCount: 0, errorMessage: null, messageText: null, trigger: "schedule", aiText: null },
   ],
   messages: [
     { runId: "d3000000-0000-4000-8000-000000000001", label: "Rafael Lima", status: "read", error: null, sentAt: "2026-10-06T12:00:05.000Z", deliveredAt: "2026-10-06T12:00:09.000Z", readAt: "2026-10-06T12:41:00.000Z" },

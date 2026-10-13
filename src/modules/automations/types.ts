@@ -34,6 +34,8 @@ export type AutomationRunItem = {
   errorMessage: string | null;
   messageText: string | null;
   trigger: "schedule" | "manual";
+  // Texto da IA aguardando aprovação (status awaiting_approval).
+  aiText: string | null;
 };
 
 export type AutomationMessageItem = {

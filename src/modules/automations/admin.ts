@@ -26,7 +26,7 @@ export async function loadAutomations(supabase: SupabaseClient<Database>, agency
     ready: true, automations,
     runs: (runs ?? []).map(run => ({
       id: run.id, automationId: run.automation_id, scheduledFor: run.scheduled_for, status: run.status, dateFrom: run.date_from, dateTo: run.date_to,
-      sentCount: run.sent_count, failedCount: run.failed_count, errorMessage: run.error_message, messageText: run.message_text, trigger: run.trigger ?? "schedule",
+      sentCount: run.sent_count, failedCount: run.failed_count, errorMessage: run.error_message, messageText: run.message_text, trigger: run.trigger ?? "schedule", aiText: run.ai_text ?? null,
     })),
     messages: (messages ?? []).map(message => ({
       runId: message.run_id, label: message.destination_label, status: message.status, error: message.error_message,

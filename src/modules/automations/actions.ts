@@ -164,3 +164,45 @@ export async function sendAutomationNowAction(input: unknown) {
   if (!outcome) return { error: "Já existe um envio em andamento para este agendamento. Tente de novo em instantes." };
   return { success: true as const, ...outcome };
 }
+
+// Aprovação do texto escrito pela IA: só depois dela a mensagem sai. O texto pode ser editado antes de aprovar.
+export async function approveAutomationRunAction(input: unknown) {
+  const parsed = z.object({ runId: uuid, text: z.string().trim().min(1, "O texto não pode ficar vazio.").max(1500, "O texto passou de 1.500 caracteres.") }).safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  const context = await requireAgencyContext();
+  if (context.role === "viewer") return { error: "Leitores não podem aprovar envios." };
+  const { data: run } = await context.supabase.from("report_automation_runs").select("*").eq("agency_id", context.agency.id).eq("id", parsed.data.runId).maybeSingle();
+  if (!run || run.status !== "awaiting_approval" || !run.date_from || !run.date_to) return { error: "Este envio já foi aprovado, descartado ou não existe mais." };
+  const { data: automation } = await context.supabase.from("report_automations").select("*").eq("agency_id", context.agency.id).eq("id", run.automation_id).maybeSingle();
+  if (!automation) return { error: "Agendamento não encontrado." };
+  const service = createSupabaseServiceClient();
+  if (!service) return { error: "O envio não está disponível neste ambiente." };
+  const outcome = await executeAutomation(service, automation, {
+    scheduledFor: new Date(run.scheduled_for), period: { dateFrom: run.date_from, dateTo: run.date_to }, trigger: run.trigger ?? "schedule",
+  }, {
+    resolveSender: agencyId => createQrSender(agencyId).catch(() => null),
+    appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null,
+    approval: { runId: run.id, aiText: parsed.data.text },
+  });
+  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/dashboard/relatorios/entregas");
+  if (!outcome) return { error: "Este envio já foi aprovado ou descartado." };
+  return { success: true as const, ...outcome };
+}
+
+export async function discardAutomationRunAction(input: unknown) {
+  const parsed = z.object({ runId: uuid }).safeParse(input);
+  if (!parsed.success) return { error: "Envio inválido." };
+  const context = await requireAgencyContext();
+  if (context.role === "viewer") return { error: "Leitores não podem descartar envios." };
+  const service = createSupabaseServiceClient();
+  if (!service) return { error: "A ação não está disponível neste ambiente." };
+  // Execuções são gravadas pelo servidor; o acesso da organização já foi checado por requireAgencyContext.
+  const { data, error } = await service.from("report_automation_runs")
+    .update({ status: "discarded", finished_at: new Date().toISOString() })
+    .eq("agency_id", context.agency.id).eq("id", parsed.data.runId).eq("status", "awaiting_approval").select("id").maybeSingle();
+  if (error || !data) return { error: "Este envio já foi aprovado, descartado ou não existe mais." };
+  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/dashboard/relatorios/entregas");
+  return { success: true as const };
+}

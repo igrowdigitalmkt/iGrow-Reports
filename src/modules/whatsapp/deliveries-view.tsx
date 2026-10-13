@@ -30,6 +30,8 @@ const RUN_STATUS: Record<ReportAutomationRunStatus, { label: string; tone: strin
   partial: { label: "Parcial", tone: "amber", ok: false },
   failed: { label: "Falhou", tone: "amber", ok: false },
   skipped: { label: "Não enviado", tone: "neutral", ok: false },
+  awaiting_approval: { label: "Aguardando aprovação", tone: "amber", ok: null },
+  discarded: { label: "Descartado", tone: "neutral", ok: null },
 };
 
 // Most common WhatsApp Cloud API failures, in plain language with the action to take.

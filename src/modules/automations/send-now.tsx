@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { sendAutomationNowAction } from "./actions";
 
-type Outcome = { status: "sent" | "partial" | "failed" | "skipped"; sent: number; failed: number; message: string | null };
+type Outcome = { status: "sent" | "partial" | "failed" | "skipped" | "awaiting_approval"; sent: number; failed: number; message: string | null };
 
 const RESULT: Record<Outcome["status"], string> = {
   sent: "Mensagens enviadas.",
   partial: "Parte das mensagens foi enviada.",
   failed: "O envio falhou.",
   skipped: "Nada foi enviado.",
+  awaiting_approval: "Texto da IA pronto. Nada foi enviado ainda: revise e aprove em Agendamentos › Aprovações pendentes.",
 };
 
 /**

@@ -122,7 +122,7 @@ type AiClientSettingsRow = {
 };
 type AiUsageRow = {
   id: string; agency_id: string; client_id: string | null; user_id: string | null;
-  feature: "report_comment" | "portfolio_summary"; model: string;
+  feature: "report_comment" | "portfolio_summary" | "whatsapp_summary"; model: string;
   status: "ok" | "blocked_disabled" | "blocked_budget" | "rejected_numbers" | "error";
   input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_write_tokens: number;
   cost_usd: number; verifier_passed: boolean | null; facts_hash: string | null;
@@ -226,11 +226,13 @@ export type ReportAutomationRow = {
 export type ReportAutomationTargetRow = {
   id: string; agency_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null; group_name: string | null; created_at: string;
 };
-export type ReportAutomationRunStatus = "running" | "sent" | "partial" | "failed" | "skipped";
+export type ReportAutomationRunStatus = "running" | "sent" | "partial" | "failed" | "skipped" | "awaiting_approval" | "discarded";
 export type ReportAutomationRunRow = {
   id: string; agency_id: string; automation_id: string; scheduled_for: string; status: ReportAutomationRunStatus; date_from: string | null; date_to: string | null;
   message_text: string | null; sent_count: number; failed_count: number; error_message: string | null; created_at: string; finished_at: string | null;
   trigger: "schedule" | "manual";
+  // Texto escrito pela IA que espera a aprovação do responsável antes do envio.
+  ai_text: string | null;
 };
 export type AutomationMessageStatus = "sent" | "delivered" | "read" | "failed";
 export type WhatsAppConversationRow = {

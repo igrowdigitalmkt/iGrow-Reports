@@ -1,0 +1,93 @@
+import { describe, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
+vi.mock("@/modules/client-portal/report-actions", () => ({ getSavedReportDocument: vi.fn() }));
+import { getDemoClientAnalytics } from "@/modules/client-portal/demo-analytics";
+import { executeAutomation, type SummaryGenerator } from "@/modules/automations/runner";
+import { messageValues, usedVariables } from "@/modules/automations/message";
+import type { MessageSender } from "@/modules/automations/sender";
+import type { ReportAutomationRow } from "@/types/database";
+
+function fakeService(tables: Record<string, unknown[]>, analytics: unknown, claimable = true) {
+  const updates: Array<Record<string, unknown>> = [];
+  const builder = (table: string) => {
+    let single = false;
+    const chain: Record<string, unknown> = {};
+    const result = () => {
+      if (table === "report_automation_runs") return { data: claimable ? { id: "run-1" } : null, error: null };
+      const rows = tables[table] ?? [];
+      return { data: single ? rows[0] ?? null : rows, error: null };
+    };
+    for (const name of ["select", "eq", "in", "order", "limit"]) chain[name] = () => chain;
+    chain.insert = () => chain;
+    chain.update = (values: Record<string, unknown>) => { if (table === "report_automation_runs") updates.push(values); return chain; };
+    chain.single = () => { single = true; return chain; };
+    chain.maybeSingle = () => { single = true; return chain; };
+    chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result()).then(resolve);
+    return chain;
+  };
+  return { service: { from: builder, rpc: async () => ({ data: analytics, error: null }) }, updates };
+}
+
+const automation = {
+  id: "auto-1", agency_id: "agency-1", client_id: "client-1", name: "Resumo", message_template: "Olá {{nome}}!\n{{analise_ia}}", period_key: "last_7d",
+  frequency: "weekly", weekdays: [1], month_day: 1, send_time: "08:00:00", timezone: "America/Sao_Paulo", channel: "whatsapp",
+  active: true, next_run_at: null, last_run_at: null, created_by: null, created_at: "", updated_at: "", sender: "qr", whatsapp_connection_id: null,
+} as ReportAutomationRow;
+const run = { scheduledFor: new Date("2026-10-08T11:00:00Z"), period: { dateFrom: "2026-10-01", dateTo: "2026-10-07" }, trigger: "schedule" as const };
+const tables = {
+  report_automation_targets: [{ recipient_id: "p1", group_id: null, group_name: null }],
+  clients: [{ name: "Escola Horizonte", archived_at: null }],
+  agencies: [{ name: "iGrow Digital" }],
+  client_recipients: [{ id: "p1", name: "Maria Souza", phone: "+5586999990000", active: true, consent_status: "granted", unsubscribed_at: null }],
+};
+const sender = () => { const sendText = vi.fn(async () => ({ ok: true as const, messageId: "m1" })); return { sendText, resolve: async () => ({ sendText } as MessageSender) }; };
+
+describe("variável {{analise_ia}}", () => {
+  it("é reconhecida e mostra um aviso na prévia", () => {
+    expect(usedVariables("a {{analise_ia}}")).toContain("analise_ia");
+    expect(messageValues({ clientName: "A", workspaceName: null, data: getDemoClientAnalytics(), recipientName: "B" }).analise_ia).toMatch(/aprovação/);
+  });
+});
+
+describe("envio com análise da IA", () => {
+  it("escreve o texto, segura o envio e espera a aprovação", async () => {
+    const { service, updates } = fakeService(tables, getDemoClientAnalytics());
+    const channel = sender();
+    const generateSummary = vi.fn<SummaryGenerator>(async () => ({ ok: true, text: "Texto da IA.", costUsd: 0.01 }));
+    const outcome = await executeAutomation(service as never, automation, run, { resolveSender: channel.resolve, generateSummary, pause: () => 0 });
+    expect(outcome).toMatchObject({ status: "awaiting_approval", sent: 0, runId: "run-1" });
+    expect(channel.sendText).not.toHaveBeenCalled();
+    expect(updates.at(-1)).toMatchObject({ status: "awaiting_approval", ai_text: "Texto da IA." });
+    expect(String(updates.at(-1)?.message_text)).toContain("Texto da IA.");
+  });
+
+  it("se a IA falha, nada é enviado e o motivo fica registrado", async () => {
+    const { service, updates } = fakeService(tables, getDemoClientAnalytics());
+    const channel = sender();
+    const generateSummary = vi.fn<SummaryGenerator>(async () => ({ ok: false, reason: "budget", message: "O orçamento mensal de IA desta organização foi atingido." }));
+    const outcome = await executeAutomation(service as never, automation, run, { resolveSender: channel.resolve, generateSummary, pause: () => 0 });
+    expect(outcome).toMatchObject({ status: "failed" });
+    expect(channel.sendText).not.toHaveBeenCalled();
+    expect(String(updates.at(-1)?.error_message)).toContain("orçamento");
+  });
+
+  it("depois da aprovação envia o texto aprovado, sem gerar de novo", async () => {
+    const { service, updates } = fakeService(tables, getDemoClientAnalytics());
+    const channel = sender();
+    const generateSummary = vi.fn<SummaryGenerator>();
+    const outcome = await executeAutomation(service as never, automation, run, { resolveSender: channel.resolve, generateSummary, pause: () => 0, approval: { runId: "run-1", aiText: "Texto revisado." } });
+    expect(generateSummary).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({ status: "sent", sent: 1 });
+    expect(channel.sendText).toHaveBeenCalledOnce();
+    expect(String((channel.sendText.mock.calls[0] as unknown[])[1])).toContain("Texto revisado.");
+    expect(updates[0]).toMatchObject({ status: "running", ai_text: "Texto revisado." });
+  });
+
+  it("uma segunda aprovação da mesma execução não envia nada", async () => {
+    const { service } = fakeService(tables, getDemoClientAnalytics(), false);
+    const channel = sender();
+    const outcome = await executeAutomation(service as never, automation, run, { resolveSender: channel.resolve, pause: () => 0, approval: { runId: "run-1", aiText: "x" } });
+    expect(outcome).toBeNull();
+    expect(channel.sendText).not.toHaveBeenCalled();
+  });
+});
