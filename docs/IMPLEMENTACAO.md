@@ -900,3 +900,7 @@ Pedido do responsável (anotações sobre a tela): cada informação fica na sua
 
 ### 13/10/2026 (11) — Cabeçalho fixo do dashboard
 O cabeçalho (cliente, ações, período, data/hora de atualização) agora é um bloco fixo (`.analytics-sticky-header`) e a linha fina que o separa passou para **baixo** da data e da atualização. Vale na visualização normal e no modo Apresentar (tela cheia). No celular (≤ 650 px) o cabeçalho não fica fixo, para não ocupar a tela.
+
+### 13/10/2026 (12) — Apresentação rolando até o fim e fundo do corpo mais escuro
+- Bug do modo Apresentar: em tela cheia o painel tem altura fixa e os blocos (flex em coluna) encolhiam em vez de rolar, então a página parava no meio. Agora os filhos do painel não encolhem (`flex-shrink: 0`).
+- Tudo depois do cabeçalho fica sobre um fundo levemente mais escuro (`color-mix(var(--bg) 93%, black)`), o cabeçalho mantém o fundo normal. Vale no claro e no escuro.
