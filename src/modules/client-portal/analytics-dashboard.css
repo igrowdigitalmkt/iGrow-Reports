@@ -484,3 +484,4 @@
 .platform-heading-actions { margin-left: auto; }
 .platform-subbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .platform-subbar:empty { display: none; }
+.platform-mark.is-google { background: rgba(217, 48, 37, .15); color: #ea6a60; }

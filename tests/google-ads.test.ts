@@ -135,3 +135,28 @@ describe("seções do Google Ads de um cliente", () => {
     expect(only.failures).toHaveLength(0);
   });
 });
+
+describe("seção do Google Ads no painel e no PDF", () => {
+  it("resume a conta com resultados, custos e principais campanhas", async () => {
+    const { googleAccountSummary } = await import("@/modules/google-ads/google-section");
+    const account = { id: "a", customerId: "1112223333", name: "Conta Google", currency: "BRL", timezone: "America/Sao_Paulo" };
+    const data = buildGoogleAnalytics({ account, dateFrom: "2026-10-01", dateTo: "2026-10-02", rows: {
+      daily: [{ segments: { date: "2026-10-01" }, metrics: { costMicros: "100000000", impressions: "5000", clicks: "100" } }], previousDaily: [],
+      campaigns: [{ campaign: { id: "1", name: "Pesquisa", status: "ENABLED", advertisingChannelType: "SEARCH" }, metrics: { costMicros: "100000000", impressions: "5000", clicks: "100", conversions: 10 } }],
+    } });
+    const summary = googleAccountSummary({ id: "a", name: "Conta Google", data });
+    expect(summary.idle).toBe(false);
+    expect(summary.metrics[0]).toEqual(["Investimento", expect.stringMatching(/R\$\s100,00/)]);
+    expect(summary.results[0]).toMatchObject({ label: "Conversões", value: "10" });
+    expect(summary.results[0].cost).toMatch(/R\$\s10,00/);
+    expect(summary.campaigns[0]).toMatchObject({ name: "Pesquisa" });
+    expect(summary.campaigns[0].result).toMatch(/10 conversões/);
+  });
+  it("o PDF do Google usa a capa e a cor da plataforma", async () => {
+    const { toReportPdfInput } = await import("@/modules/reports/pdf/adapter");
+    const account = { id: "a", customerId: "1112223333", name: "Conta Google", currency: "BRL", timezone: "America/Sao_Paulo" };
+    const data = buildGoogleAnalytics({ account, dateFrom: "2026-10-01", dateTo: "2026-10-01", rows: { daily: [], previousDaily: [], campaigns: [] } });
+    const input = toReportPdfInput({ title: "t", clientName: "RM", workspaceName: "w", headerDetails: "", data, metrics: [], entityLabels: [], accountLabels: [], comparison: false, chartType: "line", platform: "google" });
+    expect(input).toMatchObject({ platformLabel: "Google Ads", accountLabel: "Conta Google", brandColor: "#D93025" });
+  });
+});

@@ -10,13 +10,14 @@ import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
 import { CampaignTree } from "./campaign-tree";
 import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKeys, relevantCampaignHierarchy, type AnalyticsEntity } from "./analytics-hierarchy";
-import { downloadCombinedPdf, downloadCombinedSavedReports, downloadDashboardPdf, downloadSavedReportPdf } from "@/modules/reports/pdf-download";
+import { downloadCombinedPdf, downloadCombinedSavedReports, downloadDashboardPdf, downloadSavedReportPdf, type DashboardPdfInput } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
 import { AudienceBreakdowns } from "./audience-breakdowns";
 import { demoAudience } from "./demo-analytics";
 import { BillingSummary } from "./billing-section";
 import { AccountComparison } from "./account-comparison";
+import { GoogleAdsSection, type GoogleSectionView } from "@/modules/google-ads/google-section";
 import { sortActionsByImportance } from "./action-priority";
 import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "./platform-picker";
 import type { ClientAccountBilling } from "@/modules/meta/server";
@@ -45,6 +46,8 @@ type DashboardProps = {
   data: AnalyticsDashboardData;
   // Uma leitura por conta selecionada, para mostrar os resultados de cada conta separadamente.
   accountViews?: Array<{ id: string; name: string; data: AnalyticsDashboardData }>;
+  // Contas do Google Ads do cliente (seção própria, lida da API do Google).
+  googleSections?: GoogleSectionView[]; googleFailures?: Array<{ name: string; message: string }>;
   entities: AnalyticsEntity[]; workspaceName: string; clientName: string;
   clientId: string;
   workspaceId: string;
@@ -171,7 +174,7 @@ function makeObservations(data: AnalyticsDashboardData) {
 const retryClock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 export function ClientAnalyticsDashboard({
-  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, demo = false, demoBilling, accountViews,
+  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, demo = false, demoBilling, accountViews, googleSections = [], googleFailures = [],
 }: DashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -264,6 +267,7 @@ export function ClientAnalyticsDashboard({
     try { window.localStorage.setItem(platformKey, JSON.stringify(next)); } catch { /* Preferences are optional. */ }
   }
   const metaVisible = platforms.some(item => item.key === "meta" && item.enabled);
+  const googleVisible = platforms.some(item => item.key === "google" && item.enabled) && (googleSections.length > 0 || googleFailures.length > 0);
   const dailySpend = Object.fromEntries(data.accountTotals.map(account => [account.id, (account.values.spend ?? 0) / Math.max(1, data.daily.length)]));
   const [draggingCard, setDraggingCard] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -578,6 +582,13 @@ export function ClientAnalyticsDashboard({
     });
   }
 
+  // Seções do Google Ads entram no mesmo PDF, depois da Meta, cada conta com a sua capa.
+  function googleDocuments(): DashboardPdfInput[] {
+    if (!googleVisible) return [];
+    return googleSections.map(section => ({ title: `${reportTitle} - ${section.name}`, clientName, workspaceName: headerName || workspaceName, headerDetails, analysisNote: "",
+      data: section.data, metrics: section.data.metrics, entityLabels: ["Todas as campanhas"], accountLabels: [section.name], comparison: false, chartType, orientation: "vertical" as const, platform: "google" as const }));
+  }
+
   function exportPdf(orientation: "vertical" | "horizontal" = "vertical") {
     setError(""); setNotice("");
     if (!analyticsReady) {
@@ -610,11 +621,11 @@ export function ClientAnalyticsDashboard({
           }
           if (canManageReports) {
             router.refresh();
-            try { await downloadCombinedSavedReports(clientId, versionIds); }
+            try { await downloadCombinedSavedReports(clientId, versionIds, orientation === "vertical" ? googleDocuments() : []); }
             catch { setError("Os relatórios foram salvos. Baixe o PDF de cada conta pela seção Relatórios."); return; }
             setNotice(`PDF único com ${targets.length} contas baixado. Cada conta também ficou salva em Relatórios, pronta para revisar e publicar.`);
           } else {
-            await downloadCombinedPdf(documents);
+            await downloadCombinedPdf([...documents, ...(orientation === "vertical" ? googleDocuments() : [])]);
           }
         } catch { setError("Não foi possível gerar o relatório. Tente novamente."); }
       });
@@ -629,15 +640,18 @@ export function ClientAnalyticsDashboard({
             header: { name: headerName, details: headerDetails, analysisNote }, title: reportTitle });
           if ("error" in result) { setError(result.error ?? "Não foi possível concluir esta ação."); return; }
           router.refresh();
-          try { await downloadSavedReportPdf(clientId, result.reportVersionId); }
+          const extra = orientation === "vertical" ? googleDocuments() : [];
+          try { await (extra.length ? downloadCombinedSavedReports(clientId, [result.reportVersionId], extra) : downloadSavedReportPdf(clientId, result.reportVersionId)); }
           catch { setError("O relatório foi salvo. Baixe o PDF pela seção Relatórios."); return; }
           setNotice("Relatório salvo e baixado. Ele está em Relatórios, pronto para revisar e publicar para o cliente.");
         } else {
-          await downloadDashboardPdf({ title: reportTitle, clientName, workspaceName: headerName || workspaceName,
+          const metaInput = { title: reportTitle, clientName, workspaceName: headerName || workspaceName,
             headerDetails, analysisNote, data: scopedData, metrics: overviewMetrics,
             entityLabels: scopeData ? selectedEntities.map(entity => entity.name) : ["Todas as campanhas"],
             accountLabels: data.accounts.filter(account => data.selectedAccountIds.includes(account.id)).map(account => account.name),
-            comparison, chartType, entityRows: scopeData ? selectedEntities : entities, campaignMetrics, orientation });
+            comparison, chartType, entityRows: scopeData ? selectedEntities : entities, campaignMetrics, orientation };
+          const extra = orientation === "vertical" ? googleDocuments() : [];
+          if (extra.length) await downloadCombinedPdf([metaInput, ...extra]); else await downloadDashboardPdf(metaInput);
         }
       } catch { setError("Não foi possível gerar o relatório. Tente novamente."); }
     });
@@ -1165,7 +1179,9 @@ export function ClientAnalyticsDashboard({
         </section>
       </div>}
     </div>
-    </section> : <section className="analytics-card platform-empty"><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
+    </section> : null}
+    {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} />}
+    {!metaVisible && !googleVisible && <section className="analytics-card platform-empty"><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
 
     {tab !== "reports" && <footer className="analytics-data-footer"><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
       <span>Sem estimativas para datas não coletadas</span></footer>}

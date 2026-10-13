@@ -8,6 +8,7 @@ import { getSavedReportDocument } from "@/modules/client-portal/report-actions";
 import { buildPresentationPdf } from "./pdf-presentation";
 import { toReportPdfInput, usesReportPdfV2 } from "./pdf/adapter";
 import type { ReportPdfInput } from "./pdf/types";
+import type { PlatformKey } from "@/modules/platforms/registry";
 import { reportDate, reportUpdatedAt, resultDescription, estimatedMetric, confirmedReportData, reportResultCosts, reportedEntityRows } from "./report-presentation";
 
 export type DashboardPdfInput = {
@@ -17,6 +18,8 @@ export type DashboardPdfInput = {
   entityRows?: AnalyticsEntity[]; campaignMetrics?: AnalyticsMetric[];
   orientation?: "vertical" | "horizontal";
   analysisNote?: string;
+  // Plataforma da seção (capa e cor do PDF). Sem valor, Meta Ads.
+  platform?: PlatformKey;
   // Layout escolhido pela organização; sem valor, vale o clássico.
   layout?: "classic" | "modern";
   // Só o PDF novo usa estes dois blocos; chegam preenchidos quando o relatório salvo é aberto no servidor.
@@ -202,14 +205,14 @@ export async function downloadCombinedPdf(inputs: DashboardPdfInput[]) {
   saveBlob(await renderReportPdfSections(inputs.map(toReportPdfInput)), `${safeName}-${first.data.dateFrom}-${first.data.dateTo}.pdf`);
 }
 
-export async function downloadCombinedSavedReports(clientId: string, versionIds: string[]) {
+export async function downloadCombinedSavedReports(clientId: string, versionIds: string[], extra: DashboardPdfInput[] = []) {
   const documents: DashboardPdfInput[] = [];
   for (const versionId of versionIds) {
     const result = await getSavedReportDocument({ clientId, versionId });
     if ("error" in result) throw new Error(result.error);
     documents.push(result.document);
   }
-  await downloadCombinedPdf(documents);
+  await downloadCombinedPdf([...documents, ...extra]);
 }
 
 export async function downloadDashboardPdf(input: DashboardPdfInput) {

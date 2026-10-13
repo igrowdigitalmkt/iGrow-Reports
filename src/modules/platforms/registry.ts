@@ -9,7 +9,7 @@ export type PlatformInfo = {
   mark: string;
   // Cor da seção no PDF (capa e destaques).
   color: string;
-  // Conector pronto: só a Meta hoje. As demais aparecem como "Em breve".
+  // Conector pronto: Meta e Google Ads. As demais aparecem como "Em breve".
   available: boolean;
 };
 
@@ -17,7 +17,7 @@ export const PLATFORM_ORDER: PlatformKey[] = ["meta", "google", "tiktok", "linke
 
 export const PLATFORM_INFO: Record<PlatformKey, PlatformInfo> = {
   meta: { key: "meta", label: "Meta Ads", mark: "∞", color: "#2563EB", available: true },
-  google: { key: "google", label: "Google Ads", mark: "G", color: "#D93025", available: false },
+  google: { key: "google", label: "Google Ads", mark: "G", color: "#D93025", available: true },
   tiktok: { key: "tiktok", label: "TikTok Ads", mark: "♪", color: "#0F9D8A", available: false },
   linkedin: { key: "linkedin", label: "LinkedIn Ads", mark: "in", color: "#0A66C2", available: false },
 };

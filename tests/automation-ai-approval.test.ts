@@ -155,3 +155,28 @@ describe("mais de uma plataforma", () => {
     expect(text).not.toContain("*Meta Ads*");
   });
 });
+
+describe("cliente com Meta e Google", () => {
+  const demo = getDemoClientAnalytics();
+  const google = { sections: [{ id: "g1", name: "Conta Google", data: demo }], failures: [] };
+  it("a mensagem traz um título por plataforma e o bloco da conta do Google", async () => {
+    const { service } = fakeService(tables, demo); const ch = sender();
+    await executeAutomation(service as never, { ...automation, message_template: "Olá!\n\nInvestimento: {{investimento}}" } as ReportAutomationRow, run, {
+      resolveSender: ch.resolve, pause: () => 0, approval: { runId: "run-1", aiText: "x" }, loadGoogle: async () => google as never,
+    });
+    const text = String((ch.sendText.mock.calls[0] as unknown[])[1]);
+    expect(text).toContain("*Meta Ads*");
+    expect(text).toContain("*Google Ads*");
+    expect(text).toContain("Conta: Conta Google");
+    expect(text.indexOf("*Meta Ads*")).toBeLessThan(text.indexOf("*Google Ads*"));
+  });
+  it("conta do Google com falha vira um aviso e o resto do relatório sai", async () => {
+    const { service } = fakeService(tables, demo); const ch = sender();
+    await executeAutomation(service as never, { ...automation, message_template: "Investimento: {{investimento}}" } as ReportAutomationRow, run, {
+      resolveSender: ch.resolve, pause: () => 0, approval: { runId: "run-1", aiText: "x" }, loadGoogle: async () => ({ sections: [], failures: [{ name: "Conta Quebrada", message: "x" }] }) as never,
+    });
+    const text = String((ch.sendText.mock.calls[0] as unknown[])[1]);
+    expect(text).toContain("Investimento:");
+    expect(text).toContain("Não foi possível ler o Google Ads agora (Conta Quebrada)");
+  });
+});

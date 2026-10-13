@@ -9,7 +9,7 @@ export type { PlatformKey };
 export type PlatformPreference = { key: PlatformKey; enabled: boolean };
 
 export const PLATFORMS = PLATFORM_INFO;
-export const DEFAULT_PLATFORMS: PlatformPreference[] = PLATFORM_ORDER.map(key => ({ key, enabled: key === "meta" }));
+export const DEFAULT_PLATFORMS: PlatformPreference[] = PLATFORM_ORDER.map(key => ({ key, enabled: key === "meta" || key === "google" }));
 
 // Choose which platforms appear (one, several or all) and drag to set their order on the page.
 export function PlatformPicker({ value, onChange }: { value: PlatformPreference[]; onChange: (next: PlatformPreference[]) => void }) {

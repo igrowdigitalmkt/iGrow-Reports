@@ -25,3 +25,12 @@ Decisão do responsável (13/10/2026): a primeira versão deve apresentar mais d
 
 ## Pedidos que o responsável pode iniciar já (demoram)
 Token de desenvolvedor do Google Ads, app do TikTok for Business e aplicação do LinkedIn Marketing. Sem essas aprovações não há como testar os conectores com dados reais.
+
+## Google Ads — estado (13/10/2026)
+Código pronto e testado com respostas simuladas da API; **não validado com dados reais** (depende do token de desenvolvedor aprovado e do aplicativo OAuth).
+- **Migração `202610140001_google_ads_foundation` aplicada em produção (NÃO reaplicar):** `google_connections`, `google_ad_accounts`, `client_google_accounts` (RLS; escrita de contas só pelo servidor; vínculo com cliente por dono/admin/editor). O token de renovação fica cifrado em `private.integration_secrets` (integração `google`).
+- **Variáveis de ambiente (Vercel):** `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `NEXT_PUBLIC_APP_URL`; opcional `GOOGLE_ADS_API_VERSION` (padrão v21; conferir a versão vigente da API). Endereço de retorno a cadastrar no Google Cloud: `<NEXT_PUBLIC_APP_URL>/api/google/oauth/callback`. Escopo: `https://www.googleapis.com/auth/adwords`.
+- **Fluxo:** Integrações → Google Ads → "Conectar com o Google" (dono/admin) → informar o número da conta de gerente (MCC) → "Buscar contas" → marcar quais clientes usam cada conta.
+- **Dados:** lidos da API no momento (sem cópia no banco): `src/modules/google-ads/{client,queries,normalize,provider,server}.ts`. Cada conta vira `AnalyticsDashboardData` (cobertura completa e confirmada pelo próprio agregado do período). Resultados: **Conversões** (campanhas que não são de vídeo) e **Visualizações de vídeo** (campanhas de vídeo/YouTube), cada tipo com o próprio custo. Sem alcance/frequência (a API não entrega por pessoa).
+- **Onde aparece:** seção "Google Ads" no painel do cliente; PDF único (Meta, depois cada conta do Google, cada uma com capa e cor próprias); mensagem de WhatsApp com título por plataforma e análise da IA por conta; PDF agendado do número oficial (layout Novo).
+- **Limitações conhecidas:** sem saldo/pagamento do Google na mensagem e no PDF; sem anúncios (melhores/piores) do Google; "Consolidar resultados" vale só para a Meta (cada conta do Google é sempre um bloco); cliente só com Google (sem Meta) ainda não abre o painel; o resultado "Conversões" soma todas as conversões configuradas na conta (não separa por tipo de conversão).

@@ -10,6 +10,8 @@ import { getFreshClientAnalytics } from "./analytics-live";
 import { resolveAnalyticsRange } from "./range";
 import { listClientPortalReports } from "@/modules/reports/client";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
+import { loadGoogleSections } from "@/modules/google-ads/provider";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { AnalyticsEntity } from "./analytics-hierarchy";
 import type { AnalyticsReportItem } from "./analytics-types";
 
@@ -85,6 +87,12 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
       } catch { return null; }
     }))).filter((view): view is NonNullable<typeof view> => view !== null)
     : [];
+  // Google Ads: contas vinculadas ao cliente, lidas da API no período do painel. Falha de uma conta não derruba a página.
+  const googleService = createSupabaseServiceClient();
+  const google = googleService
+    ? await loadGoogleSections({ service: googleService, agencyId: access.agencyId, clientId, dateFrom: range.dateFrom, dateTo: range.dateTo })
+      .catch(() => ({ sections: [], failures: [{ name: "Google Ads", message: "Tente atualizar a página em instantes." }] }))
+    : { sections: [], failures: [] };
   const { data: headerData, error: headerError } = await supabase.rpc("get_client_report_header", { p_client_id: clientId });
   if (headerError) {
     console.error("client-report-header-rpc", {
@@ -109,7 +117,7 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
       data={data} clientId={clientId} workspaceId={access.agencyId}
       canCollect={canCollect} canManageReports={canManageReports}
       reports={reportHistory} preferenceKey={`${user.id}:${clientId}`}
-      accountViews={accountViews}
+      accountViews={accountViews} googleSections={google.sections} googleFailures={google.failures}
     />
   </>;
   if (frame === "workspace") return content;

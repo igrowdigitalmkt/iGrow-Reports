@@ -1,5 +1,6 @@
 import type { DashboardPdfInput } from "../pdf-download";
 import type { ReportPdfInput } from "./types";
+import { PLATFORM_INFO } from "@/modules/platforms/registry";
 
 // Chave global opcional NEXT_PUBLIC_REPORT_PDF_V2=1 (liga para todas as organizações). O normal é cada organização escolher o layout em Configurações.
 // A apresentação horizontal continua no gerador antigo, que tem outro objetivo.
@@ -16,8 +17,10 @@ export function toReportPdfInput(input: DashboardPdfInput): ReportPdfInput {
   // Relatório de uma conta de um cliente com várias: o nome da conta aparece no cabeçalho (o cliente pode ter o mesmo nome da conta).
   const only = input.data.selectedAccountIds.length === 1 && input.data.accounts.length > 1
     ? input.data.accounts.find(account => account.id === input.data.selectedAccountIds[0]) : undefined;
+  const platform = input.platform ? PLATFORM_INFO[input.platform] : undefined;
   return {
-    accountLabel: only?.name,
+    accountLabel: only?.name ?? (platform && input.data.accounts.length === 1 ? input.data.accounts[0].name : undefined),
+    ...(platform ? { platformLabel: platform.label, brandColor: platform.color } : {}),
     clientName: input.clientName, workspaceName: input.workspaceName, analysisNote: input.analysisNote,
     data: input.data, entityRows: input.entityRows, audience: input.audience, balances: input.balances,
   };

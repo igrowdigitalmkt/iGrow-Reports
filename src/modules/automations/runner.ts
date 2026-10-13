@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeClientAnalytics } from "@/modules/client-portal/analytics-calculations";
 import { generateWhatsAppSummary } from "@/modules/ai/whatsapp-summary";
 import type { GuardedResult } from "@/modules/ai/guarded-text";
+import { loadGoogleSections } from "@/modules/google-ads/provider";
+import { PLATFORM_INFO, type PlatformKey } from "@/modules/platforms/registry";
 import type { Database, ReportAutomationRow, ReportAutomationRunRow } from "@/types/database";
 import { renderMessage, renderSeparatedMessage, usedVariables, type AccountBlock } from "./message";
 import { summarizeBalance } from "@/modules/meta/balance";
@@ -19,7 +21,7 @@ export type OfficialPdfSender = (input: {
   agencyId: string; connectionId: string; clientId: string; clientName: string; workspaceName: string; runId: string;
   data: ReturnType<typeof normalizeClientAnalytics>; recipients: Recipient[];
   // Contas separadas: os números de cada conta de anúncios (o PDF traz uma seção por conta).
-  accounts?: Array<{ name: string; data: ReturnType<typeof normalizeClientAnalytics> }>;
+  accounts?: Array<{ name: string; data: ReturnType<typeof normalizeClientAnalytics>; platform?: PlatformKey }>;
 }) => Promise<{ results: Array<{ name: string; status: "accepted" | "failed" | "skipped"; message?: string }>; summary: string }>;
 
 const NOT_CONNECTED = "WhatsApp não conectado por QR Code. Conecte seu número em Integrações para ativar os envios.";
@@ -37,11 +39,15 @@ export function planRun(automation: Pick<ReportAutomationRow, "frequency" | "wee
 
 export type RunOutcome = { status: "sent" | "partial" | "failed" | "skipped" | "awaiting_approval"; sent: number; failed: number; message: string | null; runId: string | null };
 type AnalyticsData = ReturnType<typeof normalizeClientAnalytics>;
-export type SummaryGenerator = (input: { agencyId: string; clientId: string; data: AnalyticsData; accounts?: Array<{ id: string; name: string; data: AnalyticsData }> }) => Promise<GuardedResult>;
+// Uma conta de anúncios de qualquer plataforma, com os próprios números.
+type ReportBlock = { id: string; name: string; data: AnalyticsData; platform: PlatformKey };
+export type SummaryGenerator = (input: { agencyId: string; clientId: string; data: AnalyticsData; accounts?: Array<{ id: string; name: string; data: AnalyticsData; platform?: string }> }) => Promise<GuardedResult>;
 export type ExecuteOptions = {
   resolveSender: SenderResolver; sendOfficialPdf?: OfficialPdfSender; pause?: () => number; appUrl?: string | null;
   /** Escreve a análise de {{analise_ia}}; sem ele usa a IA real. */
   generateSummary?: SummaryGenerator;
+  /** Contas do Google Ads do cliente; sem ele lê da API do Google. */
+  loadGoogle?: typeof loadGoogleSections;
   /** Envio de uma execução que estava aguardando aprovação, com o texto aprovado (já revisado) pelo responsável. */
   approval?: { runId: string; aiText: string };
 };
@@ -105,25 +111,34 @@ export async function executeAutomation(service: Service, automation: ReportAuto
     const { data: payload, error: analyticsError } = await service.rpc("service_client_analytics", {
       p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo,
     });
-    if (analyticsError || !payload) return await finish("failed", { error_message: "Não foi possível ler os números do período." });
-    let data = normalizeClientAnalytics(payload);
+    // Google Ads: cada conta vinculada ao cliente vira um bloco próprio; falha de uma conta não derruba o envio.
+    const google = await (options.loadGoogle ?? loadGoogleSections)({ service, agencyId: automation.agency_id, clientId: automation.client_id, dateFrom: run.period.dateFrom, dateTo: run.period.dateTo })
+      .catch(() => ({ sections: [], failures: [{ name: "Google Ads", message: "não foi possível ler o Google Ads agora" }] }));
+    if ((analyticsError || !payload) && !google.sections.length) return await finish("failed", { error_message: "Não foi possível ler os números do período." });
+    // Cliente só com Google Ads: não há números da Meta, o relatório usa apenas as contas do Google.
+    let data = analyticsError || !payload ? normalizeClientAnalytics({}) : normalizeClientAnalytics(payload);
     // Contas separadas (padrão): cada conta de anúncios com os próprios números. Consolidar soma tudo como uma conta só.
-    let perAccount: Array<{ id: string; name: string; data: AnalyticsData }> | null = null;
+    let perAccount: ReportBlock[] | null = null;
     if (!automation.consolidate_accounts && data.accounts.length > 1) {
       const loaded = await Promise.all(data.accounts.map(async account => {
         const { data: accountPayload, error } = await service.rpc("service_client_analytics_accounts", {
           p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo, p_account_ids: [account.id],
         });
-        return error || !accountPayload ? null : { id: account.id, name: account.name, data: normalizeClientAnalytics(accountPayload) };
+        return error || !accountPayload ? null : { id: account.id, name: account.name, data: normalizeClientAnalytics(accountPayload), platform: "meta" as const };
       }));
       if (loaded.some(item => !item)) return await finish("failed", { error_message: "Não foi possível ler os números de uma das contas do cliente." });
       perAccount = loaded.filter(item => item !== null);
+    }
+    if (google.sections.length) {
+      // Com mais de uma plataforma, cada plataforma e cada conta ganham o próprio bloco (a Meta consolidada vira um bloco só).
+      const meta: ReportBlock[] = perAccount ?? (data.accounts.length ? [{ id: data.accounts[0].id, name: data.accounts.length === 1 ? data.accounts[0].name : "Todas as contas", data, platform: "meta" }] : []);
+      perAccount = [...meta, ...google.sections.map(section => ({ ...section, platform: "google" as const }))];
     }
     if (official) {
       const outcome = await options.sendOfficialPdf!({
         agencyId: automation.agency_id, connectionId: automation.whatsapp_connection_id!, clientId: automation.client_id,
         clientName: client.name, workspaceName: agency?.name ?? "", runId, data, recipients: people,
-        ...(perAccount ? { accounts: perAccount.map(account => ({ name: account.name, data: account.data })) } : {}),
+        ...(perAccount ? { accounts: perAccount.map(account => ({ name: account.name, data: account.data, platform: account.platform })) } : {}),
       });
       const sentCount = outcome.results.filter(item => item.status === "accepted").length;
       const failures = outcome.results.filter(item => item.status === "failed").map(item => `${item.name}: ${item.message ?? "falhou"}`);
@@ -150,17 +165,21 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       ? await getClientAccountBilling({ agencyId: automation.agency_id, clientId: automation.client_id }).catch(() => null) : null;
     const balance = billing ? summarizeBalance(billing) : null;
     const blocks: AccountBlock[] | null = perAccount && perAccount.map(account => ({
-      name: account.name, platform: "Meta Ads", data: account.data, balance: billing ? summarizeBalance(billing.filter(item => item.accountId === account.id)) : null,
+      name: account.name, platform: PLATFORM_INFO[account.platform].label, data: account.data, balance: account.platform === "meta" && billing ? summarizeBalance(billing.filter(item => item.accountId === account.id)) : null,
     }));
     const dashboardUrl = options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null;
-    const compose = (recipientName: string, aiText: string | null) => blocks
+    // Conta do Google que não respondeu: o cliente recebe o resto do relatório e um aviso, sem silêncio.
+    const note = google.failures.length ? `
+
+⚠️ Não foi possível ler o Google Ads agora (${google.failures.map(failure => failure.name).join(", ")}).` : "";
+    const compose = (recipientName: string, aiText: string | null) => (blocks
       ? renderSeparatedMessage(automation.message_template, { clientName: client.name, workspaceName: agency?.name ?? null, aiText, dashboardUrl, recipientName }, blocks)
-      : renderMessage(automation.message_template, { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, aiText, dashboardUrl, recipientName });
+      : renderMessage(automation.message_template, { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, aiText, dashboardUrl, recipientName })) + note;
     const aiText: string | null = options.approval?.aiText ?? null;
     if (!aiText && usedVariables(automation.message_template).includes("analise_ia")) {
       // A IA escreve uma vez por execução e nada sai antes de o responsável aprovar o texto.
       const generate: SummaryGenerator = options.generateSummary ?? (input => generateWhatsAppSummary({ ...input, service }));
-      const written = await generate({ agencyId: automation.agency_id, clientId: automation.client_id, data, ...(perAccount ? { accounts: perAccount } : {}) });
+      const written = await generate({ agencyId: automation.agency_id, clientId: automation.client_id, data, ...(perAccount ? { accounts: perAccount.map(account => ({ ...account, platform: PLATFORM_INFO[account.platform].label })) } : {}) });
       if (!written.ok) return await finish("failed", { error_message: `Análise com IA indisponível: ${written.message}` });
       const preview = compose(people[0]?.name ?? "pessoal", written.text);
       await service.from("report_automation_runs").update({ status: "awaiting_approval", ai_text: written.text, message_text: preview.slice(0, 6000), error_message: null }).eq("id", runId);

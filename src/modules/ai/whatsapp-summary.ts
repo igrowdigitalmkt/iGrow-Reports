@@ -25,7 +25,7 @@ Resultados:
 - Todos os tipos de resultado importam e cada um tem custo próprio. Cite cada tipo separadamente, nunca some tipos diferentes e nunca escolha um "resultado principal".
 - Compare com o período anterior só quando os fatos trouxerem a variação. Sem comparação disponível, descreva sem comparar.
 - Se os fatos trouxerem "perfil_do_cliente", use-o só como contexto do negócio.
-- Se os fatos trouxerem "contas", cada conta tem o seu objetivo e os seus números. Analise uma conta de cada vez, citando o nome da conta, e nunca some nem compare resultados entre contas. Conta sem investimento no período: diga só isso em poucas palavras, sem comentar resultados nem confirmação de dados.
+- Se os fatos trouxerem "contas", cada conta tem o seu objetivo e os seus números. Analise uma conta de cada vez, citando o nome da conta, e nunca some nem compare resultados entre contas. Cada conta tem a sua "plataforma" (Meta Ads, Google Ads…): nunca compare custos entre plataformas diferentes. Conta sem investimento no período: diga só isso em poucas palavras, sem comentar resultados nem confirmação de dados.
 - Só diga onde o investimento se concentrou comparando o "investimento_nas_campanhas_deste_tipo" de cada tipo de resultado. Sem esses valores, não afirme concentração.
 - Use o nome exato de cada métrica dos fatos. "Cliques" e "cliques no link" são métricas diferentes: nunca troque uma pela outra.
 
@@ -45,7 +45,7 @@ Termine com uma frase de próximo passo sustentada pelos dados. Não faça sauda
 export type WhatsAppSummaryInput = {
   agencyId: string; clientId: string; data: AnalyticsDashboardData; service: Service;
   // Contas separadas: cada uma com os próprios números. Sem isso, o resumo usa `data` (todas as contas somadas).
-  accounts?: Array<{ id: string; name: string; data: AnalyticsDashboardData }>;
+  accounts?: Array<{ id: string; name: string; data: AnalyticsDashboardData; platform?: string }>;
 };
 
 // Resumo curto para o WhatsApp. Só gera com todos os dias do período confirmados e o agregado da Meta confirmado.
@@ -65,7 +65,7 @@ export async function generateWhatsAppSummary(input: WhatsAppSummaryInput, deps:
   const factsFor = (part: AnalyticsDashboardData, accountId?: string) =>
     formatFactsForPrompt(buildReportFacts(confirmedReportData(part), accountId ? entities.filter(entity => entity.accountId === accountId) : entities), accountId ? null : profileFacts);
   const facts = input.accounts?.length
-    ? { ...(profileFacts && Object.keys(profileFacts).length ? { perfil_do_cliente: profileFacts } : {}), contas: input.accounts.map(account => ({ nome_da_conta: account.name, ...factsFor(account.data, account.id) })) }
+    ? { ...(profileFacts && Object.keys(profileFacts).length ? { perfil_do_cliente: profileFacts } : {}), contas: input.accounts.map(account => ({ nome_da_conta: account.name, ...(account.platform ? { plataforma: account.platform } : {}), ...factsFor(account.data, account.id) })) }
     : factsFor(data);
   return runGuardedGeneration({
     agencyId: input.agencyId, clientId: input.clientId, userId: null, feature: "whatsapp_summary",

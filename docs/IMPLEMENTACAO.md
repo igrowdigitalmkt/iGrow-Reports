@@ -916,3 +916,6 @@ A linha de divisão do cabeçalho (`::after`) saía 32 px para fora da tela chei
 
 ### 13/10/2026 (16) — Base multiplataforma
 `src/modules/platforms/` (registro de plataformas e contrato de conector), título por plataforma na mensagem de WhatsApp, capa/cor por plataforma no PDF e nota "Dados fornecidos pela …" por plataforma. Plano, regras e pendências em `docs/MULTIPLATAFORMA.md`. Conectores do Google, TikTok e LinkedIn **não** existem ainda: dependem de aprovações externas de API.
+
+### 14/10/2026 — Conector do Google Ads (sem validação com a API real)
+Cliente REST da Google Ads API (OAuth, GAQL, contas sob o gerente), normalização para o formato comum, conexão OAuth com token cifrado, painel em Integrações, vínculo conta↔cliente, seção no painel, PDF único com capa por conta/plataforma, mensagem de WhatsApp e análise da IA por plataforma. Detalhes, variáveis de ambiente e limitações em `docs/MULTIPLATAFORMA.md`. Migração `202610140001_google_ads_foundation` aplicada em produção. **Próximo passo:** o responsável configura as credenciais (token de desenvolvedor aprovado, OAuth no Google Cloud, variáveis na Vercel) e conecta uma conta real para validar.
