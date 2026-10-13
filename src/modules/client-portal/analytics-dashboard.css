@@ -7,6 +7,13 @@
 .analytics-dashboard > * { flex-shrink: 0; }
 [data-theme="light"] .analytics-dashboard { --analytics-head-bg: #f8f9fb; --analytics-body-bg: #e9ebef; }
 .analytics-dashboard h1, .analytics-dashboard h2, .analytics-dashboard h3, .analytics-dashboard h4, .analytics-dashboard p { margin: 0; }
+/* O painel encosta na barra do topo e no fim da página: o fundo não deixa faixas acima do cabeçalho nem abaixo do corpo. */
+.main-content > .analytics-dashboard:not(:fullscreen), .client-container > .analytics-dashboard:not(:fullscreen) { margin: -28px 0 -48px; padding-bottom: 72px; min-height: calc(100dvh - 56px); }
+.main-content > .analytics-dashboard:not(:fullscreen) .analytics-sticky-header, .client-container > .analytics-dashboard:not(:fullscreen) .analytics-sticky-header { top: 28px; padding-top: 32px; }
+@media (max-width: 760px) {
+  .main-content > .analytics-dashboard:not(:fullscreen), .client-container > .analytics-dashboard:not(:fullscreen) { margin: -20px 0 -40px; padding-bottom: 64px; }
+  .main-content > .analytics-dashboard:not(:fullscreen) .analytics-sticky-header, .client-container > .analytics-dashboard:not(:fullscreen) .analytics-sticky-header { top: 36px; padding-top: 24px; }
+}
 .analytics-dashboard:fullscreen { overflow: auto; padding: 0 32px 32px; box-shadow: none; clip-path: none; }
 
 /* Header */

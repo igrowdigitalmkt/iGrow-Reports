@@ -907,3 +907,6 @@ O cabeçalho (cliente, ações, período, data/hora de atualização) agora é u
 
 ### 13/10/2026 (13) — Fundo do cabeçalho e do corpo de ponta a ponta
 O fundo do cabeçalho (mais claro) e o do corpo (mais escuro) agora vão de uma lateral à outra da área de conteúdo (sombra grande recortada na vertical + `overflow-x: clip` em `.workspace` e `.client-portal`, que não quebra o cabeçalho fixo). Cores: escuro cabeçalho `#12161c`/corpo `#080a0d`; claro `#f8f9fb`/`#e9ebef`.
+
+### 13/10/2026 (14) — Sem faixa escura acima do cabeçalho
+O painel agora encosta na barra do topo (e no fim da página) cancelando o espaçamento interno da página (`margin: -28px 0 -48px`, `-20px/-40px` no celular); o cabeçalho ganhou o espaço de volta no próprio preenchimento e fixa em `top: 28px` (a parte excedente fica sob a barra do topo). Medido na demonstração: topo do painel = fim da barra/aviso, fim do painel = fim da página.

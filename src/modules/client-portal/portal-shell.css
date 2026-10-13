@@ -1,3 +1,3 @@
 /* The client area shares the global design tokens; only portal-specific details live here. */
 .client-brand-link { display: inline-flex; border-radius: 8px; }
-.client-portal .client-container > .analytics-dashboard { margin-top: 0; }
+
