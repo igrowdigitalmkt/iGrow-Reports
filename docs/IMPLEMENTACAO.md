@@ -910,3 +910,6 @@ O fundo do cabeçalho (mais claro) e o do corpo (mais escuro) agora vão de uma 
 
 ### 13/10/2026 (14) — Sem faixa escura acima do cabeçalho
 O painel agora encosta na barra do topo (e no fim da página) cancelando o espaçamento interno da página (`margin: -28px 0 -48px`, `-20px/-40px` no celular); o cabeçalho ganhou o espaço de volta no próprio preenchimento e fixa em `top: 28px` (a parte excedente fica sob a barra do topo). Medido na demonstração: topo do painel = fim da barra/aviso, fim do painel = fim da página.
+
+### 13/10/2026 (15) — Barra de rolagem horizontal no modo Apresentar
+A linha de divisão do cabeçalho (`::after`) saía 32 px para fora da tela cheia, criando uma barra de rolagem horizontal sem conteúdo. Em tela cheia ela agora ocupa exatamente a largura do cabeçalho.
