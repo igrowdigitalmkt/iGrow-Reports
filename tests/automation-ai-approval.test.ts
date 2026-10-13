@@ -118,3 +118,16 @@ describe("contas separadas", () => {
     expect(String((ch2.sendText.mock.calls[0] as unknown[])[1])).not.toContain("Conta:");
   });
 });
+
+describe("conta sem investimento", () => {
+  it("vira uma linha curta com o saldo, sem zeros", async () => {
+    const { renderSeparatedMessage } = await import("@/modules/automations/message");
+    const demo = getDemoClientAnalytics();
+    const text = renderSeparatedMessage("Resumo\n\nInvestimento: {{investimento}}\nSaldo: {{saldo}}", { clientName: "RM" }, [
+      { name: "Parada", data: { ...demo, summary: { ...demo.summary, spend: 0 } }, balance: { funds: 387.94, currency: "BRL", postpaid: false, due: false } },
+      { name: "Ativa", data: demo },
+    ]);
+    expect(text).toMatch(/Conta: Parada\*\nSem investimento neste período\.\n🏦 Saldo disponível: R\$\s387,94/);
+    expect(text).not.toMatch(/Parada\*[\s\S]*Investimento: R\$\s0,00/);
+  });
+});
