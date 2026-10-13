@@ -13,7 +13,8 @@ export const sendOfficialPdf: OfficialPdfSender = async input => {
   if (!service) throw new Error("Serviço indisponível.");
   const source = { clientName: input.clientName, workspaceName: input.workspaceName, data: input.data };
   const modern = isReportPdfV2Enabled() || (await loadPdfLayout(input.agencyId)) === "modern";
-  const pdf = modern ? await buildPeriodPdfV2(source) : buildPeriodPdf(source);
+  // Contas separadas só no layout novo (uma seção por conta); o clássico segue com as contas somadas.
+  const pdf = modern ? await buildPeriodPdfV2({ ...source, accounts: input.accounts }) : buildPeriodPdf(source);
   const results = await sendAutomationPdfByWhatsApp(service, {
     agencyId: input.agencyId, connectionId: input.connectionId, clientId: input.clientId, clientName: input.clientName,
     runId: input.runId, period: pdf.period, recipients: input.recipients, pdf: pdf.blob, filename: pdf.filename,

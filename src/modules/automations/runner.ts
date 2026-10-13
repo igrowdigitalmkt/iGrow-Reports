@@ -18,6 +18,8 @@ type Recipient = { id: string; name: string; phone: string; active: boolean; con
 export type OfficialPdfSender = (input: {
   agencyId: string; connectionId: string; clientId: string; clientName: string; workspaceName: string; runId: string;
   data: ReturnType<typeof normalizeClientAnalytics>; recipients: Recipient[];
+  // Contas separadas: os números de cada conta de anúncios (o PDF traz uma seção por conta).
+  accounts?: Array<{ name: string; data: ReturnType<typeof normalizeClientAnalytics> }>;
 }) => Promise<{ results: Array<{ name: string; status: "accepted" | "failed" | "skipped"; message?: string }>; summary: string }>;
 
 const NOT_CONNECTED = "WhatsApp não conectado por QR Code. Conecte seu número em Integrações para ativar os envios.";
@@ -105,15 +107,6 @@ export async function executeAutomation(service: Service, automation: ReportAuto
     });
     if (analyticsError || !payload) return await finish("failed", { error_message: "Não foi possível ler os números do período." });
     let data = normalizeClientAnalytics(payload);
-    if (official) {
-      const outcome = await options.sendOfficialPdf!({
-        agencyId: automation.agency_id, connectionId: automation.whatsapp_connection_id!, clientId: automation.client_id,
-        clientName: client.name, workspaceName: agency?.name ?? "", runId, data, recipients: people,
-      });
-      const sentCount = outcome.results.filter(item => item.status === "accepted").length;
-      const failures = outcome.results.filter(item => item.status === "failed").map(item => `${item.name}: ${item.message ?? "falhou"}`);
-      return await finish(sentCount || failures.length ? runStatus({ sent: sentCount, failed: failures.length }) : "skipped", { message_text: outcome.summary.slice(0, 6000), sent_count: sentCount, failed_count: failures.length, error_message: failures.join(" · ") || null });
-    }
     // Contas separadas (padrão): cada conta de anúncios com os próprios números. Consolidar soma tudo como uma conta só.
     let perAccount: Array<{ id: string; name: string; data: AnalyticsData }> | null = null;
     if (!automation.consolidate_accounts && data.accounts.length > 1) {
@@ -125,6 +118,16 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       }));
       if (loaded.some(item => !item)) return await finish("failed", { error_message: "Não foi possível ler os números de uma das contas do cliente." });
       perAccount = loaded.filter(item => item !== null);
+    }
+    if (official) {
+      const outcome = await options.sendOfficialPdf!({
+        agencyId: automation.agency_id, connectionId: automation.whatsapp_connection_id!, clientId: automation.client_id,
+        clientName: client.name, workspaceName: agency?.name ?? "", runId, data, recipients: people,
+        ...(perAccount ? { accounts: perAccount.map(account => ({ name: account.name, data: account.data })) } : {}),
+      });
+      const sentCount = outcome.results.filter(item => item.status === "accepted").length;
+      const failures = outcome.results.filter(item => item.status === "failed").map(item => `${item.name}: ${item.message ?? "falhou"}`);
+      return await finish(sentCount || failures.length ? runStatus({ sent: sentCount, failed: failures.length }) : "skipped", { message_text: outcome.summary.slice(0, 6000), sent_count: sentCount, failed_count: failures.length, error_message: failures.join(" · ") || null });
     }
     // A análise da IA só usa números confirmados pela Meta para o recorte exato (cada conta, ou todas somadas).
     // Sem agregado confirmado, o envio pede a confirmação à Meta aqui mesmo antes de gerar o texto.

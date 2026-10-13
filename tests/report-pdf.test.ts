@@ -155,3 +155,21 @@ describe("chave e ligações do PDF novo", () => {
     expect(Buffer.from(await result.blob.arrayBuffer()).subarray(0, 5).toString()).toBe("%PDF-");
   });
 });
+
+describe("PDF com uma seção por conta", () => {
+  it("gera um só arquivo com as duas contas, com mais páginas que o relatório de uma conta", async () => {
+    const one = pageCount(await render(input({ audience: undefined, balances: undefined })));
+    const blob = await buildPeriodPdfV2({
+      clientName: "RM", workspaceName: "iGrow", data: data(),
+      accounts: [{ name: "RM Imobiliária", data: data() }, { name: "Ronaldo Moreira", data: data() }],
+    });
+    const bytes = Buffer.from(await blob.blob.arrayBuffer());
+    expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(pageCount(bytes)).toBeGreaterThan(one);
+  });
+
+  it("recusa quando uma das contas não tem o período completo", async () => {
+    const partial = data({ coverage: { ...data().coverage, status: "partial" } });
+    await expect(buildPeriodPdfV2({ clientName: "RM", workspaceName: "iGrow", data: data(), accounts: [{ name: "A", data: partial }] })).rejects.toThrow();
+  });
+});

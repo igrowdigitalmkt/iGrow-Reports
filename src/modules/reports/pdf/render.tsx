@@ -20,13 +20,21 @@ export class ReportPdfUnavailableError extends Error {
   constructor(message: string) { super(message); this.name = "ReportPdfUnavailableError"; }
 }
 
-// PDF do relatório novo. Funciona no servidor e no navegador. Só gera com cobertura completa do período.
-export async function renderReportPdf(original: ReportPdfInput): Promise<Blob> {
-  const input: ReportPdfInput = { ...original, data: confirmedReportData(original.data) };
-  if (input.data.coverage.status !== "complete") {
-    throw new ReportPdfUnavailableError("Relatórios exigem cobertura completa do período.");
-  }
+// PDF do relatório novo, com uma seção por conta de anúncios (uma só seção = relatório comum).
+// Funciona no servidor e no navegador. Só gera com cobertura completa do período em todas as seções.
+export async function renderReportPdfSections(originals: ReportPdfInput[]): Promise<Blob> {
+  if (!originals.length) throw new ReportPdfUnavailableError("Nenhuma conta para o relatório.");
+  const sections = originals.map(original => {
+    const input: ReportPdfInput = { ...original, data: confirmedReportData(original.data) };
+    if (input.data.coverage.status !== "complete") {
+      throw new ReportPdfUnavailableError("Relatórios exigem cobertura completa do período.");
+    }
+    return { input, facts: buildReportFacts(input.data, input.entityRows) };
+  });
   registerFonts();
-  const facts = buildReportFacts(input.data, input.entityRows);
-  return pdf(<ReportDocument input={input} facts={facts} />).toBlob();
+  return pdf(<ReportDocument sections={sections} />).toBlob();
+}
+
+export function renderReportPdf(original: ReportPdfInput): Promise<Blob> {
+  return renderReportPdfSections([original]);
 }

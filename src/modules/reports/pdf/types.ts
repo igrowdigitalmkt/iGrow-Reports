@@ -10,6 +10,8 @@ export type ReportPdfInput = {
   clientName: string;
   workspaceName: string;
   analysisNote?: string;
+  // Relatório de uma conta dentro de um PDF com várias contas: o nome aparece no cabeçalho.
+  accountLabel?: string;
   data: AnalyticsDashboardData;
   // Hierarquia do relatório salvo; as campanhas dela têm prioridade sobre `data.campaigns`.
   entityRows?: AnalyticsEntity[];

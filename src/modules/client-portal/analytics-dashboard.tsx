@@ -587,12 +587,40 @@ export function ClientAnalyticsDashboard({
 
   function exportPdf(orientation: "vertical" | "horizontal" = "vertical") {
     setError(""); setNotice("");
-    if (separated) {
-      setError("Para gerar o PDF, escolha uma conta ou marque “Consolidar resultados” no filtro de contas.");
-      return;
-    }
     if (!analyticsReady) {
       setError("O relatório só pode ser gerado quando todos os dias do período estiverem confirmados.");
+      return;
+    }
+    if (separated) {
+      // Contas separadas: um relatório por conta, cada um com os números da própria conta.
+      const targets = data.accounts.filter(account => data.selectedAccountIds.includes(account.id));
+      startTransition(async () => {
+        try {
+          let done = 0;
+          for (const [index, account] of targets.entries()) {
+            const title = `${reportTitle} - ${account.name}`;
+            const note = index === 0 ? analysisNote : "";
+            if (canManageReports) {
+              const result = await generateDashboardReport({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
+                accountIds: [account.id], metricKeys: overviewMetrics.map(metric => metric.key), entityKeys: [],
+                campaignMetricKeys, comparison, chartType, orientation, header: { name: headerName, details: headerDetails, analysisNote: note }, title });
+              if ("error" in result) { setError(`${account.name}: ${result.error ?? "não foi possível gerar o relatório."}`); break; }
+              await downloadSavedReportPdf(clientId, result.reportVersionId);
+            } else {
+              const view = accountViews?.find(item => item.id === account.id)?.data;
+              if (!view) { setError(`${account.name}: os números desta conta ainda não estão prontos.`); break; }
+              await downloadDashboardPdf({ title, clientName, workspaceName: headerName || workspaceName, headerDetails, analysisNote: note,
+                data: view, metrics: overviewMetrics, entityLabels: ["Todas as campanhas"], accountLabels: [account.name], comparison, chartType,
+                entityRows: entities.filter(entity => entity.accountId === account.id), campaignMetrics, orientation });
+            }
+            done += 1;
+          }
+          if (canManageReports) router.refresh();
+          if (done) setNotice(done === targets.length
+            ? `${done} relatórios gerados, um por conta${canManageReports ? ". Eles estão em Relatórios, prontos para revisar e publicar" : ""}. Se o navegador pedir, permita baixar vários arquivos.`
+            : `${done} de ${targets.length} relatórios gerados.`);
+        } catch { setError("Não foi possível gerar todos os relatórios. Confira os que já foram salvos em Relatórios."); }
+      });
       return;
     }
     startTransition(async () => {

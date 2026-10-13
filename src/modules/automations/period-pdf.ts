@@ -32,14 +32,19 @@ export function buildPeriodPdf(input: { clientName: string; workspaceName: strin
   };
 }
 
-/** Mesmo envio com o PDF novo do relatório (assíncrono). Só é usado quando a chave do PDF novo está ligada. */
-export async function buildPeriodPdfV2(input: { clientName: string; workspaceName: string; data: AnalyticsDashboardData }) {
-  if (input.data.coverage.status !== "complete") throw new PeriodPdfUnavailableError("Os dados do período ainda não estão completos para gerar o PDF.");
-  const { renderReportPdf } = await import("@/modules/reports/pdf/render");
+/**
+ * Mesmo envio com o PDF novo do relatório (assíncrono). Com `accounts`, o PDF traz uma seção por conta de anúncios
+ * (contas separadas); sem, é o relatório de todas as contas somadas.
+ */
+export async function buildPeriodPdfV2(input: { clientName: string; workspaceName: string; data: AnalyticsDashboardData; accounts?: Array<{ name: string; data: AnalyticsDashboardData }> }) {
+  if (input.data.coverage.status !== "complete" || input.accounts?.some(account => account.data.coverage.status !== "complete")) throw new PeriodPdfUnavailableError("Os dados do período ainda não estão completos para gerar o PDF.");
+  const { renderReportPdfSections } = await import("@/modules/reports/pdf/render");
   const period = `${brDate(input.data.dateFrom)} a ${brDate(input.data.dateTo)}`;
   const safeName = input.clientName.replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "-").slice(0, 80) || "relatorio";
   return {
-    blob: await renderReportPdf({ clientName: input.clientName, workspaceName: input.workspaceName, data: input.data }),
+    blob: await renderReportPdfSections(input.accounts?.length
+      ? input.accounts.map(account => ({ clientName: input.clientName, workspaceName: input.workspaceName, data: account.data, accountLabel: account.name }))
+      : [{ clientName: input.clientName, workspaceName: input.workspaceName, data: input.data }]),
     filename: `${safeName}-${input.data.dateFrom}-${input.data.dateTo}.pdf`,
     period,
   };

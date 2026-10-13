@@ -26,6 +26,7 @@ function Header({ ctx }: { ctx: Ctx }) {
         <View style={{ alignSelf: "flex-start", marginTop: 8, backgroundColor: COLORS.white, borderRadius: 12, paddingVertical: 5, paddingHorizontal: 13, borderWidth: 0.7, borderColor: COLORS.line }}>
           <Text style={{ fontSize: 15, color: COLORS.muted, fontWeight: 500 }}>{ctx.period}</Text>
         </View>
+        {ctx.input.accountLabel ? <Text style={{ fontSize: 20, fontWeight: 700, marginTop: 10, color: ctx.brand }}>{`Conta: ${ctx.input.accountLabel}`}</Text> : null}
       </View>
     </View>
   );
@@ -38,7 +39,7 @@ function MiniHeader({ ctx }: { ctx: Ctx }) {
         <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: ctx.brand, marginRight: 8 }} />
         <Text style={{ fontSize: 14, fontWeight: 700 }}>{ctx.input.workspaceName}</Text>
       </View>
-      <Text style={{ fontSize: 13.5, color: COLORS.muted, flexShrink: 1, textAlign: "right" }}>{`${ctx.input.clientName}  ·  ${ctx.period}`}</Text>
+      <Text style={{ fontSize: 13.5, color: COLORS.muted, flexShrink: 1, textAlign: "right" }}>{`${ctx.input.clientName}${ctx.input.accountLabel ? `  ·  ${ctx.input.accountLabel}` : ""}  ·  ${ctx.period}`}</Text>
     </View>
   );
 }
@@ -285,15 +286,14 @@ function DataNotes({ ctx }: { ctx: Ctx }) {
   );
 }
 
-export function ReportDocument({ input, facts }: { input: ReportPdfInput; facts: ReportFacts }) {
+function ReportPage({ input, facts }: { input: ReportPdfInput; facts: ReportFacts }) {
   const ctx: Ctx = {
     input, facts, brand: input.brandColor ?? COLORS.brand, period: `${brDate(facts.period.from)} a ${brDate(facts.period.to)}`,
     on: key => input.blocks?.[key] !== false,
   };
   return (
-    <Document title={`Relatório de desempenho - ${input.clientName}`} author={input.workspaceName} creator="iGrow Reports">
       <Page size="A4" style={{ fontFamily: "Inter", color: COLORS.ink, padding: SIZE.page, paddingBottom: 60 }}>
-        <View fixed render={({ pageNumber }) => (pageNumber > 1 ? <MiniHeader ctx={ctx} /> : null)} />
+        <View fixed render={({ subPageNumber }) => (subPageNumber > 1 ? <MiniHeader ctx={ctx} /> : null)} />
         <Header ctx={ctx} />
         <Cover ctx={ctx} />
         {ctx.on("analysis") ? <Analysis ctx={ctx} /> : null}
@@ -309,6 +309,15 @@ export function ReportDocument({ input, facts }: { input: ReportPdfInput; facts:
           <Text style={{ fontSize: SIZE.footer, color: COLORS.faint }} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
+  );
+}
+
+// Um relatório completo por seção (uma por conta de anúncios). Com uma só seção, é o relatório de sempre.
+export function ReportDocument({ sections }: { sections: Array<{ input: ReportPdfInput; facts: ReportFacts }> }) {
+  const first = sections[0].input;
+  return (
+    <Document title={`Relatório de desempenho - ${first.clientName}`} author={first.workspaceName} creator="iGrow Reports">
+      {sections.map((section, index) => <ReportPage key={index} input={section.input} facts={section.facts} />)}
     </Document>
   );
 }
