@@ -114,6 +114,35 @@ describe("fatos do relatório", () => {
     expect(facts.limitations.join(" ")).not.toContain("conciliado");
   });
 
+  describe("período anterior sem resultados por tipo no resumo", () => {
+    const campaign = (id: string, spend: number, values: Record<string, number>): AnalyticsEntity => ({ key: `campaign:${id}`, id, level: "campaign", name: `Campanha ${id}`, parentId: null, campaignId: null, accountId: "b", accountName: "Conta", currency: "BRL", values: { spend, ...values } });
+    const bare = (spend: number) => data({ previousSummary: { spend, impressions: 300000, reach: 120000, cpm: 14, link_clicks: 4000, "result:provider_known": 1 } });
+
+    it("soma por tipo as campanhas confirmadas e calcula o custo anterior de cada tipo", () => {
+      const previous = [
+        campaign("p1", 2700, { "result:provider_known": 1, [MESSAGES]: 180 }),
+        campaign("p2", 1500, { "result:provider_known": 1, [VISITS]: 5000 }),
+        campaign("p3", 50, { "result:provider_known": 0 }),
+      ];
+      const facts = buildReportFacts(bare(4250), undefined, previous);
+      const messages = facts.results.find(result => result.label.startsWith("Conversas"));
+      const visits = facts.results.find(result => result.label.startsWith("Visitas"));
+      expect(messages).toMatchObject({ previousQuantity: 180, previousCostPerResult: 15 });
+      expect(messages?.changePct).toBeCloseTo(11.67, 1);
+      expect(visits).toMatchObject({ previousQuantity: 5000, previousCostPerResult: 0.3 });
+      expect(facts.results.find(result => result.label.startsWith("Engajamento"))?.previousQuantity).toBe(0);
+      expect(facts.limitations.join(" ")).toContain("R$ 50,00 de investimento ficaram em campanhas sem resultado confirmado");
+    });
+
+    it("não deriva quando muito investimento está sem resultado confirmado ou quando as campanhas não fecham com o total", () => {
+      const heavy = [campaign("p1", 2700, { "result:provider_known": 1, [MESSAGES]: 180 }), campaign("p3", 1550, { "result:provider_known": 0 })];
+      expect(buildReportFacts(bare(4250), undefined, heavy).results.every(result => result.previousCostPerResult == null)).toBe(true);
+      const off = [campaign("p1", 2700, { "result:provider_known": 1, [MESSAGES]: 180 })];
+      const facts = buildReportFacts(bare(4250), undefined, off);
+      expect(facts.results.find(result => result.label.startsWith("Conversas"))?.previousCostPerResult).toBeNull();
+    });
+  });
+
   it("lista os anúncios de maior investimento com o custo do único tipo de resultado", () => {
     const ad = (id: string, spend: number, quantity: number): AnalyticsEntity => ({ key: `ad:${id}`, id, level: "ad", name: `Anúncio ${id}`, parentId: "s1", campaignId: "c1", accountId: "b", accountName: "Conta", currency: "BRL", values: { spend, "result:provider_known": 1, [MESSAGES]: quantity } });
     const campaign: AnalyticsEntity = { key: "campaign:c1", id: "c1", level: "campaign", name: "Mensagens", parentId: null, campaignId: null, accountId: "b", accountName: "Conta", currency: "BRL", values: { spend: 2613, "result:provider_known": 1, [MESSAGES]: 201 } };

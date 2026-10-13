@@ -1,4 +1,5 @@
 import { resultBreakdown, resultCostBreakdown } from "@/modules/client-portal/analytics-results";
+import { money } from "./format";
 import type { AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 import type { AnalyticsDashboardData, AnalyticsValues } from "@/modules/client-portal/analytics-types";
 
@@ -101,6 +102,41 @@ function commercialFact(input: { sales: number; revenue?: number | null } | unde
   };
 }
 
+// Parte do investimento do período anterior que pode ficar em campanhas sem resultado confirmado para ainda
+// derivarmos as quantidades e custos anteriores das campanhas.
+const MAX_UNCONFIRMED_SHARE = 0.05;
+
+type DerivedPrevious = { summary: AnalyticsValues; costs: Map<string, number | null>; unconfirmedSpend: number };
+
+// Quando o resumo do período anterior não traz resultados por tipo, mas as campanhas dele trazem, soma por tipo
+// as campanhas com resultado confirmado (mesmo tipo, mesma soma) e calcula o custo de cada tipo só com as
+// campanhas que tiveram aquele tipo único. Só vale se o investimento das campanhas fecha com o total.
+function derivePreviousResults(summary: AnalyticsValues, sources: Array<{ values: AnalyticsValues }>): DerivedPrevious | null {
+  if (sources.length === 0 || Object.keys(summary).some(key => key.startsWith("result:provider:"))) return null;
+  const spend = summary.spend;
+  const withSpend = sources.filter(source => finite(source.values.spend) && (source.values.spend ?? 0) > 0);
+  const sourceSpend = withSpend.reduce((total, source) => total + (source.values.spend as number), 0);
+  if (!finite(spend) || spend <= 0 || Math.abs(sourceSpend - spend) > Math.max(0.01, spend * 1e-6)) return null;
+  const confirmed = withSpend.filter(source => source.values["result:provider_known"] === 1);
+  const unconfirmedSpend = sourceSpend - confirmed.reduce((total, source) => total + (source.values.spend as number), 0);
+  if (unconfirmedSpend / sourceSpend > MAX_UNCONFIRMED_SHARE) return null;
+  const totals: AnalyticsValues = {};
+  const perType = new Map<string, { spend: number; quantity: number }>();
+  for (const source of confirmed) {
+    for (const [key, value] of Object.entries(source.values)) {
+      if (key.startsWith("result:provider:") && finite(value)) totals[key] = (totals[key] ?? 0) + value;
+    }
+    const entries = resultBreakdown(source.values);
+    const only = entries.length === 1 ? entries[0] : null;
+    if (!only) continue;
+    const current = perType.get(only.key) ?? { spend: 0, quantity: 0 };
+    current.spend += source.values.spend as number; current.quantity += only.value;
+    perType.set(only.key, current);
+  }
+  const costs = new Map([...perType].map(([key, item]) => [key, item.quantity > 0 ? item.spend / item.quantity : null] as const));
+  return { summary: { ...summary, "result:provider_known": 1, ...totals }, costs, unconfirmedSpend };
+}
+
 const HIGHLIGHTS_PER_TYPE = 3;
 
 // Melhores e piores custos por tipo de resultado (só tipos com anúncios suficientes) e anúncios sem resultado confirmado.
@@ -143,16 +179,21 @@ export function buildReportFacts(
 
   const spendNow = data.summary.spend;
   const current = resultBreakdown(data.summary);
-  const previousKnown = comparable && data.previousSummary["result:provider_known"] === 1;
-  const previous = new Map(resultBreakdown(data.previousSummary).map(result => [result.key, result.value]));
+  const previousSources = comparable ? (previousEntities?.filter(entity => entity.level === "campaign") ?? []) : [];
+  const derived = comparable ? derivePreviousResults(data.previousSummary, previousSources) : null;
+  const previousSummary = derived?.summary ?? data.previousSummary;
+  const previousKnown = comparable && previousSummary["result:provider_known"] === 1;
+  const previous = new Map(resultBreakdown(previousSummary).map(result => [result.key, result.value]));
   const costs = new Map(resultCostBreakdown(data.summary, sources.map(campaign => ({
     values: campaign.values, level: "campaign" as const, id: campaign.id, accountId: campaign.accountId,
   }))).map(row => [row.key, row.cost]));
 
-  const previousSources = comparable ? (previousEntities?.filter(entity => entity.level === "campaign") ?? []) : [];
-  const previousCosts = previousSources.length > 0 && data.previousSummary["result:provider_known"] === 1
-    ? new Map(resultCostBreakdown(data.previousSummary, previousSources).map(row => [row.key, row.cost]))
+  const previousCosts = derived ? derived.costs : previousSources.length > 0 && previousSummary["result:provider_known"] === 1
+    ? new Map(resultCostBreakdown(previousSummary, previousSources).map(row => [row.key, row.cost]))
     : new Map<string, number | null>();
+  if (derived && derived.unconfirmedSpend > 0) {
+    limitations.push(`No período anterior, ${money(derived.unconfirmedSpend, data.currency)} de investimento ficaram em campanhas sem resultado confirmado pela Meta; as quantidades e os custos anteriores usam as demais campanhas.`);
+  }
 
   const results: ResultFact[] = current.map(result => {
     const cost = costs.get(result.key) ?? null;
