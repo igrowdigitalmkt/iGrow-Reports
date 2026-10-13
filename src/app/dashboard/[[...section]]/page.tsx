@@ -87,12 +87,12 @@ export default async function DashboardPage({
     // eslint-disable-next-line react-hooks/purity -- request-time reference, computed once on the server
     ? reportsSnapshot.versions.filter(version => new Date(version.generatedAt).getTime() >= Date.now() - 30 * 86_400_000).length : null;
   const portfolio = key === "" ? <Suspense fallback={<PortfolioSkeleton />}>
-    <Portfolio supabase={context.supabase} clients={clients} meta={metaSnapshot} reportsGenerated={reportsGenerated} period={portfolioPeriod(query.periodo)} />
+    <Portfolio supabase={context.supabase} clients={clients} meta={metaSnapshot} reportsGenerated={reportsGenerated} period={portfolioPeriod(query.periodo)} aiAgencyId={context.role === "viewer" ? undefined : context.agency.id} />
   </Suspense> : undefined;
   return <DashboardWorkspace portfolio={portfolio} whatsapp={whatsapp} whatsappReadiness={key === "integracoes" ? whatsAppReadiness() : undefined} whatsappEmbedded={key === "integracoes" ? whatsAppEmbeddedSignup() : null} recipients={recipients} deliveries={deliveries} automations={automations} team={team} currentUserId={context.user.id} currentRole={context.role} blocked={blocked} templates={templates} initialClientId={query.cliente} overviewPeriod={portfolioPeriod(query.periodo)} qrConnected={qrConnected} canSendReports={context.role !== "viewer"} key={context.agency.id} demo={false} section={key} clients={clients} initialMetaClientId={query.client} agencyId={context.agency.id} canEditClients={context.role !== "viewer"} canManageClientAccess={canManageClientAccess} clientPortalAdminReady={clientPortalAdminReady} portalAccesses={portalAccesses} portalInvitations={portalInvitations} metaSnapshot={metaSnapshot} reportsSnapshot={reportsSnapshot} activeClients={count ?? 0} identity={{ agencyName: context.agency.name, userName: (context.user.user_metadata as { full_name?: string } | undefined)?.full_name?.trim() || (context.user.email?.split("@")[0] ?? "Gestor"), roleLabel: roleLabels[context.role], timezone: context.agency.timezone, email: context.user.email ?? "", avatarUrl: (context.user.user_metadata as { avatar_url?: string } | undefined)?.avatar_url ?? null }} />;
 }
 
-async function Portfolio({ supabase, clients, meta, reportsGenerated, period }: { supabase: SupabaseClient<Database>; clients: ClientItem[]; meta: MetaAdminSnapshot | undefined; reportsGenerated: number | null; period: PortfolioPeriod }) {
+async function Portfolio({ supabase, clients, meta, reportsGenerated, period, aiAgencyId }: { supabase: SupabaseClient<Database>; clients: ClientItem[]; meta: MetaAdminSnapshot | undefined; reportsGenerated: number | null; period: PortfolioPeriod; aiAgencyId?: string }) {
   const rows = await loadPortfolioRows(supabase, clients, meta, period);
-  return <PortfolioView base="/dashboard" summary={{ rows, reportsGenerated, periodLabel: PORTFOLIO_PERIODS.find(item => item.key === period)?.label ?? "Últimos 30 dias" }} />;
+  return <PortfolioView base="/dashboard" summary={{ rows, reportsGenerated, period, aiAgencyId, periodLabel: PORTFOLIO_PERIODS.find(item => item.key === period)?.label ?? "Últimos 30 dias" }} />;
 }

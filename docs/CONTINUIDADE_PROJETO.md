@@ -15,7 +15,7 @@ A visão e o plano de IA da V2 (fases, plataformas, custo, conta única) estão 
 
 O novo relatório em PDF (definição de conteúdo, blocos, layout e plano) está em `docs/RELATORIO_PDF.md`; ele melhora um item da V1 e substitui o PDF atual quando homologado.
 
-Estado de 12/10/2026: migrações `ai_layer` (`202610120002`) e `client_profiles` (`202610120003`) **aplicadas em produção; não reaplicar**. O botão de comentário com IA, o perfil do cliente e o painel de IA estão publicados (commit `9e4c561`). Serviço de IA e PDF novo implementados e testados localmente, o PDF atrás da chave `NEXT_PUBLIC_REPORT_PDF_V2` (desligada). Detalhes na última entrada de `docs/IMPLEMENTACAO.md`.
+Estado de 12/10/2026: migrações `ai_layer` (`202610120002`) e `client_profiles` (`202610120003`) e `ai_usage_features` (`202610120004`) **aplicadas em produção; não reaplicar**. O botão de comentário com IA, o perfil do cliente e o painel de IA estão publicados (commit `9e4c561`). Serviço de IA e PDF novo implementados e testados localmente, o PDF atrás da chave `NEXT_PUBLIC_REPORT_PDF_V2` (desligada). Detalhes na última entrada de `docs/IMPLEMENTACAO.md`.
 
 ## 2. Ambiente e revisão confirmada
 

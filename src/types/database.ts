@@ -121,7 +121,7 @@ type AiClientSettingsRow = {
 };
 type AiUsageRow = {
   id: string; agency_id: string; client_id: string | null; user_id: string | null;
-  feature: "report_comment"; model: string;
+  feature: "report_comment" | "portfolio_summary"; model: string;
   status: "ok" | "blocked_disabled" | "blocked_budget" | "rejected_numbers" | "error";
   input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_write_tokens: number;
   cost_usd: number; verifier_passed: boolean | null; facts_hash: string | null;

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, PlugZap, RefreshCw, Target, TrendingUp, WalletCards } from "lucide-react";
 import { PortfolioSpendChart } from "./portfolio-chart";
 import { ClientBalance } from "./portfolio-balance";
+import { PortfolioAiSummary } from "@/modules/ai/portfolio-ai-summary";
 
 export type PortfolioStatus = "ok" | "no-accounts" | "no-delivery" | "cost-up" | "updating" | "unavailable";
 
@@ -27,7 +28,7 @@ export type PortfolioRow = {
 
 export type PortfolioResult = { key: string; label: string; value: number; cost: number | null; previousCost: number | null };
 
-export type PortfolioSummary = { rows: PortfolioRow[]; reportsGenerated: number | null; periodLabel: string };
+export type PortfolioSummary = { rows: PortfolioRow[]; reportsGenerated: number | null; periodLabel: string; period?: "7d" | "30d" | "90d"; aiAgencyId?: string };
 
 const STATUS: Record<PortfolioStatus, { label: string; tone: string }> = {
   ok: { label: "Veiculando", tone: "green" },
@@ -101,6 +102,7 @@ export function PortfolioView({ summary, base, demo = false }: { summary: Portfo
   const clientHref = (id: string) => demo ? `${base}/clientes` : `/dashboard/clientes/${id}`;
 
   return <>
+    {!demo && summary.aiAgencyId && summary.period && rows.length > 0 && <PortfolioAiSummary agencyId={summary.aiAgencyId} period={summary.period} />}
     <div className="overview-kpis">
       <section className="panel metric-card overview-spend"><div className="metric-label"><span>Investimento na carteira</span></div><strong className="metric-value">{money(spend, currency)}</strong><div className="metric-foot"><Delta value={change(spend, previousSpend)} /><span>vs. período anterior</span></div></section>
       <section className="panel metric-card"><div className="metric-label"><span>Alcance</span></div><strong className="metric-value">{integer(reach)}</strong><div className="metric-foot"><span>soma das contas · pessoas podem se repetir entre clientes</span></div></section>

@@ -24,11 +24,13 @@ insert into ai_usage(agency_id,client_id,feature,model,status,input_tokens,outpu
 insert into ai_usage(agency_id,feature,model,status,cost_usd,created_at) values
   ('a1aaaaaa-0000-4000-8000-000000000001','report_comment','claude-sonnet-5-5','ok',9.99,date_trunc('month',now() at time zone 'utc') at time zone 'utc' - interval '1 day');
 select is((select ai_month_cost('a1aaaaaa-0000-4000-8000-000000000001')),0.0232::numeric,'Cota soma só o mês corrente, inclusive chamadas reprovadas');
+select lives_ok($$insert into ai_usage(agency_id,feature,model,status) values ('a1aaaaaa-0000-4000-8000-000000000001','portfolio_summary','claude-sonnet-5-5','ok')$$,'Resumo da carteira é um tipo de uso válido');
+select throws_ok($$insert into ai_usage(agency_id,feature,model,status) values ('a1aaaaaa-0000-4000-8000-000000000001','outra_coisa','claude-sonnet-5-5','ok')$$,'23514',null,'Tipo de uso desconhecido é recusado');
 reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000001',true);
-select is((select count(*)::int from ai_usage),4,'Dono lê o uso da própria organização');
+select is((select count(*)::int from ai_usage),5,'Dono lê o uso da própria organização');
 select is((select ai_month_cost('a1aaaaaa-0000-4000-8000-000000000001')),0.0232::numeric,'Dono consulta o gasto do mês');
 select lives_ok($$insert into ai_settings(agency_id,monthly_budget_usd,updated_by) values ('a1aaaaaa-0000-4000-8000-000000000001',20,'a1000000-0000-4000-8000-000000000001')$$,'Dono define o orçamento');
 select throws_ok($$insert into ai_settings(agency_id,monthly_budget_usd) values ('a1aaaaaa-0000-4000-8000-000000000002',20)$$,'42501',null,'Dono não configura outra organização');
