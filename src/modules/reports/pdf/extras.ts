@@ -11,7 +11,9 @@ export async function loadReportPdfExtras(input: { agencyId: string; clientId: s
     getClientAudienceBreakdowns({ agencyId: input.agencyId, clientId: input.clientId, since: input.dateFrom, until: input.dateTo, accountIds: input.accountIds })
       .then(audienceForPdf).catch(() => undefined),
     // Saldo e forma de pagamento são informações internas: só entram no PDF aberto por quem é da equipe, nunca pela Área do Cliente.
-    input.includeBalances ? getClientAccountBilling({ agencyId: input.agencyId, clientId: input.clientId }).then(balancesForPdf).catch(() => undefined) : Promise.resolve(undefined),
+    input.includeBalances ? getClientAccountBilling({ agencyId: input.agencyId, clientId: input.clientId })
+      // Só as contas do relatório: o PDF de uma conta não mostra o saldo e o cartão das outras.
+      .then(accounts => balancesForPdf(accounts.filter(account => input.accountIds.includes(account.accountId)))).catch(() => undefined) : Promise.resolve(undefined),
   ]);
   return { audience, balances };
 }

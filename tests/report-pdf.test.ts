@@ -173,3 +173,16 @@ describe("PDF com uma seção por conta", () => {
     await expect(buildPeriodPdfV2({ clientName: "RM", workspaceName: "iGrow", data: data(), accounts: [{ name: "A", data: partial }] })).rejects.toThrow();
   });
 });
+
+describe("rótulos do relatório", () => {
+  it("o resultado de cliques no link das campanhas de tráfego não se confunde com o indicador de cliques", () => {
+    const LINK = "result:provider:action:link_click";
+    const base = data();
+    const facts = buildReportFacts({ ...base, summary: { ...base.summary, [LINK]: 2217, "result:provider_known": 1 }, campaigns: [
+      { id: "t1", name: "Tráfego", accountName: "A", accountId: "b", currency: "BRL", status: null, values: { spend: 482.06, "result:provider_known": 1, [LINK]: 2217 } },
+    ] });
+    const labels = facts.results.map(result => result.label);
+    expect(labels).toContain("Cliques no link das campanhas de tráfego");
+    expect(labels).not.toContain("Cliques no link");
+  });
+});

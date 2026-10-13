@@ -70,6 +70,9 @@ export type ReportFacts = {
   limitations: string[];
 };
 
+// "Cliques no link" como resultado vem só das campanhas de tráfego; o indicador de entrega tem o mesmo nome e outro total.
+const resultLabel = (key: string, label: string) => key.endsWith("action:link_click") ? "Cliques no link das campanhas de tráfego" : label;
+
 const finite = (value: number | null | undefined): value is number => value != null && Number.isFinite(value);
 
 export function percentChange(current: number | null, previous: number | null): number | null {
@@ -200,7 +203,7 @@ export function buildReportFacts(
     const previousCost = previousCosts.get(result.key) ?? null;
     const before = previousKnown ? (previous.get(result.key) ?? 0) : null;
     return {
-      key: result.key, label: result.label, quantity: result.value,
+      key: result.key, label: resultLabel(result.key, result.label), quantity: result.value,
       previousQuantity: before, changePct: percentChange(result.value, before),
       spend: cost != null ? cost * result.value : null, costPerResult: cost,
       previousCostPerResult: previousCost, costChangePct: percentChange(cost, previousCost),
@@ -223,7 +226,7 @@ export function buildReportFacts(
       return {
         id: campaign.id, name: campaign.name, accountName: campaign.accountName, spend,
         shareOfSpend: finite(spendNow) && spendNow > 0 ? (spend / spendNow) * 100 : null,
-        result: single ? { key: single.key, label: single.label, quantity: single.value } : null,
+        result: single ? { key: single.key, label: resultLabel(single.key, single.label), quantity: single.value } : null,
         mixedResults: entries.length > 1, resultConfirmed: campaign.values["result:provider_known"] === 1,
         costPerResult: single && single.value > 0 ? spend / single.value : null,
       };
@@ -242,7 +245,7 @@ export function buildReportFacts(
     const single = entries.length === 1 ? entries[0] : null;
     return {
       id: entity.id, name: entity.name, campaignName: entity.campaignId ? campaignNames.get(`${entity.accountId}:${entity.campaignId}`) ?? null : null, spend,
-      result: single ? { key: single.key, label: single.label, quantity: single.value } : null, mixedResults: entries.length > 1,
+      result: single ? { key: single.key, label: resultLabel(single.key, single.label), quantity: single.value } : null, mixedResults: entries.length > 1,
       resultConfirmed: entity.values["result:provider_known"] === 1,
       costPerResult: single && single.value > 0 ? spend / single.value : null,
     };
