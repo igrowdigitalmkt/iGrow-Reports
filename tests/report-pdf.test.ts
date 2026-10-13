@@ -134,6 +134,15 @@ describe("chave e ligações do PDF novo", () => {
     vi.unstubAllEnvs();
   });
 
+  it("o layout escolhido pela organização liga o PDF novo só nos verticais", () => {
+    vi.stubEnv("NEXT_PUBLIC_REPORT_PDF_V2", "");
+    expect(usesReportPdfV2({ orientation: "vertical", layout: "modern" })).toBe(true);
+    expect(usesReportPdfV2({ layout: "modern" })).toBe(true);
+    expect(usesReportPdfV2({ orientation: "vertical", layout: "classic" })).toBe(false);
+    expect(usesReportPdfV2({ orientation: "horizontal", layout: "modern" })).toBe(false);
+    vi.unstubAllEnvs();
+  });
+
   it("converte a entrada do gerador antigo sem perder análise nem hierarquia", () => {
     const source = { title: "T", clientName: "C", workspaceName: "W", headerDetails: "", data: data(), metrics: [], entityLabels: [], accountLabels: [], comparison: false, chartType: "line" as const, analysisNote: "Nota", entityRows: [] };
     expect(toReportPdfInput(source)).toMatchObject({ clientName: "C", workspaceName: "W", analysisNote: "Nota", entityRows: [] });

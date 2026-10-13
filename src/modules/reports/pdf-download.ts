@@ -17,6 +17,8 @@ export type DashboardPdfInput = {
   entityRows?: AnalyticsEntity[]; campaignMetrics?: AnalyticsMetric[];
   orientation?: "vertical" | "horizontal";
   analysisNote?: string;
+  // Layout escolhido pela organização; sem valor, vale o clássico.
+  layout?: "classic" | "modern";
   // Só o PDF novo usa estes dois blocos; chegam preenchidos quando o relatório salvo é aberto no servidor.
   audience?: ReportPdfInput["audience"]; balances?: ReportPdfInput["balances"];
 };

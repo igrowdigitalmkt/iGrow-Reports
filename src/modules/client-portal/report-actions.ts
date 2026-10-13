@@ -9,6 +9,7 @@ import { refreshMetaDashboardScope } from "@/modules/meta/server";
 import { metaMetricLabel } from "@/modules/meta/metric-labels";
 import type { DashboardPdfInput } from "@/modules/reports/pdf-download";
 import { loadReportPdfExtras } from "@/modules/reports/pdf/extras";
+import { loadPdfLayout } from "@/modules/reports/layout-settings";
 import { requireClientDashboardAccess } from "./context";
 
 const generateSchema = z.object({
@@ -98,7 +99,8 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
     return { error: "Este relatório foi salvo sem comprovação de cobertura completa e não pode ser exibido." };
   }
   const vertical = configuration.orientation !== "horizontal";
-  const extras = vertical && process.env.NEXT_PUBLIC_REPORT_PDF_V2 === "1"
+  const layout = vertical ? await loadPdfLayout(context.access.agencyId) : "classic";
+  const extras = vertical && (layout === "modern" || process.env.NEXT_PUBLIC_REPORT_PDF_V2 === "1")
     ? await loadReportPdfExtras({ agencyId: context.access.agencyId, clientId: parsed.data.clientId, dateFrom: analytics.dateFrom, dateTo: analytics.dateTo, accountIds: analytics.selectedAccountIds, includeBalances: context.agencyMode })
     : {};
   const labels = Array.isArray(configuration.scope_labels) ? configuration.scope_labels.filter((v): v is string => typeof v === "string") : [];
@@ -112,5 +114,5 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
       .sort((a,b) => (Array.isArray(configuration.campaign_metric_keys) ? configuration.campaign_metric_keys.indexOf(a.key) : 0)
         - (Array.isArray(configuration.campaign_metric_keys) ? configuration.campaign_metric_keys.indexOf(b.key) : 0))
       .filter(m => Array.isArray(configuration.campaign_metric_keys) && configuration.campaign_metric_keys.includes(m.key)),
-    comparison: configuration.comparison === true, chartType: configuration.chart_type === "bar" ? "bar" : "line", ...extras } };
+    comparison: configuration.comparison === true, chartType: configuration.chart_type === "bar" ? "bar" : "line", layout, ...extras } };
 }
