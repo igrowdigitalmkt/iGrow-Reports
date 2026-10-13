@@ -99,7 +99,7 @@ export async function getSavedReportDocument(input: unknown): Promise<{ document
   }
   const vertical = configuration.orientation !== "horizontal";
   const extras = vertical && process.env.NEXT_PUBLIC_REPORT_PDF_V2 === "1"
-    ? await loadReportPdfExtras({ agencyId: context.access.agencyId, clientId: parsed.data.clientId, dateFrom: analytics.dateFrom, dateTo: analytics.dateTo, accountIds: analytics.selectedAccountIds })
+    ? await loadReportPdfExtras({ agencyId: context.access.agencyId, clientId: parsed.data.clientId, dateFrom: analytics.dateFrom, dateTo: analytics.dateTo, accountIds: analytics.selectedAccountIds, includeBalances: context.agencyMode })
     : {};
   const labels = Array.isArray(configuration.scope_labels) ? configuration.scope_labels.filter((v): v is string => typeof v === "string") : [];
   return { document: { title: String(data.title), clientName: String(data.clientName), workspaceName: String(header.name ?? data.workspaceName),
