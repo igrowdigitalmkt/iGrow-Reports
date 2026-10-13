@@ -41,6 +41,19 @@ export async function generateCommentDraft(input: unknown): Promise<CommentDraft
     return { ok: false, message: "A Meta ainda não confirmou os números agregados deste período. Atualize os dados e tente de novo." };
   }
 
+  // Os resultados por tipo do período anterior só existem depois de a Meta confirmar o agregado desse período.
+  // Confirma o anterior como um período próprio e usa o resumo dele na comparação (sem isso, só custo atual).
+  let comparison = analytics;
+  if (analytics.coverage.previousStatus === "complete") {
+    try {
+      const previous = await getFreshClientAnalytics({
+        supabase: context.supabase, agencyId: context.access.agencyId, clientId,
+        dateFrom: analytics.previousDateFrom, dateTo: analytics.previousDateTo, accountIds,
+      });
+      if (previous.coverage.status === "complete" && previous.metaAggregate?.confirmed) comparison = { ...analytics, previousSummary: previous.summary };
+    } catch { /* sem confirmação do anterior, a comparação de resultados fica indisponível e os fatos avisam */ }
+  }
+
   const hierarchy = async (from: string, to: string) => {
     const { data, error } = await context.supabase.rpc("get_client_analytics_hierarchy", {
       p_client_id: clientId, p_date_from: from, p_date_to: to, p_ad_account_ids: accountIds,
@@ -56,7 +69,7 @@ export async function generateCommentDraft(input: unknown): Promise<CommentDraft
     .select(PROFILE_FIELDS.map(item => item.key).join(",")).eq("client_id", clientId).maybeSingle();
   const profile: ClientProfile = { ...EMPTY_PROFILE, ...((profileRow ?? {}) as unknown as Partial<ClientProfile>) };
 
-  const facts = buildReportFacts(confirmedReportData(analytics), entities, previousEntities, sales == null ? undefined : { sales, revenue });
+  const facts = buildReportFacts(confirmedReportData(comparison), entities, previousEntities, sales == null ? undefined : { sales, revenue });
   const result = await generateReportComment({
     agencyId: context.access.agencyId, clientId, userId: context.user.id, facts,
     profile: profileForPrompt(profile), sourceRef: `${dateFrom}..${dateTo}`,
