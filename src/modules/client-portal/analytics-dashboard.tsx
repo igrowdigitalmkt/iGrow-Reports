@@ -841,9 +841,9 @@ export function ClientAnalyticsDashboard({
       </button>}
     </div>}
     {metaVisible ? <section className="platform-section" aria-label="Meta Ads">
-    <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.accounts.length} {data.accounts.length === 1 ? "conta" : "contas"}</span>
+    <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
       <div className="platform-heading-actions">{data.accounts.length > 1 && <details className="analytics-filter-menu">
-          <summary><WalletCards size={14} />{accounts.length === data.accounts.length ? "Todas as contas" : `${accounts.length} contas`}<ChevronDown size={13} /></summary>
+          <summary><WalletCards size={14} />{accounts.length === data.accounts.length ? "Todas as contas" : accounts.length === 1 ? "1 conta" : `${accounts.length} contas`}<ChevronDown size={13} /></summary>
           <div className="analytics-filter-popover"><strong>Contas de anúncios</strong>
             {data.accounts.map((account) => <label key={account.id}>
               <input type="checkbox" checked={accounts.includes(account.id)}
@@ -861,7 +861,7 @@ export function ClientAnalyticsDashboard({
         <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
         <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
       </details>}</div>
-    <BillingSummary clientId={clientId} dailySpend={dailySpend} demoAccounts={demo ? demoBilling ?? [] : undefined} />
+    <BillingSummary clientId={clientId} dailySpend={dailySpend} accountIds={data.selectedAccountIds} demoAccounts={demo ? demoBilling ?? [] : undefined} />
     <div className="analytics-section-toolbar">
       <div className="analytics-tabs" role="tablist" aria-label="Seções do painel">
         {[

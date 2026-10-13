@@ -37,7 +37,8 @@ function describe(account: ClientAccountBilling, daily: number): Row {
  * Balance and payment state of each ad account, read live from Meta: one aligned row per
  * account, accounts that need action first, unused accounts folded away.
  */
-export function BillingSummary({ clientId, dailySpend, demoAccounts }: { clientId: string; dailySpend: Record<string, number>; demoAccounts?: ClientAccountBilling[] }) {
+// `accountIds`: só as contas selecionadas no painel aparecem (sem valor, todas as contas do cliente).
+export function BillingSummary({ clientId, dailySpend, demoAccounts, accountIds }: { clientId: string; dailySpend: Record<string, number>; demoAccounts?: ClientAccountBilling[]; accountIds?: string[] }) {
   const [state, setState] = useState<BillingState>(demoAccounts ? { status: "ready", accounts: demoAccounts } : { status: "loading" });
   const [showIdle, setShowIdle] = useState(false);
 
@@ -56,7 +57,7 @@ export function BillingSummary({ clientId, dailySpend, demoAccounts }: { clientI
   // eslint-disable-next-line react-hooks/set-state-in-effect -- loads external data once per client
   useEffect(() => { void load(); }, [load]);
 
-  const rows = state.status === "ready" ? state.accounts.map(account => describe(account, dailySpend[account.accountId] ?? 0))
+  const rows = state.status === "ready" ? state.accounts.filter(account => !accountIds || accountIds.includes(account.accountId)).map(account => describe(account, dailySpend[account.accountId] ?? 0))
     .sort((a, b) => Number(!!b.issue) - Number(!!a.issue) || b.daily - a.daily) : [];
   const active = rows.filter(row => !row.idle);
   const idle = rows.filter(row => row.idle);
