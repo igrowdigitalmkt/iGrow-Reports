@@ -27,7 +27,7 @@ export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: 
   if (!status.configured) return <div className="grid gap-3">
     <p>O Google Ads ainda não está configurado neste ambiente. Faltam as credenciais do aplicativo no servidor:</p>
     <ul style={{ paddingLeft: 18 }}>{status.missing.map(name => <li key={name}><code>{name}</code></li>)}</ul>
-    <p className="muted text-sm">Elas vêm da aprovação do token de desenvolvedor no Google Ads e de um aplicativo OAuth no Google Cloud. {status.redirectUri ? <>Endereço de retorno a cadastrar no Google Cloud: <code>{status.redirectUri}</code></> : "Defina também NEXT_PUBLIC_APP_URL."}</p>
+    <p className="muted text-sm">Elas vêm de um aplicativo OAuth no Google Cloud, que também precisa do acesso básico à API Google Ads. {status.redirectUri ? <>Endereço de retorno a cadastrar no Google Cloud: <code>{status.redirectUri}</code></> : "Defina também NEXT_PUBLIC_APP_URL."}</p>
   </div>;
 
   return <div className="grid gap-4">

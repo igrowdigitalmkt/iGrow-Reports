@@ -21,9 +21,8 @@ export function googleAdsAppConfig() {
   const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN?.trim();
   const clientId = process.env.GOOGLE_ADS_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET?.trim();
-  const missing = [
-    !developerToken && "GOOGLE_ADS_DEVELOPER_TOKEN", !clientId && "GOOGLE_ADS_CLIENT_ID", !clientSecret && "GOOGLE_ADS_CLIENT_SECRET",
-  ].filter((name): name is string => !!name);
+  // O token de desenvolvedor é opcional (o Google o desativou em 9/9/2026); se existir, é enviado e ignorado pelo servidor.
+  const missing = [!clientId && "GOOGLE_ADS_CLIENT_ID", !clientSecret && "GOOGLE_ADS_CLIENT_SECRET"].filter((name): name is string => !!name);
   return { ready: missing.length === 0, missing, developerToken: developerToken ?? "", clientId: clientId ?? "", clientSecret: clientSecret ?? "" };
 }
 
@@ -99,7 +98,7 @@ export async function loadGoogleAdsClient(service: Service, agencyId: string): P
   if (error || !secret) throw new GoogleAdsSetupError("A credencial do Google Ads não está disponível. Conecte novamente.");
   const refreshToken = decryptServerSecret({ keyId: secret.key_id, nonceB64: secret.nonce_b64, ciphertextB64: secret.ciphertext_b64, authTagB64: secret.auth_tag_b64 }, secretAad(agencyId, connection.integration_id));
   const credentials: GoogleAdsCredentials = {
-    developerToken: config.developerToken, clientId: config.clientId, clientSecret: config.clientSecret, refreshToken, loginCustomerId: connection.login_customer_id,
+    developerToken: config.developerToken || null, clientId: config.clientId, clientSecret: config.clientSecret, refreshToken, loginCustomerId: connection.login_customer_id,
   };
   return { client: new GoogleAdsClient(credentials), connectionId: connection.id, loginCustomerId: connection.login_customer_id };
 }

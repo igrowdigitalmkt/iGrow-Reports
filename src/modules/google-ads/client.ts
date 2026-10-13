@@ -2,7 +2,8 @@
 // Nenhum segredo é registrado em log ou em mensagens de erro.
 
 export type GoogleAdsCredentials = {
-  developerToken: string;
+  // Opcional: desde 9/9/2026 o Google não usa mais o token de desenvolvedor (o acesso vem do projeto do Google Cloud).
+  developerToken?: string | null;
   clientId: string;
   clientSecret: string;
   refreshToken: string;
@@ -63,9 +64,8 @@ export class GoogleAdsClient {
   }
 
   private async request(path: string, init: { method: "GET" | "POST"; body?: unknown }): Promise<Record<string, unknown>> {
-    const headers: Record<string, string> = {
-      authorization: `Bearer ${await this.token()}`, "developer-token": this.credentials.developerToken, "content-type": "application/json",
-    };
+    const headers: Record<string, string> = { authorization: `Bearer ${await this.token()}`, "content-type": "application/json" };
+    if (this.credentials.developerToken) headers["developer-token"] = this.credentials.developerToken;
     if (this.credentials.loginCustomerId) headers["login-customer-id"] = normalizeCustomerId(this.credentials.loginCustomerId);
     const response = await this.fetcher(`https://googleads.googleapis.com/${this.version}/${path}`, {
       method: init.method, headers, body: init.body === undefined ? undefined : JSON.stringify(init.body),

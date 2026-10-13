@@ -160,3 +160,12 @@ describe("seção do Google Ads no painel e no PDF", () => {
     expect(input).toMatchObject({ platformLabel: "Google Ads", accountLabel: "Conta Google", brandColor: "#D93025" });
   });
 });
+
+describe("sem token de desenvolvedor", () => {
+  it("não envia o cabeçalho quando o token não existe", async () => {
+    const seen: Array<Record<string, string>> = [];
+    const fetcher = async (url: string, init: { method: string; headers: Record<string, string> }) => { seen.push(init.headers); return url.includes("oauth2") ? reply(200, { access_token: "t" }) : reply(200, { results: [] }); };
+    await new GoogleAdsClient({ ...credentials, developerToken: null }, { fetcher }).search("1112223333", "SELECT 1");
+    expect(seen.at(-1)).not.toHaveProperty("developer-token");
+  });
+});
