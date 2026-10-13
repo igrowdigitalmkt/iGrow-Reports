@@ -91,3 +91,30 @@ describe("envio com análise da IA", () => {
     expect(channel.sendText).not.toHaveBeenCalled();
   });
 });
+
+describe("contas separadas", () => {
+  const demo = getDemoClientAnalytics();
+  it("renderSeparatedMessage repete só o miolo com números, com o nome de cada conta", async () => {
+    const { renderSeparatedMessage } = await import("@/modules/automations/message");
+    const template = "Olá, {{nome}}!\n\nResumo de {{cliente}}:\n\nInvestimento: {{investimento}}\n\nQualquer dúvida, chame.";
+    const text = renderSeparatedMessage(template, { clientName: "RM", recipientName: "Maria" }, [
+      { name: "Conta Ronaldo", data: { ...demo, summary: { ...demo.summary, spend: 100 } } },
+      { name: "Conta Imobiliária", data: { ...demo, summary: { ...demo.summary, spend: 200 } } },
+    ]);
+    expect(text.match(/Olá, Maria!/g)).toHaveLength(1);
+    expect(text.match(/Qualquer dúvida/g)).toHaveLength(1);
+    expect(text).toContain("Conta: Conta Ronaldo");
+    expect(text).toMatch(/Conta Ronaldo\*\nInvestimento: R\$\s100,00/);
+    expect(text).toMatch(/Conta Imobiliária\*\nInvestimento: R\$\s200,00/);
+  });
+
+  it("por padrão o envio usa um bloco por conta e consolidar volta ao total único", async () => {
+    const run2 = { ...run };
+    const separated = fakeService(tables, demo); const ch1 = sender();
+    await executeAutomation(separated.service as never, { ...automation, message_template: "Investimento: {{investimento}}" } as ReportAutomationRow, run2, { resolveSender: ch1.resolve, pause: () => 0, approval: { runId: "run-1", aiText: "x" } });
+    expect(String((ch1.sendText.mock.calls[0] as unknown[])[1])).toContain("Conta:");
+    const merged = fakeService(tables, demo); const ch2 = sender();
+    await executeAutomation(merged.service as never, { ...automation, message_template: "Investimento: {{investimento}}", consolidate_accounts: true } as ReportAutomationRow, run2, { resolveSender: ch2.resolve, pause: () => 0, approval: { runId: "run-1", aiText: "x" } });
+    expect(String((ch2.sendText.mock.calls[0] as unknown[])[1])).not.toContain("Conta:");
+  });
+});

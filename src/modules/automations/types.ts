@@ -17,6 +17,8 @@ export type AutomationItem = {
   // QR Code session (free text) or one official number (approved template + PDF of the period).
   sender: "qr" | "official";
   connectionId: string | null;
+  // Padrão falso: cada conta de anúncios tem o seu bloco. Verdadeiro soma os resultados das contas.
+  consolidateAccounts?: boolean;
   nextRunAt: string | null;
   lastRunAt: string | null;
   targets: AutomationTarget[];

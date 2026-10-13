@@ -27,6 +27,7 @@ const automationSchema = z.object({
   active: z.boolean(),
   recipientIds: z.array(uuid).max(50),
   sender: z.enum(["qr", "official"]).default("qr"),
+  consolidateAccounts: z.boolean().default(false),
   connectionId: uuid.nullable().default(null),
   groups: z.array(z.object({ id: z.string().regex(/^[\w.-]+@g\.us$/), name: z.string().trim().min(1).max(200) })).max(20),
 }).superRefine((value, ctx) => {
@@ -72,6 +73,7 @@ export async function saveAutomationAction(input: unknown) {
     frequency: value.frequency, weekdays: weekdays.length ? weekdays : [1], month_day: value.monthDay, send_time: value.sendTime,
     timezone, active: value.active, next_run_at: next?.toISOString() ?? null, updated_at: new Date().toISOString(),
     sender: value.sender, whatsapp_connection_id: value.sender === "official" ? value.connectionId : null,
+    consolidate_accounts: value.consolidateAccounts,
   };
   const write = (values: typeof row | Omit<typeof row, "sender" | "whatsapp_connection_id">) => value.id
     ? context.supabase.from("report_automations").update(values).eq("agency_id", agencyId).eq("id", value.id).select("id").single()

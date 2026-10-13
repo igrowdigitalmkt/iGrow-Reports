@@ -5,7 +5,7 @@ import { normalizeClientAnalytics } from "@/modules/client-portal/analytics-calc
 import { generateWhatsAppSummary } from "@/modules/ai/whatsapp-summary";
 import type { GuardedResult } from "@/modules/ai/guarded-text";
 import type { Database, ReportAutomationRow, ReportAutomationRunRow } from "@/types/database";
-import { renderMessage, usedVariables } from "./message";
+import { renderMessage, renderSeparatedMessage, usedVariables, type AccountBlock } from "./message";
 import { summarizeBalance } from "@/modules/meta/balance";
 import { getClientAccountBilling } from "@/modules/meta/server";
 import { localDate, nextRunAt, resolvePeriod } from "./schedule";
@@ -34,7 +34,8 @@ export function planRun(automation: Pick<ReportAutomationRow, "frequency" | "wee
 }
 
 export type RunOutcome = { status: "sent" | "partial" | "failed" | "skipped" | "awaiting_approval"; sent: number; failed: number; message: string | null; runId: string | null };
-export type SummaryGenerator = (input: { agencyId: string; clientId: string; data: ReturnType<typeof normalizeClientAnalytics> }) => Promise<GuardedResult>;
+type AnalyticsData = ReturnType<typeof normalizeClientAnalytics>;
+export type SummaryGenerator = (input: { agencyId: string; clientId: string; data: AnalyticsData; accounts?: Array<{ id: string; name: string; data: AnalyticsData }> }) => Promise<GuardedResult>;
 export type ExecuteOptions = {
   resolveSender: SenderResolver; sendOfficialPdf?: OfficialPdfSender; pause?: () => number; appUrl?: string | null;
   /** Escreve a análise de {{analise_ia}}; sem ele usa a IA real. */
@@ -113,27 +114,45 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       const failures = outcome.results.filter(item => item.status === "failed").map(item => `${item.name}: ${item.message ?? "falhou"}`);
       return await finish(sentCount || failures.length ? runStatus({ sent: sentCount, failed: failures.length }) : "skipped", { message_text: outcome.summary.slice(0, 6000), sent_count: sentCount, failed_count: failures.length, error_message: failures.join(" · ") || null });
     }
+    // Contas separadas (padrão): cada conta de anúncios com os próprios números. Consolidar soma tudo como uma conta só.
+    let perAccount: Array<{ id: string; name: string; data: AnalyticsData }> | null = null;
+    if (!automation.consolidate_accounts && data.accounts.length > 1) {
+      const loaded = await Promise.all(data.accounts.map(async account => {
+        const { data: accountPayload, error } = await service.rpc("service_client_analytics_accounts", {
+          p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo, p_account_ids: [account.id],
+        });
+        return error || !accountPayload ? null : { id: account.id, name: account.name, data: normalizeClientAnalytics(accountPayload) };
+      }));
+      if (loaded.some(item => !item)) return await finish("failed", { error_message: "Não foi possível ler os números de uma das contas do cliente." });
+      perAccount = loaded.filter(item => item !== null);
+    }
     // The balance is read live from Meta only when the message shows it.
-    const balance = usedVariables(automation.message_template).includes("saldo")
-      ? await getClientAccountBilling({ agencyId: automation.agency_id, clientId: automation.client_id }).then(summarizeBalance, () => null) : null;
+    const billing = usedVariables(automation.message_template).includes("saldo")
+      ? await getClientAccountBilling({ agencyId: automation.agency_id, clientId: automation.client_id }).catch(() => null) : null;
+    const balance = billing ? summarizeBalance(billing) : null;
+    const blocks: AccountBlock[] | null = perAccount && perAccount.map(account => ({
+      name: account.name, data: account.data, balance: billing ? summarizeBalance(billing.filter(item => item.accountId === account.id)) : null,
+    }));
+    const dashboardUrl = options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null;
+    const compose = (recipientName: string, aiText: string | null) => blocks
+      ? renderSeparatedMessage(automation.message_template, { clientName: client.name, workspaceName: agency?.name ?? null, aiText, dashboardUrl, recipientName }, blocks)
+      : renderMessage(automation.message_template, { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, aiText, dashboardUrl, recipientName });
     const aiText: string | null = options.approval?.aiText ?? null;
     if (!aiText && usedVariables(automation.message_template).includes("analise_ia")) {
       // A IA escreve uma vez por execução e nada sai antes de o responsável aprovar o texto.
       const generate: SummaryGenerator = options.generateSummary ?? (input => generateWhatsAppSummary({ ...input, service }));
-      const written = await generate({ agencyId: automation.agency_id, clientId: automation.client_id, data });
+      const written = await generate({ agencyId: automation.agency_id, clientId: automation.client_id, data, ...(perAccount ? { accounts: perAccount } : {}) });
       if (!written.ok) return await finish("failed", { error_message: `Análise com IA indisponível: ${written.message}` });
-      const preview = renderMessage(automation.message_template, { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, aiText: written.text, recipientName: people[0]?.name ?? "pessoal", dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null });
+      const preview = compose(people[0]?.name ?? "pessoal", written.text);
       await service.from("report_automation_runs").update({ status: "awaiting_approval", ai_text: written.text, message_text: preview.slice(0, 6000), error_message: null }).eq("id", runId);
       return { status: "awaiting_approval", sent: 0, failed: 0, message: null, runId };
     }
-    const context = { clientName: client.name, workspaceName: agency?.name ?? null, data, balance, aiText, dashboardUrl: options.appUrl ? `${options.appUrl}/cliente/${automation.client_id}` : null };
-
     let sent = 0; let failed = 0; const errors: string[] = [];
     const recipientIdOf = new Map(people.map(person => [person.phone, person.id]));
     // Each person gets their own first name; a group gets the version without a name.
     const deliveries: Array<{ destination: MessageDestination; text: string }> = [
-      ...people.map(person => ({ destination: { kind: "phone" as const, phone: person.phone, label: person.name }, text: renderMessage(automation.message_template, { ...context, recipientName: person.name }) })),
-      ...groups.map(group => ({ destination: { kind: "group" as const, groupId: group.id, label: group.name }, text: renderMessage(automation.message_template, { ...context, recipientName: "pessoal" }) })),
+      ...people.map(person => ({ destination: { kind: "phone" as const, phone: person.phone, label: person.name }, text: compose(person.name, aiText) })),
+      ...groups.map(group => ({ destination: { kind: "group" as const, groupId: group.id, label: group.name }, text: compose("pessoal", aiText) })),
     ];
     for (const [index, item] of deliveries.entries()) {
       const report = await deliverToDestinations(sender!, [item.destination], item.text, options.pause);

@@ -872,3 +872,11 @@ Com o responsável logado no navegador do assistente (Vercel, Supabase e a plata
 ### 13/10/2026 (4) — Ajuste da análise do WhatsApp após o primeiro envio real
 - Migração `202610130003_service_client_hierarchy` aplicada em produção (NÃO reaplicar): leitura da hierarquia de anúncios pela chave de serviço.
 - Prompt do WhatsApp: não confundir "cliques" com "cliques no link", concentração do investimento só com base no investimento por tipo, não repetir os números já presentes na mensagem, até 3 melhores e 3 piores anúncios (mesmo tipo de resultado) pelo nome com o custo. Limite de ~110 palavras.
+
+## 13/10/2026 (5) — Contas separadas por padrão nos envios automáticos
+
+Decisão do responsável: contas de uma mesma plataforma são tratadas **separadamente por padrão**; a caixa "Consolidar resultados" (desmarcada) junta tudo como uma conta só. Exemplos de teste: RM Imobiliária (duas contas com funções e pagamentos diferentes) e Colégio Crescer (duas contas trabalhadas do mesmo jeito, uma delas restrita; os dados dela continuam necessários).
+- **Migração `202610130004_account_separation` aplicada em produção** (NÃO reaplicar): `report_automations.consolidate_accounts boolean default false` e `service_client_analytics_accounts` (leitura por conta pela chave de serviço).
+- **Mensagem de WhatsApp (QR Code):** com mais de uma conta e sem consolidar, a saudação e o fechamento saem uma vez e o miolo com os números se repete por conta (`📌 Conta: nome`), com saldo/pagamento de cada conta (`renderSeparatedMessage`). A análise da IA recebe os fatos por conta e analisa uma de cada vez. Checkbox no editor do agendamento.
+- **Efeito em agendamentos existentes:** os de QR Code de clientes com várias contas passam a sair separados no próximo envio. O PDF do número oficial **ainda sai consolidado** (próxima etapa).
+- **Próximas etapas:** (B) caixa "Consolidar resultados" no dashboard (contas selecionadas separadas por padrão) e no PDF baixado; (C) PDF oficial/agendado por conta; (D) multiplataforma (mockup aprovado em parte).

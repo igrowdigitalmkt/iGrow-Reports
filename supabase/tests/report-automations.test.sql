@@ -45,6 +45,8 @@ reset role;
 -- Hierarquia pelo servidor: só a chave de serviço executa.
 set local role authenticated;
 select throws_ok($$select public.service_client_hierarchy('7aaaaaaa-0000-4000-8000-000000000099','2026-10-01','2026-10-07')$$,'42501',null,'Usuário logado não lê a hierarquia pela rota do servidor');
+select throws_ok($$select public.service_client_analytics_accounts('7aaaaaaa-0000-4000-8000-000000000099','2026-10-01','2026-10-07',array['7aaaaaaa-0000-4000-8000-000000000098']::uuid[])$$,'42501',null,'Usuário logado não lê contas pela rota do servidor');
+select is((select consolidate_accounts from report_automations limit 1),false,'Contas separadas por padrão') where exists(select 1 from report_automations);
 reset role;
 select * from finish();
 rollback;

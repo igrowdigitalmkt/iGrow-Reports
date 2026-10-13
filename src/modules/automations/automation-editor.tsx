@@ -119,7 +119,7 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
     if (demo) { setError("Na demonstração nada é salvo. Entre no seu espaço para criar agendamentos de verdade."); return null; }
     const result = await saveAutomationAction({
         id: draft.id, clientId: draft.clientId, name: draft.name, messageTemplate: official ? "PDF do período pela mensagem modelo do número oficial." : draft.messageTemplate, periodKey: draft.periodKey,
-        sender: draft.sender, connectionId: official ? draft.connectionId : null,
+        sender: draft.sender, connectionId: official ? draft.connectionId : null, consolidateAccounts: draft.consolidateAccounts ?? false,
         frequency: draft.frequency, weekdays: draft.weekdays, monthDay: draft.monthDay, sendTime: draft.sendTime, active: draft.active,
         recipientIds: selectedIds, groups: official ? [] : draft.targets.flatMap(target => target.groupId ? [{ id: target.groupId, name: target.groupName }] : []),
     });
@@ -248,6 +248,7 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
             {nextRuns.length ? <ol>{nextRuns.map(run => <li key={run.toISOString()}>{when.format(run)}</li>)}</ol> : <p>Escolha ao menos um dia da semana.</p>}
           </div>
           {error && <p role="alert" className="meta-feedback error">{error}</p>}
+          {!official && <label className="automation-active"><input type="checkbox" checked={draft.consolidateAccounts ?? false} onChange={event => update({ consolidateAccounts: event.target.checked })} /><span>Consolidar resultados das contas — some tudo como se fosse uma conta. Desmarcado, cada conta de anúncios aparece separada na mensagem.</span></label>}
           <label className="automation-active"><input type="checkbox" checked={draft.active} onChange={event => update({ active: event.target.checked })} /><span>Ativo — enviar automaticamente nos horários acima</span></label>
           <div className="automation-save">
             <Button variant="secondary" onClick={leave} disabled={saving}>Cancelar</Button>

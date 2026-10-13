@@ -204,3 +204,28 @@ export function renderMessage(template: string, context: MessageContext) {
   const values = messageValues(context);
   return template.replace(PATTERN, (whole, key: string) => values[key.toLowerCase()] ?? whole).replace(/\n{3,}/g, "\n\n").trim();
 }
+
+export type AccountBlock = { name: string; data: AnalyticsDashboardData | null; balance?: BalanceSummary | null };
+
+// Variáveis que descrevem a conversa (quem, qual período) e não os números de uma conta.
+const FRAME_KEYS = new Set(["nome", "cliente", "periodo", "equipe", "link_painel", "analise_ia"]);
+
+/**
+ * Mensagem com um bloco por conta de anúncios. A saudação (parágrafos antes do primeiro número) e o
+ * fechamento (depois do último) saem uma vez; o miolo com os números se repete para cada conta, com o nome dela.
+ */
+export function renderSeparatedMessage(template: string, context: Omit<MessageContext, "data" | "balance">, accounts: AccountBlock[]) {
+  const paragraphs = template.split(/\n{2,}/);
+  const isMetric = (paragraph: string) => usedVariables(paragraph).some(key => !FRAME_KEYS.has(key));
+  const first = paragraphs.findIndex(isMetric);
+  const last = paragraphs.length - 1 - [...paragraphs].reverse().findIndex(isMetric);
+  const lead = accounts[0]?.data ?? null;
+  if (first < 0 || accounts.length < 2) return renderMessage(template, { ...context, data: lead, balance: accounts[0]?.balance });
+  const render = (parts: string[], block: AccountBlock) => renderMessage(parts.join("\n\n"), { ...context, data: block.data, balance: block.balance });
+  const head = paragraphs.slice(0, first), middle = paragraphs.slice(first, last + 1), tail = paragraphs.slice(last + 1);
+  return [
+    head.length ? render(head, accounts[0]) : "",
+    ...accounts.map(block => `📌 *Conta: ${block.name}*\n${render(middle, block)}`),
+    tail.length ? render(tail, accounts[0]) : "",
+  ].filter(Boolean).join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+}

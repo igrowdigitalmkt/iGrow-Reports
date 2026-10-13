@@ -222,6 +222,8 @@ export type ReportAutomationRow = {
   active: boolean; next_run_at: string | null; last_run_at: string | null; created_by: string | null; created_at: string; updated_at: string;
   // Added by migration 202610070010: QR Code session (free text) or one official number (template + PDF).
   sender?: "qr" | "official"; whatsapp_connection_id?: string | null;
+  // Migration 202610130004: falso (padrão) = um bloco por conta de anúncios; verdadeiro = resultados somados.
+  consolidate_accounts?: boolean;
 };
 export type ReportAutomationTargetRow = {
   id: string; agency_id: string; automation_id: string; client_id: string; recipient_id: string | null; group_id: string | null; group_name: string | null; created_at: string;
@@ -431,6 +433,7 @@ export type Database = {
       prune_whatsapp_qr_messages: { Args: { p_batch_size: number }; Returns: number };
       set_whatsapp_conversation_archived: { Args: { p_conversation_id: string; p_archived: boolean }; Returns: undefined };
       service_client_hierarchy: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };
+      service_client_analytics_accounts: { Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_account_ids: string[] }; Returns: Json };
       service_client_analytics: { Args: { p_client_id: string; p_date_from: string; p_date_to: string }; Returns: Json };
       record_whatsapp_webhook: { Args: { p_dedup_key: string; p_payload: Json }; Returns: boolean };
       delete_integration_secret: { Args: { p_agency_id: string; p_integration_id: string; p_secret_kind: string }; Returns: undefined };

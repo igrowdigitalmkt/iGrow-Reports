@@ -25,6 +25,7 @@ Resultados:
 - Todos os tipos de resultado importam e cada um tem custo próprio. Cite cada tipo separadamente, nunca some tipos diferentes e nunca escolha um "resultado principal".
 - Compare com o período anterior só quando os fatos trouxerem a variação. Sem comparação disponível, descreva sem comparar.
 - Se os fatos trouxerem "perfil_do_cliente", use-o só como contexto do negócio.
+- Se os fatos trouxerem "contas", cada conta tem o seu objetivo e os seus números. Analise uma conta de cada vez, citando o nome da conta, e nunca some nem compare resultados entre contas.
 - Só diga onde o investimento se concentrou comparando o "investimento_nas_campanhas_deste_tipo" de cada tipo de resultado. Sem esses valores, não afirme concentração.
 - Use o nome exato de cada métrica dos fatos. "Cliques" e "cliques no link" são métricas diferentes: nunca troque uma pela outra.
 
@@ -36,17 +37,22 @@ Honestidade:
 - Respeite os "limites_da_leitura": se algo não está disponível, não suponha.
 
 Formato: a mensagem já mostra investimento, alcance, impressões, cliques e a lista de resultados com custos. Não repita esses números em bloco: interprete-os (o que mudou e onde o investimento rendeu mais) e dê o próximo passo.
-Texto em até 110 palavras, sem emojis, sem tabelas e sem Markdown (nada de asteriscos ou negrito). Primeiro 2 a 3 frases curtas de interpretação. Se houver anúncios nas listas, depois duas linhas, cada uma começando pelo rótulo:
+Texto em até 110 palavras (até 170 quando houver mais de uma conta), sem emojis, sem tabelas e sem Markdown (nada de asteriscos ou negrito). Primeiro 2 a 3 frases curtas de interpretação (uma frase por conta, quando houver contas). Se houver anúncios nas listas, depois duas linhas, cada uma começando pelo rótulo:
 Melhores anúncios: nomes com o custo por resultado de cada um.
 Piores anúncios: nomes com o custo por resultado de cada um.
 Termine com uma frase de próximo passo sustentada pelos dados. Não faça saudação nem despedida e não cite o nome do cliente: a mensagem já tem isso.`;
 
-export type WhatsAppSummaryInput = { agencyId: string; clientId: string; data: AnalyticsDashboardData; service: Service };
+export type WhatsAppSummaryInput = {
+  agencyId: string; clientId: string; data: AnalyticsDashboardData; service: Service;
+  // Contas separadas: cada uma com os próprios números. Sem isso, o resumo usa `data` (todas as contas somadas).
+  accounts?: Array<{ id: string; name: string; data: AnalyticsDashboardData }>;
+};
 
 // Resumo curto para o WhatsApp. Só gera com todos os dias do período confirmados e o agregado da Meta confirmado.
 export async function generateWhatsAppSummary(input: WhatsAppSummaryInput, deps: GuardedDeps = {}): Promise<GuardedResult> {
   const { data } = input;
-  if (data.coverage.status !== "complete" || !data.metaAggregate?.confirmed) {
+  const parts = input.accounts?.length ? input.accounts.map(account => account.data) : [data];
+  if (parts.some(part => part.coverage.status !== "complete" || !part.metaAggregate?.confirmed)) {
     return { ok: false, reason: "unavailable", message: "Os números do período ainda não estão confirmados para a análise com IA. Atualize os dados do cliente." };
   }
   const { data: profileRow } = await input.service.from("client_profiles")
@@ -55,11 +61,16 @@ export async function generateWhatsAppSummary(input: WhatsAppSummaryInput, deps:
   // Anúncios do período (para citar os melhores e os piores). Sem eles, o resumo segue só com os totais.
   const { data: hierarchy, error: hierarchyError } = await input.service.rpc("service_client_hierarchy", { p_client_id: input.clientId, p_date_from: data.dateFrom, p_date_to: data.dateTo });
   const entities = hierarchyError || !hierarchy ? [] : normalizeHierarchy(hierarchy);
-  const facts = buildReportFacts(confirmedReportData(data), entities);
+  const profileFacts = profileForPrompt(profile);
+  const factsFor = (part: AnalyticsDashboardData, accountId?: string) =>
+    formatFactsForPrompt(buildReportFacts(confirmedReportData(part), accountId ? entities.filter(entity => entity.accountId === accountId) : entities), accountId ? null : profileFacts);
+  const facts = input.accounts?.length
+    ? { ...(profileFacts && Object.keys(profileFacts).length ? { perfil_do_cliente: profileFacts } : {}), contas: input.accounts.map(account => ({ nome_da_conta: account.name, ...factsFor(account.data, account.id) })) }
+    : factsFor(data);
   return runGuardedGeneration({
     agencyId: input.agencyId, clientId: input.clientId, userId: null, feature: "whatsapp_summary",
     system: WHATSAPP_SYSTEM_PROMPT, factsLabel: "Fatos confirmados do período (JSON):",
-    factsText: JSON.stringify(formatFactsForPrompt(facts, profileForPrompt(profile)), null, 2),
+    factsText: JSON.stringify(facts, null, 2),
     sourceRef: `${data.dateFrom}..${data.dateTo}`, maxTokens: 600,
   }, { supabase: input.service, ...deps });
 }
