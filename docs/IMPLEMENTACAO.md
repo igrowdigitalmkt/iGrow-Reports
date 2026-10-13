@@ -897,3 +897,6 @@ Pedido do responsável (anotações sobre a tela): cada informação fica na sua
 ### 13/10/2026 (10) — "Análise por conta" removida; Qualidade dos dados ao lado de "Meta Ads"
 - A página `/cliente/[clientId]/snapshots` ("Análise por conta"), seus módulos (`snapshot-dashboard*`, `snapshot-series*`, `snapshot-unavailable`, gráfico), os módulos de leitura/comparação/exportação de snapshot que ficaram sem uso e 190 testes dessa função foram removidos a pedido do responsável ("nunca serviu pra nada"). Mantidos: `integrations/snapshot-projection` (usado pelo teste do adaptador do worker da Meta) e todo o banco (tabelas e funções de coleta não foram alterados).
 - O botão "Análise por conta" saiu do dashboard. A "Qualidade dos dados" agora fica na mesma linha do título "Meta Ads", ao lado de "N conta(s) de M".
+
+### 13/10/2026 (11) — Cabeçalho fixo do dashboard
+O cabeçalho (cliente, ações, período, data/hora de atualização) agora é um bloco fixo (`.analytics-sticky-header`) e a linha fina que o separa passou para **baixo** da data e da atualização. Vale na visualização normal e no modo Apresentar (tela cheia). No celular (≤ 650 px) o cabeçalho não fica fixo, para não ocupar a tela.

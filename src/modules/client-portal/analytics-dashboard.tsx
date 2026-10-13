@@ -748,6 +748,7 @@ export function ClientAnalyticsDashboard({
   }
 
   return <section ref={dashboardRef} className={`analytics-dashboard${navigating ? " is-navigating" : ""}`} aria-label="Painel de desempenho" aria-busy={pending || navigating}>
+    <div className="analytics-sticky-header">
     <header className="analytics-header">
       <div className="analytics-identity">
         <span className="client-avatar large blue" aria-hidden="true">{clientName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
@@ -808,6 +809,7 @@ export function ClientAnalyticsDashboard({
     </div>
 
     </>}
+    </div>
     {error && <div className="analytics-notice analytics-notice-error" role="alert"><Info size={17} /><p>{error}</p></div>}
     {notice && <div className="analytics-notice analytics-notice-success" role="status"><Check size={17} /><p>{notice}</p></div>}
     {pending && <div className="analytics-notice" role="status" aria-live="polite">
