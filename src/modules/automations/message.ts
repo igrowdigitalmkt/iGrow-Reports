@@ -225,7 +225,14 @@ export function renderSeparatedMessage(template: string, context: Omit<MessageCo
   const head = paragraphs.slice(0, first), middle = paragraphs.slice(first, last + 1), tail = paragraphs.slice(last + 1);
   return [
     head.length ? render(head, accounts[0]) : "",
-    ...accounts.map(block => `📌 *Conta: ${block.name}*\n${render(middle, block)}`),
+    ...accounts.map(block => {
+      // Conta sem investimento no período: uma linha curta (com o saldo, se a mensagem o mostra), sem tabela de zeros.
+      if (block.data && !(block.data.summary.spend ?? 0)) {
+        const funds = block.balance && usedVariables(middle.join("\n")).includes("saldo") ? `\n🏦 Saldo disponível: ${balanceText(block.balance)}` : "";
+        return `📌 *Conta: ${block.name}*\nSem investimento neste período.${funds}`;
+      }
+      return `📌 *Conta: ${block.name}*\n${render(middle, block)}`;
+    }),
     tail.length ? render(tail, accounts[0]) : "",
   ].filter(Boolean).join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
 }

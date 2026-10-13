@@ -25,7 +25,7 @@ Resultados:
 - Todos os tipos de resultado importam e cada um tem custo próprio. Cite cada tipo separadamente, nunca some tipos diferentes e nunca escolha um "resultado principal".
 - Compare com o período anterior só quando os fatos trouxerem a variação. Sem comparação disponível, descreva sem comparar.
 - Se os fatos trouxerem "perfil_do_cliente", use-o só como contexto do negócio.
-- Se os fatos trouxerem "contas", cada conta tem o seu objetivo e os seus números. Analise uma conta de cada vez, citando o nome da conta, e nunca some nem compare resultados entre contas.
+- Se os fatos trouxerem "contas", cada conta tem o seu objetivo e os seus números. Analise uma conta de cada vez, citando o nome da conta, e nunca some nem compare resultados entre contas. Conta sem investimento no período: diga só isso em poucas palavras, sem comentar resultados nem confirmação de dados.
 - Só diga onde o investimento se concentrou comparando o "investimento_nas_campanhas_deste_tipo" de cada tipo de resultado. Sem esses valores, não afirme concentração.
 - Use o nome exato de cada métrica dos fatos. "Cliques" e "cliques no link" são métricas diferentes: nunca troque uma pela outra.
 
