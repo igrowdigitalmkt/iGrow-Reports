@@ -26,6 +26,10 @@ try {
     create function auth.uid() returns uuid language sql stable as $$
       select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid;
     $$;
+    -- Supabase's auth.jwt(): the claims of the verified token (tests set request.jwt.claims, e.g. aal).
+    create function auth.jwt() returns jsonb language sql stable as $$
+      select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb;
+    $$;
     -- Supabase reads the role from the JWT; in tests the session role stands in for it.
     create function auth.role() returns text language sql stable as $$
       select coalesce(nullif(current_setting('request.jwt.claim.role',true),''), nullif(current_setting('role',true),'none'), current_user::text);

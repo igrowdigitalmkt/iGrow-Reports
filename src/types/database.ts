@@ -349,6 +349,9 @@ export type Database = {
       set_agency_member_modules: { Args: { p_agency_id: string; p_user_id: string; p_modules: string[] | null }; Returns: undefined };
       accept_pending_agency_invitations: { Args: Record<string, never>; Returns: number };
       create_own_agency: { Args: { p_name: string; p_timezone?: string }; Returns: string };
+      platform_operator_status: { Args: Record<string, never>; Returns: Json };
+      platform_record_audit: { Args: { p_action: string; p_resource_type?: string | null; p_resource_id?: string | null; p_outcome?: string; p_metadata?: Json }; Returns: string };
+      platform_recent_audit: { Args: { p_limit?: number }; Returns: { id: string; actor_email: string | null; action: string; resource_type: string | null; resource_id: string | null; outcome: string; metadata: Json; created_at: string }[] };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };
         Returns: Json;

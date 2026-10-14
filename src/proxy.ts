@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 import { getSupabaseConfig, isDemoEnabled } from "@/lib/env";
+import { gateAdminRequest } from "@/modules/platform-admin/proxy-gate";
+import { isAuthCookie } from "@/lib/supabase/constants";
+
+const isAdminPath = (path: string) => path === "/admin" || path.startsWith("/admin/");
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -12,15 +16,21 @@ export async function proxy(request: NextRequest) {
     });
     return NextResponse.next();
   }
-  if ((path === "/dashboard" || path.startsWith("/dashboard/") || path === "/cliente" || path.startsWith("/cliente/")) && !getSupabaseConfig()) {
+  if ((path === "/dashboard" || path.startsWith("/dashboard/") || path === "/cliente" || path.startsWith("/cliente/") || isAdminPath(path)) && !getSupabaseConfig()) {
     const response = NextResponse.redirect(new URL("/entrar?estado=nao-configurado", request.url));
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   }
-  return updateSession(request);
+  // Visitante sem sessão no Super Admin vai ao login com status HTTP real (a decisão de operador fica nas guardas do servidor).
+  if (isAdminPath(path) && !request.cookies.getAll().some(({ name }) => isAuthCookie(name))) {
+    const response = NextResponse.redirect(new URL(`/entrar?next=${encodeURIComponent(path)}`, request.url));
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  }
+  return updateSession(request, isAdminPath(path) ? gateAdminRequest : undefined);
 }
 
 export const config = {
-  matcher: ["/demo/:path*", "/dashboard/:path*", "/cliente/:path*", "/entrar", "/selecionar-espaco", "/selecionar-agencia", "/sem-acesso", "/convite", "/auth/:path*", "/criar-conta", "/recuperar-senha", "/criar-espaco"],
+  matcher: ["/demo/:path*", "/dashboard/:path*", "/cliente/:path*", "/admin/:path*", "/entrar", "/selecionar-espaco", "/selecionar-agencia", "/sem-acesso", "/convite", "/auth/:path*", "/criar-conta", "/recuperar-senha", "/criar-espaco"],
 };
 
