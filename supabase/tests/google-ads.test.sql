@@ -18,6 +18,7 @@ insert into google_connections(id,agency_id,integration_id,login_customer_id) va
 insert into google_ad_accounts(id,agency_id,google_connection_id,customer_id,name) values ('d1333333-0000-4000-8000-000000000001','d1aaaaaa-0000-4000-8000-000000000001','d1222222-0000-4000-8000-000000000001','2223334444','Conta Google');
 
 select throws_ok($$insert into google_ad_accounts(agency_id,google_connection_id,customer_id,name) values ('d1aaaaaa-0000-4000-8000-000000000001','d1222222-0000-4000-8000-000000000001','123','Curta')$$,'23514',null,'Número de conta precisa ter 10 dígitos');
+select throws_ok($$update google_ad_accounts set login_customer_id='12' where id='d1333333-0000-4000-8000-000000000001'$$,'23514',null,'Gerente da conta precisa ter 10 dígitos');
 select throws_ok($$insert into google_connections(agency_id,integration_id,login_customer_id) values ('d1aaaaaa-0000-4000-8000-000000000001','d1111111-0000-4000-8000-000000000001','abc')$$,'23514',null,'Conta de gerente inválida é recusada');
 
 set local role authenticated;

@@ -18,8 +18,8 @@ export async function linkedGoogleAccounts(service: Service, agencyId: string, c
   const { data: links } = await service.from("client_google_accounts").select("google_ad_account_id").eq("agency_id", agencyId).eq("client_id", clientId).eq("active", true);
   const ids = (links ?? []).map(link => link.google_ad_account_id);
   if (!ids.length) return [];
-  const { data: accounts } = await service.from("google_ad_accounts").select("id,customer_id,name,currency,timezone_name").eq("agency_id", agencyId).in("id", ids).is("archived_at", null).order("name");
-  return (accounts ?? []).map(account => ({ id: account.id, customerId: account.customer_id, name: account.name, currency: account.currency, timezone: account.timezone_name }));
+  const { data: accounts } = await service.from("google_ad_accounts").select("id,customer_id,name,currency,timezone_name,login_customer_id").eq("agency_id", agencyId).in("id", ids).is("archived_at", null).order("name");
+  return (accounts ?? []).map(account => ({ id: account.id, customerId: account.customer_id, name: account.name, currency: account.currency, timezone: account.timezone_name, loginCustomerId: account.login_customer_id }));
 }
 
 /**
@@ -35,9 +35,9 @@ export async function loadGoogleSections(input: { service: Service; agencyId: st
   const results: Outcome[] = await Promise.all(linked.map(async (account): Promise<Outcome> => {
     try {
       const [daily, previousDaily, campaigns] = await Promise.all([
-        client.search(account.customerId, accountDailyQuery(input.dateFrom, input.dateTo)),
-        client.search(account.customerId, accountDailyQuery(previous.from, previous.to)),
-        client.search(account.customerId, campaignQuery(input.dateFrom, input.dateTo)),
+        client.search(account.customerId, accountDailyQuery(input.dateFrom, input.dateTo), { loginCustomerId: account.loginCustomerId }),
+        client.search(account.customerId, accountDailyQuery(previous.from, previous.to), { loginCustomerId: account.loginCustomerId }),
+        client.search(account.customerId, campaignQuery(input.dateFrom, input.dateTo), { loginCustomerId: account.loginCustomerId }),
       ]);
       const data: AnalyticsDashboardData = buildGoogleAnalytics({ account, dateFrom: input.dateFrom, dateTo: input.dateTo, rows: { daily, previousDaily, campaigns } });
       return { section: { id: account.id, name: account.name, data } };

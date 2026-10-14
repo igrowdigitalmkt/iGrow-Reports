@@ -9,7 +9,7 @@ const object = (value: unknown): Row => value !== null && typeof value === "obje
 // A API REST devolve números como texto (int64) ou número.
 const num = (value: unknown): number => { const n = typeof value === "string" || typeof value === "number" ? Number(value) : 0; return Number.isFinite(n) ? n : 0; };
 
-export type GoogleAccount = { id: string; customerId: string; name: string; currency: string; timezone: string };
+export type GoogleAccount = { id: string; customerId: string; name: string; currency: string; timezone: string; loginCustomerId?: string | null };
 type Totals = { spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; videoViews: number };
 const empty = (): Totals => ({ spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, videoViews: 0 });
 function read(metrics: Row): Totals {

@@ -39,14 +39,14 @@ export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: 
       {status.canManage ? <a className="button button-primary" href="/api/google/oauth/start">Conectar com o Google</a> : <p className="muted text-sm">Apenas proprietários e administradores conectam o Google Ads.</p>}
     </div> : <>
       <div className="grid gap-2">
-        <label className="grid gap-1 text-sm">Número da conta de gerente (MCC)
+        <label className="grid gap-1 text-sm">Número da conta de gerente (MCC) — opcional
           <div className="flex gap-2">
             <input className="input" value={customer} onChange={event => setCustomer(event.target.value)} placeholder="123-456-7890" disabled={!status.canManage || pending} inputMode="numeric" />
             <Button variant="secondary" disabled={!status.canManage || pending} onClick={() => run(() => saveGoogleLoginCustomer({ customerId: customer }), "Gerente salvo.")}>Salvar</Button>
           </div>
         </label>
         <div className="flex gap-2" style={{ alignItems: "center" }}>
-          <Button disabled={!status.canManage || pending || !status.loginCustomerId} onClick={() => run(syncGoogleAdsAccountsAction, "Contas atualizadas.")}>
+          <Button disabled={!status.canManage || pending} onClick={() => run(syncGoogleAdsAccountsAction, "Contas atualizadas.")}>
             {pending ? <Loader2 size={15} className="spin" /> : <RefreshCw size={15} />}Buscar contas
           </Button>
           <span className="muted text-sm">{status.lastSyncAt ? `Última busca em ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(status.lastSyncAt))}` : "Nenhuma busca ainda."}</span>
@@ -56,7 +56,7 @@ export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: 
 
       <div className="grid gap-2">
         <h3 style={{ margin: 0 }}>Contas de anúncios</h3>
-        {status.accounts.length === 0 ? <p className="muted text-sm">Nenhuma conta ainda. Informe o gerente e clique em “Buscar contas”.</p> : status.accounts.map(account => <article key={account.id} className="panel" style={{ padding: 12 }}>
+        {status.accounts.length === 0 ? <p className="muted text-sm">Nenhuma conta ainda. Clique em “Buscar contas”. Entram as contas ligadas ao gerente (se informado) e as que você acessa diretamente.</p> : status.accounts.map(account => <article key={account.id} className="panel" style={{ padding: 12 }}>
           <strong>{account.name}</strong> <span className="muted text-sm">{account.customerId} · {account.currency}</span>
           <div className="grid gap-1" style={{ marginTop: 8 }}>
             <span className="muted text-sm">Clientes que usam esta conta</span>

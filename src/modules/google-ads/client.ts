@@ -64,10 +64,12 @@ export class GoogleAdsClient {
     return this.accessToken.value;
   }
 
-  private async request(path: string, init: { method: "GET" | "POST"; body?: unknown }): Promise<Record<string, unknown>> {
+  // `login`: conta de gerente desta chamada. undefined = a da conexão; null = nenhuma (acesso direto do usuário à conta).
+  private async request(path: string, init: { method: "GET" | "POST"; body?: unknown }, login?: string | null): Promise<Record<string, unknown>> {
     const headers: Record<string, string> = { authorization: `Bearer ${await this.token()}`, "content-type": "application/json" };
     if (this.credentials.developerToken) headers["developer-token"] = this.credentials.developerToken;
-    if (this.credentials.loginCustomerId) headers["login-customer-id"] = normalizeCustomerId(this.credentials.loginCustomerId);
+    const manager = login === undefined ? this.credentials.loginCustomerId : login;
+    if (manager) headers["login-customer-id"] = normalizeCustomerId(manager);
     const response = await this.fetcher(`https://googleads.googleapis.com/${this.version}/${path}`, {
       method: init.method, headers, body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
@@ -80,16 +82,37 @@ export class GoogleAdsClient {
   }
 
   /** GAQL com paginação. Devolve todas as linhas. */
-  async search(customerId: string, query: string, maxPages = 50): Promise<Array<Record<string, unknown>>> {
+  async search(customerId: string, query: string, options: { maxPages?: number; loginCustomerId?: string | null } = {}): Promise<Array<Record<string, unknown>>> {
+    const maxPages = options.maxPages ?? 50;
     const rows: Array<Record<string, unknown>> = [];
     let pageToken: string | undefined;
     for (let page = 0; page < maxPages; page += 1) {
-      const body = await this.request(`customers/${normalizeCustomerId(customerId)}/googleAds:search`, { method: "POST", body: { query, ...(pageToken ? { pageToken } : {}) } });
+      const body = await this.request(`customers/${normalizeCustomerId(customerId)}/googleAds:search`, { method: "POST", body: { query, ...(pageToken ? { pageToken } : {}) } }, options.loginCustomerId);
       if (Array.isArray(body.results)) rows.push(...body.results.map(object));
       pageToken = typeof body.nextPageToken === "string" && body.nextPageToken ? body.nextPageToken : undefined;
       if (!pageToken) return rows;
     }
     throw new GoogleAdsApiError("A consulta ao Google Ads passou do limite de páginas.", 0, "PAGE_LIMIT");
+  }
+
+  /** Contas a que o usuário conectado tem acesso direto (sem passar por gerente). */
+  async listAccessibleCustomerIds(): Promise<string[]> {
+    const body = await this.request("customers:listAccessibleCustomers", { method: "GET" }, null);
+    return (Array.isArray(body.resourceNames) ? body.resourceNames : []).flatMap(name => typeof name === "string" && /^customers\/\d{10}$/.test(name) ? [name.slice("customers/".length)] : []);
+  }
+
+  /** Dados de uma conta acessada diretamente. Contas de gerente voltam com `manager: true`. */
+  async directAccountInfo(customerId: string) {
+    const rows = await this.search(customerId, "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.manager, customer.status FROM customer LIMIT 1", { loginCustomerId: null });
+    const customer = object(object(rows[0]).customer);
+    if (!rows.length) return null;
+    return {
+      customerId: normalizeCustomerId(customerId), manager: customer.manager === true,
+      name: typeof customer.descriptiveName === "string" && customer.descriptiveName ? customer.descriptiveName : `Conta ${customerId}`,
+      currency: typeof customer.currencyCode === "string" ? customer.currencyCode : "BRL",
+      timezone: typeof customer.timeZone === "string" ? customer.timeZone : "America/Sao_Paulo",
+      status: typeof customer.status === "string" ? customer.status : "UNKNOWN",
+    };
   }
 
   /** Contas de anúncios sob a conta de gerente informada (ou sob o login atual). */

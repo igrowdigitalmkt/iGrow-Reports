@@ -169,3 +169,26 @@ describe("sem token de desenvolvedor", () => {
     expect(seen.at(-1)).not.toHaveProperty("developer-token");
   });
 });
+
+describe("contas de acesso direto", () => {
+  it("lista as contas acessíveis e lê os dados de cada uma sem usar o gerente da conexão", async () => {
+    const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+    const fetcher = async (url: string, init: { method: string; headers: Record<string, string> }) => {
+      calls.push({ url, headers: init.headers });
+      if (url.includes("oauth2")) return reply(200, { access_token: "t" });
+      if (url.includes("listAccessibleCustomers")) return reply(200, { resourceNames: ["customers/7444643364", "customers/5926576842", "lixo"] });
+      return reply(200, { results: [{ customer: { id: "7444643364", descriptiveName: "iGrow Digital", currencyCode: "BRL", timeZone: "America/Sao_Paulo", manager: false, status: "ENABLED" } }] });
+    };
+    const client = new GoogleAdsClient(credentials, { fetcher });
+    expect(await client.listAccessibleCustomerIds()).toEqual(["7444643364", "5926576842"]);
+    expect(await client.directAccountInfo("744-464-3364")).toMatchObject({ customerId: "7444643364", name: "iGrow Digital", manager: false });
+    for (const call of calls.filter(item => item.url.includes("googleads"))) expect(call.headers).not.toHaveProperty("login-customer-id");
+  });
+  it("a conta vinculada a um gerente envia o gerente dela no acesso", async () => {
+    const seen: Array<Record<string, string>> = [];
+    const fetcher = async (url: string, init: { method: string; headers: Record<string, string> }) => { seen.push(init.headers); return url.includes("oauth2") ? reply(200, { access_token: "t" }) : reply(200, { results: [] }); };
+    const client = new GoogleAdsClient({ ...credentials, loginCustomerId: null }, { fetcher });
+    await client.search("1112223333", "SELECT 1", { loginCustomerId: "5926576842" });
+    expect(seen.at(-1)).toMatchObject({ "login-customer-id": "5926576842" });
+  });
+});

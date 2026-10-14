@@ -103,26 +103,44 @@ export async function loadGoogleAdsClient(service: Service, agencyId: string): P
   return { client: new GoogleAdsClient(credentials), connectionId: connection.id, loginCustomerId: connection.login_customer_id };
 }
 
-/** Atualiza a lista de contas de anúncios sob a conta de gerente. Contas que sumiram da lista ficam arquivadas. */
+type FoundAccount = { customerId: string; name: string; currency: string; timezone: string; status: string; login: string | null };
+
+function describeError(error: unknown) {
+  if (!(error instanceof GoogleAdsApiError)) return error;
+  // Sem segredos: só o status e o código de erro do Google, para o responsável (e o suporte) saberem o que houve.
+  console.error("google-ads-list-accounts", { status: error.status, code: error.code });
+  const detail = `(${error.code ?? `HTTP ${error.status}`})`;
+  return new GoogleAdsSetupError(error.status === 400 || error.status === 401
+    ? `O Google recusou o acesso ${detail}. Reconecte a conta e confira o número do gerente.` : `Não foi possível listar as contas no Google Ads agora ${detail}.`);
+}
+
+/**
+ * Atualiza a lista de contas de anúncios: as contas vinculadas à conta de gerente informada (acessadas por ela)
+ * e as contas a que o usuário conectado tem acesso direto. Contas que sumiram da lista ficam arquivadas.
+ */
 export async function syncGoogleAccounts(service: Service, agencyId: string) {
   const { client, connectionId, loginCustomerId } = await loadGoogleAdsClient(service, agencyId);
-  if (!loginCustomerId) throw new GoogleAdsSetupError("Informe o número da conta de gerente (MCC) do Google Ads antes de buscar as contas.");
-  let accounts;
-  try { accounts = await client.listManagedAccounts(loginCustomerId); }
-  catch (error) {
-    if (error instanceof GoogleAdsApiError) {
-      // Sem segredos: só o status e o código de erro do Google, para o responsável (e o suporte) saberem o que houve.
-      console.error("google-ads-list-accounts", { status: error.status, code: error.code });
-      const detail = `(${error.code ?? `HTTP ${error.status}`})`;
-      throw new GoogleAdsSetupError(error.status === 400 || error.status === 401 ? `O Google recusou o acesso ${detail}. Reconecte a conta e confira o número do gerente.` : `Não foi possível listar as contas no Google Ads agora ${detail}.`);
-    }
-    throw error;
+  const found = new Map<string, FoundAccount>();
+  let failure: unknown = null;
+  if (loginCustomerId) {
+    try {
+      for (const account of await client.listManagedAccounts(loginCustomerId)) found.set(account.customerId, { ...account, login: loginCustomerId });
+    } catch (error) { failure = error; }
   }
+  try {
+    for (const id of await client.listAccessibleCustomerIds()) {
+      if (found.has(id)) continue;
+      const info = await client.directAccountInfo(id).catch(() => null);
+      if (info && !info.manager) found.set(id, { customerId: info.customerId, name: info.name, currency: info.currency, timezone: info.timezone, status: info.status, login: null });
+    }
+  } catch (error) { failure ??= error; }
+  if (!found.size && failure) throw describeError(failure);
+  const accounts = [...found.values()];
   const now = new Date().toISOString();
   if (accounts.length) {
     const { error } = await service.from("google_ad_accounts").upsert(accounts.map(account => ({
       agency_id: agencyId, google_connection_id: connectionId, customer_id: account.customerId, name: account.name, currency: account.currency,
-      timezone_name: account.timezone, status: account.status, archived_at: null,
+      timezone_name: account.timezone, status: account.status, archived_at: null, login_customer_id: account.login,
     })), { onConflict: "agency_id,google_connection_id,customer_id" });
     if (error) throw new GoogleAdsSetupError("Não foi possível salvar as contas do Google Ads.");
   }
