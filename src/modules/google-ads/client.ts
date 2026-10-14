@@ -21,7 +21,8 @@ export class GoogleAdsApiError extends Error {
 type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
-export const DEFAULT_API_VERSION = "v21";
+// Versões antigas da API são desligadas pelo Google com o tempo; o padrão acompanha uma versão vigente (ajustável por GOOGLE_ADS_API_VERSION).
+export const DEFAULT_API_VERSION = "v25";
 // Conta do Google Ads: 10 dígitos, com ou sem hífens.
 export const normalizeCustomerId = (value: string) => value.replace(/-/g, "");
 export const isCustomerId = (value: string) => /^\d{10}$/.test(normalizeCustomerId(value));

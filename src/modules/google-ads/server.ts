@@ -110,7 +110,12 @@ export async function syncGoogleAccounts(service: Service, agencyId: string) {
   let accounts;
   try { accounts = await client.listManagedAccounts(loginCustomerId); }
   catch (error) {
-    if (error instanceof GoogleAdsApiError) throw new GoogleAdsSetupError(error.status === 400 || error.status === 401 ? "O Google recusou o acesso. Reconecte a conta e confira o número do gerente." : "Não foi possível listar as contas no Google Ads agora.");
+    if (error instanceof GoogleAdsApiError) {
+      // Sem segredos: só o status e o código de erro do Google, para o responsável (e o suporte) saberem o que houve.
+      console.error("google-ads-list-accounts", { status: error.status, code: error.code });
+      const detail = `(${error.code ?? `HTTP ${error.status}`})`;
+      throw new GoogleAdsSetupError(error.status === 400 || error.status === 401 ? `O Google recusou o acesso ${detail}. Reconecte a conta e confira o número do gerente.` : `Não foi possível listar as contas no Google Ads agora ${detail}.`);
+    }
     throw error;
   }
   const now = new Date().toISOString();
