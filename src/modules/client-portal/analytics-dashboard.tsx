@@ -873,10 +873,10 @@ export function ClientAnalyticsDashboard({
                   ? current.filter((id) => id !== account.id) : [...current, account.id])} />
               <span>{account.name}<small>{account.externalId}</small></span>
             </label>)}
-            <button type="button" className="analytics-button analytics-button-apply" disabled={navigating || !accounts.length}
-              onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); if (accounts.length) navigate(period); }}>Aplicar contas</button>
             <label className="analytics-consolidate"><input type="checkbox" checked={consolidate} onChange={event => setConsolidate(event.target.checked)} />
               <span>Consolidar resultados<small>Soma as contas selecionadas como se fossem uma só</small></span></label>
+            <button type="button" className="analytics-button analytics-button-primary analytics-accounts-apply" disabled={navigating || !accounts.length}
+              onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); if (accounts.length) navigate(period); }}>Aplicar contas</button>
           </div>
         </details>}</div></div>
     <BillingSummary clientId={clientId} dailySpend={dailySpend} accountIds={data.selectedAccountIds} demoAccounts={demo ? demoBilling ?? [] : undefined} />
