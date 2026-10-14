@@ -1,6 +1,6 @@
 # Catálogo comercial e direitos de utilização (etapa 2.1)
 
-Status: implementado na branch `feat/commercial-catalog`; migration `202610140004_commercial_catalog.sql` **aplicada só na homologação** (`igrow-homologacao`, registro `commercial_catalog_0140004`) e homologada com ressalvas (seção abaixo). **Não aplicada em produção**; nada commitado nem publicado. Sem cobrança e sem Asaas nesta etapa.
+Status: **PUBLICADA em produção em 14/10/2026** (migration `commercial_catalog_0140004`, commit `6032545`, deploy Vercel `dpl_HtXVYwK4191NyTPTENFKk6mTFca8`). Nenhum plano criado nem atribuído; todas as organizações reais seguem sem restrição. Sem cobrança e sem Asaas nesta etapa.
 
 ## Regras
 - **Planos têm versões.** Versão publicada é imutável (no banco também); mudar preço, teste ou limites exige novo rascunho e publicação. Quem usa a versão anterior mantém as condições dela.
@@ -55,7 +55,12 @@ Campos que só terão efeito mais adiante estão rotulados na tela: visibilidade
 ## Conferência da migration contra a produção (só leitura, 14/10/2026)
 Todas as tabelas e colunas usadas existem em produção (clients, agency_users, agency_invitations, client_ad_accounts, client_google_accounts, whatsapp_connections, report_automations, client_users, client_portal_invitations, ai_usage, agencies); `private.agency_role`, `private.platform_operator_role` e `private.platform_audit_log` (etapa 1) existem; nenhum objeto da migration existe antes (funções, tabelas `private`, triggers `enforce_*`, `agency_ai_entitlement`); RLS ativa nas tabelas-alvo; produção tem 2 organizações e nenhuma é alterada. A migration não contém dados de teste nem objetos `zz_teste21`/`teste21`; o único dado inserido é o catálogo estático de recursos (8 definições) e nenhum plano, atribuição, concessão ou interruptor desligado.
 
-## Procedimento de publicação (NÃO executado; exige autorização explícita)
+## Publicação em produção (executada em 14/10/2026)
+- Migration aplicada uma única vez no projeto `qlopniyghvpbgwxuwxrl` (iGrow Reports), antes do código. O texto aplicado omitiu alguns comentários do arquivo; o SQL executável é o mesmo. Conferência só leitura: 6 tabelas `private` com RLS, 22 funções `public` (18 desta etapa), 12 gatilhos, catálogo de 8 recursos todos ligados, 0 planos/versões/atribuições/concessões, 0 acessos de tabela para a API, execução das funções só para `authenticated` (e `service_role` na da IA), dados reais inalterados (2 organizações, 4 clientes, 4 membros, 1 número, 8 automações), sem objetos `zz_teste21`.
+- Código: push `c7b4fd2..6032545` na `master` (inclui `6a1e72a`); deploy Ready e `success` pela API de deployments do GitHub; `/api/health` ok; `/admin`, `/admin/planos`, `/admin/recursos`, `/admin/organizacoes` e `/admin/mfa` redirecionam para o login sem sessão (307); logs de erro da Vercel: 0 nos primeiros ~20 min.
+- **Ainda não feito:** conferência das três telas com a sessão do dono com MFA (só ele pode) e monitoramento prolongado (uma hora completa não foi observada). Logs do Supabase não foram consultados (ferramenta recusou a consulta).
+
+## Procedimento de publicação (já executado; mantido como referência)
 1. Antes: branch limpa, `pnpm check` verde, e-mail/MFA do dono em dia; anotar o último deploy da Vercel (para rollback do código).
 2. Aplicar `202610140004_commercial_catalog.sql` **uma única vez** em produção (SQL editor ou `apply_migration`), nunca em horário de pico.
 3. Confirmar (só leitura): tabelas `private.plans`, `plan_versions`, `plan_version_entitlements`, `agency_plan_assignments`, `entitlement_overrides`, `entitlement_definitions` existem; `select count(*) from private.agency_plan_assignments` = 0; `select key, globally_enabled from private.entitlement_definitions` = todas `true`; triggers `enforce_*` presentes.
