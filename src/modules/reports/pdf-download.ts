@@ -205,14 +205,14 @@ export async function downloadCombinedPdf(inputs: DashboardPdfInput[]) {
   saveBlob(await renderReportPdfSections(inputs.map(toReportPdfInput)), `${safeName}-${first.data.dateFrom}-${first.data.dateTo}.pdf`);
 }
 
-export async function downloadCombinedSavedReports(clientId: string, versionIds: string[], extra: DashboardPdfInput[] = []) {
+export async function downloadCombinedSavedReports(clientId: string, versionIds: string[], extra: DashboardPdfInput[] = [], extraFirst = false) {
   const documents: DashboardPdfInput[] = [];
   for (const versionId of versionIds) {
     const result = await getSavedReportDocument({ clientId, versionId });
     if ("error" in result) throw new Error(result.error);
     documents.push(result.document);
   }
-  await downloadCombinedPdf([...documents, ...extra]);
+  await downloadCombinedPdf(extraFirst ? [...extra, ...documents] : [...documents, ...extra]);
 }
 
 export async function downloadDashboardPdf(input: DashboardPdfInput) {

@@ -267,6 +267,10 @@ export function ClientAnalyticsDashboard({
     try { window.localStorage.setItem(platformKey, JSON.stringify(next)); } catch { /* Preferences are optional. */ }
   }
   const metaVisible = platforms.some(item => item.key === "meta" && item.enabled);
+  // A ordem das plataformas escolhida no seletor vale na tela (seções em coluna, ordenadas por `order`) e no PDF.
+  const platformIndex = (key: string) => platforms.findIndex(item => item.key === key);
+  const platformOrder = (key: string) => 10 + platformIndex(key);
+  const googleFirst = platformIndex("google") < platformIndex("meta");
   const googleVisible = platforms.some(item => item.key === "google" && item.enabled) && (googleSections.length > 0 || googleFailures.length > 0);
   const dailySpend = Object.fromEntries(data.accountTotals.map(account => [account.id, (account.values.spend ?? 0) / Math.max(1, data.daily.length)]));
   const [draggingCard, setDraggingCard] = useState<string | null>(null);
@@ -621,11 +625,11 @@ export function ClientAnalyticsDashboard({
           }
           if (canManageReports) {
             router.refresh();
-            try { await downloadCombinedSavedReports(clientId, versionIds, orientation === "vertical" ? googleDocuments() : []); }
+            try { await downloadCombinedSavedReports(clientId, versionIds, orientation === "vertical" ? googleDocuments() : [], googleFirst); }
             catch { setError("Os relatórios foram salvos. Baixe o PDF de cada conta pela seção Relatórios."); return; }
             setNotice(`PDF único com ${targets.length} contas baixado. Cada conta também ficou salva em Relatórios, pronta para revisar e publicar.`);
           } else {
-            await downloadCombinedPdf([...documents, ...(orientation === "vertical" ? googleDocuments() : [])]);
+            { const extra = orientation === "vertical" ? googleDocuments() : []; await downloadCombinedPdf(googleFirst ? [...extra, ...documents] : [...documents, ...extra]); }
           }
         } catch { setError("Não foi possível gerar o relatório. Tente novamente."); }
       });
@@ -641,7 +645,7 @@ export function ClientAnalyticsDashboard({
           if ("error" in result) { setError(result.error ?? "Não foi possível concluir esta ação."); return; }
           router.refresh();
           const extra = orientation === "vertical" ? googleDocuments() : [];
-          try { await (extra.length ? downloadCombinedSavedReports(clientId, [result.reportVersionId], extra) : downloadSavedReportPdf(clientId, result.reportVersionId)); }
+          try { await (extra.length ? downloadCombinedSavedReports(clientId, [result.reportVersionId], extra, googleFirst) : downloadSavedReportPdf(clientId, result.reportVersionId)); }
           catch { setError("O relatório foi salvo. Baixe o PDF pela seção Relatórios."); return; }
           setNotice("Relatório salvo e baixado. Ele está em Relatórios, pronto para revisar e publicar para o cliente.");
         } else {
@@ -651,7 +655,7 @@ export function ClientAnalyticsDashboard({
             accountLabels: data.accounts.filter(account => data.selectedAccountIds.includes(account.id)).map(account => account.name),
             comparison, chartType, entityRows: scopeData ? selectedEntities : entities, campaignMetrics, orientation };
           const extra = orientation === "vertical" ? googleDocuments() : [];
-          if (extra.length) await downloadCombinedPdf([metaInput, ...extra]); else await downloadDashboardPdf(metaInput);
+          if (extra.length) await downloadCombinedPdf(googleFirst ? [...extra, metaInput] : [metaInput, ...extra]); else await downloadDashboardPdf(metaInput);
         }
       } catch { setError("Não foi possível gerar o relatório. Tente novamente."); }
     });
@@ -854,7 +858,7 @@ export function ClientAnalyticsDashboard({
         {pending ? "Atualizando…" : "Tentar atualizar novamente"} <ArrowUpRight size={14} />
       </button>}
     </div>}
-    {metaVisible ? <section className="platform-section" aria-label="Meta Ads">
+    {metaVisible ? <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
     <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
       {!!data.warnings.length && <details className="analytics-quality-menu">
         <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
@@ -1180,10 +1184,10 @@ export function ClientAnalyticsDashboard({
       </div>}
     </div>
     </section> : null}
-    {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} />}
-    {!metaVisible && !googleVisible && <section className="analytics-card platform-empty"><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
+    {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} />}
+    {!metaVisible && !googleVisible && <section className="analytics-card platform-empty" style={{ order: 10 }}><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
 
-    {tab !== "reports" && <footer className="analytics-data-footer"><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
+    {tab !== "reports" && <footer className="analytics-data-footer" style={{ order: 100 }}><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
       <span>Sem estimativas para datas não coletadas</span></footer>}
     <Dialog open={customizing} onOpenChange={setCustomizing} title="Personalizar relatório" description="Indicadores, cabeçalho e comentários usados na Visão geral e no PDF.">
       <div className="analytics-customize">

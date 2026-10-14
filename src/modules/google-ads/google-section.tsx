@@ -33,9 +33,9 @@ export function googleAccountSummary(section: GoogleSectionView) {
 }
 
 // Seção do Google Ads no painel do cliente: uma conta por bloco, com resultados e custos próprios.
-export function GoogleAdsSection({ sections, failures }: { sections: GoogleSectionView[]; failures: Array<{ name: string; message: string }> }) {
+export function GoogleAdsSection({ sections, failures, order }: { sections: GoogleSectionView[]; failures: Array<{ name: string; message: string }>; order?: number }) {
   if (!sections.length && !failures.length) return null;
-  return <section className="platform-section" aria-label="Google Ads">
+  return <section className="platform-section" aria-label="Google Ads" style={order === undefined ? undefined : { order }}>
     <div className="platform-heading"><span className="platform-mark is-google" aria-hidden="true">G</span><h2>Google Ads</h2>
       <span className="platform-heading-meta">{sections.length} {sections.length === 1 ? "conta" : "contas"}</span></div>
     {failures.map(failure => <p key={failure.name} role="alert" className="analytics-footnote">Não foi possível ler a conta {failure.name} agora. {failure.message}</p>)}
