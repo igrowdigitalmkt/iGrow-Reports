@@ -192,3 +192,17 @@ describe("contas de acesso direto", () => {
     expect(seen.at(-1)).toMatchObject({ "login-customer-id": "5926576842" });
   });
 });
+
+describe("campo de visualizações de vídeo", () => {
+  it("as consultas pedem video_trueview_views (video_views não existe na API atual)", () => {
+    expect(campaignQuery("2026-10-01", "2026-10-02")).toContain("metrics.video_trueview_views");
+    expect(campaignQuery("2026-10-01", "2026-10-02")).not.toContain("metrics.video_views");
+    expect(accountDailyQuery("2026-10-01", "2026-10-02")).not.toContain("metrics.video_views");
+  });
+  it("lê as visualizações do campo novo", () => {
+    const account = { id: "a", customerId: "1112223333", name: "C", currency: "BRL", timezone: "America/Sao_Paulo" };
+    const data = buildGoogleAnalytics({ account, dateFrom: "2026-10-01", dateTo: "2026-10-01", rows: { daily: [{ segments: { date: "2026-10-01" }, metrics: { costMicros: "10000000", impressions: "100", clicks: "5" } }], previousDaily: [],
+      campaigns: [{ campaign: { id: "2", name: "YT", advertisingChannelType: "VIDEO" }, metrics: { costMicros: "10000000", impressions: "100", clicks: "5", videoTrueviewViews: "50" } }] } });
+    expect(data.summary["result:provider:google:video_views"]).toBe(50);
+  });
+});

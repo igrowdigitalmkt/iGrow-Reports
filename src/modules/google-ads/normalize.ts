@@ -14,7 +14,7 @@ type Totals = { spend: number; impressions: number; clicks: number; conversions:
 const empty = (): Totals => ({ spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, videoViews: 0 });
 function read(metrics: Row): Totals {
   return { spend: num(metrics.costMicros) / 1_000_000, impressions: num(metrics.impressions), clicks: num(metrics.clicks), conversions: num(metrics.conversions),
-    conversionValue: num(metrics.conversionsValue), videoViews: num(metrics.videoViews) };
+    conversionValue: num(metrics.conversionsValue), videoViews: num(metrics.videoTrueviewViews ?? metrics.videoViews) };
 }
 const add = (a: Totals, b: Totals): Totals => ({ spend: a.spend + b.spend, impressions: a.impressions + b.impressions, clicks: a.clicks + b.clicks,
   conversions: a.conversions + b.conversions, conversionValue: a.conversionValue + b.conversionValue, videoViews: a.videoViews + b.videoViews });

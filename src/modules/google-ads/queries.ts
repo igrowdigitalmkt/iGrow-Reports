@@ -6,7 +6,7 @@ function range(from: string, to: string) {
   return `segments.date BETWEEN '${from}' AND '${to}'`;
 }
 
-const METRICS = "metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.video_views";
+const METRICS = "metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.video_trueview_views";
 
 /** Uma linha por dia, no fuso da conta. */
 export const accountDailyQuery = (from: string, to: string) =>
