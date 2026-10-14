@@ -65,7 +65,8 @@ select lives_ok($$select public.platform_record_audit('admin.session_started','p
 select throws_ok($$select public.platform_record_audit('Ação Inválida')$$,'23514',null,'Nome de ação fora do padrão é recusado');
 select throws_ok($$select public.platform_record_audit('admin.teste',null,null,'sucesso')$$,'23514',null,'Resultado fora do padrão é recusado');
 select is((select count(*)::int from public.platform_recent_audit(10)),3,'Com MFA lê a trilha de auditoria');
-select is((select actor_email from public.platform_recent_audit(1)),'dono-plataforma@example.test','Auditoria identifica o operador responsável');
+-- Na mesma transação todos os eventos têm o mesmo horário; por isso não se depende da ordem aqui.
+select is((select count(*)::int from public.platform_recent_audit(10) where actor_email = 'dono-plataforma@example.test'),2,'Auditoria identifica o operador responsável');
 select throws_ok($$update private.platform_audit_log set outcome='failure'$$,'42501',null,'Operador não altera a auditoria diretamente');
 reset role;
 select throws_ok($$update private.platform_audit_log set outcome='failure'$$,'42501',null,'Nem o dono do banco altera a auditoria');

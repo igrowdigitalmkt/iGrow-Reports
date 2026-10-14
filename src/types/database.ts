@@ -351,6 +351,25 @@ export type Database = {
       create_own_agency: { Args: { p_name: string; p_timezone?: string }; Returns: string };
       platform_operator_status: { Args: Record<string, never>; Returns: Json };
       platform_record_audit: { Args: { p_action: string; p_resource_type?: string | null; p_resource_id?: string | null; p_outcome?: string; p_metadata?: Json }; Returns: string };
+      get_agency_entitlements: { Args: { p_agency_id: string }; Returns: { key: string; kind: string; label: string; unit: string | null; managed: boolean; enabled: boolean; limit_value: number | null; unlimited: boolean; source: string; used: number | null }[] };
+      agency_ai_entitlement: { Args: { p_agency_id: string }; Returns: Json };
+      platform_agency_entitlements: { Args: { p_agency_id: string }; Returns: { key: string; kind: string; label: string; unit: string | null; managed: boolean; enabled: boolean; limit_value: number | null; unlimited: boolean; source: string; used: number | null }[] };
+      platform_list_definitions: { Args: Record<string, never>; Returns: { key: string; kind: string; label: string; description: string; unit: string | null; globally_enabled: boolean; disabled_reason: string | null; disabled_at: string | null }[] };
+      platform_set_feature_switch: { Args: { p_key: string; p_enabled: boolean; p_reason?: string | null }; Returns: undefined };
+      platform_list_plans: { Args: Record<string, never>; Returns: { plan_id: string; key: string; name: string; visibility: string; sellable: boolean; recommended: boolean; sort_order: number; current_version: number | null; current_version_id: string | null; price_monthly_cents: number | null; price_yearly_cents: number | null; trial_days: number | null; has_draft: boolean; assigned_orgs: number }[] };
+      platform_get_plan: { Args: { p_plan_id: string }; Returns: Json };
+      platform_create_plan: { Args: { p_key: string; p_name: string; p_description: string; p_visibility: string }; Returns: string };
+      platform_update_plan: { Args: { p_plan_id: string; p_name: string; p_description: string; p_visibility: string; p_sellable: boolean; p_recommended: boolean; p_sort_order: number }; Returns: undefined };
+      platform_start_draft: { Args: { p_plan_id: string }; Returns: string };
+      platform_save_draft: { Args: { p_plan_id: string; p_trial_days: number; p_price_monthly_cents: number | null; p_price_yearly_cents: number | null; p_entitlements: Json }; Returns: undefined };
+      platform_discard_draft: { Args: { p_plan_id: string }; Returns: undefined };
+      platform_publish_draft: { Args: { p_plan_id: string }; Returns: number };
+      platform_list_agencies: { Args: { p_query?: string | null; p_limit?: number }; Returns: { agency_id: string; name: string; created_at: string; members: number; clients: number; plan_name: string | null; plan_version: number | null; plan_version_id: string | null; assigned_at: string | null; assignment_kind: string | null; active_overrides: number }[] };
+      platform_assign_plan: { Args: { p_agency_id: string; p_plan_version_id: string; p_note: string }; Returns: Json };
+      platform_unassign_plan: { Args: { p_agency_id: string }; Returns: undefined };
+      platform_list_overrides: { Args: { p_agency_id?: string | null }; Returns: { id: string; agency_id: string; agency_name: string; key: string; label: string; enabled: boolean | null; limit_value: number | null; unlimited: boolean; starts_at: string; expires_at: string | null; reason: string; granted_by_email: string | null; created_at: string; revoked_at: string | null; status: string }[] };
+      platform_grant_override: { Args: { p_agency_id: string; p_key: string; p_enabled: boolean | null; p_limit: number | null; p_unlimited: boolean; p_expires_at: string | null; p_reason: string }; Returns: string };
+      platform_revoke_override: { Args: { p_override_id: string }; Returns: undefined };
       platform_recent_audit: { Args: { p_limit?: number }; Returns: { id: string; actor_email: string | null; action: string; resource_type: string | null; resource_id: string | null; outcome: string; metadata: Json; created_at: string }[] };
       get_client_analytics: {
         Args: { p_client_id: string; p_date_from: string; p_date_to: string; p_ad_account_ids?: string[] | null };

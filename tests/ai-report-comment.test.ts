@@ -18,14 +18,16 @@ const facts: ReportFacts = {
 };
 const input = { agencyId: "agency-1", clientId: "client-1", userId: "user-1", facts, sourceRef: "report-1" };
 
-function fakeSupabase(options: { agency?: unknown; client?: unknown; monthCost?: number | null; settingsError?: boolean } = {}) {
+function fakeSupabase(options: { agency?: unknown; client?: unknown; monthCost?: number | null; settingsError?: boolean; entitlement?: unknown; entitlementError?: { code: string } } = {}) {
   const inserted: Array<Record<string, unknown>> = [];
   const result = (data: unknown) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data, error: options.settingsError ? { code: "x" } : null }) }) }) });
   const client = {
     from: (table: string) => table === "ai_usage"
       ? { insert: async (row: Record<string, unknown>) => { inserted.push(row); return { error: null }; } }
       : result(table === "ai_settings" ? (options.agency ?? null) : (options.client ?? null)),
-    rpc: async () => ({ data: options.monthCost === undefined ? 0 : options.monthCost, error: null }),
+    rpc: async (name: string) => name === "agency_ai_entitlement"
+      ? { data: options.entitlementError ? null : options.entitlement === undefined ? { allowed: true, budget_usd: null } : options.entitlement, error: options.entitlementError ?? null }
+      : { data: options.monthCost === undefined ? 0 : options.monthCost, error: null },
   };
   return { client: client as unknown as NonNullable<CommentDeps["supabase"]>, inserted };
 }
@@ -73,6 +75,35 @@ describe("comentário de relatório com IA", () => {
       expect(ai.create).not.toHaveBeenCalled();
       expect(inserted[0]).toMatchObject({ status: "blocked_disabled" });
     }
+  });
+
+  it("respeita os direitos comerciais: IA fora do plano, teto do plano e resposta inválida", async () => {
+    const off = fakeSupabase({ entitlement: { allowed: false, budget_usd: null } });
+    const aiOff = fakeAnthropic("x");
+    expect(await generateReportComment(input, { supabase: off.client, anthropic: aiOff.deps })).toMatchObject({ ok: false, reason: "disabled" });
+    expect(aiOff.create).not.toHaveBeenCalled();
+    expect(off.inserted[0]).toMatchObject({ status: "blocked_disabled" });
+    // O teto do plano (US$ 3) vale mesmo que a organização tenha configurado US$ 50.
+    const capped = fakeSupabase({ agency: { enabled: true, monthly_budget_usd: 50 }, monthCost: 3, entitlement: { allowed: true, budget_usd: 3 } });
+    const aiCap = fakeAnthropic("x");
+    expect(await generateReportComment(input, { supabase: capped.client, anthropic: aiCap.deps })).toMatchObject({ ok: false, reason: "budget" });
+    expect(aiCap.create).not.toHaveBeenCalled();
+    for (const entitlement of [5, "sim", { allowed: "true" }, { allowed: true, budget_usd: -1 }]) {
+      const bad = fakeSupabase({ entitlement });
+      const aiBad = fakeAnthropic("x");
+      expect(await generateReportComment(input, { supabase: bad.client, anthropic: aiBad.deps })).toMatchObject({ ok: false, reason: "unavailable" });
+      expect(aiBad.create).not.toHaveBeenCalled();
+    }
+  });
+
+  it("antes da migration do catálogo comercial a IA segue como antes; outras falhas negam", async () => {
+    const before = fakeSupabase({ entitlementError: { code: "PGRST202" } });
+    const ai = fakeAnthropic("Investimento de R$ 896,54.");
+    expect((await generateReportComment(input, { supabase: before.client, anthropic: ai.deps })).ok).toBe(true);
+    const broken = fakeSupabase({ entitlementError: { code: "XX000" } });
+    const aiBroken = fakeAnthropic("x");
+    expect(await generateReportComment(input, { supabase: broken.client, anthropic: aiBroken.deps })).toMatchObject({ ok: false, reason: "unavailable" });
+    expect(aiBroken.create).not.toHaveBeenCalled();
   });
 
   it("não entrega texto com número que não está nos dados e registra o custo", async () => {

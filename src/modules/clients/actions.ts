@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
+import { planRestrictionMessage } from "@/modules/commercial/limit-message";
 import { clientInputSchema, type ClientResult } from "./schema";
 
 const fields = "id,name,notes,archived_at,updated_at";
@@ -18,7 +19,7 @@ export async function saveClient(input: unknown): Promise<ClientResult> {
     ? context.supabase.from("clients").update({ name, notes: notes || null }).eq("agency_id", context.agency.id).eq("id", id).is("archived_at", null)
     : context.supabase.from("clients").insert({ agency_id: context.agency.id, name, notes: notes || null });
   const { data, error } = await query.select(fields).maybeSingle();
-  if (error || !data) return { error: "Não foi possível salvar. O cliente pode ter sido arquivado ou seu acesso alterado. Atualize e tente novamente." };
+  if (error || !data) return { error: planRestrictionMessage(error) ?? "Não foi possível salvar. O cliente pode ter sido arquivado ou seu acesso alterado. Atualize e tente novamente." };
   revalidatePath("/dashboard", "page");
   revalidatePath("/dashboard/clientes");
   return { client: data };

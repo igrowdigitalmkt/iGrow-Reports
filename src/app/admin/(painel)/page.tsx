@@ -5,10 +5,14 @@ import { platformRoleLabels } from "@/modules/platform-admin/access";
 
 export const dynamic = "force-dynamic";
 
+const MODULES_READY = [
+  ["Planos", "/admin/planos", "Catálogo comercial com versões, preços, funcionalidades e limites."],
+  ["Recursos e interruptores", "/admin/recursos", "Catálogo dos recursos controláveis e desativação global de emergência."],
+  ["Organizações e concessões", "/admin/organizacoes", "Atribuir plano a uma organização e conceder liberações temporárias."],
+] as const;
+
 const PLANNED = [
-  ["Organizações e usuários", "Busca, status, plano e limites de cada organização."],
-  ["Planos e assinaturas", "Catálogo comercial, cobrança recorrente e direitos de uso."],
-  ["Pagamentos", "Gateway integrado, webhooks e conciliação."],
+  ["Assinaturas e pagamentos", "Cobrança recorrente automática com o Asaas, webhooks e conciliação."],
   ["Integrações e IA", "Situação das conexões e consumo de inteligência artificial."],
   ["Configurações globais", "Identidade da plataforma e preferências."],
 ] as const;
@@ -17,6 +21,11 @@ const AUDIT_LABELS: Record<string, string> = {
   "admin.mfa_enrolled": "Autenticador cadastrado", "admin.mfa_verified": "Verificação em duas etapas concluída",
   "admin.mfa_failed": "Código de verificação recusado", "platform.owner_provisioned": "Proprietário provisionado",
   "platform.operator_deactivated": "Operador desativado",
+  "commercial.plan_created": "Plano criado", "commercial.plan_updated": "Plano atualizado", "commercial.draft_started": "Nova versão de plano iniciada",
+  "commercial.draft_saved": "Rascunho de plano salvo", "commercial.draft_discarded": "Rascunho de plano descartado", "commercial.version_published": "Versão de plano publicada",
+  "commercial.plan_granted_admin": "Plano concedido administrativamente", "commercial.plan_unassigned": "Plano removido de organização",
+  "commercial.override_granted": "Concessão registrada", "commercial.override_revoked": "Concessão revogada",
+  "commercial.feature_disabled": "Funcionalidade desativada globalmente", "commercial.feature_enabled": "Funcionalidade reativada globalmente",
 };
 const OUTCOME_LABELS: Record<string, string> = { success: "Sucesso", denied: "Negado", failure: "Falha" };
 
@@ -38,6 +47,12 @@ export default async function AdminHomePage() {
         <div><dt className="text-xs text-[var(--muted)]">Verificação em duas etapas</dt><dd className="mt-0.5 inline-flex items-center gap-1.5 text-[var(--good)]"><CheckCircle2 size={15} aria-hidden="true" />Validada nesta sessão</dd></div>
       </dl>
       <p className="mt-4 text-xs"><Link href="/admin/mfa" className="text-[var(--blue)] hover:underline">Gerenciar autenticadores</Link></p>
+    </section>
+    <section aria-labelledby="disponiveis" className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <h2 id="disponiveis" className="text-sm font-semibold">Módulos disponíveis</h2>
+      <ul className="mt-3 divide-y divide-[var(--border)]">
+        {MODULES_READY.map(([name, href, text]) => <li key={name} className="py-2.5 text-sm"><Link href={href} className="font-medium text-[var(--blue)] hover:underline">{name}</Link><span className="block text-xs text-[var(--muted)]">{text}</span></li>)}
+      </ul>
     </section>
     <section aria-labelledby="modulos" className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
       <h2 id="modulos" className="text-sm font-semibold">Próximos módulos</h2>

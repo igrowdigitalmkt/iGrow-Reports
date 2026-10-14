@@ -47,6 +47,15 @@ export type GuardedDeps = {
   supabase?: NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 };
 
+/** Resposta de agency_ai_entitlement; formato inesperado vale como indisponível (nega por segurança). */
+export function parseAiEntitlement(value: unknown): { allowed: boolean; budgetUsd: number | null } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const { allowed, budget_usd: budget } = value as { allowed?: unknown; budget_usd?: unknown };
+  if (typeof allowed !== "boolean") return null;
+  if (budget !== null && budget !== undefined && (typeof budget !== "number" || !Number.isFinite(budget) || budget < 0)) return null;
+  return { allowed, budgetUsd: typeof budget === "number" ? budget : null };
+}
+
 type UsageStatus = "ok" | "blocked_disabled" | "blocked_budget" | "rejected_numbers" | "error";
 
 // Caminho único de toda chamada de IA: configuração, cota, chamada, verificação de números e registro de custo.
@@ -70,22 +79,33 @@ export async function runGuardedGeneration(input: GuardedInput, deps: GuardedDep
   };
 
   // Configuração: ausência de linha significa os padrões (ligada, orçamento mensal padrão).
-  const [agencySettings, clientSettings, monthCost] = await Promise.all([
+  const [agencySettings, clientSettings, monthCost, entitlement] = await Promise.all([
     supabase.from("ai_settings").select("enabled,monthly_budget_usd").eq("agency_id", input.agencyId).maybeSingle(),
     input.clientId
       ? supabase.from("ai_client_settings").select("enabled").eq("client_id", input.clientId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     supabase.rpc("ai_month_cost", { p_agency_id: input.agencyId }),
+    supabase.rpc("agency_ai_entitlement", { p_agency_id: input.agencyId }),
   ]);
-  if (agencySettings.error || clientSettings.error || monthCost.error || monthCost.data == null) {
+  // Banco ainda sem o catálogo comercial (função inexistente): não há plano nenhum, então a IA segue como antes.
+  // Qualquer outra falha, ou resposta inesperada, nega por segurança.
+  const commercialMissing = entitlement.error?.code === "PGRST202" || entitlement.error?.code === "42883";
+  const commercial = commercialMissing ? { allowed: true, budgetUsd: null } : parseAiEntitlement(entitlement.data);
+  if (agencySettings.error || clientSettings.error || monthCost.error || monthCost.data == null || (entitlement.error && !commercialMissing) || !commercial) {
     return { ok: false, reason: "unavailable", message: "Não foi possível verificar a configuração e a cota da IA." };
+  }
+  // Direitos comerciais (plano da organização, concessões e interruptor global); sem plano atribuído não há restrição.
+  if (!commercial.allowed) {
+    await log("blocked_disabled");
+    return { ok: false, reason: "disabled", message: "A IA não está disponível no plano desta organização." };
   }
   const enabled = (agencySettings.data?.enabled ?? true) && (clientSettings.data?.enabled ?? true);
   if (!enabled) {
     await log("blocked_disabled");
     return { ok: false, reason: "disabled", message: "A IA está desligada para esta organização ou cliente." };
   }
-  const budget = Number(agencySettings.data?.monthly_budget_usd ?? DEFAULT_MONTHLY_BUDGET_USD);
+  // O teto do plano nunca é ultrapassado, mesmo que a configuração da organização seja maior.
+  const budget = Math.min(Number(agencySettings.data?.monthly_budget_usd ?? DEFAULT_MONTHLY_BUDGET_USD), commercial.budgetUsd ?? Infinity);
   if (Number(monthCost.data) >= budget) {
     await log("blocked_budget");
     return { ok: false, reason: "budget", message: "O orçamento mensal de IA desta organização foi atingido." };

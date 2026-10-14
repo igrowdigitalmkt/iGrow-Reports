@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
+import { planRestrictionMessage } from "@/modules/commercial/limit-message";
 import { getClientAnalytics } from "@/modules/client-portal/analytics";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createQrSender } from "@/modules/whatsapp-qr/server";
@@ -86,7 +87,7 @@ export async function saveAutomationAction(input: unknown) {
     delete legacy.sender; delete legacy.whatsapp_connection_id;
     saved = await write(legacy as Omit<typeof row, "sender" | "whatsapp_connection_id">);
   }
-  if (saved.error || !saved.data) return { error: "Não foi possível salvar o agendamento." };
+  if (saved.error || !saved.data) return { error: planRestrictionMessage(saved.error) ?? "Não foi possível salvar o agendamento." };
   const automationId = saved.data.id;
 
   const removed = await context.supabase.from("report_automation_targets").delete().eq("agency_id", agencyId).eq("automation_id", automationId);
@@ -113,7 +114,7 @@ export async function setAutomationActiveAction(input: unknown) {
   const next = parsed.data.active ? nextRunAt({ frequency: current.frequency, weekdays: current.weekdays, monthDay: current.month_day, sendTime: current.send_time.slice(0, 5), timezone: current.timezone }, new Date()) : null;
   const { error } = await context.supabase.from("report_automations").update({ active: parsed.data.active, next_run_at: next?.toISOString() ?? null, updated_at: new Date().toISOString() })
     .eq("agency_id", context.agency.id).eq("id", parsed.data.id);
-  if (error) return { error: "Não foi possível alterar o agendamento." };
+  if (error) return { error: planRestrictionMessage(error) ?? "Não foi possível alterar o agendamento." };
   revalidatePath("/dashboard/agendamentos");
   return { success: true as const, nextRunAt: next?.toISOString() ?? null };
 }

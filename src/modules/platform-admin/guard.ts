@@ -52,6 +52,17 @@ export async function authorizePlatformMfaAction(): Promise<
   return { ok: false, error: access.state === "unauthenticated" ? "Sua sessão expirou. Entre novamente." : "Acesso não autorizado." };
 }
 
+/** Server actions administrativas: operador com MFA validado, reconferido a cada chamada. */
+export async function authorizePlatformAction(): Promise<
+  { ok: true; supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>; operator: PlatformOperator } | { ok: false; error: string }
+> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Autenticação não configurada." };
+  const access = await resolvePlatformAccess(supabase);
+  if (access.state === "granted") return { ok: true, supabase, operator: access.operator };
+  return { ok: false, error: access.state === "unauthenticated" ? "Sua sessão expirou. Entre novamente." : access.state === "mfa_required" ? "Confirme a verificação em duas etapas para continuar." : "Acesso não autorizado." };
+}
+
 /** APIs administrativas: sempre operador com MFA validado. Respostas sem cache e sem detalhes internos. */
 export async function authorizePlatformApi(): Promise<{ ok: true; operator: PlatformOperator } | { ok: false; response: NextResponse }> {
   const supabase = await createSupabaseServerClient();

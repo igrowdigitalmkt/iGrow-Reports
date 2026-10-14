@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { planRestrictionMessage } from "@/modules/commercial/limit-message";
 import { getSupabaseConfig } from "@/lib/env";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAgencyContext } from "@/modules/agencies/context";
@@ -30,7 +31,7 @@ export async function inviteMemberAction(input: unknown) {
   if (parsed.data.role === "owner" && context.role !== "owner") return { error: "Somente proprietários convidam proprietários." };
   const { data, error } = await context.supabase.rpc("issue_agency_invitation", { p_agency_id: context.agency.id, p_email: parsed.data.email, p_role: parsed.data.role, p_expires_in_hours: 168 });
   const row = data?.[0];
-  if (error || !row) return { error: "Não foi possível registrar o convite." };
+  if (error || !row) return { error: planRestrictionMessage(error) ?? "Não foi possível registrar o convite." };
   const link = `${appOrigin()}/convite?token=${row.token}`;
 
   const service = createSupabaseServiceClient();
