@@ -152,6 +152,32 @@ export async function syncGoogleAccounts(service: Service, agencyId: string) {
   return { synced: accounts.length, archived: gone.length };
 }
 
+/**
+ * Desconecta o Google Ads da organização: revoga o acesso no Google (melhor esforço), apaga o token guardado,
+ * desativa os vínculos com clientes e arquiva as contas. Ao reconectar, o processo recomeça do zero.
+ */
+export async function disconnectGoogle(service: Service, agencyId: string, fetcher: typeof fetch = fetch) {
+  const { data: connection } = await service.from("google_connections").select("id,integration_id").eq("agency_id", agencyId).maybeSingle();
+  if (!connection) return { revoked: false };
+  let revoked = false;
+  try {
+    const { data: secret } = await service.rpc("get_integration_secret", { p_agency_id: agencyId, p_integration_id: connection.integration_id, p_secret_kind: SECRET_KIND }).single();
+    if (secret) {
+      const token = decryptServerSecret({ keyId: secret.key_id, nonceB64: secret.nonce_b64, ciphertextB64: secret.ciphertext_b64, authTagB64: secret.auth_tag_b64 }, secretAad(agencyId, connection.integration_id));
+      const response = await fetcher("https://oauth2.googleapis.com/revoke", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ token }).toString() });
+      revoked = response.ok;
+    }
+  } catch { /* O token local é apagado de qualquer forma; o usuário também pode revogar em myaccount.google.com. */ }
+  const { error: secretError } = await service.rpc("delete_integration_secret", { p_agency_id: agencyId, p_integration_id: connection.integration_id, p_secret_kind: SECRET_KIND });
+  if (secretError) throw new GoogleAdsSetupError("Não foi possível apagar a credencial do Google Ads.");
+  const now = new Date().toISOString();
+  await service.from("integrations").update({ connection_status: "disconnected" }).eq("agency_id", agencyId).eq("id", connection.integration_id);
+  await service.from("google_connections").update({ connected_at: null, login_customer_id: null, scopes: [], last_accounts_sync_at: null }).eq("id", connection.id);
+  await service.from("client_google_accounts").update({ active: false }).eq("agency_id", agencyId);
+  await service.from("google_ad_accounts").update({ archived_at: now }).eq("agency_id", agencyId).is("archived_at", null);
+  return { revoked };
+}
+
 export const googleServiceClient = () => {
   const service = createSupabaseServiceClient();
   if (!service) throw new GoogleAdsSetupError("O acesso privilegiado ao Supabase não está configurado.");

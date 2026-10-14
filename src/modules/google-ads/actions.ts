@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
-import { googleAdsAppConfig, googleRedirectUri, googleServiceClient, GoogleAdsSetupError, syncGoogleAccounts } from "./server";
+import { disconnectGoogle, googleAdsAppConfig, googleRedirectUri, googleServiceClient, GoogleAdsSetupError, syncGoogleAccounts } from "./server";
 import { isCustomerId, normalizeCustomerId } from "./client";
 
 export type GoogleAdsStatus = {
@@ -19,8 +19,9 @@ export async function getGoogleAdsStatus(): Promise<GoogleAdsStatus> {
   const context = await requireAgencyContext();
   const config = googleAdsAppConfig();
   const base = { configured: config.ready, missing: config.missing, redirectUri: googleRedirectUri(), canManage: isAdmin(context.role) };
-  const { data: connection } = await context.supabase.from("google_connections").select("id,login_customer_id,last_accounts_sync_at").eq("agency_id", context.agency.id).maybeSingle();
-  if (!connection) return { ...base, connected: false, loginCustomerId: null, lastSyncAt: null, accounts: [] };
+  const { data: connection } = await context.supabase.from("google_connections").select("id,login_customer_id,last_accounts_sync_at,connected_at").eq("agency_id", context.agency.id).maybeSingle();
+  // Desconectado = sem data de conexão (o token foi apagado), mesmo que a linha da conexão ainda exista.
+  if (!connection?.connected_at) return { ...base, connected: false, loginCustomerId: null, lastSyncAt: null, accounts: [] };
   const [{ data: accounts }, { data: links }] = await Promise.all([
     context.supabase.from("google_ad_accounts").select("id,customer_id,name,currency").eq("agency_id", context.agency.id).is("archived_at", null).order("name"),
     context.supabase.from("client_google_accounts").select("client_id,google_ad_account_id").eq("agency_id", context.agency.id).eq("active", true),
@@ -48,6 +49,16 @@ export async function syncGoogleAdsAccountsAction() {
   if (!isAdmin(context.role)) return { error: "Apenas proprietários e administradores configuram o Google Ads." };
   try {
     const result = await syncGoogleAccounts(googleServiceClient(), context.agency.id);
+    revalidatePath("/dashboard/integracoes");
+    return { success: true as const, ...result };
+  } catch (error) { return failure(error); }
+}
+
+export async function disconnectGoogleAdsAction() {
+  const context = await requireAgencyContext();
+  if (!isAdmin(context.role)) return { error: "Apenas proprietários e administradores configuram o Google Ads." };
+  try {
+    const result = await disconnectGoogle(googleServiceClient(), context.agency.id);
     revalidatePath("/dashboard/integracoes");
     return { success: true as const, ...result };
   } catch (error) { return failure(error); }

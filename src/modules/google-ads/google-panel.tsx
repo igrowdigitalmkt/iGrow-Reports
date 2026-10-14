@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ClientItem } from "@/modules/clients/schema";
-import { linkGoogleAccountAction, saveGoogleLoginCustomer, syncGoogleAdsAccountsAction, type GoogleAdsStatus } from "./actions";
+import { disconnectGoogleAdsAction, linkGoogleAccountAction, saveGoogleLoginCustomer, syncGoogleAdsAccountsAction, type GoogleAdsStatus } from "./actions";
 
 // Painel do Google Ads em Integrações: conectar, informar o gerente (MCC), buscar as contas e vincular cada conta a um cliente.
 export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: { status: GoogleAdsStatus; clients: ClientItem[]; onChanged: () => void; callbackMessage?: string }) {
@@ -12,6 +12,7 @@ export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: 
   const [message, setMessage] = useState(callbackMessage ?? "");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
 
   function run(task: () => Promise<{ error?: string; success?: true } & Record<string, unknown>>, done: string) {
     setError(""); setMessage("");
@@ -52,6 +53,13 @@ export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: 
           <span className="muted text-sm">{status.lastSyncAt ? `Última busca em ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(status.lastSyncAt))}` : "Nenhuma busca ainda."}</span>
         </div>
         {status.canManage && <a className="text-sm" href="/api/google/oauth/start">Reconectar com o Google</a>}
+        {status.canManage && (confirmingDisconnect
+          ? <div className="flex gap-2" style={{ alignItems: "center" }}>
+            <span className="text-sm">Isso apaga o acesso e desvincula as contas dos clientes.</span>
+            <Button variant="secondary" disabled={pending} onClick={() => { setConfirmingDisconnect(false); run(disconnectGoogleAdsAction, "Google Ads desconectado."); }}>Confirmar desconexão</Button>
+            <Button variant="ghost" disabled={pending} onClick={() => setConfirmingDisconnect(false)}>Cancelar</Button>
+          </div>
+          : <button type="button" className="text-sm text-rose-400" style={{ textAlign: "left" }} onClick={() => setConfirmingDisconnect(true)}>Desconectar o Google Ads</button>)}
       </div>
 
       <div className="grid gap-2">

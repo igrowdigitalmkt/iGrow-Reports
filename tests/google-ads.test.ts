@@ -206,3 +206,25 @@ describe("campo de visualizações de vídeo", () => {
     expect(data.summary["result:provider:google:video_views"]).toBe(50);
   });
 });
+
+describe("desconectar o Google Ads", () => {
+  it("revoga o acesso, apaga o token, desvincula os clientes e arquiva as contas", async () => {
+    const { disconnectGoogle } = await import("@/modules/google-ads/server");
+    const calls: string[] = [];
+    const chain = (table: string): Record<string, unknown> => {
+      const c: Record<string, unknown> = {};
+      for (const name of ["select", "eq", "is", "in"]) c[name] = () => c;
+      c.update = (values: Record<string, unknown>) => { calls.push(`${table}:update:${Object.keys(values).join(",")}`); return c; };
+      c.maybeSingle = async () => ({ data: table === "google_connections" ? { id: "c1", integration_id: "i1" } : null, error: null });
+      c.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(resolve);
+      return c;
+    };
+    const service = {
+      from: (table: string) => chain(table),
+      rpc: (name: string) => { calls.push(`rpc:${name}`); const result = { data: null, error: null }; return Object.assign(Promise.resolve(result), { single: async () => ({ data: null, error: null }) }); },
+    };
+    const outcome = await disconnectGoogle(service as never, "ag", (async () => ({ ok: true })) as never);
+    expect(outcome).toEqual({ revoked: false });
+    expect(calls).toEqual(expect.arrayContaining(["rpc:delete_integration_secret", "integrations:update:connection_status", "google_connections:update:connected_at,login_customer_id,scopes,last_accounts_sync_at", "client_google_accounts:update:active", "google_ad_accounts:update:archived_at"]));
+  });
+});
