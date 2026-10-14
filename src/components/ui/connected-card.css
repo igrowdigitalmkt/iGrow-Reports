@@ -1,0 +1,6 @@
+.connected-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(90deg, var(--good-bg), transparent 70%); }
+.connected-card > div { display: grid; flex: 1; min-width: 0; }
+.connected-card strong { font-size: 15px; font-weight: 600; }
+.connected-card span { color: var(--secondary); font-size: 13px; font-variant-numeric: tabular-nums; }
+.connected-card small { color: var(--muted); font-size: 12px; }
+.connected-card-avatar { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: var(--good-bg); color: var(--good); object-fit: cover; }

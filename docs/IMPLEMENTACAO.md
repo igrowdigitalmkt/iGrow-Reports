@@ -919,3 +919,6 @@ A linha de divisão do cabeçalho (`::after`) saía 32 px para fora da tela chei
 
 ### 14/10/2026 — Conector do Google Ads (sem validação com a API real)
 Cliente REST da Google Ads API (OAuth, GAQL, contas sob o gerente), normalização para o formato comum, conexão OAuth com token cifrado, painel em Integrações, vínculo conta↔cliente, seção no painel, PDF único com capa por conta/plataforma, mensagem de WhatsApp e análise da IA por plataforma. Detalhes, variáveis de ambiente e limitações em `docs/MULTIPLATAFORMA.md`. Migração `202610140001_google_ads_foundation` aplicada em produção. **Próximo passo:** o responsável configura as credenciais (token de desenvolvedor aprovado, OAuth no Google Cloud, variáveis na Vercel) e conecta uma conta real para validar.
+
+### 14/10/2026 — Botão "Desconectar" padrão em todas as integrações
+Componente único `src/components/ui/connected-card.tsx` (`ConnectedCard` + `DisconnectButton`: botão secundário com ícone de saída, rótulo "Desconectar" e confirmação). Usado em: Seu WhatsApp (QR Code), WhatsApp API oficial (antes "Remover"), Google Ads (revoga o acesso, apaga o token, desvincula clientes e arquiva contas) e **Meta Ads por cliente** (novo: revoga o acesso, apaga o token e marca a conexão como desligada; contas, vínculos e histórico ficam). Toda integração nova deve usar esse padrão.

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, CircleAlert, KeyRound, Loader2, LogOut, QrCode, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
+import { CircleAlert, KeyRound, Loader2, QrCode, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConnectedCard, DisconnectButton } from "@/components/ui/connected-card";
 import { formatPairingCode } from "./format";
 import type { QrStatus } from "./server";
 import "./qr-connection.css";
@@ -70,7 +71,6 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
   }
 
   async function disconnect() {
-    if (!window.confirm("Desconectar o WhatsApp? As conversas desta conexão serão apagadas do iGrow e os envios agendados ficarão suspensos até uma nova vinculação.")) return;
     setBusy(true); setError("");
     try { await post({ action: "disconnect" }); setMode({ kind: "idle" }); await refreshStatus(); }
     catch (disconnectError) { setError(disconnectError instanceof Error ? disconnectError.message : "Não foi possível desconectar."); }
@@ -112,12 +112,8 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
 
     {status && !status.configured && <p className="qr-note"><CircleAlert size={15} />O servidor do WhatsApp ainda não foi configurado neste ambiente.</p>}
 
-    {connected && <div className="qr-connected">
-      {/* eslint-disable-next-line @next/next/no-img-element -- WhatsApp profile photo, external and short-lived */}
-      {connected.picture ? <img src={connected.picture} alt="" className="qr-avatar" referrerPolicy="no-referrer" /> : <span className="qr-avatar"><CheckCircle2 size={22} /></span>}
-      <div><strong>{connected.name ?? "WhatsApp conectado"}</strong><span>{connected.phone ?? "Número conectado"}</span><small>Os agendamentos ativos já podem enviar por este número.</small></div>
-      {canManage && <Button variant="secondary" size="sm" onClick={disconnect} disabled={busy}><LogOut size={14} />Desconectar</Button>}
-    </div>}
+    {connected && <ConnectedCard title={connected.name ?? "WhatsApp conectado"} detail={connected.phone ?? "Número conectado"} picture={connected.picture} note="Os agendamentos ativos já podem enviar por este número."
+      action={canManage ? <DisconnectButton message="Desconectar o WhatsApp? As conversas desta conexão serão apagadas do iGrow e os envios agendados ficarão suspensos até uma nova vinculação." onConfirm={disconnect} disabled={busy} /> : undefined} />}
 
     {status?.configured && !connected && mode.kind === "idle" && <div className="qr-start">
       <ol className="qr-steps">

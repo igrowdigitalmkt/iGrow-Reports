@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, CircleAlert, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ClientItem } from "@/modules/clients/schema";
-import { syncMetaAccounts } from "./actions";
+import { ConnectedCard, DisconnectButton } from "@/components/ui/connected-card";
+import { disconnectMetaClientAction, syncMetaAccounts } from "./actions";
 import { FacebookLogin } from "./facebook-login";
 import type { MetaAdminSnapshot } from "./types";
 
@@ -60,6 +61,18 @@ export function MetaIntegrationManager({
     setClientId(id);
     setError("");
     setNotice("");
+  }
+
+  function disconnect() {
+    if (!clientId) return;
+    setError("");
+    setNotice("");
+    startTransition(async () => {
+      const result = await disconnectMetaClientAction({ clientId });
+      if ("error" in result) { setError(result.error); return; }
+      setNotice("Meta desconectada deste cliente.");
+      router.refresh();
+    });
   }
 
   function sync() {
@@ -140,6 +153,9 @@ export function MetaIntegrationManager({
 
               {connected ? (
                 <>
+                  <ConnectedCard title="Meta conectada" detail={connection.connectedAt ? `Desde ${formatTimestamp(connection.connectedAt)}` : undefined}
+                    note={`${accounts.length} ${accounts.length === 1 ? "conta" : "contas"} de anúncios de ${selectedClient.name}`}
+                    action={canManage && !demo ? <DisconnectButton disabled={pending} message={`Desconectar a Meta de ${selectedClient.name}? O acesso é revogado e a coleta de novos dados para até uma nova conexão. O histórico já coletado é mantido.`} onConfirm={disconnect} /> : undefined} />
                   <dl className="meta-facts">
                     <div><dt>Contas</dt><dd>{accounts.length}</dd></div>
                     <div><dt>Última sincronização</dt><dd>{connection.lastAccountsSyncAt ? formatShort(connection.lastAccountsSyncAt) : "ainda não"}</dd></div>

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConnectedCard, DisconnectButton } from "@/components/ui/connected-card";
 import type { ClientItem } from "@/modules/clients/schema";
 import { disconnectGoogleAdsAction, linkGoogleAccountAction, saveGoogleLoginCustomer, syncGoogleAdsAccountsAction, type GoogleAdsStatus } from "./actions";
 
@@ -12,7 +13,6 @@ export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: 
   const [message, setMessage] = useState(callbackMessage ?? "");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
-  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
 
   function run(task: () => Promise<{ error?: string; success?: true } & Record<string, unknown>>, done: string) {
     setError(""); setMessage("");
@@ -39,6 +39,9 @@ export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: 
       <p>Conecte a conta do Google que administra os anúncios dos seus clientes (normalmente a conta de gerente, ou MCC).</p>
       {status.canManage ? <a className="button button-primary" href="/api/google/oauth/start">Conectar com o Google</a> : <p className="muted text-sm">Apenas proprietários e administradores conectam o Google Ads.</p>}
     </div> : <>
+      <ConnectedCard title="Google Ads conectado" detail={status.loginCustomerId ? `Gerente ${status.loginCustomerId}` : "Acesso direto às contas do seu Google"}
+        note={`${status.accounts.length} ${status.accounts.length === 1 ? "conta" : "contas"} de anúncios`}
+        action={status.canManage ? <DisconnectButton message="Desconectar o Google Ads? O acesso é revogado e as contas deixam de aparecer nos relatórios dos clientes até uma nova conexão." onConfirm={() => run(disconnectGoogleAdsAction, "Google Ads desconectado.")} disabled={pending} /> : undefined} />
       <div className="grid gap-2">
         <label className="grid gap-1 text-sm">Número da conta de gerente (MCC) — opcional
           <div className="flex gap-2">
@@ -53,13 +56,6 @@ export function GoogleAdsPanel({ status, clients, onChanged, callbackMessage }: 
           <span className="muted text-sm">{status.lastSyncAt ? `Última busca em ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(status.lastSyncAt))}` : "Nenhuma busca ainda."}</span>
         </div>
         {status.canManage && <a className="text-sm" href="/api/google/oauth/start">Reconectar com o Google</a>}
-        {status.canManage && (confirmingDisconnect
-          ? <div className="flex gap-2" style={{ alignItems: "center" }}>
-            <span className="text-sm">Isso apaga o acesso e desvincula as contas dos clientes.</span>
-            <Button variant="secondary" disabled={pending} onClick={() => { setConfirmingDisconnect(false); run(disconnectGoogleAdsAction, "Google Ads desconectado."); }}>Confirmar desconexão</Button>
-            <Button variant="ghost" disabled={pending} onClick={() => setConfirmingDisconnect(false)}>Cancelar</Button>
-          </div>
-          : <button type="button" className="text-sm text-rose-400" style={{ textAlign: "left" }} onClick={() => setConfirmingDisconnect(true)}>Desconectar o Google Ads</button>)}
       </div>
 
       <div className="grid gap-2">

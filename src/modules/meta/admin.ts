@@ -36,6 +36,8 @@ export async function getMetaAdminSnapshot(
       .select("id,client_id,label,scopes,connected_at,last_accounts_sync_at")
       .eq("agency_id", agencyId)
       .not("client_id", "is", null)
+      // Conexão desligada (token apagado) não conta como conectada.
+      .not("connected_at", "is", null)
       .order("created_at"),
   ]);
 

@@ -8,7 +8,7 @@ import { MetaApiError, MetaClient, hasBusinessPortfolio } from "./client";
 import { getMetaApiConfig } from "@/lib/env";
 import { META_LOGIN_APP_ID } from "./login-config";
 import { validateCollectionRange } from "./collection";
-import { collectMetaClientInsights, connectMetaForClient, MetaSetupError, syncMetaAccountsForClient } from "./server";
+import { collectMetaClientInsights, connectMetaForClient, disconnectMetaForClient, MetaSetupError, syncMetaAccountsForClient } from "./server";
 
 const accountLinkSchema = z.object({
   agencyId: z.uuid(),
@@ -132,6 +132,23 @@ export async function connectMetaIntegration(
     revalidatePath("/dashboard/integracoes");
     revalidatePath("/dashboard/clientes");
     return { success: true, accountCount: result.accountCount };
+  } catch (error) {
+    return { error: safeMetaOperationError(error) };
+  }
+}
+
+export async function disconnectMetaClientAction(input: unknown): Promise<MetaAdminActionResult> {
+  const context = await requireAgencyContext();
+  if (context.role !== "owner" && context.role !== "admin") return { error: "Somente proprietário ou administrador pode desconectar a Meta." };
+  const parsed = z.object({ clientId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { error: "Cliente inválido." };
+  const { data: client } = await context.supabase.from("clients").select("id").eq("agency_id", context.agency.id).eq("id", parsed.data.clientId).maybeSingle();
+  if (!client) return { error: "Cliente indisponível neste espaço de trabalho." };
+  try {
+    await disconnectMetaForClient({ agencyId: context.agency.id, clientId: parsed.data.clientId });
+    revalidatePath("/dashboard/integracoes");
+    revalidatePath("/dashboard/clientes");
+    return { success: true };
   } catch (error) {
     return { error: safeMetaOperationError(error) };
   }

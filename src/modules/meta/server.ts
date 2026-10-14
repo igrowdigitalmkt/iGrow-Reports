@@ -369,6 +369,28 @@ async function loadAccessToken(
   return decryptServerSecret(envelope, secretAad(agencyId, integrationId, connectionId));
 }
 
+/**
+ * Desconecta a Meta de um cliente: revoga o acesso na Meta (melhor esforço) e apaga o token guardado.
+ * As contas, os vínculos e o histórico de dados já coletados ficam; só a coleta nova para até reconectar.
+ */
+export async function disconnectMetaForClient(input: { agencyId: string; clientId: string }) {
+  const { service, apiVersion } = operationalDependencies();
+  const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+  let revoked = false;
+  try {
+    const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
+    const response = await fetch(`https://graph.facebook.com/${apiVersion}/me/permissions`, {
+      method: "DELETE", cache: "no-store", signal: AbortSignal.timeout(15000),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ access_token: token }),
+    });
+    revoked = response.ok;
+  } catch { /* O token local é apagado de qualquer forma. */ }
+  const { error } = await service.rpc("delete_integration_secret", { p_agency_id: input.agencyId, p_integration_id: integration.id, p_secret_kind: connectionTokenKind(connection.id) });
+  if (error) throw new MetaSetupError("Não foi possível apagar a credencial Meta.");
+  await service.from("meta_connections").update({ connected_at: null }).eq("agency_id", input.agencyId).eq("id", connection.id);
+  return { revoked };
+}
+
 async function syncAccounts(
   service: SupabaseClient<Database>,
   agencyId: string,

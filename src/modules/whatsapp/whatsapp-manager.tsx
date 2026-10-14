@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ExternalLink, Pencil, Plus, RefreshCw, Send, Trash2 } from "lucide-react";
+import { ChevronDown, ExternalLink, Pencil, Plus, RefreshCw, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DisconnectButton } from "@/components/ui/connected-card";
 import { connectWhatsAppAction, listWhatsAppTemplatesAction, removeWhatsAppNumberAction, renameWhatsAppNumberAction, selectWhatsAppTemplateAction } from "./actions";
 import { SUGGESTED_TEMPLATE } from "./templates";
 import { EmbeddedSignupButton } from "./embedded-signup-button";
@@ -162,8 +163,8 @@ function NumberCard({ number, canManage, embedded, ready }: { number: WhatsAppNu
       </> : <Button variant="secondary" className="button-sm" onClick={loadTemplates} disabled={pending}><RefreshCw size={14} />Atualizar mensagens modelo</Button>}
       {connectionId && <Button variant="ghost" className="button-sm" onClick={() => setRenaming(value => !value)}><Pencil size={14} />Renomear</Button>}
       {embedded && ready && <Button variant="ghost" className="button-sm" onClick={() => setReconnecting(value => !value)}><RefreshCw size={14} />Reconectar</Button>}
-      {connectionId && <Button variant="ghost" className="button-sm whatsapp-remove" disabled={pending}
-        onClick={() => { if (window.confirm(`Remover ${numberName(number)} da iGrow? O número continua funcionando no WhatsApp, mas os agendamentos que usam este número param até você escolher outro.`)) run(() => removeWhatsAppNumberAction({ connectionId }), "Número removido."); }}><Trash2 size={14} />Remover</Button>}
+      {connectionId && <DisconnectButton disabled={pending} message={`Desconectar ${numberName(number)} da iGrow? O número continua funcionando no WhatsApp, mas os agendamentos que usam este número param até você escolher outro.`}
+        onConfirm={() => run(() => removeWhatsAppNumberAction({ connectionId }), "Número desconectado.")} />}
     </div>}
 
     {renaming && <form className="whatsapp-rename" action={rename}>
