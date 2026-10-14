@@ -34,7 +34,10 @@
 
 /* Filters */
 /* Cabeçalho fixo: identidade, ações, período e data de atualização. A linha fina fecha o cabeçalho. */
-.analytics-sticky-header { position: sticky; top: 56px; z-index: 12; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 14px; background: var(--analytics-head-bg); box-shadow: 0 0 0 100vmax var(--analytics-head-bg); clip-path: inset(0 -100vmax); }
+.analytics-sticky-header { position: sticky; top: 56px; z-index: 12; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 14px; }
+/* O fundo do cabeçalho vai de uma lateral à outra por um elemento atrás do conteúdo (sem recorte, para os menus abertos poderem passar do cabeçalho). */
+.analytics-sticky-header::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: -100vmax; right: -100vmax; background: var(--analytics-head-bg); pointer-events: none; }
+.analytics-dashboard:fullscreen .analytics-sticky-header::before { left: 0; right: 0; }
 .analytics-dashboard:fullscreen .analytics-sticky-header { top: 0; margin: 0 -32px; padding: 32px 32px 10px; box-shadow: none; clip-path: none; }
 /* Linha de divisão entre o cabeçalho e o corpo, de uma lateral à outra. */
 .analytics-sticky-header::after { content: ""; position: absolute; left: -100vmax; right: -100vmax; bottom: 0; height: 1px; background: var(--border); pointer-events: none; }
@@ -413,7 +416,7 @@
 @media (max-width: 650px) {
   .analytics-identity h1 { font-size: 22px; }
   .analytics-command-actions { width: 100%; }
-  .analytics-sticky-header { position: static; }
+  .analytics-sticky-header { position: relative; }
   .analytics-period-options { width: 100%; }
   .analytics-period-options button { flex: 1; padding: 0 6px; }
   .analytics-date-field input { width: 108px; }
