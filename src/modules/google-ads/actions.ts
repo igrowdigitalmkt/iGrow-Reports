@@ -59,9 +59,13 @@ export async function linkGoogleAccountAction(input: unknown) {
   const context = await requireAgencyContext();
   if (context.role === "viewer") return { error: "Leitores não podem vincular contas." };
   const { accountId, clientId, linked } = parsed.data;
-  const { error } = linked
-    ? await context.supabase.from("client_google_accounts").upsert({ agency_id: context.agency.id, client_id: clientId, google_ad_account_id: accountId, active: true }, { onConflict: "agency_id,client_id,google_ad_account_id" })
-    : await context.supabase.from("client_google_accounts").update({ active: false }).eq("agency_id", context.agency.id).eq("client_id", clientId).eq("google_ad_account_id", accountId);
+  // Sem upsert: o acesso do usuário só permite inserir o vínculo ou alterar o campo "ativo" (o upsert tenta regravar as demais colunas).
+  const { data: existing, error: lookup } = await context.supabase.from("client_google_accounts").select("active")
+    .eq("agency_id", context.agency.id).eq("client_id", clientId).eq("google_ad_account_id", accountId).maybeSingle();
+  const { error } = lookup ? { error: lookup }
+    : existing
+      ? await context.supabase.from("client_google_accounts").update({ active: linked }).eq("agency_id", context.agency.id).eq("client_id", clientId).eq("google_ad_account_id", accountId)
+      : linked ? await context.supabase.from("client_google_accounts").insert({ agency_id: context.agency.id, client_id: clientId, google_ad_account_id: accountId, active: true }) : { error: null };
   if (error) return { error: "Não foi possível alterar o vínculo da conta." };
   revalidatePath("/dashboard/integracoes");
   return { success: true as const };
