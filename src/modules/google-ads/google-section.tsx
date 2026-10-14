@@ -38,12 +38,12 @@ export function GoogleAdsSection({ sections, failures, order }: { sections: Goog
   return <section className="platform-section" aria-label="Google Ads" style={order === undefined ? undefined : { order }}>
     <div className="platform-heading"><span className="platform-mark is-google" aria-hidden="true">G</span><h2>Google Ads</h2>
       <span className="platform-heading-meta">{sections.length} {sections.length === 1 ? "conta" : "contas"}</span></div>
-    {failures.map(failure => <p key={failure.name} role="alert" className="analytics-footnote">Não foi possível ler a conta {failure.name} agora. {failure.message}</p>)}
+    {failures.map(failure => <p key={failure.name} role="alert" className="analytics-footnote" style={{ padding: "0 4px" }}>Não foi possível ler a conta {failure.name} agora. {failure.message}</p>)}
     <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
       {sections.map(section => {
         const summary = googleAccountSummary(section);
-        return <article key={summary.id} className="analytics-card" style={{ display: "grid", gap: 10 }}>
-          <h3 style={{ margin: 0 }}>{summary.name}</h3>
+        return <article key={summary.id} className="analytics-card" style={{ display: "grid", gap: 10, padding: 18, alignContent: "start" }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>{summary.name}</h3>
           {summary.idle ? <p className="muted">Sem investimento neste período.</p> : <>
             <dl style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "4px 12px", margin: 0 }}>
               {summary.metrics.map(([label, value]) => <div key={label} style={{ display: "contents" }}><dt className="muted">{label}</dt><dd style={{ margin: 0, textAlign: "right" }}>{value}</dd></div>)}
