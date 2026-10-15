@@ -37,7 +37,19 @@ export const planKeySchema = z.string().trim().toLowerCase().regex(/^[a-z][a-z0-
 
 export const SOURCE_LABELS: Record<string, string> = {
   global: "Desativado globalmente", unmanaged: "Sem plano atribuído (sem restrição)", override: "Concessão", plan: "Plano", plan_not_included: "Não incluso no plano",
+  billing_restricted: "Acesso restrito (teste encerrado ou assinatura suspensa/encerrada)",
 };
+
+/** Rótulo curto da origem do plano da organização. */
+export function assignmentKindLabel(kind: string | null | undefined) {
+  return kind === "subscription" ? "assinatura paga" : kind === "trial" ? "teste gratuito" : "concessão";
+}
+
+export function assignmentKindDescription(kind: string | null | undefined) {
+  if (kind === "subscription") return "Assinatura paga (gerida pela integração de pagamento).";
+  if (kind === "trial") return "Teste gratuito, sem cobrança e sem renovação automática.";
+  return "Concessão administrativa gratuita, sem cobrança.";
+}
 
 /** Texto de um direito já resolvido ("Incluso", "Ilimitado", "até 10"). */
 export function describeEntitlement(row: { kind: string; enabled: boolean; limit_value: number | null; unlimited: boolean; key: string }) {

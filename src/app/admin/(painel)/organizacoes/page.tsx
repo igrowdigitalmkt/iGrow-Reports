@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requirePlatformOperator } from "@/modules/platform-admin/guard";
+import { assignmentKindLabel } from "@/modules/platform-admin/commercial/format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Organizações" };
@@ -27,7 +28,7 @@ export default async function AgenciesPage({ searchParams }: { searchParams: Pro
           <tbody className="divide-y divide-[var(--border)]">{agencies.map((agency) => <tr key={agency.agency_id}>
             <td className="py-2.5 pr-3"><Link href={`/admin/organizacoes/${agency.agency_id}`} className="font-medium text-[var(--blue)] hover:underline">{agency.name}</Link></td>
             <td className="py-2.5 pr-3">{day.format(new Date(agency.created_at))}</td><td className="py-2.5 pr-3">{agency.members}</td><td className="py-2.5 pr-3">{agency.clients}</td>
-            <td className="py-2.5 pr-3">{agency.plan_name ? `${agency.plan_name} (v${agency.plan_version}) · ${agency.assignment_kind === "subscription" ? "assinatura paga" : "concessão"}` : <span className="text-[var(--muted)]">Nenhum (sem restrição)</span>}</td><td className="py-2.5">{agency.active_overrides}</td></tr>)}</tbody></table></div>}
+            <td className="py-2.5 pr-3">{agency.plan_name ? `${agency.plan_name} (v${agency.plan_version}) · ${assignmentKindLabel(agency.assignment_kind)}` : <span className="text-[var(--muted)]">Nenhum (sem restrição)</span>}</td><td className="py-2.5">{agency.active_overrides}</td></tr>)}</tbody></table></div>}
     </section>
   </div>;
 }

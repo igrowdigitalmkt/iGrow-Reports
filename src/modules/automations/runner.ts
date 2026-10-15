@@ -7,6 +7,7 @@ import type { GuardedResult } from "@/modules/ai/guarded-text";
 import { loadGoogleSections } from "@/modules/google-ads/provider";
 import { PLATFORM_INFO, type PlatformKey } from "@/modules/platforms/registry";
 import type { Database, ReportAutomationRow, ReportAutomationRunRow } from "@/types/database";
+import { getAgencyBillingAccess, RESTRICTED_RUN_MESSAGE, UNVERIFIED_RETRY_WINDOW_MS, UNVERIFIED_RUN_MESSAGE } from "@/modules/billing/access";
 import { renderMessage, renderSeparatedMessage, usedVariables, type AccountBlock } from "./message";
 import { summarizeBalance } from "@/modules/meta/balance";
 import { getClientAccountBilling, refreshMetaDashboardScope } from "@/modules/meta/server";
@@ -86,6 +87,12 @@ export async function executeAutomation(service: Service, automation: ReportAuto
   };
 
   try {
+    // Assinatura suspensa/encerrada ou teste finalizado: nada é executado (nem leitura de números, IA ou envio), mas nada é apagado.
+    // Vale para toda execução (agendada, manual ou aprovação). O horário perdido não é refeito depois da regularização.
+    // Sem como confirmar o estado financeiro, também não se executa (nunca se libera tudo): falha temporária registrada.
+    const access = await getAgencyBillingAccess(service, automation.agency_id);
+    if (access === "restricted") return await finish("skipped", { error_message: RESTRICTED_RUN_MESSAGE });
+    if (access === "unknown") return await finish("failed", { error_message: UNVERIFIED_RUN_MESSAGE });
     const official = automation.sender === "official";
     if (official && !automation.whatsapp_connection_id) return await finish("skipped", { error_message: NO_OFFICIAL_NUMBER });
     if (official && !options.sendOfficialPdf) return await finish("skipped", { error_message: "Envio pela API oficial indisponível neste ambiente." });
@@ -220,10 +227,16 @@ export async function runDueAutomations(service: Service, options: ExecuteOption
   const { data: due, error } = await service.from("report_automations").select("*").eq("active", true).lte("next_run_at", now.toISOString())
     .order("next_run_at").limit(25);
   if (error) throw new Error("automations-list-failed");
-  const summary = { due: due?.length ?? 0, sent: 0, partial: 0, failed: 0, skipped: 0, awaiting_approval: 0, deferred: 0 };
+  const summary = { due: due?.length ?? 0, sent: 0, partial: 0, failed: 0, skipped: 0, awaiting_approval: 0, deferred: 0, unverified: 0 };
 
   for (const automation of due ?? []) {
     if (Date.now() - started > budget) { summary.deferred += 1; continue; }
+    // Estado financeiro indeterminado: o horário NÃO é consumido; a próxima rodada tenta de novo. Passada a janela de espera
+    // o horário segue o caminho normal e é registrado como falha temporária (não acumula nem é refeito depois).
+    if (await getAgencyBillingAccess(service, automation.agency_id) === "unknown" && now.getTime() - new Date(automation.next_run_at ?? now.toISOString()).getTime() <= UNVERIFIED_RETRY_WINDOW_MS) {
+      summary.unverified += 1;
+      continue;
+    }
     const plan = planRun(automation, now);
     await service.from("report_automations").update({ next_run_at: plan.next?.toISOString() ?? null, last_run_at: now.toISOString() })
       .eq("id", automation.id).eq("agency_id", automation.agency_id);

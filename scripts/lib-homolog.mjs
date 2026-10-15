@@ -64,3 +64,18 @@ export function finish() {
   console.log(failed ? `\n${failed} verificação(ões) FALHARAM de ${results.length}.` : `\nTodas as ${results.length} verificações passaram.`);
   process.exit(failed ? 1 : 0);
 }
+
+const HOMOLOG_REF = "xvjvfvinnnrgnhskglvd";
+
+/** Cliente do servidor (chave secreta) SOMENTE do projeto de homologação. Recusa qualquer outro endereço. Não imprime a chave. */
+export function adminClient() {
+  const url = process.env.HOMOLOG_SUPABASE_URL;
+  const key = process.env.HOMOLOG_SUPABASE_SECRET_KEY;
+  if (!url || !key) throw new Error("Faltam HOMOLOG_SUPABASE_URL e HOMOLOG_SUPABASE_SECRET_KEY (arquivo local .env.asaas-sandbox).");
+  if (url.includes(PRODUCTION_REF) || !url.includes(HOMOLOG_REF)) throw new Error("O endereço não é o do projeto de HOMOLOGAÇÃO. Abortado.");
+  try {
+    const payload = JSON.parse(Buffer.from(key.split(".")[1] ?? "", "base64url").toString());
+    if (payload.ref && payload.ref !== HOMOLOG_REF) throw new Error("A chave secreta é de outro projeto. Abortado.");
+  } catch (error) { if (error instanceof Error && error.message.startsWith("A chave")) throw error; }
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}

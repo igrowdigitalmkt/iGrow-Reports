@@ -48,12 +48,12 @@ export type GuardedDeps = {
 };
 
 /** Resposta de agency_ai_entitlement; formato inesperado vale como indisponível (nega por segurança). */
-export function parseAiEntitlement(value: unknown): { allowed: boolean; budgetUsd: number | null } | null {
+export function parseAiEntitlement(value: unknown): { allowed: boolean; budgetUsd: number | null; restricted: boolean } | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const { allowed, budget_usd: budget } = value as { allowed?: unknown; budget_usd?: unknown };
+  const { allowed, budget_usd: budget, restricted } = value as { allowed?: unknown; budget_usd?: unknown; restricted?: unknown };
   if (typeof allowed !== "boolean") return null;
   if (budget !== null && budget !== undefined && (typeof budget !== "number" || !Number.isFinite(budget) || budget < 0)) return null;
-  return { allowed, budgetUsd: typeof budget === "number" ? budget : null };
+  return { allowed, budgetUsd: typeof budget === "number" ? budget : null, restricted: restricted === true };
 }
 
 type UsageStatus = "ok" | "blocked_disabled" | "blocked_budget" | "rejected_numbers" | "error";
@@ -90,14 +90,16 @@ export async function runGuardedGeneration(input: GuardedInput, deps: GuardedDep
   // Banco ainda sem o catálogo comercial (função inexistente): não há plano nenhum, então a IA segue como antes.
   // Qualquer outra falha, ou resposta inesperada, nega por segurança.
   const commercialMissing = entitlement.error?.code === "PGRST202" || entitlement.error?.code === "42883";
-  const commercial = commercialMissing ? { allowed: true, budgetUsd: null } : parseAiEntitlement(entitlement.data);
+  const commercial = commercialMissing ? { allowed: true, budgetUsd: null, restricted: false } : parseAiEntitlement(entitlement.data);
   if (agencySettings.error || clientSettings.error || monthCost.error || monthCost.data == null || (entitlement.error && !commercialMissing) || !commercial) {
     return { ok: false, reason: "unavailable", message: "Não foi possível verificar a configuração e a cota da IA." };
   }
   // Direitos comerciais (plano da organização, concessões e interruptor global); sem plano atribuído não há restrição.
   if (!commercial.allowed) {
     await log("blocked_disabled");
-    return { ok: false, reason: "disabled", message: "A IA não está disponível no plano desta organização." };
+    return { ok: false, reason: "disabled", message: commercial.restricted
+      ? "A IA está indisponível porque o acesso desta organização está restrito (assinatura suspensa, encerrada ou teste finalizado). Regularize em Assinatura."
+      : "A IA não está disponível no plano desta organização." };
   }
   const enabled = (agencySettings.data?.enabled ?? true) && (clientSettings.data?.enabled ?? true);
   if (!enabled) {

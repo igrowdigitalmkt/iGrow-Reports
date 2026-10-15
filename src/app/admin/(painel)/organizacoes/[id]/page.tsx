@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requirePlatformOperator } from "@/modules/platform-admin/guard";
 import { assignPlanAction, grantOverrideAction, revokeOverrideAction, unassignPlanAction } from "@/modules/platform-admin/commercial/actions";
 import { ActionForm, dangerButton, Field, inputClass, primaryButton, secondaryButton, SubmitButton } from "@/modules/platform-admin/commercial/action-form";
-import { describeEntitlement, SOURCE_LABELS, USD_LIMIT_KEYS, formatUsdFromCents } from "@/modules/platform-admin/commercial/format";
+import { assignmentKindDescription, describeEntitlement, SOURCE_LABELS, USD_LIMIT_KEYS, formatUsdFromCents } from "@/modules/platform-admin/commercial/format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Organização" };
@@ -33,7 +33,7 @@ export default async function AgencyPage({ params }: { params: Promise<{ id: str
 
     <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5" aria-labelledby="plano">
       <h2 id="plano" className="text-sm font-semibold">Plano da organização</h2>
-      <p className="mt-1 text-sm text-[var(--secondary)]">{managed ? <>Plano <strong>{agency.plan_name}</strong> (versão {agency.plan_version}) desde {agency.assigned_at ? when.format(new Date(agency.assigned_at)) : "—"}. <strong>{agency.assignment_kind === "subscription" ? "Assinatura paga (gerida pela integração de pagamento)." : "Concessão administrativa gratuita, sem cobrança."}</strong></> : "Sem plano atribuído: nenhuma restrição comercial. Nada muda para esta organização enquanto ela não receber um plano."}</p>
+      <p className="mt-1 text-sm text-[var(--secondary)]">{managed ? <>Plano <strong>{agency.plan_name}</strong> (versão {agency.plan_version}) desde {agency.assigned_at ? when.format(new Date(agency.assigned_at)) : "—"}. <strong>{assignmentKindDescription(agency.assignment_kind)}</strong></> : "Sem plano atribuído: nenhuma restrição comercial. Nada muda para esta organização enquanto ela não receber um plano."}</p>
       {offered.length === 0 ? <p className="mt-3 text-sm text-[var(--warn)]">Nenhum plano publicado ainda. <Link href="/admin/planos" className="underline">Crie e publique um plano</Link> para poder atribuí-lo.</p>
         : <ActionForm action={assignPlanAction} className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
           <>

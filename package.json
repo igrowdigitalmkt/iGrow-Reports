@@ -16,6 +16,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:db": "node supabase/tests/rls-smoke.mjs",
+    "test:asaas-live": "node --env-file=.env.homolog --env-file=.env.asaas-sandbox node_modules/vitest/vitest.mjs run --config vitest.live.config.ts",
+    "check:billing-homolog": "node --env-file=.env.homolog --env-file=.env.asaas-sandbox scripts/check-billing-homolog.mjs",
     "test:rollout": "node supabase/tests/rls-smoke.mjs --snapshot-rollout",
     "prepare:snapshot-rollout": "node scripts/snapshot-rollout.mjs",
     "worker:schedule": "node scripts/worker-schedule.mjs",

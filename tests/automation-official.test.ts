@@ -41,7 +41,7 @@ function fakeService(tables: Record<string, unknown[]>, analytics: unknown) {
     chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result()).then(resolve);
     return chain;
   };
-  return { service: { from: builder, rpc: async () => ({ data: analytics, error: null }) }, runs };
+  return { service: { from: builder, rpc: async (name: string) => name === "agency_billing_restricted" ? { data: false, error: null } : { data: analytics, error: null } }, runs };
 }
 
 const automation = {
