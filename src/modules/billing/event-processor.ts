@@ -23,7 +23,8 @@ export function paymentSnapshot(payment: AsaasPayment, observedAt: Date) {
 
 export function subscriptionSnapshot(subscription: AsaasSubscription | { id: string; deleted: true }) {
   if (!("customer" in subscription)) return { id: subscription.id, deleted: true };
-  return { id: subscription.id, customer: subscription.customer, value: subscription.value, cycle: subscription.cycle, status: subscription.status, billingType: subscription.billingType, deleted: subscription.deleted ?? false };
+  return { id: subscription.id, customer: subscription.customer, value: subscription.value, cycle: subscription.cycle, status: subscription.status, billingType: subscription.billingType, deleted: subscription.deleted ?? false,
+    checkoutSession: subscription.checkoutSession ?? null, externalReference: subscription.externalReference ?? null };
 }
 
 export async function applySubscription(deps: BillingDeps, subscription: AsaasSubscription | { id: string; deleted: true }, eventId: number | null) {
@@ -61,6 +62,46 @@ function fromError(error: unknown): EventOutcome {
   return { outcome: "retry", detail: "Erro inesperado no processamento." };
 }
 
+type CheckoutLookup = { intent_id: string; agency_id: string; status: string; asaas_customer_id: string | null } | null;
+
+/**
+ * Eventos do checkout hospedado. NENHUM deles ativa nada por si só:
+ *  - CHECKOUT_PAID: só dispara a verificação. Lê na API do Asaas as assinaturas do cliente DESTA intenção e as aplica pelo caminho
+ *    verificado (cliente nosso, valor, ciclo, cartão e checkout conferidos); depois lê e aplica as cobranças.
+ *  - CHECKOUT_CANCELED / CHECKOUT_EXPIRED: fecham só a intenção em aberto desse checkout (nunca uma já concluída).
+ *  - CHECKOUT_CREATED e demais: informativos.
+ */
+async function processCheckoutEvent(deps: BillingDeps, event: ClaimedEvent): Promise<EventOutcome> {
+  const checkoutId = event.resource_id!;
+  if (event.event_type === "CHECKOUT_CANCELED" || event.event_type === "CHECKOUT_EXPIRED") {
+    const outcome = await callRpc<string>(deps.db, "billing_close_intent", { p_environment: deps.environment, p_checkout_id: checkoutId, p_status: event.event_type === "CHECKOUT_CANCELED" ? "canceled" : "expired" });
+    if (outcome === "unknown_checkout") return event.attempts >= 4 ? { outcome: "needs_review", detail: "Checkout sem contratação correspondente." } : { outcome: "retry", detail: "Checkout ainda não associado a uma contratação." };
+    return { outcome: "processed", detail: `Resultado: ${outcome}.` };
+  }
+  if (event.event_type !== "CHECKOUT_PAID") return { outcome: "ignored", detail: "Evento de checkout informativo." };
+
+  const found = await callRpc<CheckoutLookup>(deps.db, "billing_intent_by_checkout", { p_environment: deps.environment, p_checkout_id: checkoutId });
+  if (!found) return event.attempts >= 4 ? { outcome: "needs_review", detail: "Checkout pago sem contratação correspondente." } : { outcome: "retry", detail: "Checkout ainda não associado a uma contratação." };
+  if (!found.asaas_customer_id) return { outcome: "needs_review", detail: "Contratação sem cliente financeiro." };
+
+  const subscriptions = (await deps.asaas.listCustomerSubscriptions(found.asaas_customer_id, 20))
+    .filter((subscription) => !subscription.deleted && !["INACTIVE", "EXPIRED"].includes(subscription.status.toUpperCase()));
+  if (subscriptions.length === 0) return event.attempts >= 4 ? { outcome: "needs_review", detail: "Checkout pago, mas nenhuma assinatura ativa foi encontrada." } : { outcome: "retry", detail: "Assinatura ainda não disponível." };
+
+  const outcomes: string[] = [];
+  for (const subscription of subscriptions) {
+    const outcome = await applySubscription(deps, subscription, event.id);
+    outcomes.push(outcome);
+    if (outcome === "created" || outcome === "noop") {
+      const observedAt = (deps.now ?? (() => new Date()))();
+      const payments = await deps.asaas.listSubscriptionPayments(subscription.id, 12);
+      for (const payment of [...payments].sort((a, b) => a.dueDate.localeCompare(b.dueDate))) outcomes.push(await applyPayment(deps, payment, observedAt, event.id, null));
+    }
+  }
+  const review = outcomes.find((outcome) => REVIEW_OUTCOMES.has(outcome));
+  return review ? { outcome: "needs_review", detail: `Resultado: ${review}.` } : { outcome: "processed", detail: `Resultados: ${[...new Set(outcomes)].join(", ")}.` };
+}
+
 export async function processClaimedEvent(deps: BillingDeps, event: ClaimedEvent): Promise<EventOutcome> {
   try {
     if (event.environment !== deps.environment) return { outcome: "needs_review", detail: "Ambiente do evento não é o configurado." };
@@ -79,6 +120,7 @@ export async function processClaimedEvent(deps: BillingDeps, event: ClaimedEvent
       const signal = event.event_type === "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED" ? "capture_refused" : null;
       return fromOutcome(await applyPayment(deps, payment, observedAt, event.id, signal), event.attempts);
     }
+    if (event.resource_type === "checkout" && event.resource_id) return await processCheckoutEvent(deps, event);
     if (event.resource_type === "subscription" && event.resource_id) {
       let subscription: AsaasSubscription | { id: string; deleted: true };
       try {

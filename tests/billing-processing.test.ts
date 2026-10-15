@@ -95,7 +95,7 @@ describe("processamento de eventos: o estado vem da API do Asaas, não do corpo 
     const f = fakeDb({});
     const asaas = asaasFake();
     expect((await processClaimedEvent(deps(f.db, asaas), event({ event_type: "PAYMENT_BANK_SLIP_VIEWED" }))).outcome).toBe("ignored");
-    expect((await processClaimedEvent(deps(f.db, asaas), event({ event_type: "CHECKOUT_PAID", resource_type: "checkout", resource_id: "chk_123456" }))).outcome).toBe("ignored");
+    expect((await processClaimedEvent(deps(f.db, asaas), event({ event_type: "CHECKOUT_CREATED", resource_type: "checkout", resource_id: "chk_123456" }))).outcome).toBe("ignored");
     expect((await processClaimedEvent(deps(f.db, asaas), event({ event_type: "ALGO_NOVO", resource_type: "other", resource_id: null }))).outcome).toBe("ignored");
     expect(asaas.getPayment).not.toHaveBeenCalled();
     expect(f.calls).toHaveLength(0);

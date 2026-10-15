@@ -27,6 +27,8 @@ const paymentSchema = z.object({
 const subscriptionSchema = z.object({
   id: z.string().regex(ID), customer: z.string().regex(ID), value: z.number().positive(), cycle: z.string().max(30), status: z.string().max(30),
   billingType: z.string().max(40), deleted: z.boolean().nullish(), nextDueDate: z.string().nullish(),
+  // Vínculo com o checkout hospedado (observados no Sandbox): quando presentes, precisam conferir com a nossa intenção.
+  checkoutSession: z.string().max(120).nullish(), externalReference: z.string().max(200).nullish(),
 });
 const deletedSchema = z.object({ deleted: z.boolean().nullish(), id: z.string().nullish() });
 const paymentListSchema = z.object({ data: z.array(paymentSchema), hasMore: z.boolean().nullish() });

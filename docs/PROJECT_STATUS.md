@@ -57,6 +57,10 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 - **Homologação técnica (15/10/2026):** migrations `202610150001` e `202610150002` aplicadas **só** em `igrow-homologacao`; 180 verificações no PostgreSQL real, concorrência real (27 verificações, 3 execuções limpas) e 9 testes contra o Asaas Sandbox real aprovados; 1 defeito de concorrência e 1 incompatibilidade do Asaas (dados de cobrança exigidos pelo checkout) encontrados e corrigidos. Pagamento pelo checkout hospedado e webhooks reais ainda NÃO homologados. Resultados em `docs/HOMOLOGACAO_FINANCEIRA.md` e `docs/FINANCEIRO_ASAAS.md`. Nada em produção; sem commit.
 - Próximo passo (aguarda autorização): concluir a validação no Sandbox e webhooks reais, depois checkout e Minha Assinatura.
 
+## Etapa 2.2B: contratação e checkout (branch `feat/checkout-contratacao`, local; sem commit)
+- Tela `/dashboard/assinatura` + retorno do checkout, ação de servidor, eventos de checkout no processador, vínculo checkout↔assinatura reforçado, migration `202610150003_billing_checkout_link.sql` (**NÃO aplicada em nenhum banco**). Commit da 2.2A: `365f86f`. Detalhes em `docs/FINANCEIRO_ASAAS.md`; procedimento de homologação real e do ambiente Vercel isolado em `docs/HOMOLOGACAO_CHECKOUT.md`.
+- NÃO homologada: falta pagar pelo checkout hospedado e receber webhooks reais no Sandbox. Nada em produção.
+
 ## Problemas e limitações conhecidos
 - Google: sem saldo e sem melhores/piores anúncios; "Conversões" soma todas as ações de conversão; "Consolidar" só vale para a Meta; cliente só com Google (sem Meta) não abre o painel; em modo teste a conexão expira em ~7 dias e só usuários de teste conectam.
 - Layout clássico do PDF não monta arquivo único (baixa um por conta) e ignora seções por conta/plataforma.

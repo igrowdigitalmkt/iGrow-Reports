@@ -80,3 +80,22 @@ Validados contra `https://api-sandbox.asaas.com/v3` com dados fictícios (`pnpm 
 
 ## Configuração (arquivo local fora do Git)
 `ASAAS_ENVIRONMENT=sandbox`, `ASAAS_API_KEY=<chave do Sandbox>`, `ASAAS_WEBHOOK_TOKEN=<32+ caracteres, diferente da chave>`; webhook do Sandbox apontando para um endereço público de TESTE.
+
+---
+
+## Etapa 2.2B: contratação pelo checkout hospedado (implementada localmente, sem commit; NÃO homologada)
+Tela `/dashboard/assinatura` (e retorno em `/dashboard/assinatura/retorno`), ação de servidor `startCheckoutAction`, migration `202610150003_billing_checkout_link.sql` (**não aplicada em nenhum banco**). Procedimento de homologação real: `docs/HOMOLOGACAO_CHECKOUT.md`.
+
+**Fluxo:** proprietário escolhe plano (ofertas lidas do catálogo 2.1: públicas, à venda, versão publicada, com preço) e período (mensal ou anual, valor integral) → confere o total → informa dados de cobrança (só se a organização ainda não tem cliente financeiro) → o servidor grava a intenção, cadastra o cliente e cria o checkout (cartão, recorrente) → o navegador vai ao checkout hospedado do Asaas (só se o endereço for `https://sandbox.asaas.com`) → ao voltar, a tela fica em "verificando" até o servidor confirmar → plano liberado só pela confirmação financeira.
+
+**Dados de cobrança: decisão e justificativa.** Opções do Asaas: (A) sem `customer`/`customerData` (o pagador digita tudo na página do Asaas); (B) `customerData`; (C) `customer` pré-cadastrado. Medido no Sandbox: o checkout exige telefone, endereço, número, CEP e bairro também em B e C (400 sem eles). A opção A não pôde ser verificada (exigiria pagar no checkout hospedado, o que o assistente não faz) e, mesmo funcionando, criaria um cliente novo a cada pagamento: a única ligação com a organização seria `checkoutSession`/`externalReference` da assinatura, cuja presença num pagamento real ainda não foi observada. **Adotada a C**: o cliente financeiro é nosso (um por organização), a assinatura nasce com `customer` = esse cliente e a ligação é inequívoca; `checkoutSession` e `externalReference` entram como conferência adicional. Custo: um formulário curto de dados de cobrança, que **não é guardado** no iGrow (vai direto ao Asaas; o cartão é digitado só no Asaas). Se um dia a opção A for validada com pagamento real, ela poderá substituir C sem mudar o resto.
+
+**Vínculo checkout ↔ assinatura ↔ organização** (todos precisam bater; divergência = revisão humana, nunca ativação): cliente Asaas da assinatura = cliente da organização; intenção em aberto da organização; ciclo, valor e cartão iguais aos da intenção; `checkoutSession` (quando informado) = checkout da intenção; `externalReference` (quando for um identificador nosso) = id da intenção; no máximo uma assinatura viva por organização. A intenção de resultado desconhecido aprende o checkout pela própria assinatura. Pagamento: assinatura confere cliente/valor/cartão e a cobrança é lida na API.
+
+**Eventos do checkout:** `CHECKOUT_PAID` não ativa nada: dispara a leitura na API das assinaturas e cobranças do cliente DA intenção, aplicadas pelo caminho verificado. `CHECKOUT_CANCELED`/`CHECKOUT_EXPIRED` fecham só a intenção em aberto (nunca uma concluída). `CHECKOUT_CREATED` é informativo. Sem checkout conhecido ou sem assinatura visível: tenta de novo e depois vai para revisão.
+
+**Estados da tela:** aguardando pagamento, verificando contratação, verificando pagamento, pagamento confirmado, em atraso, suspensa, pagamento não concluído (assinatura nunca ativada e encerrada), cancelado, expirado, erro temporário, indisponível. A página de retorno usa uma dica de texto (`e=ok|cancelado|expirado`) que nunca ativa nada nem confirma: o estado vem do banco.
+
+**Permissões:** só o proprietário contrata (conferido na ação, no banco e na tela); administrador consulta; demais não veem. Super Admin não ativa assinatura paga.
+
+**Limitações conhecidas:** sem link de menu (acesso pelo endereço); sem cancelamento/troca de plano na tela; "pagamento recusado" só aparece quando uma assinatura é criada e encerrada sem ativar (a recusa dentro do checkout é mostrada pelo Asaas e a tela segue "aguardando" até expirar); não há leitura de checkout por id no Asaas; atualização dos dados de cobrança de um cliente já cadastrado não existe; o checkout aberto bloqueia nova contratação até expirar (30 min + 2).
