@@ -2,22 +2,22 @@
 
 Nada abaixo foi executado em produção. Nunca cole chaves ou tokens em conversa, arquivo versionado ou log. Domínio de produção confirmado: `https://i-grow-reports.vercel.app` (alias do projeto `i-grow-reports`, sem proteção de deployment). A produção atual (commit `6032545`) ainda NÃO tem `/api/webhooks/asaas` nem `/api/cron/billing/health` (404): chegam com o merge.
 
-## 1. Variáveis do Asaas (Vercel, escopo Production)
-| Variável | Valor | Observação |
-|---|---|---|
-| `ASAAS_ENVIRONMENT` | `production` | |
-| `ASAAS_API_KEY` | chave `$aact_prod_…` da conta de produção | Asaas > Integrações > Chave de API. Marque como sensível |
-| `ASAAS_WEBHOOK_TOKEN` | texto aleatório de 32+ caracteres, diferente da chave | gere localmente (abaixo) |
-| `ASAAS_PRODUCTION_UNLOCK` | `yes` | **por último**, só quando for liberar cobrança |
-Sem as quatro juntas a integração fica inerte (sem chamadas ao Asaas); `live_enabled=false` no banco também impede criar contratação em produção. As três primeiras podem ser definidas antes do merge sem efeito algum no código atual.
-Como definir sem expor: no terminal do projeto, `pnpm dlx vercel env add ASAAS_ENVIRONMENT production`, depois `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` (a CLI pede o valor sem mostrar na tela; use `--sensitive`). Para gerar o token direto na área de transferência (PowerShell): `[Convert]::ToBase64String((1..36 | % { Get-Random -Maximum 256 }) -as [byte[]]) -replace '[+/=]','x' | Set-Clipboard`, cole no Vercel e depois no Asaas, e limpe a área de transferência. Variáveis novas só valem em deploys novos: faça um redeploy depois de definir.
+## 1. Credenciais do Asaas: pelo Super Admin (sem Vercel e sem código)
+A partir da migration 0011, ambiente, chave de API e token do webhook são administrados em **Super Admin > Integrações: Pagamentos** (`/admin/integracoes/pagamentos`, só operador com MFA). Ficam no **Supabase Vault** (criptografados em repouso), são lidos só pelo servidor e a chave **nunca volta ao navegador**. Trocar chave ou token vale na próxima requisição de qualquer função e da rotina financeira, **sem novo deploy**.
+- **Variáveis que continuam na Vercel (Production):** `NEXT_PUBLIC_APP_URL` (já existe), `SUPABASE_SERVICE_ROLE_KEY` e chaves públicas do Supabase (já existem), `CRON_SECRET` (já existe) e `ASAAS_PRODUCTION_UNLOCK=yes` (desbloqueio deliberado da produção, **por último**, junto com a liberação comercial).
+- **Opcionais (reserva):** `ASAAS_ENVIRONMENT`, `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`. Só valem enquanto NADA foi registrado no painel; depois que a chave é registrada no painel, o painel é a fonte única. **Não é mais necessário** definir as três para lançar.
+- **Registrar não libera cobrança:** registrar a chave de produção só deixa as credenciais prontas. Cobrança real exige, juntos: ambiente Produção, `ASAAS_PRODUCTION_UNLOCK=yes` e `live_enabled=true` no banco (decisão separada, fora da tela).
+- **Registrar a chave:** escolha o ambiente, cole a chave (campo oculto) e envie. O servidor valida a chave no Asaas (consulta somente de leitura) antes de guardar. "Testar conexão" mostra Conectado / Falha de autenticação / Falha de comunicação / Configuração incompleta, sem criar cobrança, cliente ou assinatura.
+- **Trocar a chave (mesma conta):** cole a nova chave e envie; vale na hora. **Trocar para OUTRA conta Asaas** é bloqueado enquanto houver assinaturas, pagamentos, contratações, clientes reais ou eventos em aberto do ambiente (exige procedimento de migração, nunca automático). Se o ambiente foi configurado antes só por variáveis e já tem registros, o primeiro registro pede a confirmação de que a chave é da MESMA conta que os criou.
+- **Trocar o ambiente ativo** (Sandbox/Produção) exige confirmação. Registros são separados por ambiente.
 
-## 2. Webhook (Asaas > Integrações > Webhooks > novo)
+## 2. Webhook (Asaas > Integrações > Webhooks)
 - URL: `https://i-grow-reports.vercel.app/api/webhooks/asaas` (só depois do merge/deploy; cadastrar antes gera 404 e interrompe a fila).
-- Token de autenticação: o `ASAAS_WEBHOOK_TOKEN` (chega no cabeçalho `asaas-access-token`; o app recusa token ausente ou errado com 401 e confere sem vazar).
+- **Token:** gere em "Gerar token do webhook" no Super Admin (aparece UMA vez; copie e cole no campo de token do Asaas). Para trocar depois, "Gerar novo token" com prazo de transição (0 a 24 h): o token anterior continua valendo só durante o prazo e depois deixa de valer (ou use "Encerrar transição agora"). Atualize o Asaas dentro do prazo.
+- "Conferir webhook no Asaas" lê a lista de webhooks do Asaas e informa: não encontrado, desativado, interrompido, sem token, eventos incompletos, duplicado ou ativo. **Nunca cria nem altera webhook** (o cadastro é manual). O Asaas não revela o valor do token: a confirmação do recebimento real é o "último evento recebido".
 - API versão 3, **fila sequencial ligada**, e-mail de aviso à sua escolha.
 - Eventos (os mesmos já homologados no Sandbox, 18): `PAYMENT_CREATED, PAYMENT_UPDATED, PAYMENT_CONFIRMED, PAYMENT_RECEIVED, PAYMENT_OVERDUE, PAYMENT_DELETED, PAYMENT_RESTORED, PAYMENT_REFUNDED, PAYMENT_CHARGEBACK_REQUESTED, PAYMENT_CREDIT_CARD_CAPTURE_REFUSED, SUBSCRIPTION_CREATED, SUBSCRIPTION_UPDATED, SUBSCRIPTION_DELETED, SUBSCRIPTION_INACTIVATED, CHECKOUT_CREATED, CHECKOUT_PAID, CHECKOUT_CANCELED, CHECKOUT_EXPIRED`.
-- Comportamento já homologado: grava o evento antes de responder 200, processa lendo o estado real na API do Asaas (o evento só avisa), duplicados respondem 200 sem reprocessar, eventos perdidos ou fora de ordem são recuperados pela reconciliação do cron, ativação só com cobrança de cartão confirmada e valor igual. Não envie pagamentos de teste ao ambiente real.
+- Comportamento já homologado: grava o evento antes de responder 200, processa lendo o estado real na API do Asaas (o evento só avisa), duplicados respondem 200 sem reprocessar, eventos perdidos ou fora de ordem são recuperados pela reconciliação do cron, ativação só com cobrança de cartão confirmada e valor igual. Token ausente ou errado: 401. Não envie pagamentos de teste ao ambiente real.
 
 ## 3. Cron financeiro (QStash)
 - Endpoint: `GET https://i-grow-reports.vercel.app/api/cron/billing` (autenticação `Bearer CRON_SECRET`, o mesmo segredo que já existe no projeto: **não troque** (o agendador do WhatsApp e os crons da Vercel o usam)). Saúde: `/api/cron/billing/health` (200 saudável, 503 alerta).
@@ -25,15 +25,16 @@ Como definir sem expor: no terminal do projeto, `pnpm dlx vercel env add ASAAS_E
 - Duplicidade e falhas: execuções simultâneas são seguras (reivindicação com trava no banco); retentativas (`2`), tempo limite e histórico em `private.billing_cron_runs`; falha vira 503 em `/health`.
 - Na sua conta: criar conta gratuita em upstash.com (QStash) e copiar o `QSTASH_TOKEN`. Para ativar, no seu terminal (valores só no ambiente do comando): `BILLING_CRON_ORIGIN=https://i-grow-reports.vercel.app`, `BILLING_CRON_ENVIRONMENT=production`, `QSTASH_TOKEN`, `CRON_SECRET` (obtido com `pnpm dlx vercel env pull .env.prod.tmp --environment production`, usado com `node --env-file=.env.prod.tmp scripts/billing-cron-schedule.mjs`; apague o arquivo logo depois; `.env*` já é ignorado pelo Git). Revisar: rodar sem argumentos; ativar: `--apply --confirm=<scheduleId impresso>`. Não depende da VPS.
 
-## 4. Migration 0010 (Super Admin comercial)
-Estritamente aditiva (3 funções novas, sem alterar tabelas ou dados) e retrocompatível: o código atual de produção não as chama. Dependências já presentes em produção (verificado em leitura). **Aplicar ANTES do merge**, para que as novas páginas `/admin/comercial` e `/admin/assinaturas` já nasçam funcionando (sem ela mostram um aviso, sem quebrar).
+## 4. Migrations 0010 e 0011
+- **0010 (Super Admin comercial):** já aplicada em produção em 16/10/2026 (aditiva).
+- **0011 (integração Asaas pelo Super Admin):** aditiva (1 tabela de estado sem segredos e 6 funções; chave e tokens no Supabase Vault, já instalado em produção, verificado em leitura). **Aplicar em produção ANTES do merge** (sem ela a página mostra um aviso e a integração continua pelas variáveis de reserva). Aplicada e validada somente em homologação.
 
 ## 5. Sequência definitiva (cada passo exige a sua ordem; o cadastro público só abre no ÚLTIMO)
 1. **0010 em produção:** feito em 16/10/2026 (registrada, funções e permissões conferidas, organizações intactas).
-2. Definir na Vercel `ASAAS_ENVIRONMENT`, `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` (sem `UNLOCK`).
-3. Merge na `master` (deploy automático). Conferir: build READY, `/api/health` 200, `/api/cron/billing/health` 401 sem segredo, `/api/webhooks/asaas` 401 sem token, páginas existentes, `/admin/comercial` e `/admin/assinaturas` (com MFA), duas organizações legadas intactas. Cadastro fechado (sem planos). Rollback: promover o deploy anterior (banco só aditivo).
-4. Cadastrar o webhook no Asaas de produção. Ativar o QStash e acompanhar 3 rodadas verdes em `/health`.
+2. Aplicar a migration 0011 em produção (ordem expressa). Nenhuma variável do Asaas é necessária na Vercel para esta etapa.
+3. Merge na `master` (deploy automático; as variáveis do Asaas são opcionais). Conferir: build READY, `/api/health` 200, `/api/cron/billing/health` 401 sem segredo, `/api/webhooks/asaas` 503 (inerte até a integração ser configurada e desbloqueada), páginas existentes, `/admin/comercial` e `/admin/assinaturas` (com MFA), duas organizações legadas intactas. Cadastro fechado (sem planos). Rollback: promover o deploy anterior (banco só aditivo).
+4. No Super Admin (Integrações: Pagamentos): registrar ambiente Produção + chave, "Testar conexão" e gerar o token do webhook (copie e guarde para o passo 6). O webhook só deve ser cadastrado no Asaas no passo 6: sem o desbloqueio ele responde 503 de propósito e a fila do Asaas se interromperia. Ativar o QStash e acompanhar 3 rodadas verdes em `/health`.
 5. Executar `scripts/sql/producao-configuracao-comercial.sql`: **fecha o cadastro explicitamente** (revoga a permissão de criar organização) e publica Start, Pro, Scale, Personalizado e o plano de teste, sem ligar o teste. Resultado: planos visíveis só para organizações existentes; ninguém novo consegue se cadastrar.
-6. `ASAAS_PRODUCTION_UNLOCK=yes` + redeploy; `live_enabled=true` (uma linha de SQL, sua ordem) e **uma contratação real de baixo valor feita por você** numa organização existente (Start mensal, R$ 79,90): conferir ativação, direitos, webhook processado e `/health`; opcionalmente testar o cancelamento. Repetir o anual se quiser (R$ 799,00).
+6. `ASAAS_PRODUCTION_UNLOCK=yes` + redeploy; cadastrar o webhook no Asaas de produção e "Conferir webhook"; `live_enabled=true` (uma linha de SQL, sua ordem) e **uma contratação real de baixo valor feita por você** numa organização existente (Start mensal, R$ 79,90): conferir ativação, direitos, webhook processado e `/health`; opcionalmente testar o cancelamento. Repetir o anual se quiser (R$ 799,00).
 7. **Abertura do cadastro** (só com a contratação validada): executar `scripts/sql/producao-abrir-cadastro.sql`. Numa única transação liga o teste gratuito de 7 dias e devolve a permissão de cadastro. A partir daí cadastros novos recebem teste e podem contratar.
 Garantia: nunca existe janela com cadastro aberto sem contratação operacional, nem teste sem contratação validada. Para fechar de novo em emergência: `revoke execute on function public.create_own_agency(text, text) from authenticated;` (reversível com `grant`).

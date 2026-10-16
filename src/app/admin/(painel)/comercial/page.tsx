@@ -4,7 +4,7 @@ import { updateBillingSettingsAction } from "@/modules/platform-admin/commercial
 import { ActionForm, Field, inputClass, primaryButton, SubmitButton } from "@/modules/platform-admin/commercial/action-form";
 import { adminRpc, billingDashboardSchema, billingSettingsSchema, ENTITLEMENT_LABELS, limitOf } from "@/modules/platform-admin/commercial/billing-settings";
 import { formatUsdFromCents, planDetailSchema } from "@/modules/platform-admin/commercial/format";
-import { configuredBillingEnvironment } from "@/modules/billing/config";
+import { resolveBillingEnvironment } from "@/modules/billing/credentials";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Configurações comerciais" };
@@ -15,8 +15,9 @@ const usd = (cents: number | string) => (typeof cents === "string" ? cents : for
 export default async function CommercialSettingsPage() {
   const { supabase } = await requirePlatformOperator();
   const rpc = adminRpc(supabase);
+  const environment = await resolveBillingEnvironment();
   const [settingsResult, plansResult, dashboardResult] = await Promise.all([
-    rpc("platform_get_billing_settings"), rpc("platform_list_plans"), rpc("platform_billing_dashboard", { p_environment: configuredBillingEnvironment() }),
+    rpc("platform_get_billing_settings"), rpc("platform_list_plans"), rpc("platform_billing_dashboard", { p_environment: environment }),
   ]);
   const settings = billingSettingsSchema.safeParse(settingsResult.data);
   const dashboard = billingDashboardSchema.safeParse(dashboardResult.data);
@@ -36,7 +37,7 @@ export default async function CommercialSettingsPage() {
     <header>
       <h1 className="text-2xl font-semibold tracking-tight">Configurações comerciais</h1>
       <p className="mt-1 max-w-2xl text-sm text-[var(--secondary)]">Teste gratuito, regras de assinatura, limites de IA e WhatsApp. Planos, preços e limites são editados em <Link href="/admin/planos" className="text-[var(--blue)] hover:underline">Planos</Link>; aqui você só vê o resumo e acessa a edição.</p>
-      <p className="mt-2 text-xs text-[var(--muted)]">Cobrança real (live_enabled): <strong className={s.live_enabled ? "text-[var(--warn)]" : "text-[var(--good)]"}>{s.live_enabled ? "ligada" : "desligada"}</strong> · indicador apenas; não é alterado por esta tela. Ambiente do Asaas: {configuredBillingEnvironment() === "production" ? "produção" : "Sandbox (testes)"}.</p>
+      <p className="mt-2 text-xs text-[var(--muted)]">Cobrança real (live_enabled): <strong className={s.live_enabled ? "text-[var(--warn)]" : "text-[var(--good)]"}>{s.live_enabled ? "ligada" : "desligada"}</strong> · indicador apenas; não é alterado por esta tela. Ambiente do Asaas: {environment === "production" ? "produção" : "Sandbox (testes)"}.</p>
     </header>
 
     <ActionForm action={updateBillingSettingsAction} className="space-y-6">

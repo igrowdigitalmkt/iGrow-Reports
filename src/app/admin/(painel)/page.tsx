@@ -27,6 +27,8 @@ const AUDIT_LABELS: Record<string, string> = {
   "commercial.plan_granted_admin": "Plano concedido administrativamente", "commercial.plan_unassigned": "Plano removido de organização",
   "commercial.override_granted": "Concessão registrada", "commercial.override_revoked": "Concessão revogada",
   "commercial.billing_settings_updated": "Configurações comerciais alteradas",
+  "integration.asaas_key_saved": "Chave do Asaas registrada", "integration.asaas_webhook_token_rotated": "Token do webhook do Asaas renovado",
+  "integration.asaas_previous_token_revoked": "Token anterior do webhook revogado", "integration.asaas_connection_checked": "Conexão com o Asaas testada", "integration.asaas_webhook_checked": "Webhook do Asaas conferido",
   "commercial.feature_disabled": "Funcionalidade desativada globalmente", "commercial.feature_enabled": "Funcionalidade reativada globalmente",
 };
 const OUTCOME_LABELS: Record<string, string> = { success: "Sucesso", denied: "Negado", failure: "Falha" };

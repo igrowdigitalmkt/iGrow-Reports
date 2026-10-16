@@ -1,7 +1,7 @@
 import { requirePlatformOperator } from "@/modules/platform-admin/guard";
 import { adminRpc, billingDashboardSchema } from "@/modules/platform-admin/commercial/billing-settings";
 import { formatBrl } from "@/modules/platform-admin/commercial/format";
-import { configuredBillingEnvironment } from "@/modules/billing/config";
+import { resolveBillingEnvironment } from "@/modules/billing/credentials";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Assinaturas" };
@@ -23,7 +23,7 @@ function Count({ label, value, tone }: { label: string; value: number; tone?: "b
 
 export default async function SubscriptionsPage() {
   const { supabase } = await requirePlatformOperator();
-  const environment = configuredBillingEnvironment();
+  const environment = await resolveBillingEnvironment();
   const result = await adminRpc(supabase)("platform_billing_dashboard", { p_environment: environment });
   const parsed = billingDashboardSchema.safeParse(result.data);
   if (!parsed.success) return <div className="space-y-6"><h1 className="text-2xl font-semibold tracking-tight">Assinaturas</h1>
