@@ -4,10 +4,13 @@ vi.mock("server-only", () => ({}));
 const rpc = vi.fn();
 const afterCallbacks: (() => Promise<void> | void)[] = [];
 vi.mock("next/server", () => ({ after: (callback: () => Promise<void> | void) => { afterCallbacks.push(callback); } }));
-vi.mock("@/lib/supabase/service", () => ({ createSupabaseServiceClient: () => ({ rpc }) }));
+// Credenciais do painel (Vault): por padrão nada registrado (vale a reserva das variáveis de ambiente), como antes.
+let panel: unknown = { managed: false };
+let panelFails = false;
+vi.mock("@/lib/supabase/service", () => ({ createSupabaseServiceClient: () => ({ rpc: (name: string, args?: unknown) => name === "asaas_read_credentials" ? (panelFails ? Promise.resolve({ data: null, error: { message: "falha" } }) : Promise.resolve({ data: panel, error: null })) : rpc(name, args) }) }));
 const drain = vi.fn(async () => ({ claimed: 1 }));
 vi.mock("@/modules/billing/event-processor", () => ({ drainBillingEvents: (...args: unknown[]) => drain(...(args as [])) }));
-vi.mock("@/modules/billing/server", () => ({ createBillingRuntime: () => ({ db: {}, asaas: {}, environment: "sandbox" }) }));
+vi.mock("@/modules/billing/server", () => ({ createBillingRuntime: async () => ({ db: {}, asaas: {}, environment: "sandbox" }) }));
 
 const TOKEN = "t".repeat(40);
 const KEY = "$aact_hmlg_000000000000000000000000000000000000";
@@ -19,7 +22,7 @@ async function post(payload: unknown = body, headers: Record<string, string> = {
 }
 
 beforeEach(() => {
-  rpc.mockReset(); drain.mockClear(); afterCallbacks.length = 0;
+  rpc.mockReset(); drain.mockClear(); afterCallbacks.length = 0; panel = { managed: false }; panelFails = false;
   vi.stubEnv("ASAAS_ENVIRONMENT", "sandbox"); vi.stubEnv("ASAAS_API_KEY", KEY); vi.stubEnv("ASAAS_WEBHOOK_TOKEN", TOKEN);
 });
 
@@ -75,5 +78,55 @@ describe("webhook do Asaas: receber, autenticar, validar, persistir, responder",
     drain.mockRejectedValueOnce(new Error("falha"));
     expect((await post()).status).toBe(200);
     await expect(afterCallbacks[0]()).resolves.toBeUndefined();
+  });
+});
+
+describe("webhook do Asaas com credenciais do painel (Vault)", () => {
+  const PANEL_KEY = "$aact_hmlg_PAINEL00000000000000000000000000000";
+  const CURRENT = "c".repeat(44);
+  const PREVIOUS = "p".repeat(44);
+  beforeEach(() => { rpc.mockResolvedValue({ data: { id: 9, duplicate: false }, error: null }); });
+  const managed = (extra: Record<string, unknown> = {}) => { panel = { managed: true, environment: "sandbox", api_key: PANEL_KEY, webhook_token: CURRENT, webhook_token_previous: null, ...extra }; };
+
+  it("usa o token do painel; o token das variáveis de ambiente deixa de valer quando o painel tem token", async () => {
+    managed();
+    expect((await post(body, { "asaas-access-token": CURRENT })).status).toBe(200);
+    expect((await post(body, { "asaas-access-token": TOKEN })).status).toBe(401);
+  });
+  it("rotação: durante a transição os dois tokens valem; depois (anterior nulo) só o atual", async () => {
+    managed({ webhook_token_previous: PREVIOUS });
+    expect((await post(body, { "asaas-access-token": PREVIOUS })).status).toBe(200);
+    expect((await post(body, { "asaas-access-token": CURRENT })).status).toBe(200);
+    managed({ webhook_token_previous: null });
+    expect((await post(body, { "asaas-access-token": PREVIOUS })).status).toBe(401);
+    expect((await post(body, { "asaas-access-token": CURRENT })).status).toBe(200);
+  });
+  it("painel com chave mas sem token: o token das variáveis de ambiente continua valendo (reserva)", async () => {
+    managed({ webhook_token: null });
+    expect((await post(body, { "asaas-access-token": TOKEN })).status).toBe(200);
+    expect((await post(body, { "asaas-access-token": "x".repeat(44) })).status).toBe(401);
+  });
+  it("o evento é gravado no ambiente do painel, não no das variáveis", async () => {
+    vi.stubEnv("ASAAS_ENVIRONMENT", "sandbox");
+    vi.stubEnv("ASAAS_PRODUCTION_UNLOCK", "yes");
+    managed({ environment: "production", api_key: "$aact_prod_" + "x".repeat(40) });
+    expect((await post(body, { "asaas-access-token": CURRENT })).status).toBe(200);
+    expect(rpc.mock.calls[0][1]).toMatchObject({ p_environment: "production" });
+  });
+  it("produção registrada no painel sem o desbloqueio: webhook inerte (503), nada é gravado", async () => {
+    vi.stubEnv("ASAAS_PRODUCTION_UNLOCK", "");
+    managed({ environment: "production", api_key: "$aact_prod_" + "x".repeat(40) });
+    expect((await post(body, { "asaas-access-token": CURRENT })).status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("falha ao ler as credenciais: fecha (503) e não cai na reserva das variáveis", async () => {
+    panelFails = true;
+    expect((await post()).status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("token igual à chave de API é descartado: sem outro token, a rota fica inerte (503) e nada é gravado", async () => {
+    managed({ webhook_token: PANEL_KEY.padEnd(40, "0"), api_key: PANEL_KEY.padEnd(40, "0") });
+    expect((await post(body, { "asaas-access-token": PANEL_KEY.padEnd(40, "0") })).status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

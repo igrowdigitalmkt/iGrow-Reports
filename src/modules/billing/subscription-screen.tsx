@@ -15,7 +15,7 @@ const FORM_STATES = new Set(["idle", "expired", "canceled", "refused", "temporar
 export function SubscriptionScreen({ data, view, requestKey, hint = null }: { data: SubscriptionPageData; view: ContractView; requestKey: string; hint?: string | null }) {
   const { billing } = data;
   const isOwner = data.role === "owner";
-  const checkoutUrl = isOwner && isTrustedCheckoutUrl(billing?.pending_checkout?.checkout_url, configuredBillingEnvironment()) ? billing?.pending_checkout?.checkout_url ?? null : null;
+  const checkoutUrl = isOwner && isTrustedCheckoutUrl(billing?.pending_checkout?.checkout_url, data.environment ?? configuredBillingEnvironment()) ? billing?.pending_checkout?.checkout_url ?? null : null;
   const Icon = view.tone === "good" ? CircleCheck : view.tone === "info" ? (view.polling ? LoaderCircle : Clock) : view.tone === "neutral" ? Info : CircleAlert;
   const rows = describeSubscription(billing);
   const invoice = openInvoiceLink(billing?.payments);

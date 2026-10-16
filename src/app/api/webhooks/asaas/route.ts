@@ -1,11 +1,10 @@
 import { after } from "next/server";
-import { configuredBillingEnvironment } from "@/modules/billing/config";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { getAsaasConfig, getAsaasWebhookToken } from "@/modules/billing/config";
+import { resolveBillingCredentials } from "@/modules/billing/credentials";
 import { asBillingDb, callRpc } from "@/modules/billing/db";
 import { drainBillingEvents } from "@/modules/billing/event-processor";
 import { createBillingRuntime } from "@/modules/billing/server";
-import { MAX_WEBHOOK_BYTES, parseAsaasEvent, validateWebhookToken } from "@/modules/billing/webhook";
+import { MAX_WEBHOOK_BYTES, parseAsaasEvent, validateWebhookTokens } from "@/modules/billing/webhook";
 
 export const runtime = "nodejs";
 
@@ -15,9 +14,11 @@ const headers = { "Cache-Control": "no-store" };
 // HTTP 200 só depois de o evento estar gravado (ou já conhecido): se não der para gravar, o Asaas tenta de novo.
 // O estado financeiro nunca vem do corpo do evento: o processador lê o pagamento/assinatura na API do Asaas.
 export async function POST(request: Request) {
-  const expected = getAsaasWebhookToken();
-  if (!expected || !getAsaasConfig()) return Response.json({ error: "Indisponível." }, { status: 503, headers }); // inerte até ser configurado
-  if (validateWebhookToken(request.headers.get("asaas-access-token"), expected) !== "ok") return Response.json({ error: "Não autorizado." }, { status: 401, headers });
+  // Credenciais lidas a cada requisição (painel do Super Admin, com as variáveis de ambiente como reserva): a rotação do token vale na hora
+  // e, durante a transição, o token anterior também é aceito. Sem configuração completa a rota fica inerte.
+  const credentials = await resolveBillingCredentials();
+  if (!credentials?.config || credentials.webhookTokens.length === 0) return Response.json({ error: "Indisponível." }, { status: 503, headers });
+  if (validateWebhookTokens(request.headers.get("asaas-access-token"), credentials.webhookTokens) !== "ok") return Response.json({ error: "Não autorizado." }, { status: 401, headers });
   if (Number(request.headers.get("content-length") ?? 0) > MAX_WEBHOOK_BYTES) return Response.json({ error: "Conteúdo grande demais." }, { status: 413, headers });
   const raw = await request.text();
   if (raw.length > MAX_WEBHOOK_BYTES) return Response.json({ error: "Conteúdo grande demais." }, { status: 413, headers });
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
   let recorded: { id: number; duplicate: boolean };
   try {
     recorded = await callRpc(asBillingDb(service), "billing_record_event", {
-      p_environment: configuredBillingEnvironment(), p_event_id: event.eventId, p_event_type: event.eventType, p_resource_type: event.resourceType, p_resource_id: event.resourceId, p_payload: event.payload,
+      p_environment: credentials.environment, p_event_id: event.eventId, p_event_type: event.eventType, p_resource_type: event.resourceType, p_resource_id: event.resourceId, p_payload: event.payload,
     });
   } catch {
     console.error("asaas-webhook-persist-failed");
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     // Aceleração: tenta processar já, e aproveita para retomar eventos antigos que ficaram pendentes (os mais antigos primeiro).
     // Se esta função for interrompida, o evento continua gravado e a rotina periódica (/api/cron/billing) o retoma.
     after(async () => {
-      const deps = createBillingRuntime();
+      const deps = await createBillingRuntime(credentials);
       if (!deps) return;
       try { await drainBillingEvents(deps, { limit: 5 }); } catch { console.error("asaas-webhook-inline-failed"); }
     });

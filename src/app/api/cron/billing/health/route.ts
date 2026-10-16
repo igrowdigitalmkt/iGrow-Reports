@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { configuredBillingEnvironment } from "@/modules/billing/config";
+import { resolveBillingEnvironment } from "@/modules/billing/credentials";
 import { authorizeWorkerRequest } from "@/modules/integrations/worker-auth";
 import { readCronHealth } from "@/modules/billing/cron-monitor";
 import { asBillingDb } from "@/modules/billing/db";
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   if (auth !== "authorized") return Response.json({ error: auth === "unconfigured" ? "Monitoramento indisponível." : "Acesso negado." }, { status: auth === "unconfigured" ? 503 : 401, headers });
   const service = createSupabaseServiceClient();
   if (!service) return Response.json({ error: "Monitoramento indisponível." }, { status: 503, headers });
-  const health = await readCronHealth(asBillingDb(service), configuredBillingEnvironment());
+  const health = await readCronHealth(asBillingDb(service), await resolveBillingEnvironment());
   if (!health) return Response.json({ ok: false, flags: ["monitor_unavailable"] }, { status: 503, headers });
   return Response.json(health, { status: health.ok ? 200 : 503, headers });
 }

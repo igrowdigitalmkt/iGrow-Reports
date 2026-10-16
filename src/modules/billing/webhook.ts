@@ -12,6 +12,14 @@ export function validateWebhookToken(received: string | null, expected: string |
   return timingSafeEqual(digest(received), digest(expected)) ? "ok" : "invalid";
 }
 
+/** Aceita o token atual e, durante a transição de uma rotação, o anterior. Confere todos (sem parar no primeiro acerto). */
+export function validateWebhookTokens(received: string | null, expected: readonly string[]): "ok" | "invalid" | "unconfigured" {
+  if (expected.length === 0) return "unconfigured";
+  let ok = false;
+  for (const token of expected) if (validateWebhookToken(received, token) === "ok") ok = true;
+  return ok ? "ok" : "invalid";
+}
+
 const idText = z.string().regex(/^[A-Za-z0-9_-]{4,120}$/);
 // O identificador do EVENTO tem o formato documentado `evt_<hex>&<número>` (o "&" faz parte dele); os ids de recursos não têm "&".
 const eventIdText = z.string().regex(/^[A-Za-z0-9_&-]{4,120}$/);

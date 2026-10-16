@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { configuredBillingEnvironment } from "@/modules/billing/config";
+import { resolveBillingCredentials } from "@/modules/billing/credentials";
 import { authorizeWorkerRequest } from "@/modules/integrations/worker-auth";
 import { asBillingDb, callRpc } from "@/modules/billing/db";
 import { finishCronRun, startCronRun, summarizeCronResult } from "@/modules/billing/cron-monitor";
@@ -22,8 +22,9 @@ export async function GET(request: Request) {
   const service = createSupabaseServiceClient();
   if (!service) return Response.json({ error: "Rotina indisponível." }, { status: 503, headers });
   const db = asBillingDb(service);
-  const deps = createBillingRuntime();
-  const runId = await startCronRun(db, deps?.environment ?? configuredBillingEnvironment());
+  const credentials = await resolveBillingCredentials({ db });
+  const deps = await createBillingRuntime(credentials);
+  const runId = await startCronRun(db, deps?.environment ?? credentials?.environment ?? "sandbox");
   try {
     const maintenance = await callRpc<Record<string, unknown>>(db, "billing_run_maintenance");
     if (!deps) {

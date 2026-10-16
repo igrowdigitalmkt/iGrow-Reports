@@ -73,7 +73,10 @@ function assertId(value: string) {
   return value;
 }
 
-export function createAsaasClient(config: AsaasConfig, options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {}): AsaasApi {
+type ClientOptions = { fetchImpl?: typeof fetch; timeoutMs?: number };
+
+/** Chamada HTTP única ao Asaas (autenticação, tempo limite, classificação de erros). Compartilhada pelo cliente financeiro e pela verificação administrativa. */
+function createRequester(config: AsaasConfig, options: ClientOptions) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 15_000;
 
@@ -106,7 +109,11 @@ export function createAsaasClient(config: AsaasConfig, options: { fetchImpl?: ty
     if (!parsed.success) throw new AsaasError("Resposta do Asaas em formato inesperado.", response.status, "invalid_response", write, true, correlationId);
     return parsed.data;
   }
+  return request;
+}
 
+export function createAsaasClient(config: AsaasConfig, options: ClientOptions = {}): AsaasApi {
+  const request = createRequester(config, options);
   return {
     createCustomer: async (input) => request("POST", "/customers", customerSchema, {
       name: input.name, cpfCnpj: input.cpfCnpj, email: input.email, phone: input.phone, postalCode: input.postalCode, address: input.address,
@@ -136,5 +143,35 @@ export function createAsaasClient(config: AsaasConfig, options: { fetchImpl?: ty
       return list.data;
     },
     async cancelSubscription(id) { await request("DELETE", `/subscriptions/${assertId(id)}`, deletedSchema); },
+  };
+}
+
+const accountStatusSchema = z.object({ id: z.string().regex(ID) });
+const webhookListSchema = z.object({
+  data: z.array(z.object({
+    id: z.string().regex(ID), url: z.string().max(600), enabled: z.boolean(), interrupted: z.boolean().nullish(), hasAuthToken: z.boolean().nullish(),
+    events: z.array(z.string().max(80)).nullish(), apiVersion: z.number().nullish(),
+  })),
+  hasMore: z.boolean().nullish(),
+});
+export type AsaasWebhookInfo = z.infer<typeof webhookListSchema>['data'][number];
+
+/**
+ * Consultas SOMENTE de leitura e SEM efeito financeiro, para o Super Admin (teste de conexão e conferência do webhook).
+ * Nunca cria cobrança, cliente, assinatura, pagamento nem webhook. accountId identifica a conta (usado só para a impressão digital).
+ */
+export interface AsaasAdminProbe {
+  accountId(): Promise<string>;
+  listWebhooks(): Promise<{ webhooks: AsaasWebhookInfo[]; complete: boolean }>;
+}
+
+export function createAsaasAdminProbe(config: AsaasConfig, options: ClientOptions = {}): AsaasAdminProbe {
+  const request = createRequester(config, options);
+  return {
+    accountId: async () => (await request('GET', '/myAccount/status', accountStatusSchema)).id,
+    async listWebhooks() {
+      const list = await request('GET', '/webhooks?limit=100', webhookListSchema);
+      return { webhooks: list.data, complete: !list.hasMore };
+    },
   };
 }

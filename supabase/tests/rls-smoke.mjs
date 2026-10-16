@@ -44,6 +44,17 @@ try {
     );
     alter table storage.objects enable row level security;
     grant select,insert,update,delete on storage.objects to anon,authenticated,service_role;
+    -- Supabase Vault (extensão da Supabase): dublê mínimo com a mesma interface. A criptografia em repouso NÃO é exercitada aqui (validada no Postgres real da homologação).
+    -- Como no Supabase, nenhum papel da API tem acesso ao schema vault; só as funções SECURITY DEFINER do projeto o consultam.
+    create schema vault;
+    create table vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, description text not null default '', secret text not null, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+    create view vault.decrypted_secrets as select id, name, description, secret as decrypted_secret from vault.secrets;
+    create function vault.create_secret(new_secret text, new_name text default null, new_description text default '') returns uuid language sql as $$
+      insert into vault.secrets(secret, name, description) values (new_secret, new_name, coalesce(new_description, '')) returning id;
+    $$;
+    create function vault.update_secret(secret_id uuid, new_secret text default null, new_name text default null, new_description text default null) returns void language sql as $$
+      update vault.secrets set secret = coalesce(new_secret, secret), name = coalesce(new_name, name), description = coalesce(new_description, description), updated_at = now() where id = secret_id;
+    $$;
     create extension pgtap with schema extensions;
   `);
   const preflight = await readFile(resolve(root,"supabase/diagnostics/snapshot-readiness.sql"),"utf8");

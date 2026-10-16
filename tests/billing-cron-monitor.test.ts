@@ -6,7 +6,7 @@ vi.mock("@/lib/supabase/service", () => ({ createSupabaseServiceClient: mocks.se
 vi.mock("@/modules/billing/server", () => ({ createBillingRuntime: mocks.runtime }));
 vi.mock("@/modules/billing/event-processor", () => ({ drainBillingEvents: mocks.drain }));
 vi.mock("@/modules/billing/reconcile", () => ({ reconcileBilling: mocks.reconcile }));
-vi.mock("@/modules/billing/config", () => ({ getAsaasConfig: mocks.config, configuredBillingEnvironment: () => "sandbox" }));
+vi.mock("@/modules/billing/credentials", () => ({ resolveBillingCredentials: async () => ({ environment: "sandbox" }), resolveBillingEnvironment: async () => "sandbox" }));
 import { finishCronRun, readCronHealth, startCronRun, summarizeCronResult } from "@/modules/billing/cron-monitor";
 import { GET as cron } from "@/app/api/cron/billing/route";
 import { GET as health } from "@/app/api/cron/billing/health/route";
