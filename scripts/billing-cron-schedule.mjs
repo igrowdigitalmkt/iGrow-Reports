@@ -74,7 +74,8 @@ export async function applyBillingCronSchedule(env, confirmation, fetcher = fetc
   };
   if (plan.bypassConfigured) headers["Upstash-Forward-x-vercel-protection-bypass"] = env.VERCEL_BYPASS_SECRET;
   if (plan.failureCallback) headers["Upstash-Failure-Callback"] = plan.failureCallback;
-  const response = await call(`${plan.qstash}/v2/schedules/${encodeURIComponent(plan.destination)}`, { method: "POST", headers });
+  // O QStash exige o destino SEM codificação no caminho (codificado, recusa com "invalid scheme").
+  const response = await call(`${plan.qstash}/v2/schedules/${plan.destination}`, { method: "POST", headers });
   if (!response.ok) throw Error(`QStash não confirmou a criação (HTTP ${response.status}).`);
   let result;
   try { result = await response.json(); } catch { throw Error("Resposta de criação inválida; confira o agendamento no QStash antes de repetir."); }

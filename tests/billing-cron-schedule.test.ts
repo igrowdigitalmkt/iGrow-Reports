@@ -59,7 +59,7 @@ describe("ativação explícita (testada só com rede simulada)", () => {
     const result = await applyBillingCronSchedule({ ...env, BILLING_ALERT_CALLBACK_URL: "https://alerta.example.com/falha" }, id(), fetcher);
     expect(result).toMatchObject({ created: true, cron: "*/5 * * * *" });
     const [url, options] = fetcher.mock.calls[2];
-    expect(String(url)).toBe(`https://qstash.upstash.io/v2/schedules/${encodeURIComponent("https://homolog.example.com/api/cron/billing")}`);
+    expect(String(url)).toBe(`https://qstash.upstash.io/v2/schedules/https://homolog.example.com/api/cron/billing`);
     expect(String(url)).not.toContain(env.CRON_SECRET);
     expect(options.headers).toMatchObject({
       "Upstash-Method": "GET", "Upstash-Cron": "*/5 * * * *", "Upstash-Retries": "2", "Upstash-Timeout": "110s", "Upstash-Schedule-Id": id(),
