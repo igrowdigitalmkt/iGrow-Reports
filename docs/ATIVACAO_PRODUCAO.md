@@ -28,12 +28,12 @@ Como definir sem expor: no terminal do projeto, `pnpm dlx vercel env add ASAAS_E
 ## 4. Migration 0010 (Super Admin comercial)
 Estritamente aditiva (3 funções novas, sem alterar tabelas ou dados) e retrocompatível: o código atual de produção não as chama. Dependências já presentes em produção (verificado em leitura). **Aplicar ANTES do merge**, para que as novas páginas `/admin/comercial` e `/admin/assinaturas` já nasçam funcionando (sem ela mostram um aviso, sem quebrar).
 
-## 5. Sequência definitiva (cada passo exige a sua ordem)
-1. Aplicar a 0010 em produção (uma migration, conferir funções e permissões).
+## 5. Sequência definitiva (cada passo exige a sua ordem; o cadastro público só abre no ÚLTIMO)
+1. **0010 em produção:** feito em 16/10/2026 (registrada, funções e permissões conferidas, organizações intactas).
 2. Definir na Vercel `ASAAS_ENVIRONMENT`, `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` (sem `UNLOCK`).
-3. Merge na `master` (deploy automático). Conferir: build READY, `/api/health` 200, `/api/cron/billing/health` 401 sem segredo, `/api/webhooks/asaas` 401 sem token, páginas existentes, `/admin/comercial` e `/admin/assinaturas` (com MFA), duas organizações legadas intactas. O cadastro continua fechado (sem planos publicados). Rollback: promover o deploy anterior na Vercel (as mudanças no banco são aditivas).
-4. Cadastrar o webhook no Asaas de produção (URL do passo 3). Ativar o QStash e acompanhar 3 rodadas verdes em `/health`.
-5. Executar o SQL comercial (`scripts/sql/producao-configuracao-comercial.sql`): publica Start, Pro, Scale, Personalizado e o plano de teste, **sem ligar o teste gratuito**. Cadastros novos passam a nascer com acesso restrito (podem contratar; não ganham teste).
-6. `ASAAS_PRODUCTION_UNLOCK=yes` + redeploy; depois `live_enabled=true` (uma única linha de SQL, sua ordem) e **uma contratação real de baixo valor feita por você** numa organização sua (o Start mensal, R$ 79,90): conferir ativação, direitos, webhook processado e `/health`; cancelar em seguida se quiser.
-7. Só depois da contratação real validada: ligar o teste gratuito pelo Super Admin (Configurações comerciais > plano usado no teste = "Teste gratuito"). A partir daí, cadastros novos recebem 7 dias. Nunca há trial sem a contratação operacional.
-Por que esta ordem resolve a dependência circular: o cadastro só abre no passo 5, sem trial; a contratação real é validada no 6 numa organização existente; o trial só liga no 7.
+3. Merge na `master` (deploy automático). Conferir: build READY, `/api/health` 200, `/api/cron/billing/health` 401 sem segredo, `/api/webhooks/asaas` 401 sem token, páginas existentes, `/admin/comercial` e `/admin/assinaturas` (com MFA), duas organizações legadas intactas. Cadastro fechado (sem planos). Rollback: promover o deploy anterior (banco só aditivo).
+4. Cadastrar o webhook no Asaas de produção. Ativar o QStash e acompanhar 3 rodadas verdes em `/health`.
+5. Executar `scripts/sql/producao-configuracao-comercial.sql`: **fecha o cadastro explicitamente** (revoga a permissão de criar organização) e publica Start, Pro, Scale, Personalizado e o plano de teste, sem ligar o teste. Resultado: planos visíveis só para organizações existentes; ninguém novo consegue se cadastrar.
+6. `ASAAS_PRODUCTION_UNLOCK=yes` + redeploy; `live_enabled=true` (uma linha de SQL, sua ordem) e **uma contratação real de baixo valor feita por você** numa organização existente (Start mensal, R$ 79,90): conferir ativação, direitos, webhook processado e `/health`; opcionalmente testar o cancelamento. Repetir o anual se quiser (R$ 799,00).
+7. **Abertura do cadastro** (só com a contratação validada): executar `scripts/sql/producao-abrir-cadastro.sql`. Numa única transação liga o teste gratuito de 7 dias e devolve a permissão de cadastro. A partir daí cadastros novos recebem teste e podem contratar.
+Garantia: nunca existe janela com cadastro aberto sem contratação operacional, nem teste sem contratação validada. Para fechar de novo em emergência: `revoke execute on function public.create_own_agency(text, text) from authenticated;` (reversível com `grant`).

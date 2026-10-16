@@ -4,6 +4,10 @@
 -- Preços em centavos. Orçamento de IA em centavos de dólar (recomendação financeira: ver docs/LANCAMENTO_V1.md). Janela: ~7 s.
 begin;
 
+-- CADASTRO PÚBLICO FECHADO: publicar planos reabriria a criação de organizações; esta linha mantém o cadastro bloqueado no banco até o script
+-- scripts/sql/producao-abrir-cadastro.sql (que só deve rodar DEPOIS da contratação real validada). Organizações existentes não são afetadas.
+revoke execute on function public.create_own_agency(text, text) from authenticated;
+
 insert into private.plans(id,key,name,description,visibility,sellable,recommended,sort_order) values
   ('c0000000-0000-4000-8000-000000000001','teste-gratuito','Teste gratuito','Teste gratuito de 7 dias, sem cartão.','private',false,false,1),
   ('c0000000-0000-4000-8000-000000000002','start','Start','Para quem está começando a organizar os relatórios.','public',true,false,10),
@@ -46,6 +50,6 @@ update private.plans set current_version_id = ('c1000000-0000-4000-8000-00000000
 select p.name, p.visibility, p.sellable, p.recommended, v.price_monthly_cents, v.price_yearly_cents,
   (select string_agg(e.key || coalesce('=' || e.limit_value::text, ''), ', ' order by e.key) from private.plan_version_entitlements e where e.plan_version_id = v.id) direitos
 from private.plans p join private.plan_versions v on v.plan_id = p.id order by p.sort_order;
-select (select count(*) from private.agency_plan_assignments) atribuicoes_devem_continuar_0,
+select (select count(*) from private.agency_plan_assignments) atribuicoes_devem_continuar_0, not has_function_privilege('authenticated','public.create_own_agency(text,text)','execute') cadastro_deve_estar_fechado,
   (select trial_plan_version_id is null from private.billing_settings) trial_deve_estar_desligado, (select live_enabled from private.billing_settings) live_enabled_deve_ser_false;
 commit;
