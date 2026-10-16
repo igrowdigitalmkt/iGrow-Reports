@@ -107,7 +107,8 @@ export async function runGuardedGeneration(input: GuardedInput, deps: GuardedDep
     return { ok: false, reason: "disabled", message: "A IA está desligada para esta organização ou cliente." };
   }
   // O teto do plano nunca é ultrapassado, mesmo que a configuração da organização seja maior.
-  const budget = Math.min(Number(agencySettings.data?.monthly_budget_usd ?? DEFAULT_MONTHLY_BUDGET_USD), commercial.budgetUsd ?? Infinity);
+  // Sem configuração própria da organização, o orçamento do plano é o que vale (o padrão só vale sem plano). O teto do plano nunca é ultrapassado.
+  const budget = Math.min(Number(agencySettings.data?.monthly_budget_usd ?? commercial.budgetUsd ?? DEFAULT_MONTHLY_BUDGET_USD), commercial.budgetUsd ?? Infinity);
   if (Number(monthCost.data) >= budget) {
     await log("blocked_budget");
     return { ok: false, reason: "budget", message: "O orçamento mensal de IA desta organização foi atingido." };

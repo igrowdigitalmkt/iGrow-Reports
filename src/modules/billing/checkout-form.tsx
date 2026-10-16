@@ -20,22 +20,31 @@ const FIELDS: { key: Field; label: string; autoComplete: string; inputMode?: "nu
   { key: "complement", label: "Complemento", autoComplete: "off", optional: true },
 ];
 
+// Em todos os planos: uma conexão por QR Code por organização, incluída e fora do limite de números oficiais (API).
+const QR_LINE = "WhatsApp por QR Code: 1 conexão incluída (não conta nos números oficiais)";
+
+// Endereço (https) para pedir orçamento do plano personalizado; opcional. Sem ele a tela orienta a falar com o suporte.
+const SALES_CONTACT_URL = /^https:\/\/[^\s]+$/.test(process.env.NEXT_PUBLIC_SALES_CONTACT_URL ?? "") ? process.env.NEXT_PUBLIC_SALES_CONTACT_URL : null;
+
 export function CheckoutForm({ offers, requestKey, needsBillingData, canContract }: Props) {
-  const initial = offers.find((offer) => offer.recommended) ?? offers[0];
+  // Nenhum plano vem pré-selecionado quando há mais de uma opção sem UM único recomendado: a pessoa escolhe de propósito (evita contratar o plano errado).
+  const recommended = offers.filter((item) => item.recommended);
+  const initial = offers.length === 1 ? offers[0] : recommended.length === 1 ? recommended[0] : undefined;
+  const showRecommended = recommended.length === 1 && offers.length > 1;
   const [versionId, setVersionId] = useState(initial?.plan_version_id ?? "");
-  const [cycle, setCycle] = useState<Cycle>(initial && priceOf(initial, "monthly") ? "monthly" : "yearly");
+  const [cycle, setCycle] = useState<Cycle>(initial && !priceOf(initial, "monthly") ? "yearly" : "monthly");
   const [values, setValues] = useState<Record<Field, string>>({ name: "", cpfCnpj: "", email: "", phone: "", postalCode: "", address: "", addressNumber: "", province: "", complement: "" });
   const [error, setError] = useState<{ message: string; field: string | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const offer = useMemo(() => offers.find((item) => item.plan_version_id === versionId) ?? initial, [offers, versionId, initial]);
-  if (!offer) return null;
-  const price = priceOf(offer, cycle);
-  const cycles = (["monthly", "yearly"] as Cycle[]).filter((item) => priceOf(offer, item));
+  const offer = useMemo(() => offers.find((item) => item.plan_version_id === versionId), [offers, versionId]);
+  if (!offers.length) return null;
+  const price = offer ? priceOf(offer, cycle) : null;
+  const cycles = offer ? (["monthly", "yearly"] as Cycle[]).filter((item) => priceOf(offer, item)) : [];
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || !canContract) return;
+    if (pending || !canContract || !offer) return;
     setError(null); setNotice(null);
     if (needsBillingData) {
       const parsed = billingDataSchema.safeParse(values);
@@ -44,7 +53,7 @@ export function CheckoutForm({ offers, requestKey, needsBillingData, canContract
     startTransition(async () => {
       try {
         // Só plano, ciclo, chave de reenvio e dados de cobrança saem daqui. O valor cobrado é recalculado no servidor.
-        const result = await startCheckoutAction({ planVersionId: offer!.plan_version_id, cycle, requestKey, billing: needsBillingData ? values : undefined });
+        const result = await startCheckoutAction({ planVersionId: offer.plan_version_id, cycle, requestKey, billing: needsBillingData ? values : undefined });
         if (result.status === "redirect") { window.location.assign(result.url); return; }
         if (result.status === "pending") setNotice(result.message);
         else if (result.status === "invalid_data") setError({ message: result.message, field: result.field });
@@ -61,22 +70,29 @@ export function CheckoutForm({ offers, requestKey, needsBillingData, canContract
       <legend className="billing-legend">1. Plano</legend>
       <div className="billing-plans" role="radiogroup" aria-label="Plano">
         {offers.map((item) => {
-          const selected = item.plan_version_id === offer.plan_version_id;
+          const selected = item.plan_version_id === offer?.plan_version_id;
           const lines = item.entitlements.map(describeEntitlement).filter((line): line is string => Boolean(line));
           return <label key={item.plan_version_id} className="billing-plan" data-selected={selected}>
             <input type="radio" name="plan" value={item.plan_version_id} checked={selected} onChange={() => { setVersionId(item.plan_version_id); if (!priceOf(item, cycle)) setCycle(priceOf(item, "monthly") ? "monthly" : "yearly"); }} />
-            <span className="billing-plan-head"><strong>{item.name}</strong>{item.recommended && <span className="badge neutral">Recomendado</span>}</span>
+            <span className="billing-plan-head"><strong>{item.name}</strong>{item.recommended && showRecommended && <span className="badge neutral">Recomendado</span>}</span>
             {item.description && <span className="billing-muted">{item.description}</span>}
-            {lines.length > 0 && <ul className="billing-lines">{lines.map((line) => <li key={line}>{line}</li>)}</ul>}
+            <ul className="billing-lines">{lines.map((line) => <li key={line}>{line}</li>)}<li>{QR_LINE}</li></ul>
           </label>;
         })}
+      </div>
+      {/* Plano personalizado: sem preço fixo e SEM checkout automático; contratação mediante orçamento. */}
+      <div className="billing-plan" data-custom="true">
+        <span className="billing-plan-head"><strong>Personalizado</strong></span>
+        <span className="billing-muted">Precisa de mais clientes, contas ou integrantes? Contratação mediante orçamento, sem pagamento automático.</span>
+        {SALES_CONTACT_URL ? <a className="button" href={SALES_CONTACT_URL} target="_blank" rel="noopener noreferrer">Pedir orçamento</a> : <span className="billing-muted">Fale com o suporte para pedir um orçamento.</span>}
       </div>
     </fieldset>
 
     <fieldset disabled={pending} className="billing-fieldset">
       <legend className="billing-legend">2. Período</legend>
+      {!offer && <p className="billing-muted">Escolha um plano acima para ver os valores mensal e anual.</p>}
       <div className="billing-cycles" role="radiogroup" aria-label="Período de cobrança">
-        {cycles.map((item) => {
+        {offer && cycles.map((item) => {
           const cents = priceOf(offer, item)!;
           const saving = item === "yearly" ? yearlySavings(offer) : null;
           return <label key={item} className="billing-cycle" data-selected={cycle === item}>
@@ -104,7 +120,7 @@ export function CheckoutForm({ offers, requestKey, needsBillingData, canContract
     <div className="billing-summary" aria-live="polite">
       <div><span className="billing-muted">Total desta contratação</span><strong className="billing-total">{price ? formatBRL(price) : "—"}</strong>
         <span className="billing-muted">{cycle === "monthly" ? "por mês, renovado automaticamente" : "por ano, em uma cobrança única, renovada automaticamente"}</span></div>
-      <button type="submit" className="button button-primary" disabled={pending || !canContract || !price}>
+      <button type="submit" className="button button-primary" disabled={pending || !canContract || !offer || !price}>
         {pending ? <><LoaderCircle size={16} className="billing-spin" aria-hidden="true" />Preparando o pagamento…</> : <><LockKeyhole size={16} aria-hidden="true" />Ir para o pagamento seguro</>}
       </button>
     </div>

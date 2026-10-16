@@ -88,6 +88,11 @@ describe("comentário de relatório com IA", () => {
     const aiCap = fakeAnthropic("x");
     expect(await generateReportComment(input, { supabase: capped.client, anthropic: aiCap.deps })).toMatchObject({ ok: false, reason: "budget" });
     expect(aiCap.create).not.toHaveBeenCalled();
+    // Sem configuração própria da organização o orçamento do PLANO governa (plano de US$ 8 e gasto de US$ 6: ainda dentro do teto).
+    const planBudget = fakeSupabase({ monthCost: 6, entitlement: { allowed: true, budget_usd: 8 } });
+    expect(await generateReportComment(input, { supabase: planBudget.client, anthropic: fakeAnthropic("x").deps })).not.toMatchObject({ reason: "budget" });
+    const planFull = fakeSupabase({ monthCost: 8, entitlement: { allowed: true, budget_usd: 8 } });
+    expect(await generateReportComment(input, { supabase: planFull.client, anthropic: fakeAnthropic("x").deps })).toMatchObject({ ok: false, reason: "budget" });
     for (const entitlement of [5, "sim", { allowed: "true" }, { allowed: true, budget_usd: -1 }]) {
       const bad = fakeSupabase({ entitlement });
       const aiBad = fakeAnthropic("x");

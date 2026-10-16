@@ -151,6 +151,8 @@ export async function createOwnWorkspaceAction(_state: AuthActionState, formData
   const { supabase } = await requireUserSession("/criar-espaco");
   const { data: agencyId, error } = await supabase.rpc("create_own_agency", { p_name: parsed.data });
   if (error?.code === "23514") return { error: "Você atingiu o limite de 5 espaços de trabalho próprios." };
+  // O banco aplica o teste gratuito (ou o acesso restrito) na própria criação; sem catálogo comercial configurado ele recusa a criação.
+  if (error?.code === "55000") return { error: "Cadastro temporariamente indisponível. Fale com o suporte." };
   if (error || !agencyId) return { error: "Não foi possível criar o espaço de trabalho agora. Tente novamente." };
   await supabase.auth.updateUser({ data: { pending_agency_name: null } });
   (await cookies()).set(AGENCY_COOKIE, agencyId, {
