@@ -7,12 +7,13 @@ export const dynamic = "force-dynamic";
 
 const MODULES_READY = [
   ["Planos", "/admin/planos", "Catálogo comercial com versões, preços, funcionalidades e limites."],
+  ["Configurações comerciais", "/admin/comercial", "Teste gratuito, tolerância, validade do checkout, limites de IA e WhatsApp."],
+  ["Assinaturas", "/admin/assinaturas", "Acompanhamento somente leitura: assinaturas, testes, eventos e cron financeiro."],
   ["Recursos e interruptores", "/admin/recursos", "Catálogo dos recursos controláveis e desativação global de emergência."],
   ["Organizações e concessões", "/admin/organizacoes", "Atribuir plano a uma organização e conceder liberações temporárias."],
 ] as const;
 
 const PLANNED = [
-  ["Assinaturas e pagamentos", "Cobrança recorrente automática com o Asaas, webhooks e conciliação."],
   ["Integrações e IA", "Situação das conexões e consumo de inteligência artificial."],
   ["Configurações globais", "Identidade da plataforma e preferências."],
 ] as const;
@@ -25,6 +26,7 @@ const AUDIT_LABELS: Record<string, string> = {
   "commercial.draft_saved": "Rascunho de plano salvo", "commercial.draft_discarded": "Rascunho de plano descartado", "commercial.version_published": "Versão de plano publicada",
   "commercial.plan_granted_admin": "Plano concedido administrativamente", "commercial.plan_unassigned": "Plano removido de organização",
   "commercial.override_granted": "Concessão registrada", "commercial.override_revoked": "Concessão revogada",
+  "commercial.billing_settings_updated": "Configurações comerciais alteradas",
   "commercial.feature_disabled": "Funcionalidade desativada globalmente", "commercial.feature_enabled": "Funcionalidade reativada globalmente",
 };
 const OUTCOME_LABELS: Record<string, string> = { success: "Sucesso", denied: "Negado", failure: "Falha" };

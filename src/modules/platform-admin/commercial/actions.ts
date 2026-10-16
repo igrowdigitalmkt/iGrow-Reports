@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { Json } from "@/types/database";
 import { authorizePlatformAction } from "../guard";
+import { adminRpc, billingSettingsFormSchema } from "./billing-settings";
 import { parseMoneyToCents, planKeySchema, USD_LIMIT_KEYS } from "./format";
 
 export type FormState = { error: string | null; ok: string | null };
@@ -204,4 +205,18 @@ export async function revokeOverrideAction(_state: FormState, formData: FormData
   if (error) return fail(dbMessage(error));
   revalidatePath("/admin/organizacoes", "layout");
   return done("Concessão revogada.");
+}
+
+/** Configurações comerciais: teste gratuito, tolerância e validade do checkout. Nunca toca em live_enabled (decisão fora da interface). */
+export async function updateBillingSettingsAction(_state: FormState, formData: FormData): Promise<FormState> {
+  const auth = await authorizePlatformAction();
+  if (!auth.ok) return fail(auth.error);
+  const parsed = billingSettingsFormSchema.safeParse({ trialDays: text(formData, "trialDays"), graceDays: text(formData, "graceDays"),
+    checkoutMinutes: text(formData, "checkoutMinutes"), trialPlanVersionId: text(formData, "trialPlanVersionId") });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  const { error } = await adminRpc(auth.supabase)("platform_update_billing_settings", { p_trial_days: parsed.data.trialDays,
+    p_trial_plan_version_id: parsed.data.trialPlanVersionId, p_past_due_grace_days: parsed.data.graceDays, p_checkout_minutes: parsed.data.checkoutMinutes });
+  if (error) return fail(dbMessage(error));
+  revalidatePath("/admin/comercial");
+  return done("Configurações salvas. Valem para novos testes, assinaturas e checkouts; os já existentes não mudam.");
 }

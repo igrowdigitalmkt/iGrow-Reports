@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, Layers, ToggleRight } from "lucide-react";
+import { Building2, LayoutDashboard, Layers, Receipt, SlidersHorizontal, ToggleRight } from "lucide-react";
 
 const ITEMS = [
   { href: "/admin", label: "Visão geral", icon: LayoutDashboard, exact: true },
   { href: "/admin/planos", label: "Planos", icon: Layers },
+  { href: "/admin/comercial", label: "Configurações comerciais", icon: SlidersHorizontal },
+  { href: "/admin/assinaturas", label: "Assinaturas", icon: Receipt },
   { href: "/admin/recursos", label: "Recursos e interruptores", icon: ToggleRight },
   { href: "/admin/organizacoes", label: "Organizações e concessões", icon: Building2 },
 ] as const;
