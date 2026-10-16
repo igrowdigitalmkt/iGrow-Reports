@@ -1,5 +1,5 @@
 -- CONFIGURAÇÃO COMERCIAL DA V1 (NÃO EXECUTADA EM PRODUÇÃO). Executar UMA vez, com autorização, no SQL Editor do Supabase de produção.
--- Cria: teste gratuito (privado), Start, Pro (recomendado), Scale e Personalizado (privado, sem checkout), publica e aponta o teste.
+-- Cria: teste gratuito (privado), Start, Pro (recomendado), Scale e Personalizado (privado, sem checkout) e publica. NÃO liga o teste gratuito.
 -- NÃO altera organizações existentes (seguem "legadas", sem plano e com acesso integral) e NÃO liga cobrança real (live_enabled continua false).
 -- Preços em centavos. Orçamento de IA em centavos de dólar (recomendação financeira: ver docs/LANCAMENTO_V1.md). Janela: ~7 s.
 begin;
@@ -38,12 +38,14 @@ where v.id in ('c1000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-0
 
 update private.plan_versions set status='published', published_at=now() where id::text like 'c1000000-0000-4000-8000-00000000000%';
 update private.plans set current_version_id = ('c1000000-0000-4000-8000-00000000000' || right(id::text, 1))::uuid where id::text like 'c0000000-0000-4000-8000-00000000000%';
-update private.billing_settings set trial_plan_version_id='c1000000-0000-4000-8000-000000000001';  -- live_enabled NÃO é alterado
+-- O teste gratuito NÃO é apontado aqui de propósito: ele só é ligado DEPOIS da contratação real validada, pelo Super Admin (Configurações comerciais >
+-- Plano usado no teste = "Teste gratuito"). Enquanto não for ligado, organizações novas nascem com acesso restrito (podem contratar, não ganham teste).
+-- live_enabled NÃO é alterado por este script.
 
 -- CONFERÊNCIA (leitura)
 select p.name, p.visibility, p.sellable, p.recommended, v.price_monthly_cents, v.price_yearly_cents,
   (select string_agg(e.key || coalesce('=' || e.limit_value::text, ''), ', ' order by e.key) from private.plan_version_entitlements e where e.plan_version_id = v.id) direitos
 from private.plans p join private.plan_versions v on v.plan_id = p.id order by p.sort_order;
 select (select count(*) from private.agency_plan_assignments) atribuicoes_devem_continuar_0,
-  (select trial_plan_version_id is not null from private.billing_settings) trial_configurado, (select live_enabled from private.billing_settings) live_enabled_deve_ser_false;
+  (select trial_plan_version_id is null from private.billing_settings) trial_deve_estar_desligado, (select live_enabled from private.billing_settings) live_enabled_deve_ser_false;
 commit;
