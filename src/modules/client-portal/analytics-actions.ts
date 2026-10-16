@@ -1,5 +1,6 @@
 "use server";
 
+import { paidOperationBlock } from "@/modules/billing/guard";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { collectMetaClientInsights, MetaSetupError } from "@/modules/meta/server";
@@ -15,6 +16,9 @@ export async function collectDashboardData(input: unknown) {
   if (!parsed.success) return { error: "Cliente ou período inválido." };
   const context = await requireClientDashboardAccess(parsed.data.clientId);
   if (!context.canCollect && !parsed.data.automatic) return { error: "Seu perfil não pode atualizar os dados deste cliente." };
+  // Atualização com a Meta é operação paga. A automática (ao abrir o painel) é pausada em silêncio e o painel mostra os dados guardados.
+  const collectBlock = await paidOperationBlock(context.access.agencyId);
+  if (collectBlock) return parsed.data.automatic ? { success: true as const, insightCount: 0, paused: true as const } : { error: collectBlock.error };
   const { data: dataContext } = await context.supabase.rpc("get_client_portal_data_context", { p_client_id: parsed.data.clientId }).single();
   let range;
   try {

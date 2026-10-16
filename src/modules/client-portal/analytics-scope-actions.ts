@@ -1,5 +1,6 @@
 "use server";
 
+import { billingBlockOf } from "@/modules/billing/guard";
 import { z } from "zod";
 import { requireClientDashboardAccess } from "./context";
 import { normalizeClientAnalytics } from "./analytics-calculations";
@@ -29,7 +30,7 @@ export async function getCampaignScopedAnalytics(input: unknown) {
     return { error: "A seleção de campanhas permanece bloqueada até todos os dias do período estarem completos." };
   }
   try { await refreshMetaDashboardScope({ agencyId: access.agencyId, clientId: parsed.data.clientId, data: initial, entityKeys: parsed.data.entityKeys }); }
-  catch { return { error: "A Meta não confirmou os agregados desta seleção. Tente atualizar os dados e aplicar novamente." }; }
+  catch (error) { return { error: billingBlockOf(error)?.error ?? "A Meta não confirmou os agregados desta seleção. Tente atualizar os dados e aplicar novamente." }; }
   const refreshed = await supabase.rpc("get_campaign_scoped_analytics", { p_client_id: parsed.data.clientId,
     p_date_from: parsed.data.dateFrom, p_date_to: parsed.data.dateTo, p_ad_account_ids: parsed.data.accountIds, p_entity_keys: parsed.data.entityKeys });
   if (refreshed.error || !refreshed.data) return { error: "Não foi possível ler os agregados confirmados desta seleção." };

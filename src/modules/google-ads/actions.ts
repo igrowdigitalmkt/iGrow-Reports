@@ -1,5 +1,6 @@
 "use server";
 
+import { BillingRestrictedError } from "@/modules/billing/guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
@@ -13,7 +14,7 @@ export type GoogleAdsStatus = {
 };
 
 const isAdmin = (role: string) => role === "owner" || role === "admin";
-const failure = (error: unknown) => ({ error: error instanceof GoogleAdsSetupError ? error.message : "Não foi possível concluir. Tente novamente." });
+const failure = (error: unknown) => ({ error: error instanceof GoogleAdsSetupError || error instanceof BillingRestrictedError ? error.message : "Não foi possível concluir. Tente novamente." });
 
 export async function getGoogleAdsStatus(): Promise<GoogleAdsStatus> {
   const context = await requireAgencyContext();

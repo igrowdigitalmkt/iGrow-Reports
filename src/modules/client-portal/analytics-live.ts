@@ -1,4 +1,5 @@
 import "server-only";
+import { billingBlockOf } from "@/modules/billing/guard";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import { refreshMetaDashboardScope } from "@/modules/meta/server";
@@ -23,6 +24,11 @@ export async function getFreshClientAnalytics(input: {
     if (refreshed && "cached" in refreshed && refreshed.cached && initial.metaAggregate?.confirmed) return initial;
     return await getClientAnalytics(supabase, clientId, dateFrom, dateTo, accountIds);
   } catch (error) {
+    // Organização com acesso restrito: continua vendo os dados já guardados; a atualização com a Meta fica pausada (não é falha do provedor).
+    if (billingBlockOf(error)) {
+      initial.warnings.push("Atualizações com a Meta estão pausadas porque o acesso desta organização está restrito. Os dados já coletados continuam disponíveis para consulta.");
+      return initial;
+    }
     console.error("meta-dashboard-scope-refresh", {
       name: error instanceof Error ? error.name : typeof error,
       message: error instanceof Error ? error.message : "unknown",

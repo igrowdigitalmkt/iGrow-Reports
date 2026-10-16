@@ -1,5 +1,6 @@
 import "server-only";
 
+import { billingBlockOf } from "@/modules/billing/guard";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireClientDashboardAccess } from "./context";
@@ -91,7 +92,7 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
   const googleService = createSupabaseServiceClient();
   const google = googleService
     ? await loadGoogleSections({ service: googleService, agencyId: access.agencyId, clientId, dateFrom: range.dateFrom, dateTo: range.dateTo })
-      .catch(() => ({ sections: [], failures: [{ name: "Google Ads", message: "Tente atualizar a página em instantes." }] }))
+      .catch(error => ({ sections: [], failures: [{ name: "Google Ads", message: billingBlockOf(error) ? "Atualização ao vivo indisponível enquanto o acesso da organização estiver restrito. Conexão e contas preservadas; os números do Google voltam após a regularização." : "Tente atualizar a página em instantes." }] }))
     : { sections: [], failures: [] };
   const { data: headerData, error: headerError } = await supabase.rpc("get_client_report_header", { p_client_id: clientId });
   if (headerError) {

@@ -7,7 +7,7 @@ import { transitionAfterCollection } from "./worker-contract";
 import { authorizeCollectionJob, claimCollectionJob, finishCollectionJob, persistCollectionResult, recordProviderHealth } from "./repository";
 import { runProviderJob } from "./worker-runner";
 
-export async function runOneIntegrationJob(service: SupabaseClient<Database>, adapters: Record<string, ProviderAdapter>,claimProvider?: "meta"): Promise<boolean> {
+export async function runOneIntegrationJob(service: SupabaseClient<Database>, adapters: Record<string, ProviderAdapter>,claimProvider?: "meta", options?: { isBlocked?: (identity: CollectionIdentity) => Promise<boolean> }): Promise<boolean> {
   const job = await claimCollectionJob(service,new Date(),claimProvider);
   if (!job) return false;
   const adapter = adapters[job.provider];
@@ -21,6 +21,11 @@ export async function runOneIntegrationJob(service: SupabaseClient<Database>, ad
     return true;
   }
   const identity: CollectionIdentity = { clientId: job.client_id, connectionId: job.connection_id, provider: adapter.provider, externalAccountId: job.external_account_id, dateFrom: job.date_from, dateTo: job.date_to, level: job.entity_level as CollectionIdentity["level"], apiVersion: job.api_version, contractVersion: job.contract_version };
+  // Organização com acesso financeiro restrito: nenhuma chamada ao provedor, nenhuma marca de falha de saúde do provedor.
+  if (options?.isBlocked && await options.isBlocked(identity)) {
+    await finishCollectionJob(service, job.job_id, job.attempt_count, { status: "failed", errorCode: "billing_restricted", errorMessage: "Coleta pausada: o acesso da organização está restrito." });
+    return true;
+  }
   await runProviderJob(adapter, identity, {
     persistResult: async result => { await persistCollectionResult(service, job.job_id, job.attempt_count, result, transitionAfterCollection(result).status === "confirmed" ? "confirmed" : "partial"); },
     markTransition: async transition => { await finishCollectionJob(service, job.job_id, job.attempt_count, transition); },

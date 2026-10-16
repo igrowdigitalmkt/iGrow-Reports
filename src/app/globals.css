@@ -932,3 +932,15 @@ img.team-avatar { object-fit: cover; padding: 0; }
 .billing-spin { animation: billing-spin 1s linear infinite; vertical-align: -2px; }
 @keyframes billing-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .billing-spin { animation: none; } }
+.billing-details { display: grid; gap: 10px 24px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 10px 0 0; }
+.billing-details > div { display: grid; gap: 2px; min-width: 0; }
+.billing-details dt { font-size: 12px; color: var(--muted); }
+.billing-details dd { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.billing-details dd[data-tone="good"] { color: var(--good); }
+.billing-details dd[data-tone="warn"] { color: var(--warn); }
+.billing-details dd[data-tone="bad"] { color: var(--bad); }
+.billing-confirm { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border); border-left: 3px solid var(--bad); border-radius: 8px; background: var(--bad-bg); }
+.billing-confirm h3 { margin: 0; font-size: 15px; }
+.billing-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.billing-danger { color: var(--bad); border-color: var(--bad); }
+.billing-danger:hover:not(:disabled) { background: var(--bad-bg); border-color: var(--bad); }

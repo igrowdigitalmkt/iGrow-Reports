@@ -11,5 +11,5 @@ export const metadata: Metadata = { title: "Assinatura", robots: { index: false,
 // NUNCA ativa, altera ou libera nada. A liberação depende da confirmação financeira validada pelo servidor.
 export default async function SubscriptionReturnPage({ searchParams }: { searchParams: Promise<{ e?: string }> }) {
   const [data, query] = await Promise.all([loadSubscriptionPage(), searchParams]);
-  return <SubscriptionScreen data={data} view={deriveContractView(data.billing, parseReturnHint(query.e))} requestKey={randomUUID()} />;
+  return <SubscriptionScreen data={data} view={deriveContractView(data.billing, parseReturnHint(query.e))} requestKey={randomUUID()} hint={parseReturnHint(query.e)} />;
 }

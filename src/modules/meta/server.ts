@@ -1,4 +1,5 @@
 import { campaignResultTotals } from "./result-values";
+import { billingBlockOf, ensurePaidOperation } from "@/modules/billing/guard";
 import "server-only";
 import { RESULT_GROUPS } from "@/modules/client-portal/analytics-results";
 import { selectedMetaAccounts } from "./login-config";
@@ -49,6 +50,8 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
   const { data } = input;
   const keys = [...new Set(input.entityKeys ?? [])];
   if (!data.selectedAccountIds.length) return { confirmed: false as const };
+  // Nova sincronização com a Meta é operação paga: organização suspensa/encerrada usa só os dados já guardados.
+  await ensurePaidOperation(input.agencyId);
   const scopeKey = createHash("md5").update([...data.selectedAccountIds].sort().join(",") + "|" + [...keys].sort().join(",")).digest("hex");
   const { service, apiVersion } = operationalDependencies();
   // Read only what the validity check needs; the payload itself can take megabytes.
@@ -198,6 +201,7 @@ export type LiveCampaignIdentity = { accountId: string; id: string; name: string
 export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[]; entities?: { accountId: string; key: string }[] }, thumbnails?: Record<string, string>, catalog?: LiveCampaignIdentity[]): Promise<Record<string, string>> {
   const statuses: Record<string, string> = {};
   if (!input.accountIds.length) return statuses;
+  try { await ensurePaidOperation(input.agencyId); } catch (error) { if (billingBlockOf(error)) return statuses; throw error; }
   try {
     const { service, apiVersion } = operationalDependencies();
     const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
@@ -263,6 +267,8 @@ const minorUnits = (value: string | undefined) => value === undefined || value =
 // Live billing details of the client's linked accounts. Meta does not expose payment
 // history through the Marketing API, so only the current state is returned.
 export async function getClientAccountBilling(input: { agencyId: string; clientId: string }): Promise<ClientAccountBilling[]> {
+  // Nova sincronização com a Meta é operação paga: organização suspensa/encerrada usa só os dados já guardados.
+  await ensurePaidOperation(input.agencyId);
   const { service, apiVersion } = operationalDependencies();
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const { data: links, error: linkError } = await service.from("client_ad_accounts").select("ad_account_id")
@@ -673,6 +679,8 @@ export async function syncMetaAccountsForClient(input: {
   clientId: string;
   actorId: string;
 }) {
+  // Nova sincronização com a Meta é operação paga: organização suspensa/encerrada usa só os dados já guardados.
+  await ensurePaidOperation(input.agencyId);
   const { service, apiVersion } = operationalDependencies();
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
@@ -734,6 +742,8 @@ export async function collectMetaClientInsights(input: {
   until: string;
   forceRefresh?: boolean;
 }) {
+  // Nova sincronização com a Meta é operação paga: organização suspensa/encerrada usa só os dados já guardados.
+  await ensurePaidOperation(input.agencyId);
   validateCollectionRange(input.since, input.until);
   const { service, apiVersion } = operationalDependencies();
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
@@ -1020,6 +1030,8 @@ const AUDIENCE_LABELS: Record<string, string> = {
  * sign-ups, purchases, profile visits) so aliases of the same outcome are not counted twice.
  */
 export async function getClientAudienceBreakdowns(input: { agencyId: string; clientId: string; since: string; until: string; accountIds?: string[] }): Promise<ClientAudienceBreakdowns> {
+  // Nova sincronização com a Meta é operação paga: organização suspensa/encerrada usa só os dados já guardados.
+  await ensurePaidOperation(input.agencyId);
   const { service, apiVersion } = operationalDependencies();
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
   const { data: links, error: linkError } = await service.from("client_ad_accounts").select("ad_account_id")

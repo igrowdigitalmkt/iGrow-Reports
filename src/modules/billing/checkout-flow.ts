@@ -6,12 +6,12 @@ import { callRpc } from "./db";
 import type { BillingDeps } from "./event-processor";
 import { parseOffers, priceOf } from "./offers";
 
-/** O navegador só é enviado para o checkout hospedado do Sandbox do Asaas (nunca para um endereço vindo de outro lugar). */
-const CHECKOUT_HOST = "sandbox.asaas.com";
-export function isTrustedCheckoutUrl(raw: string | null | undefined) {
+/** O navegador só é enviado para o checkout hospedado do Asaas DO AMBIENTE em uso (sandbox ou produção), nunca para um endereço vindo de outro lugar. */
+const CHECKOUT_HOSTS: Record<"sandbox" | "production", string[]> = { sandbox: ["sandbox.asaas.com"], production: ["www.asaas.com", "asaas.com"] };
+export function isTrustedCheckoutUrl(raw: string | null | undefined, environment: "sandbox" | "production" = "sandbox") {
   try {
     const url = new URL(String(raw));
-    return url.protocol === "https:" && url.hostname === CHECKOUT_HOST && !url.username && !url.password;
+    return url.protocol === "https:" && CHECKOUT_HOSTS[environment].includes(url.hostname) && !url.username && !url.password;
   } catch { return false; }
 }
 
@@ -75,7 +75,7 @@ export async function runCheckoutStart(deps: BillingDeps, context: CheckoutConte
     planName: offer.name, urls, loadCustomerData: async () => { if (!billing) throw new Error("dados de cobrança ausentes"); return billing; },
   });
   if (result.status === "ready") {
-    if (!isTrustedCheckoutUrl(result.checkoutUrl)) {
+    if (!isTrustedCheckoutUrl(result.checkoutUrl, deps.environment)) {
       console.error("billing-checkout-url-untrusted");
       return { status: "error", message: "Não foi possível abrir o pagamento com segurança. Nada foi cobrado. Tente novamente em instantes." };
     }

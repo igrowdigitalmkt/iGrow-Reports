@@ -1,28 +1,41 @@
 import "server-only";
 
-// Etapa 2.2A: a integração só existe para o SANDBOX do Asaas. Não há caminho de código para a API de produção:
-// a URL é uma constante e chaves de produção são recusadas. Liberar produção exige uma mudança de código autorizada.
+// Integração com o Asaas. SANDBOX é o padrão. PRODUÇÃO só funciona com as quatro travas juntas (nenhuma é automática):
+//  1) ASAAS_ENVIRONMENT=production; 2) ASAAS_PRODUCTION_UNLOCK=yes (desbloqueio deliberado); 3) chave de produção ($aact_prod_...);
+//  4) billing_settings.live_enabled = true no banco (sem isto o banco recusa criar contratação em produção).
+// Chave de produção com ambiente sandbox (e chave de sandbox com ambiente production) é sempre recusada.
 export const ASAAS_SANDBOX_BASE_URL = "https://api-sandbox.asaas.com/v3";
-export type BillingEnvironment = "sandbox";
+export const ASAAS_PRODUCTION_BASE_URL = "https://api.asaas.com/v3";
+export type BillingEnvironment = "sandbox" | "production";
 
-export type AsaasConfig = { baseUrl: typeof ASAAS_SANDBOX_BASE_URL; apiKey: string; environment: BillingEnvironment };
-export type AsaasConfigProblem = "missing_key" | "invalid_key" | "production_key" | "environment_not_sandbox";
+export type AsaasConfig = { baseUrl: typeof ASAAS_SANDBOX_BASE_URL | typeof ASAAS_PRODUCTION_BASE_URL; apiKey: string; environment: BillingEnvironment };
+export type AsaasConfigProblem = "missing_key" | "invalid_key" | "production_key" | "sandbox_key" | "environment_invalid" | "production_not_unlocked";
 
 type Env = Record<string, string | undefined>;
 
+/** Ambiente em que os eventos do webhook são gravados (nunca "production" por engano: precisa estar escrito). */
+export function configuredBillingEnvironment(env: Env = process.env): BillingEnvironment {
+  return env.ASAAS_ENVIRONMENT?.trim() === "production" ? "production" : "sandbox";
+}
+
 /** Diagnóstico sem expor a chave. */
 export function asaasConfigProblem(env: Env = process.env): AsaasConfigProblem | null {
-  if (env.ASAAS_ENVIRONMENT?.trim() !== "sandbox") return "environment_not_sandbox";
+  const environment = env.ASAAS_ENVIRONMENT?.trim();
+  if (environment !== "sandbox" && environment !== "production") return "environment_invalid";
   const key = env.ASAAS_API_KEY?.trim();
   if (!key) return "missing_key";
-  if (key.startsWith("$aact_prod_")) return "production_key";
+  const isProductionKey = key.startsWith("$aact_prod_");
+  if (environment === "sandbox" && isProductionKey) return "production_key";
+  if (environment === "production" && !isProductionKey) return "sandbox_key";
   if (key.length < 20 || key.length > 400 || /\s/.test(key)) return "invalid_key";
+  if (environment === "production" && env.ASAAS_PRODUCTION_UNLOCK?.trim() !== "yes") return "production_not_unlocked";
   return null;
 }
 
 export function getAsaasConfig(env: Env = process.env): AsaasConfig | null {
   if (asaasConfigProblem(env)) return null;
-  return { baseUrl: ASAAS_SANDBOX_BASE_URL, apiKey: env.ASAAS_API_KEY!.trim(), environment: "sandbox" };
+  const environment = configuredBillingEnvironment(env);
+  return { baseUrl: environment === "production" ? ASAAS_PRODUCTION_BASE_URL : ASAAS_SANDBOX_BASE_URL, apiKey: env.ASAAS_API_KEY!.trim(), environment };
 }
 
 /** Token do webhook (enviado pelo Asaas no cabeçalho asaas-access-token). Nunca é a chave de API. */

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ensurePaidOperation } from "@/modules/billing/guard";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -119,6 +120,8 @@ function describeError(error: unknown) {
  * e as contas a que o usuário conectado tem acesso direto. Contas que sumiram da lista ficam arquivadas.
  */
 export async function syncGoogleAccounts(service: Service, agencyId: string) {
+  // Nova sincronização de contas do Google Ads é operação paga.
+  await ensurePaidOperation(agencyId);
   const { client, connectionId, loginCustomerId } = await loadGoogleAdsClient(service, agencyId);
   const found = new Map<string, FoundAccount>();
   let failure: unknown = null;

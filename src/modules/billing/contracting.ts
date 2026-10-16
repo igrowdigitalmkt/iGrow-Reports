@@ -2,6 +2,7 @@ import "server-only";
 import { AsaasError, type AsaasCustomerInput } from "./asaas-client";
 import { BillingDbError, callRpc } from "./db";
 import type { BillingDeps } from "./event-processor";
+import { verifyBeforeContracting } from "./reconcile";
 
 export type CustomerData = Omit<AsaasCustomerInput, "externalReference">;
 export type CheckoutUrls = { successUrl: string; cancelUrl: string; expiredUrl: string };
@@ -31,7 +32,7 @@ export function checkoutMessage(result: StartCheckoutResult, timeZone = "America
   if (result.status === "in_progress") {
     if (result.reason === "verifying") {
       const at = result.retryAfter ? new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone }).format(new Date(result.retryAfter)) : null;
-      return `Estamos verificando sua contratação. Não há nova cobrança enquanto isso${at ? `; se não for concluída, você poderá tentar de novo depois das ${at}` : ""}.`;
+      return `Estamos verificando sua contratação. Não há nova cobrança enquanto isso — e não pague de novo${at ? `; se não for concluída, você poderá tentar de novo depois das ${at}` : ""}.`;
     }
     return result.reason === "no_link" ? "Sua contratação foi iniciada. Estamos preparando o pagamento; tente novamente em instantes." : "Estamos preparando o pagamento. Aguarde alguns instantes.";
   }
@@ -50,16 +51,25 @@ export function checkoutMessage(result: StartCheckoutResult, timeZone = "America
  *     o Asaas para ver se a assinatura já existe.
  */
 export async function startCheckout(deps: BillingDeps, input: StartCheckoutInput): Promise<StartCheckoutResult> {
+  const createIntent = () => callRpc<Intent>(deps.db, "billing_create_intent", {
+    p_agency_id: input.agencyId, p_user_id: input.userId, p_plan_version_id: input.planVersionId, p_cycle: input.cycle, p_request_key: input.requestKey, p_environment: deps.environment,
+  });
   let intent: Intent;
   try {
-    intent = await callRpc<Intent>(deps.db, "billing_create_intent", {
-      p_agency_id: input.agencyId, p_user_id: input.userId, p_plan_version_id: input.planVersionId, p_cycle: input.cycle, p_request_key: input.requestKey, p_environment: deps.environment,
-    });
+    try {
+      intent = await createIntent();
+    } catch (error) {
+      // 55000: uma contratação anterior expirou, mas pode ter sido paga. Confere no Asaas antes de abrir outra (nunca duas cobranças).
+      if (!(error instanceof BillingDbError && error.code === "55000")) throw error;
+      if ((await verifyBeforeContracting(deps, input.agencyId)) !== "clear") return { status: "in_progress", intentId: "", reason: "verifying", retryAfter: null };
+      intent = await createIntent();
+    }
   } catch (error) {
     if (error instanceof BillingDbError) {
       if (error.code === "42501") return { status: "rejected", reason: "forbidden" };
       if (error.code === "23505") return { status: "rejected", reason: "already_subscribed" };
       if (error.code === "22023") return { status: "rejected", reason: "invalid" };
+      if (error.code === "55000") return { status: "in_progress", intentId: "", reason: "verifying", retryAfter: null };
     }
     return { status: "rejected", reason: "unavailable" };
   }
@@ -127,7 +137,7 @@ export type CancelResult = { status: "requested"; effectiveAt: string | null; re
 
 /** Cancelamento: o período já pago é preservado no iGrow; o Asaas é avisado depois do registro (e repetido pela reconciliação se falhar). */
 export async function cancelSubscriptionRequest(deps: BillingDeps, input: { agencyId: string; userId: string }): Promise<CancelResult> {
-  let requested: { subscription_id: string; asaas_subscription_id: string; effective_at: string | null; environment: string };
+  let requested: { subscription_id: string; asaas_subscription_id: string; effective_at: string | null; environment: string; remote_cancel_pending?: boolean };
   try {
     requested = await callRpc(deps.db, "billing_request_cancel", { p_agency_id: input.agencyId, p_user_id: input.userId });
   } catch (error) {
@@ -135,6 +145,8 @@ export async function cancelSubscriptionRequest(deps: BillingDeps, input: { agen
     if (error instanceof BillingDbError && error.code === "22023") return { status: "rejected", reason: "none" };
     return { status: "rejected", reason: "unavailable" };
   }
+  // Pedido repetido (clique duplo, nova aba): o aviso ao Asaas já foi confirmado antes; nada a fazer e nenhuma chamada extra.
+  if (requested.remote_cancel_pending === false) return { status: "requested", effectiveAt: requested.effective_at, remoteCancel: "done" };
   if (requested.environment !== deps.environment) return { status: "requested", effectiveAt: requested.effective_at, remoteCancel: "pending" };
   try {
     try { await deps.asaas.cancelSubscription(requested.asaas_subscription_id); }

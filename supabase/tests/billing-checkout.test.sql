@@ -131,10 +131,10 @@ select set_config('t.b',(public.billing_create_intent('2baaaaaa-0000-4000-8000-0
 select public.billing_mark_intent(current_setting('t.b')::uuid,'dispatching');
 select public.billing_mark_intent(current_setting('t.b')::uuid,'unknown',null,null,'timeout');
 select public.billing_set_customer('2baaaaaa-0000-4000-8000-000000000002','sandbox','cus_2B0002');
-select is(public.billing_apply_subscription('sandbox',public.zz_sub3('sub_2B0002','cus_2B0002',49.90,'MONTHLY','chk_APRENDE01')),'created','Resultado desconhecido: a assinatura real resolve a intenção');
+select is(public.billing_apply_subscription('sandbox',public.zz_sub3('sub_2B0002','cus_2B0002',49.90,'MONTHLY','chk_APRENDE01')),'unlinked_candidate','Resultado desconhecido + assinatura só coincidente (sem identificador que case): NÃO ativa; vai para revisão financeira');
 reset role;
-select is((select asaas_checkout_id from private.billing_checkout_intents where id=current_setting('t.b')::uuid),'chk_APRENDE01','A intenção aprende o identificador do checkout');
-select is((select (metadata ->> 'checkout_confirmed')::boolean from private.billing_audit_log where action='subscription.created' and agency_id='2baaaaaa-0000-4000-8000-000000000002'),false,'... mas a auditoria registra que o checkout NÃO foi confirmado de antemão');
+select is((select asaas_checkout_id from private.billing_checkout_intents where id=current_setting('t.b')::uuid),null,'A intenção NÃO inventa o identificador do checkout');
+select ok((select review_required_at is not null and status='unknown' from private.billing_checkout_intents where id=current_setting('t.b')::uuid),'... a intenção é preservada e marcada para revisão (sem nova cobrança)');
 
 -- Isolamento: assinatura de cliente de outra organização não atravessa
 set local role service_role;

@@ -1,19 +1,26 @@
 import { CircleAlert, CircleCheck, Clock, Info, LoaderCircle } from "lucide-react";
+import { configuredBillingEnvironment } from "./config";
 import { isTrustedCheckoutUrl } from "./checkout-flow";
+import { CancelSubscription } from "./cancel-subscription";
 import { CheckoutForm } from "./checkout-form";
 import { formatBRL } from "./offers";
 import { ReturnWatcher } from "./return-watcher";
+import { canRequestCancel, describeSubscription, openInvoiceLink } from "./subscription-info";
 import type { SubscriptionPageData } from "./subscription-data";
 import type { ContractView } from "./status-view";
 
-const FORM_STATES = new Set(["idle", "expired", "canceled", "refused", "temporary_error"]);
+const FORM_STATES = new Set(["idle", "expired", "canceled", "refused", "temporary_error", "ended"]);
 
 /** Tela de assinatura e de retorno do checkout. Só mostra o que o servidor confirmou; ninguém é ativado por aqui. */
-export function SubscriptionScreen({ data, view, requestKey }: { data: SubscriptionPageData; view: ContractView; requestKey: string }) {
+export function SubscriptionScreen({ data, view, requestKey, hint = null }: { data: SubscriptionPageData; view: ContractView; requestKey: string; hint?: string | null }) {
   const { billing } = data;
   const isOwner = data.role === "owner";
-  const checkoutUrl = isOwner && isTrustedCheckoutUrl(billing?.pending_checkout?.checkout_url) ? billing?.pending_checkout?.checkout_url ?? null : null;
+  const checkoutUrl = isOwner && isTrustedCheckoutUrl(billing?.pending_checkout?.checkout_url, configuredBillingEnvironment()) ? billing?.pending_checkout?.checkout_url ?? null : null;
   const Icon = view.tone === "good" ? CircleCheck : view.tone === "info" ? (view.polling ? LoaderCircle : Clock) : view.tone === "neutral" ? Info : CircleAlert;
+  const rows = describeSubscription(billing);
+  const invoice = openInvoiceLink(billing?.payments);
+  const periodEnd = billing?.subscription?.current_period_end ?? null;
+  const periodActive = billing?.subscription?.status === "active";
   const showForm = data.configured && data.canView && FORM_STATES.has(view.state) && data.offers.length > 0 && !billing?.subscription;
 
   return <div className="billing-page">
@@ -32,8 +39,15 @@ export function SubscriptionScreen({ data, view, requestKey }: { data: Subscript
             {checkoutUrl && view.state === "awaiting_payment" && <p><a className="button button-primary billing-link" href={checkoutUrl}>Abrir o pagamento seguro</a></p>}
           </div>
         </div>
-        {view.polling && <ReturnWatcher />}
+        {view.polling && <ReturnWatcher initialState={view.state} hint={hint} />}
       </section>
+
+      {rows && <section className="panel billing-panel" aria-labelledby="billing-details"><h2 id="billing-details">Sua assinatura</h2>
+        <dl className="billing-details">{rows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd data-tone={row.tone}>{row.value}</dd></div>)}</dl>
+        {invoice && (view.state === "past_due" || view.state === "suspended") && <p><a className="button button-primary billing-link" href={invoice} rel="noopener noreferrer">Ver a cobrança em aberto</a></p>}
+      </section>}
+
+      {canRequestCancel(billing, data.role) && <CancelSubscription periodActive={periodActive} paidUntil={periodEnd ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Sao_Paulo" }).format(new Date(periodEnd)) : null} />}
 
       {showForm && (isOwner
         ? <section className="panel billing-panel" aria-labelledby="billing-plans"><h2 id="billing-plans">Contratar</h2>

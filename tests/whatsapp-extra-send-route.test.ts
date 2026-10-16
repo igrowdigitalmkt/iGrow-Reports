@@ -2,6 +2,7 @@ import {beforeEach,expect,it,vi} from "vitest";
 import {createClient} from "@supabase/supabase-js";
 import sharp from "sharp";
 const mocks=vi.hoisted(()=>({context:vi.fn(),modules:vi.fn(),send:vi.fn(),service:vi.fn(),record:vi.fn()}));
+vi.mock("@/modules/billing/guard", () => ({ paidOperationBlock: async () => null, billingBlockOf: () => null, ensurePaidOperation: async () => undefined, BillingRestrictedError: class extends Error {} }));
 vi.mock("server-only",()=>({}));
 vi.mock("@/modules/agencies/context",()=>({requireAgencyContext:mocks.context}));
 vi.mock("@/modules/team/admin",()=>({loadOwnModules:mocks.modules}));

@@ -69,13 +69,20 @@ export async function listActiveMetaClients(service: SupabaseClient<Database>): 
   if (linkError) throw new Error("Não foi possível listar as contas vinculadas.");
   const { data: archived, error: archivedError } = await service.from("clients").select("id").not("archived_at", "is", null);
   if (archivedError) throw new Error("Não foi possível listar os clientes.");
+  // Coleta é operação paga: organizações com acesso restrito não entram na rodada (dados já coletados seguem disponíveis).
+  // Sem a função no banco (migration ausente) ou com erro, nada é filtrado aqui; a trava dentro da coleta continua valendo.
+  const restricted = new Set<string>();
+  try {
+    const restrictedResult = await (service as unknown as { rpc(name: string): PromiseLike<{ data: unknown; error: unknown }> }).rpc("billing_restricted_agency_ids");
+    if (!restrictedResult.error && Array.isArray(restrictedResult.data)) for (const id of restrictedResult.data) if (typeof id === "string") restricted.add(id);
+  } catch { /* sem o filtro; a trava dentro da coleta continua valendo */ }
   const linked = new Set((links ?? []).map(link => `${link.agency_id}:${link.client_id}`));
   const inactive = new Set((archived ?? []).map(client => client.id));
   const seen = new Set<string>();
   const targets: MetaClientTarget[] = [];
   for (const connection of connections ?? []) {
     const key = `${connection.agency_id}:${connection.client_id}`;
-    if (!connection.client_id || inactive.has(connection.client_id) || !linked.has(key) || seen.has(key)) continue;
+    if (!connection.client_id || inactive.has(connection.client_id) || restricted.has(connection.agency_id) || !linked.has(key) || seen.has(key)) continue;
     seen.add(key);
     targets.push({ agency_id: connection.agency_id, client_id: connection.client_id });
   }

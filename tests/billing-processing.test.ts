@@ -177,7 +177,7 @@ describe("reconciliação com o Asaas", () => {
     });
     const asaas = asaasFake({ listSubscriptionPayments: vi.fn(async () => [{ ...payment, id: "pay_222222", dueDate: "2026-11-15" }, payment]) });
     const summary = await reconcileBilling(deps(f.db, asaas), {});
-    expect(summary).toEqual({ checked: 1, remoteCanceled: 0, failed: 0, intentsChecked: 0, intentsResolved: 0 });
+    expect(summary).toEqual({ checked: 1, remoteCanceled: 0, failed: 0, intentsChecked: 0, intentsResolved: 0, intentsVerified: 0 });
     expect(f.of("billing_apply_payment").map((call) => (call.args.p_snapshot as { id: string }).id)).toEqual(["pay_123456", "pay_222222"]); // cronológico
     expect(f.of("billing_mark_reconciled")).toHaveLength(1);
   });
@@ -197,18 +197,18 @@ describe("reconciliação com o Asaas", () => {
     });
     const asaas = asaasFake({ cancelSubscription: vi.fn(async (id: string) => { if (id === "sub_bbbbbb") throw new AsaasError("x", 503, null, true, true, "t"); if (id === "sub_cccccc") throw notFound(); }) });
     const summary = await reconcileBilling(deps(f.db, asaas), {});
-    expect(summary).toEqual({ checked: 0, remoteCanceled: 2, failed: 1, intentsChecked: 0, intentsResolved: 0 });
+    expect(summary).toEqual({ checked: 0, remoteCanceled: 2, failed: 1, intentsChecked: 0, intentsResolved: 0, intentsVerified: 0 });
     expect(f.of("billing_confirm_remote_cancel").map((call) => call.args.p_subscription_id)).toEqual(["u1", "u3"]);
   });
   it("contratação com resultado desconhecido: consulta o Asaas e registra a assinatura se ela já existir", async () => {
     const f = fakeDb({
-      billing_reconcile_work: () => ({ reconcile: [], remote_cancel: [], intents: [{ id: "i1", environment: "sandbox", asaas_customer_id: "cus_123456" }] }),
-      billing_apply_subscription: () => "created",
+      billing_reconcile_work: () => ({ reconcile: [], remote_cancel: [], intents: [{ id: "i1", environment: "sandbox", status: "unknown", asaas_customer_id: "cus_123456" }] }),
+      billing_apply_subscription: () => "created", billing_apply_payment: () => "activated",
     });
     const asaas = asaasFake({ listCustomerSubscriptions: vi.fn(async () => [subscription, { ...subscription, id: "sub_removida", deleted: true }]) });
     const summary = await reconcileBilling(deps(f.db, asaas), {});
     expect(summary).toMatchObject({ intentsChecked: 1, intentsResolved: 1, failed: 0 });
-    expect(asaas.listCustomerSubscriptions).toHaveBeenCalledWith("cus_123456", 20);
+    expect(asaas.listCustomerSubscriptions).toHaveBeenCalledWith("cus_123456", 100);
     expect(f.of("billing_apply_subscription")).toHaveLength(1); // assinatura removida não é aplicada
   });
   it("sem assinatura no Asaas, a intenção desconhecida não é alterada (só expira com o checkout)", async () => {
@@ -234,7 +234,7 @@ describe("reconciliação com o Asaas", () => {
   it("ignora itens de outro ambiente", async () => {
     const f = fakeDb({ billing_reconcile_work: () => ({ reconcile: [{ id: "u1", environment: "production", asaas_subscription_id: "sub_123456" }], remote_cancel: [{ id: "u2", environment: "production", asaas_subscription_id: "sub_654321" }] }) });
     const asaas = asaasFake();
-    expect(await reconcileBilling(deps(f.db, asaas), {})).toEqual({ checked: 0, remoteCanceled: 0, failed: 0, intentsChecked: 0, intentsResolved: 0 });
+    expect(await reconcileBilling(deps(f.db, asaas), {})).toEqual({ checked: 0, remoteCanceled: 0, failed: 0, intentsChecked: 0, intentsResolved: 0, intentsVerified: 0 });
     expect(asaas.getSubscription).not.toHaveBeenCalled();
     expect(asaas.cancelSubscription).not.toHaveBeenCalled();
   });

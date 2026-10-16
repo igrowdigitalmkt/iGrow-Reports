@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paidOperationBlock } from "@/modules/billing/guard";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { loadOwnModules } from "@/modules/team/admin";
 import { canOpenSection } from "@/modules/team/permissions";
@@ -17,6 +18,8 @@ export async function POST(request:Request,{params}:{params:Promise<{conversatio
   const context=await requireAgencyContext();
   const modules=["owner","admin"].includes(context.role)?null:await loadOwnModules(context.supabase,context.agency.id,context.user.id);
   if(context.role==="viewer" || !canOpenSection(context.role,modules,"whatsapp"))return Response.json({error:"Sem permissão para enviar."},{status:403,headers});
+  const billingBlock=await paidOperationBlock(context.agency.id);
+  if(billingBlock)return Response.json({error:billingBlock.error,code:billingBlock.code},{status:billingBlock.status,headers});
   const {data:chat,error}=await context.supabase.from("whatsapp_conversations").select("id,channel,remote_id,is_group,whatsapp_connection_id").eq("agency_id",context.agency.id).eq("id",id.data).maybeSingle();
   if(error || !chat)return Response.json({error:"Conversa não encontrada."},{status:404,headers});
   if(chat.channel!=="qr")return Response.json({error:"Este envio exige WhatsApp conectado por QR Code."},{status:409,headers});

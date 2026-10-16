@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ access: vi.fn(), analytics: vi.fn(), statuses: vi.fn(), rpc: vi.fn() }));
+vi.mock("@/modules/billing/guard", () => ({ paidOperationBlock: async () => null, billingBlockOf: () => null, ensurePaidOperation: async () => undefined, BillingRestrictedError: class extends Error {} }));
 vi.mock("@/modules/client-portal/context", () => ({ requireClientDashboardAccess: mocks.access }));
 vi.mock("@/modules/client-portal/analytics-live", () => ({ getFreshClientAnalytics: mocks.analytics }));
 vi.mock("@/modules/meta/server", () => ({ getMetaEntityStatuses: mocks.statuses, refreshMetaDashboardScope: vi.fn() }));

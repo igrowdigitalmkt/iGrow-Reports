@@ -61,6 +61,18 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 - Tela `/dashboard/assinatura` + retorno do checkout, ação de servidor, eventos de checkout no processador, vínculo checkout↔assinatura reforçado, migration `202610150003_billing_checkout_link.sql` (**NÃO aplicada em nenhum banco**). Commit da 2.2A: `365f86f`. Detalhes em `docs/FINANCEIRO_ASAAS.md`; procedimento de homologação real e do ambiente Vercel isolado em `docs/HOMOLOGACAO_CHECKOUT.md`.
 - NÃO homologada: falta pagar pelo checkout hospedado e receber webhooks reais no Sandbox. Nada em produção.
 
+## Etapa 2.2B.1: ambiente de homologação do checkout (15/10/2026)
+- Commit local `07a9d64` (sem push); migration 0003 aplicada só em homologação; projeto Vercel isolado `i-grow-reports-homolog` publicado e protegido; webhook verificado, **não cadastrado no Asaas**; sem cron; nenhum pagamento. Detalhes em `docs/HOMOLOGACAO_CHECKOUT.md` seção 6. Próximo: 2.2B.2 (aguarda autorização).
+
+## Recuperação financeira (15/10/2026): aplicada e publicada SOMENTE em homologação
+- Webhook real corrigido (id de evento com `&`) e primeiro pagamento mensal ativado em ~3 s. Revisão de segurança: só `checkoutSession`/`externalReference` ativam (coincidência vai para revisão), sem prazo para o vínculo por identificador, sem liberação de nova contratação por decurso de prazo (conferência conclusiva ou operador auditado), `billing_reconcile_work` com reivindicação atômica. Migration `202610150004_billing_recovery.sql` aplicada em `igrow-homologacao` (`billing_recovery_0150004`); deploy de homologação feito. Testes reais: PostgreSQL de homologação (75 asserções em transação revertida + concorrência por conexões independentes, 21 verificações) e leitura real do Asaas Sandbox. **NÃO feito:** recuperação por cron de ponta a ponta com pagamento real sem webhook; agendamento permanente; commit; produção. Detalhes: `docs/RECUPERACAO_FINANCEIRA.md`.
+
+## Recuperação sem webhook: homologada em 15/10/2026 (homologação)
+- Pagamento real do Sandbox, webhook bloqueado e restaurado, ativação em 6,6 min pelo agendador temporário local (não é o agendamento permanente). Defeito encontrado e corrigido no caminho (regex de `dateCreated`). Detalhes em `docs/HOMOLOGACAO_RECUPERACAO_SEM_WEBHOOK.md`. Pendente: agendamento permanente na VPS, cron manual como origem separada, decisões de política financeira, commit/produção.
+
+## Etapa 2.2C / 2.2C.1: ciclo de vida das assinaturas (15/10/2026): aplicada e publicada SÓ em homologação
+- Cancelamento pelo proprietário (ação de servidor + confirmação na tela), resumo da assinatura, estados novos, reconferência horária de atraso/vencimento e auditoria da confirmação remota. Migration `202610150005_billing_lifecycle.sql` aplicada em `igrow-homologacao`, deploy de homologação feito; testada em PostgreSQL real e no navegador, **sem cancelamento real no Asaas ainda**. Detalhes: `docs/CICLO_DE_VIDA_ASSINATURAS.md`. Pendente: homologação real (cancelamento, renovação, atraso), cron permanente, reativação antes do fim do período, upgrade/downgrade.
+
 ## Problemas e limitações conhecidos
 - Google: sem saldo e sem melhores/piores anúncios; "Conversões" soma todas as ações de conversão; "Consolidar" só vale para a Meta; cliente só com Google (sem Meta) não abre o painel; em modo teste a conexão expira em ~7 dias e só usuários de teste conectam.
 - Layout clássico do PDF não monta arquivo único (baixa um por conta) e ignora seções por conta/plataforma.
@@ -74,3 +86,6 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 - Contas e plataformas nunca têm resultados somados ou comparados entre si; só investimento, cliques e impressões entram em totais.
 - Envios de IA por WhatsApp sempre aguardam aprovação humana; nunca enviar teste a clientes reais.
 - Dados do Google lidos ao vivo (sem tabelas de coleta); dados da Meta seguem o pipeline de coleta existente.
+
+## Fechamento da V1 (15/10/2026)
+Ver `docs/LANCAMENTO_V1.md` (checklist de produção) e `docs/SUSPENSAO_E_MONITORAMENTO.md`. Código local pronto e homologado; produção NÃO tocada (migrations 0001–0008, variáveis, webhook, cron e chaves do Asaas de produção dependem de autorização). Teste gratuito no cadastro, seleção de plano sem pré-seleção, Google ao vivo sob a restrição e suporte a produção do Asaas (travado por padrão) entraram nesta rodada.

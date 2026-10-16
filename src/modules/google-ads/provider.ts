@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ensurePaidOperation } from "@/modules/billing/guard";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
 import type { PlatformAccountSection } from "@/modules/platforms/provider";
@@ -27,6 +28,8 @@ export async function linkedGoogleAccounts(service: Service, agencyId: string, c
  * Uma conta que falha não derruba as outras: o motivo vem em `failures` para o relatório avisar.
  */
 export async function loadGoogleSections(input: { service: Service; agencyId: string; clientId: string; dateFrom: string; dateTo: string; accountIds?: string[]; client?: GoogleAdsClient }): Promise<GoogleSectionsResult> {
+  // Leitura ao vivo é consulta nova ao provedor (não há histórico guardado): com acesso restrito não é usada para contornar a restrição.
+  await ensurePaidOperation(input.agencyId);
   const linked = (await linkedGoogleAccounts(input.service, input.agencyId, input.clientId)).filter(account => !input.accountIds || input.accountIds.includes(account.id));
   if (!linked.length) return { sections: [], failures: [] };
   const client = input.client ?? (await loadGoogleAdsClient(input.service, input.agencyId)).client;

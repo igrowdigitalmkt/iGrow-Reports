@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paidOperationBlock } from "@/modules/billing/guard";
 import { requireClientDashboardAccess } from "@/modules/client-portal/context";
 import { sendReportByWhatsApp, WhatsAppSetupError } from "@/modules/whatsapp/server";
 
@@ -25,6 +26,8 @@ export async function POST(request: Request) {
   if (!context.agencyMode || !context.workspaceRole || context.workspaceRole === "viewer") {
     return Response.json({ error: "Seu perfil não pode enviar relatórios." }, { status: 403, headers });
   }
+  const billingBlock = await paidOperationBlock(context.access.agencyId);
+  if (billingBlock) return Response.json({ error: billingBlock.error, code: billingBlock.code }, { status: billingBlock.status, headers });
   try {
     const results = await sendReportByWhatsApp({
       agencyId: context.access.agencyId, clientId: parsed.data.clientId, reportVersionId: parsed.data.reportVersionId,

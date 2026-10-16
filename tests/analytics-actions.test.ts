@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ access: vi.fn(), collect: vi.fn(), revalidate: vi.fn(), analytics: vi.fn(), fresh: vi.fn() }));
+vi.mock("@/modules/billing/guard", () => ({ paidOperationBlock: async () => null, billingBlockOf: () => null, ensurePaidOperation: async () => undefined, BillingRestrictedError: class extends Error {} }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/modules/client-portal/context", () => ({ requireClientDashboardAccess: mocks.access }));

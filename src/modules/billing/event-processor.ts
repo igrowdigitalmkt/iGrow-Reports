@@ -7,11 +7,11 @@ export type ClaimedEvent = {
   payload: Record<string, unknown>; attempts: number;
 };
 export type EventOutcome = { outcome: "processed" | "ignored" | "needs_review" | "retry"; detail?: string };
-export type BillingDeps = { db: BillingDb; asaas: AsaasApi; environment: "sandbox"; now?: () => Date };
+export type BillingDeps = { db: BillingDb; asaas: AsaasApi; environment: "sandbox" | "production"; now?: () => Date };
 
 const IGNORED_PAYMENT_EVENTS = new Set(["PAYMENT_BANK_SLIP_VIEWED", "PAYMENT_CHECKOUT_VIEWED"]);
 // Resultados do banco que pedem decisão humana (nunca ativam nem bloqueiam sozinhos).
-const REVIEW_OUTCOMES = new Set(["mismatch", "unattributed", "duplicate_subscription", "no_intent", "needs_review", "payment_for_canceled"]);
+export const REVIEW_OUTCOMES = new Set(["mismatch", "unattributed", "duplicate_subscription", "no_intent", "needs_review", "payment_for_canceled", "intent_closed", "ambiguous_intent", "unlinked_candidate"]);
 
 export function paymentSnapshot(payment: AsaasPayment, observedAt: Date) {
   return {
@@ -41,6 +41,22 @@ export async function applyPayment(deps: BillingDeps, payment: AsaasPayment, obs
     outcome = await callRpc<string>(deps.db, "billing_apply_payment", args());
   }
   return outcome;
+}
+
+/**
+ * Aplica uma assinatura LIDA NA API do Asaas e, se ela foi registrada (ou já era conhecida), lê e aplica suas cobranças. É o caminho único
+ * usado pelo evento de checkout pago, pela reconciliação e pela conferência antes de uma nova contratação.
+ */
+export async function applySubscriptionAndPayments(deps: BillingDeps, subscription: AsaasSubscription, eventId: number | null): Promise<string[]> {
+  const outcomes: string[] = [];
+  const outcome = await applySubscription(deps, subscription, eventId);
+  outcomes.push(outcome);
+  if (outcome === "created" || outcome === "noop") {
+    const observedAt = (deps.now ?? (() => new Date()))();
+    const payments = await deps.asaas.listSubscriptionPayments(subscription.id, 12);
+    for (const payment of [...payments].sort((a, b) => a.dueDate.localeCompare(b.dueDate))) outcomes.push(await applyPayment(deps, payment, observedAt, eventId, null));
+  }
+  return outcomes;
 }
 
 function fromOutcome(outcome: string, attempts: number): EventOutcome {
@@ -89,15 +105,7 @@ async function processCheckoutEvent(deps: BillingDeps, event: ClaimedEvent): Pro
   if (subscriptions.length === 0) return event.attempts >= 4 ? { outcome: "needs_review", detail: "Checkout pago, mas nenhuma assinatura ativa foi encontrada." } : { outcome: "retry", detail: "Assinatura ainda não disponível." };
 
   const outcomes: string[] = [];
-  for (const subscription of subscriptions) {
-    const outcome = await applySubscription(deps, subscription, event.id);
-    outcomes.push(outcome);
-    if (outcome === "created" || outcome === "noop") {
-      const observedAt = (deps.now ?? (() => new Date()))();
-      const payments = await deps.asaas.listSubscriptionPayments(subscription.id, 12);
-      for (const payment of [...payments].sort((a, b) => a.dueDate.localeCompare(b.dueDate))) outcomes.push(await applyPayment(deps, payment, observedAt, event.id, null));
-    }
-  }
+  for (const subscription of subscriptions) outcomes.push(...await applySubscriptionAndPayments(deps, subscription, event.id));
   const review = outcomes.find((outcome) => REVIEW_OUTCOMES.has(outcome));
   return review ? { outcome: "needs_review", detail: `Resultado: ${review}.` } : { outcome: "processed", detail: `Resultados: ${[...new Set(outcomes)].join(", ")}.` };
 }

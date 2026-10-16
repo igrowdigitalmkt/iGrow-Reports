@@ -72,3 +72,11 @@ Em todos: conferir a tela, os registros no banco (assinaturas, cobranças, event
 
 ## 5. Critérios de aprovação e parada
 Aprovado somente se: nenhuma ativação sem cobrança confirmada lida na API; nenhuma cobrança duplicada; nenhum evento perdido; nenhuma ligação à organização errada; organização antiga intacta; nenhum segredo em logs. **Qualquer ambiguidade no vínculo checkout/assinatura/organização interrompe o teste e é reportada.**
+
+## 6. Estado do ambiente preparado (etapa 2.2B.1, 15/10/2026)
+- Commit local da 2.2B: `07a9d64` (sem push). Migration `202610150003` aplicada **somente** em `igrow-homologacao` (`billing_checkout_link_0150003`).
+- Projeto Vercel `i-grow-reports-homolog` (`prj_8v24wg80LBTzcXD6AAWJJ8ANJ3xF`), sem ligação ao Git, publicado pela CLI a partir de cópia do código sem `crons`. URL: `https://i-grow-reports-homolog.vercel.app`. 14 variáveis próprias (produção tem 23, não tocadas).
+- **Achados:** (1) a proteção padrão da Vercel deixa o alias `<projeto>.vercel.app` público; foi elevada para `deploymentType: all`. (2) `EXTERNAL_DELIVERIES_ENABLED` só vale na checagem de build (`check:deploy`), não é trava de execução: o isolamento real é a ausência de credenciais de integração, `private.integration_secrets` vazio e nenhum destinatário com telefone.
+- **Webhook:** com a proteção ligada, o Asaas só alcança a rota com o bypass de automação no endereço: `https://i-grow-reports-homolog.vercel.app/api/webhooks/asaas?x-vercel-protection-bypass=<segredo em .env.homolog-vercel>` + cabeçalho `asaas-access-token`. Verificado: sem bypass bloqueado pela Vercel; sem token/errado 401; JSON/evento inválido 400; `CHECKOUT_CREATED` fictício persistido e processado como `ignored`; repetição `duplicate: true`. `/api/cron/billing` responde 401 sem o segredo. **Webhook NÃO cadastrado no Asaas; cron NÃO configurado.**
+- Páginas (usuários fictícios `TESTE-2.2B`): proprietário vê ofertas e formulário; administrador só leitura; editor bloqueado; proprietário de outra organização vê apenas a sua. Nenhuma intenção, assinatura ou cobrança criada.
+- Pendente do usuário: URL Configuration do Auth do Supabase de homologação (login por senha não depende dela).

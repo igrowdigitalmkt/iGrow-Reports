@@ -47,10 +47,21 @@ create function public.zz_snap(p_id text,p_sub text,p_cust text,p_value numeric,
 returns jsonb language sql as $$
   select jsonb_build_object('id',p_id,'subscription',p_sub,'customer',p_cust,'value',p_value,'dueDate',p_due,'status',p_status,'billingType',p_type,'observedAt',p_observed,'invoiceUrl','https://example.test/fatura/'||p_id);
 $$;
+-- Desde a correção de recuperação (0004) só o identificador do checkout ativa. O helper simula o Asaas: a assinatura nasce do checkout da
+-- intenção em aberto do cliente (se a intenção ainda não tem checkout, ele é gravado aqui, como se o Asaas o tivesse criado antes).
 create function public.zz_sub(p_id text,p_cust text,p_value numeric,p_cycle text,p_status text default 'ACTIVE',p_type text default 'CREDIT_CARD')
-returns jsonb language sql as $$
-  select jsonb_build_object('id',p_id,'customer',p_cust,'value',p_value,'cycle',p_cycle,'status',p_status,'billingType',p_type);
-$$;
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_session text; v_intent uuid;
+begin
+  select i.id, i.asaas_checkout_id into v_intent, v_session from private.billing_checkout_intents i
+    join private.billing_customers bc on bc.agency_id = i.agency_id and bc.environment = i.environment
+    where bc.asaas_customer_id = p_cust and i.status in ('creating', 'dispatching', 'awaiting_payment', 'unknown') limit 1;
+  if v_intent is not null and v_session is null then
+    v_session := 'chk_zz_' || replace(p_cust, ' ', '');
+    update private.billing_checkout_intents set asaas_checkout_id = v_session where id = v_intent;
+  end if;
+  return jsonb_build_object('id',p_id,'customer',p_cust,'value',p_value,'cycle',p_cycle,'status',p_status,'billingType',p_type,'checkoutSession',v_session);
+end $$;
 
 -- Estrutura e permissões
 select ok((select bool_and(relrowsecurity) from pg_class where oid in ('private.billing_settings'::regclass,'private.billing_customers'::regclass,'private.billing_checkout_intents'::regclass,'private.billing_subscriptions'::regclass,'private.billing_payments'::regclass,'private.billing_trials'::regclass,'private.billing_events'::regclass,'private.billing_audit_log'::regclass)),'RLS ativa em todas as tabelas financeiras');
@@ -98,9 +109,12 @@ select is((public.billing_mark_intent(current_setting('t.d1')::uuid,'unknown',nu
 select is((public.billing_create_intent('fbaaaaaa-0000-4000-8000-000000000004','fb000000-0000-4000-8000-000000000006','fbc00000-0000-4000-8000-000000000001','monthly','chave-d-0002','sandbox') ->> 'intent_id'),current_setting('t.d1'),'Com resultado desconhecido, nenhuma segunda criação é permitida');
 reset role;
 select is((select extract(epoch from expires_at - dispatched_at)::int from private.billing_checkout_intents where id=current_setting('t.d1')::uuid),1920,'Bloqueio por resultado desconhecido = prazo do checkout (30 min) + 2 min, não mais que isso');
-update private.billing_checkout_intents set expires_at=now()-interval '1 minute' where id=current_setting('t.d1')::uuid;
+update private.billing_checkout_intents set expires_at=now()-interval '3 minutes' where id=current_setting('t.d1')::uuid;
 set local role service_role;
 select is((public.billing_run_maintenance() ->> 'intents_expired')::int,1,'Manutenção expira intenção vencida');
+-- Etapa 2.2B (correção): intenção expirada com checkout já enviado só libera nova contratação depois de conferida no Asaas.
+select throws_ok($$select public.billing_create_intent('fbaaaaaa-0000-4000-8000-000000000004','fb000000-0000-4000-8000-000000000006','fbc00000-0000-4000-8000-000000000001','monthly','chave-d-0002','sandbox')$$,'55000',null,'Expirada e ainda não conferida no Asaas: nova contratação aguarda a conferência');
+select is(public.billing_mark_intent_verified(current_setting('t.d1')::uuid),true,'Conferida no Asaas (sem assinatura): liberada');
 select is((public.billing_create_intent('fbaaaaaa-0000-4000-8000-000000000004','fb000000-0000-4000-8000-000000000006','fbc00000-0000-4000-8000-000000000001','monthly','chave-d-0002','sandbox') ->> 'reused')::boolean,false,'Depois do prazo a organização pode tentar de novo');
 select is((public.billing_mark_intent((select (public.billing_create_intent('fbaaaaaa-0000-4000-8000-000000000004','fb000000-0000-4000-8000-000000000006','fbc00000-0000-4000-8000-000000000001','monthly','chave-d-0002','sandbox') ->> 'intent_id')::uuid),'failed',null,null,'recusado') ->> 'status'),'failed','Recusa definitiva marca a intenção como falha');
 select is((public.billing_create_intent('fbaaaaaa-0000-4000-8000-000000000004','fb000000-0000-4000-8000-000000000006','fbc00000-0000-4000-8000-000000000001','monthly','chave-d-0004','sandbox') ->> 'reused')::boolean,false,'Após falha definitiva é possível tentar novamente');
@@ -337,6 +351,10 @@ select is((public.billing_create_intent('fbaaaaaa-0000-4000-8000-000000000003','
 select set_config('t.b2',(public.billing_create_intent('fbaaaaaa-0000-4000-8000-000000000002','fb000000-0000-4000-8000-000000000003','fbc00000-0000-4000-8000-000000000001','monthly','chave-b-0002','sandbox') ->> 'intent_id'),true);
 select public.billing_mark_intent(current_setting('t.b2')::uuid,'dispatching');
 select public.billing_mark_intent(current_setting('t.b2')::uuid,'unknown',null,null,'timeout');
+-- Etapa 2.2B (correção): a reconciliação só reivindica contratações enviadas há mais de 2 minutos (dá tempo ao webhook normal).
+reset role;
+update private.billing_checkout_intents set dispatched_at=now()-interval '5 minutes' where dispatched_at is not null and status in ('dispatching','unknown','awaiting_payment');
+set local role service_role;
 select is((public.billing_reconcile_work() -> 'intents' -> 0 ->> 'asaas_customer_id'),'cus_BBBB0001','Reconciliação recebe as contratações com resultado desconhecido para consultar o Asaas');
 reset role;
 set local role authenticated;

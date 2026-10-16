@@ -1,5 +1,6 @@
 "use server";
 
+import { BillingRestrictedError } from "@/modules/billing/guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
@@ -83,7 +84,7 @@ const collectionSchema = z.object({
 }).refine((value) => Boolean(value.since) === Boolean(value.until));
 
 function safeMetaOperationError(error: unknown) {
-  if (error instanceof MetaSetupError) return error.message;
+  if (error instanceof MetaSetupError || error instanceof BillingRestrictedError) return error.message;
   if (error instanceof MetaApiError) {
     return error.code === 190
       ? "A credencial Meta foi rejeitada ou expirou."

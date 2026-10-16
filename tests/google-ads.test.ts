@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+vi.mock("@/modules/billing/guard", () => ({ ensurePaidOperation: async () => undefined, paidOperationBlock: async () => null, billingBlockOf: () => null, BillingRestrictedError: class extends Error {} }));
 import { GoogleAdsApiError, GoogleAdsClient, isCustomerId, normalizeCustomerId } from "@/modules/google-ads/client";
 import { adQuery, accountDailyQuery, campaignQuery } from "@/modules/google-ads/queries";
 import { buildGoogleAnalytics, previousPeriod } from "@/modules/google-ads/normalize";

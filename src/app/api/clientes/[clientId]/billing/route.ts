@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { billingBlockOf } from "@/modules/billing/guard";
 import { requireClientDashboardAccess } from "@/modules/client-portal/context";
 import { getClientAccountBilling } from "@/modules/meta/server";
 
@@ -13,7 +14,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cli
   const { access } = await requireClientDashboardAccess(parsed.data);
   try {
     return Response.json({ accounts: await getClientAccountBilling({ agencyId: access.agencyId, clientId: parsed.data }) }, { headers });
-  } catch {
+  } catch (error) {
+    const block = billingBlockOf(error);
+    if (block) return Response.json({ error: block.error, code: block.code }, { status: block.status, headers });
     return Response.json({ error: "Não foi possível consultar a Meta agora. Tente novamente em alguns minutos." }, { status: 502, headers });
   }
 }

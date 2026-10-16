@@ -13,6 +13,34 @@ function client(handler: (url: string, init: RequestInit) => Response | Promise<
   return { api: createAsaasClient(config, { fetchImpl, timeoutMs: 50 }), calls };
 }
 
+// Formato REAL das respostas do Asaas Sandbox (campos conferidos em 15/10/2026 com a contratação de homologação). Um campo novo ou uma regra
+// de validação errada que recuse respostas reais derruba a ativação inteira: este teste protege exatamente isso.
+const realSubscription = { object: "subscription", id: "sub_fau543act7o6ntpc", dateCreated: "2026-10-15", customer: "cus_000009495320", paymentLink: null, value: 49.9, nextDueDate: "2026-11-15",
+  cycle: "MONTHLY", description: null, billingType: "CREDIT_CARD", deleted: false, status: "ACTIVE", externalReference: null, checkoutSession: "bbf3caff-7a8e-4b9e-aa06-8e404bfc4979",
+  creditCard: { creditCardNumber: "4444", creditCardBrand: "VISA" }, sendPaymentByPostalService: false, fine: { value: 0, type: "FIXED" }, interest: { value: 0, type: "PERCENTAGE" }, split: null };
+const realPayment = { object: "payment", id: "pay_q16z0ajhkcajsqo6", dateCreated: "2026-10-15", customer: "cus_000009495320", subscription: "sub_fau543act7o6ntpc", checkoutSession: "bbf3caff-7a8e-4b9e-aa06-8e404bfc4979",
+  paymentLink: null, value: 49.9, netValue: 48.4, originalValue: null, interestValue: null, description: null, billingType: "CREDIT_CARD", confirmedDate: "2026-10-15", creditCard: { creditCardNumber: "4444" },
+  pixTransaction: null, status: "CONFIRMED", dueDate: "2026-10-15", originalDueDate: "2026-10-15", paymentDate: null, clientPaymentDate: "2026-10-15", installmentNumber: null,
+  invoiceUrl: "https://sandbox.asaas.com/i/abc", invoiceNumber: "00000001", externalReference: null, deleted: false, anticipated: false, anticipable: false };
+
+describe("respostas REAIS do Asaas Sandbox (formato observado)", () => {
+  it("assinatura real: lê, mantém checkoutSession e descarta o resto", async () => {
+    const { api } = client(() => json(realSubscription));
+    const result = await api.getSubscription("sub_fau543act7o6ntpc");
+    expect(result).toMatchObject({ id: "sub_fau543act7o6ntpc", customer: "cus_000009495320", value: 49.9, cycle: "MONTHLY", status: "ACTIVE", billingType: "CREDIT_CARD", checkoutSession: "bbf3caff-7a8e-4b9e-aa06-8e404bfc4979" });
+    expect(result).not.toHaveProperty("creditCard");
+  });
+  it("lista de assinaturas do cliente e cobrança real: leitura completa sem recusar campos novos", async () => {
+    const { api } = client((url) => json(url.includes("/subscriptions?") ? { object: "list", hasMore: false, totalCount: 1, limit: 100, offset: 0, data: [realSubscription] } : realPayment));
+    expect(await api.listCustomerSubscriptions("cus_000009495320", 100)).toHaveLength(1);
+    expect(await api.getPayment("pay_q16z0ajhkcajsqo6")).toMatchObject({ id: "pay_q16z0ajhkcajsqo6", status: "CONFIRMED", subscription: "sub_fau543act7o6ntpc", billingType: "CREDIT_CARD" });
+  });
+  it("lista de cobranças da assinatura (inclui a próxima, pendente)", async () => {
+    const { api } = client(() => json({ object: "list", hasMore: false, data: [realPayment, { ...realPayment, id: "pay_2uebthhwinjxy5l2", status: "PENDING", confirmedDate: null, dueDate: "2026-11-15" }] }));
+    expect(await api.listSubscriptionPayments("sub_fau543act7o6ntpc", 12)).toHaveLength(2);
+  });
+});
+
 describe("cliente do Asaas (Sandbox, simulado)", () => {
   it("só fala com a URL do Sandbox, envia a chave só no cabeçalho e valida a resposta", async () => {
     const { api, calls } = client(() => json(payment));

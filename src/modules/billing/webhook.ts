@@ -13,8 +13,10 @@ export function validateWebhookToken(received: string | null, expected: string |
 }
 
 const idText = z.string().regex(/^[A-Za-z0-9_-]{4,120}$/);
+// O identificador do EVENTO tem o formato documentado `evt_<hex>&<número>` (o "&" faz parte dele); os ids de recursos não têm "&".
+const eventIdText = z.string().regex(/^[A-Za-z0-9_&-]{4,120}$/);
 const eventSchema = z.object({
-  id: idText,
+  id: eventIdText,
   event: z.string().regex(/^[A-Z][A-Z0-9_]{2,79}$/),
   dateCreated: z.string().max(40).nullish(),
   payment: z.object({ id: idText, subscription: idText.nullish(), status: z.string().max(60).nullish(), value: z.number().nullish(), dueDate: z.string().max(12).nullish() }).nullish(),

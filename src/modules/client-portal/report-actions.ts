@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { paidOperationBlock } from "@/modules/billing/guard";
 import { z } from "zod";
 import { normalizeHierarchy } from "./analytics-hierarchy";
 import { normalizeClientAnalytics } from "./analytics-calculations";
@@ -29,6 +30,9 @@ export async function generateDashboardReport(input: unknown) {
   if (!parsed.success) return { error: "Configuração do relatório inválida." };
   const context = await requireClientDashboardAccess(parsed.data.clientId);
   if (!context.canManageReports) return { error: "Seu perfil não pode salvar relatórios." };
+  // Novo relatório (PDF salvo) é operação paga; baixar/abrir os já gerados continua liberado.
+  const reportBlock = await paidOperationBlock(context.access.agencyId);
+  if (reportBlock) return { error: reportBlock.error };
   const analytics = await getFreshClientAnalytics({ supabase: context.supabase,
     agencyId: context.access.agencyId, clientId: parsed.data.clientId,
     dateFrom: parsed.data.dateFrom, dateTo: parsed.data.dateTo, accountIds: parsed.data.accountIds });

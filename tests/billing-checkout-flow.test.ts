@@ -72,7 +72,8 @@ describe("ofertas e estados da tela", () => {
   });
   it("a página de sucesso do checkout NUNCA confirma: só verifica (dica 'ok' sem assinatura ativa)", () => {
     const awaiting = { ...base, pending_checkout: { status: "awaiting_payment", cycle: "monthly", amount_cents: 4990, expires_at: "2026-10-15T15:00:00Z" } };
-    expect(deriveContractView(awaiting, "ok")).toMatchObject({ state: "verifying_payment", polling: true });
+    // Relógio FIXO (antes do prazo do checkout): o teste não pode depender do dia em que roda.
+    expect(deriveContractView(awaiting, "ok", new Date("2026-10-15T14:40:00Z"))).toMatchObject({ state: "verifying_payment", polling: true });
     expect(deriveContractView(base, "ok")).toMatchObject({ state: "verifying_payment", polling: true });
     for (const hint of ["ok", "cancelado", "expirado"] as const) expect(deriveContractView(base, hint).state).not.toBe("confirmed");
     expect(deriveContractView({ ...base, last_intent: { status: "failed" } }, "ok").state).toBe("verifying_payment");
@@ -89,7 +90,7 @@ describe("ofertas e estados da tela", () => {
     expect(parseBillingSnapshot({ subscription: { status: 5 } })).toBeNull();
   });
   it("cancelamento programado é explicado", () => {
-    expect(deriveContractView({ ...base, subscription: { status: "active", cycle: "monthly", amount_cents: 4990, current_period_end: "2026-11-15T03:00:00Z", cancel_at_period_end: true } }).message).toMatch(/não será renovada/);
+    expect(deriveContractView({ ...base, subscription: { status: "active", cycle: "monthly", amount_cents: 4990, current_period_end: "2026-11-15T03:00:00Z", cancel_at_period_end: true } })).toMatchObject({ state: "cancel_scheduled", message: expect.stringMatching(/não haverá renovação/i) });
   });
 });
 

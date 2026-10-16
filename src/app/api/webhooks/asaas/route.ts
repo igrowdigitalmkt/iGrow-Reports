@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { configuredBillingEnvironment } from "@/modules/billing/config";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getAsaasConfig, getAsaasWebhookToken } from "@/modules/billing/config";
 import { asBillingDb, callRpc } from "@/modules/billing/db";
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   let recorded: { id: number; duplicate: boolean };
   try {
     recorded = await callRpc(asBillingDb(service), "billing_record_event", {
-      p_environment: "sandbox", p_event_id: event.eventId, p_event_type: event.eventType, p_resource_type: event.resourceType, p_resource_id: event.resourceId, p_payload: event.payload,
+      p_environment: configuredBillingEnvironment(), p_event_id: event.eventId, p_event_type: event.eventType, p_resource_type: event.resourceType, p_resource_id: event.resourceId, p_payload: event.payload,
     });
   } catch {
     console.error("asaas-webhook-persist-failed");

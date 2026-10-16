@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { paidOperationBlock } from "@/modules/billing/guard";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { resolveAnalyticsRange } from "@/modules/client-portal/range";
@@ -86,6 +87,9 @@ export async function generateManualReport(
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
     return { error: "Cliente, período ou espaço de trabalho inválido." };
   }
+  // Novo relatório é operação paga: suspensa/encerrada não gera (os relatórios já existentes continuam acessíveis).
+  const generateBlock = await paidOperationBlock(context.agency.id);
+  if (generateBlock) return { error: generateBlock.error };
 
   const { data: dataContext, error: contextError } = await context.supabase
     .rpc("get_client_portal_data_context", { p_client_id: parsed.data.clientId })
@@ -187,6 +191,8 @@ export async function publishReportVersion(
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) {
     return { error: "Versão ou espaço de trabalho inválido." };
   }
+  const publishBlock = await paidOperationBlock(context.agency.id);
+  if (publishBlock) return { error: publishBlock.error };
 
   const { data: snapshot, error: snapshotError } = await context.supabase.from("report_data_snapshots")
     .select("quality_status").eq("agency_id", context.agency.id).eq("report_version_id", parsed.data.reportVersionId).maybeSingle();

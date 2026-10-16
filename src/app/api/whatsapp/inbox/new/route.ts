@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paidOperationBlock } from "@/modules/billing/guard";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { loadOwnModules } from "@/modules/team/admin";
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
   if (context.role === "viewer") return Response.json({ error: "Seu perfil só pode consultar as conversas." }, { status: 403, headers });
   const modules = context.role === "owner" || context.role === "admin" ? null : await loadOwnModules(context.supabase, context.agency.id, context.user.id);
   if (!canOpenSection(context.role, modules, "whatsapp")) return Response.json({ error: "A área WhatsApp não está liberada para você." }, { status: 403, headers });
+  // Envio manual é operação paga: organização suspensa/encerrada não envia (leitura das conversas continua liberada).
+  const billingBlock = await paidOperationBlock(context.agency.id);
+  if (billingBlock) return Response.json({ error: billingBlock.error, code: billingBlock.code }, { status: billingBlock.status, headers });
   const service = createSupabaseServiceClient();
   if (!service) return Response.json({ error: "Envio indisponível neste ambiente." }, { status: 503, headers });
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paidOperationBlock } from "@/modules/billing/guard";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { recordInboxMessage } from "@/modules/whatsapp/inbox-store";
@@ -31,6 +32,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
 
   const context = await requireAgencyContext();
   if (context.role === "viewer") return Response.json({ error: "Seu perfil só pode consultar as conversas." }, { status: 403, headers });
+  // Envio manual é operação paga: organização suspensa/encerrada não envia (leitura das conversas continua liberada).
+  const billingBlock = await paidOperationBlock(context.agency.id);
+  if (billingBlock) return Response.json({ error: billingBlock.error, code: billingBlock.code }, { status: billingBlock.status, headers });
   const { data: conversation } = await context.supabase.from("whatsapp_conversations").select("*").eq("agency_id", context.agency.id).eq("id", id.data).maybeSingle();
   if (!conversation) return Response.json({ error: "Conversa não encontrada." }, { status: 404, headers });
   const { data: quoted } = replyId?.success
