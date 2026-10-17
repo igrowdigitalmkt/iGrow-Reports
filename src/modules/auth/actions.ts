@@ -127,7 +127,13 @@ export async function signUpAction(_state: AuthNoticeState, formData: FormData):
     options: { data: { full_name: parsed.data.name, pending_agency_name: parsed.data.agency }, emailRedirectTo: `${origin}/auth/callback?next=/criar-espaco` },
   });
   if (error?.status === 429) return { error: "Muitos cadastros seguidos. Aguarde alguns minutos e tente de novo." };
+  // Supabase can return an obfuscated user with no identities for an existing account.
+  // That response does not create a user or send a confirmation email.
+  if (error?.code === "user_already_exists" || error?.code === "email_exists" || (!error && data.user?.identities?.length === 0)) {
+    return { error: "Este e-mail já está cadastrado. Entre na sua conta ou recupere a senha.", sent: null };
+  }
   if (error) return { error: error.code === "weak_password" ? "Escolha uma senha mais forte." : "Não foi possível criar a conta agora. Tente novamente em instantes." };
+  if (!data.user) return { error: "Não foi possível criar a conta agora. Tente novamente em instantes.", sent: null };
   // Projects without e-mail confirmation return a session right away.
   if (data.session) redirect("/criar-espaco");
   return { error: null, sent: parsed.data.email };
