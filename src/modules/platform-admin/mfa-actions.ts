@@ -24,8 +24,8 @@ export async function startMfaEnrollmentAction(): Promise<MfaEnrollment> {
   for (const factor of factors.all.filter((item) => item.factor_type === "totp" && item.status === "unverified")) {
     await supabase.auth.mfa.unenroll({ factorId: factor.id });
   }
-  const label = `iGrow Admin ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
-  const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: label, issuer: "iGrow Reports Admin" });
+  const label = `Groow Ads Admin ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
+  const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: label, issuer: "Groow Ads Admin" });
   if (error || !data) return { error: "Não foi possível gerar o QR Code. Confira se a verificação em duas etapas está ativada no Supabase." };
   return { error: null, factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret };
 }

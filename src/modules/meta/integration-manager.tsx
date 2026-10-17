@@ -181,7 +181,7 @@ export function MetaIntegrationManager({
                 </>
               ) : (
                 <div className="meta-empty-state">
-                  <p>Entre com o Facebook de quem administra os anúncios deste cliente e escolha as contas que o iGrow vai ler. Você pode conectar uma ou várias contas do mesmo Portfólio Empresarial.</p>
+                  <p>Entre com o Facebook de quem administra os anúncios deste cliente e escolha as contas que o Groow Ads vai ler. Você pode conectar uma ou várias contas do mesmo Portfólio Empresarial.</p>
                 </div>
               )}
 
@@ -193,7 +193,7 @@ export function MetaIntegrationManager({
                     <FacebookLogin key={clientId} agencyId={agencyId} clientId={clientId} apiVersion={snapshot.serverReadiness.apiVersion!} compact
                       label={connected ? "Adicionar ou trocar contas" : "Conectar com a Meta"} variant={connected ? "secondary" : "default"} />
                   ) : (
-                    <p className="meta-inline-note">O login com a Meta aguarda a configuração do iGrow. As conexões existentes continuam funcionando.</p>
+                    <p className="meta-inline-note">O login com a Meta aguarda a configuração do Groow Ads. As conexões existentes continuam funcionando.</p>
                   )}
                   {connected && (
                     <Button type="button" onClick={sync} disabled={pending || !snapshot.serverReadiness.ready}>

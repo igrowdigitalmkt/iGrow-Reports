@@ -88,7 +88,7 @@ export async function setClientPortalAccessByEmail(
   if (error) {
     return {
       error: parsed.data.active
-        ? "Não foi possível liberar o acesso. A conta precisa existir no iGrow Reports e estar com o e-mail confirmado."
+        ? "Não foi possível liberar o acesso. A conta precisa existir no Groow Ads e estar com o e-mail confirmado."
         : "Não foi possível revogar o acesso. Atualize a página e tente novamente.",
     };
   }

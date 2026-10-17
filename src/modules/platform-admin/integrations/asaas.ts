@@ -7,7 +7,7 @@ import { AsaasError, type AsaasWebhookInfo } from "@/modules/billing/asaas-clien
 // impressão digital da conta e geração do token. Nada aqui guarda ou devolve chave de API.
 
 export const WEBHOOK_PATH = "/api/webhooks/asaas";
-export const DEFAULT_APP_URL = "https://i-grow-reports.vercel.app";
+export const DEFAULT_APP_URL = "https://groowads.com";
 
 /** Endereço que o Asaas deve chamar (o mesmo domínio do aplicativo deste ambiente). */
 export function webhookUrl(appUrl: string | undefined = process.env.NEXT_PUBLIC_APP_URL): string {

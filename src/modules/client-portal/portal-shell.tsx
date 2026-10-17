@@ -29,7 +29,7 @@ export function ClientPortalShell({
     <main className="client-portal">
       <header className="client-topbar">
         <div className="client-topbar-inner">
-          <Link href={agencyMode ? "/dashboard/clientes" : "/cliente"} aria-label="iGrow Reports, Área do Cliente" className="client-brand-link">
+          <Link href={agencyMode ? "/dashboard/clientes" : "/cliente"} aria-label="Groow Ads, Área do Cliente" className="client-brand-link">
             <Brand />
           </Link>
           <div className="client-topbar-actions">
@@ -63,7 +63,7 @@ export function ClientPortalShell({
         {children}
 
         <footer className="client-footer">
-          <span>iGrow Reports</span>
+          <span>Groow Ads</span>
           <span>Acesso protegido aos resultados do seu negócio</span>
         </footer>
       </div>

@@ -6,8 +6,8 @@ import { Providers } from "@/components/layout/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "iGrow Reports", template: "%s · iGrow Reports" },
-  description: "Plataforma de relatórios de tráfego da iGrow Digital.",
+  title: { default: "Groow Ads", template: "%s · Groow Ads" },
+  description: "Groow Ads: plataforma de relatórios e análise de anúncios, da iGrow Digital.",
   robots: { index: false, follow: false },
 };
 

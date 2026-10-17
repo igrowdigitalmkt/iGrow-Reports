@@ -18,7 +18,7 @@ export function ContactStarsAction({conversationId,demo,onPick}:{conversationId:
     return()=>controller.abort();
   },[open,demo,conversationId]);
   return <Dialog.Root open={open} onOpenChange={value=>{setOpen(value);if(value){setItems(null);setError("");}}}><Dialog.Trigger asChild><button type="button"><Star size={26}/><span>Mensagens favoritas</span></button></Dialog.Trigger><Dialog.Portal><Dialog.Overlay className="wai-extra-overlay"/><Dialog.Content className="wai-extra-dialog">
-    <Dialog.Title>Mensagens favoritas</Dialog.Title><Dialog.Description>Favoritos privados da iGrow nesta conversa. Até 200 itens disponíveis.</Dialog.Description>
+    <Dialog.Title>Mensagens favoritas</Dialog.Title><Dialog.Description>Favoritos privados do Groow Ads nesta conversa. Até 200 itens disponíveis.</Dialog.Description>
     {error?<p role="alert">{error}</p>:!items && !demo?<p role="status">Carregando…</p>:!(items?.length)?<p>Nenhuma mensagem favorita.</p>:<div className="wai-contact-favorites">{items.map(item=><button type="button" key={item.id} onClick={()=>{setOpen(false);onPick(item.id);}}><WhatsAppEmojiText text={item.body || kindLabel(item.kind)}/><small>{listTime(item.sentAt)}</small></button>)}</div>}
     <footer><Dialog.Close asChild><button type="button">Fechar</button></Dialog.Close></footer>
   </Dialog.Content></Dialog.Portal></Dialog.Root>;

@@ -102,7 +102,7 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
       <span className={`qr-logo${connected ? " is-on" : ""}`}><Smartphone size={18} /></span>
       <div>
         <h2>Seu WhatsApp</h2>
-        <p>Envie relatórios pelo seu número e acompanhe respostas recentes. Ao desconectar, as mensagens desta sessão saem do iGrow.</p>
+        <p>Envie relatórios pelo seu número e acompanhe respostas recentes. Ao desconectar, as mensagens desta sessão saem do Groow Ads.</p>
       </div>
       {status === null ? <span className="badge neutral"><Loader2 size={12} className="spin" />Verificando</span>
         : connected ? <span className="badge green"><span className="status-dot" />Conectado</span>
@@ -113,7 +113,7 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
     {status && !status.configured && <p className="qr-note"><CircleAlert size={15} />O servidor do WhatsApp ainda não foi configurado neste ambiente.</p>}
 
     {connected && <ConnectedCard title={connected.name ?? "WhatsApp conectado"} detail={connected.phone ?? "Número conectado"} picture={connected.picture} note="Os agendamentos ativos já podem enviar por este número."
-      action={canManage ? <DisconnectButton message="Desconectar o WhatsApp? As conversas desta conexão serão apagadas do iGrow e os envios agendados ficarão suspensos até uma nova vinculação." onConfirm={disconnect} disabled={busy} /> : undefined} />}
+      action={canManage ? <DisconnectButton message="Desconectar o WhatsApp? As conversas desta conexão serão apagadas do Groow Ads e os envios agendados ficarão suspensos até uma nova vinculação." onConfirm={disconnect} disabled={busy} /> : undefined} />}
 
     {status?.configured && !connected && mode.kind === "idle" && <div className="qr-start">
       <ol className="qr-steps">
@@ -163,6 +163,6 @@ export function QrConnection({ canManage, onStatus }: { canManage: boolean; onSt
 
     {error && <p role="alert" className="meta-feedback error">{error}</p>}
 
-    <p className="qr-safety"><ShieldCheck size={14} />Para proteger o número: use um WhatsApp que já tenha conversas, envie só para quem autorizou e mantenha o celular com internet. O iGrow espaça as mensagens como uma pessoa faria.</p>
+    <p className="qr-safety"><ShieldCheck size={14} />Para proteger o número: use um WhatsApp que já tenha conversas, envie só para quem autorizou e mantenha o celular com internet. O Groow Ads espaça as mensagens como uma pessoa faria.</p>
   </section>;
 }

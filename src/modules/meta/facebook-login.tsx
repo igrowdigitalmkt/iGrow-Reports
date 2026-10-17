@@ -55,7 +55,7 @@ export function FacebookLogin({ agencyId, clientId, apiVersion, label = "Conecta
       if (currentAttempt !== attempt.current) return;
       attempt.current++;
       setWaiting(false);
-      setError("A Meta não concluiu a autorização. Se a janela não abriu, permita pop-ups para o iGrow e tente novamente.");
+      setError("A Meta não concluiu a autorização. Se a janela não abriu, permita pop-ups para o Groow Ads e tente novamente.");
     }, 120000);
     try { selectFacebookApp(sdk.current, META_LOGIN_APP_ID, apiVersion); sdk.current.login(response => {
       if (currentAttempt !== attempt.current) return;
@@ -79,7 +79,7 @@ export function FacebookLogin({ agencyId, clientId, apiVersion, label = "Conecta
     }
   }
   return <div className={compact ? "meta-credential-compact" : "meta-credential-section"}>
-    {!compact && <p>Entre pelo Facebook, autorize o iGrow e escolha as contas deste cliente. A autorização solicitará as permissões configuradas para o aplicativo iGrow Digital.</p>}
+    {!compact && <p>Entre pelo Facebook, autorize o Groow Ads e escolha as contas deste cliente. A autorização solicitará as permissões configuradas para o aplicativo iGrow Digital.</p>}
     <Button type="button" variant={variant} onClick={login} disabled={!ready || waiting || pending}>{waiting ? "Aguardando autorização…" : label}</Button>
     {waiting && <Button type="button" variant="secondary" onClick={() => { attempt.current++; clearTimeout(authorizationTimeout.current); setWaiting(false); }}>Cancelar</Button>}
     {!!accounts.length && <div className="meta-account-selection">

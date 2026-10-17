@@ -1,4 +1,4 @@
-// Plataformas de anúncios que o iGrow apresenta nos relatórios (dashboard, PDF e mensagem de WhatsApp).
+// Plataformas de anúncios que o Groow Ads apresenta nos relatórios (dashboard, PDF e mensagem de WhatsApp).
 // O YouTube Ads é veiculado pela conta do Google Ads e aparece dentro da seção Google Ads.
 export type PlatformKey = "meta" | "google" | "tiktok" | "linkedin";
 

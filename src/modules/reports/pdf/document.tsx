@@ -306,7 +306,7 @@ function ReportPage({ input, facts }: { input: ReportPdfInput; facts: ReportFact
         {ctx.on("balances") ? <Balances ctx={ctx} /> : null}
         <DataNotes ctx={ctx} />
         <View fixed style={{ position: "absolute", bottom: 22, left: SIZE.page, right: SIZE.page, flexDirection: "row", justifyContent: "space-between", borderTopWidth: 0.7, borderTopColor: COLORS.line, paddingTop: 8 }}>
-          <Text style={{ fontSize: SIZE.footer, color: COLORS.faint }}>iGrow Reports</Text>
+          <Text style={{ fontSize: SIZE.footer, color: COLORS.faint }}>Groow Ads</Text>
           <Text style={{ fontSize: SIZE.footer, color: COLORS.faint }} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
@@ -318,7 +318,7 @@ function ReportPage({ input, facts }: { input: ReportPdfInput; facts: ReportFact
 export function ReportDocument({ sections }: { sections: Array<{ input: ReportPdfInput; facts: ReportFacts }> }) {
   const first = sections[0].input;
   return (
-    <Document title={`Relatório de desempenho - ${first.clientName}`} author={first.workspaceName} creator="iGrow Reports">
+    <Document title={`Relatório de desempenho - ${first.clientName}`} author={first.workspaceName} creator="Groow Ads">
       {sections.map((section, index) => <ReportPage key={index} input={section.input} facts={section.facts} />)}
     </Document>
   );

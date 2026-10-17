@@ -178,7 +178,7 @@ export function buildDashboardPdf(originalInput: DashboardPdfInput) {
   text("Dados fornecidos pela Meta Ads. Cada conta respeita seu calendário e fuso local. As configurações, a seleção e os valores foram preservados no momento da geração.",9,C.muted);
   if(input.data.selectedAccountIds.length>1)text("Alcance e cliques únicos entre contas são estimados pela soma dos agregados da Meta; pessoas podem se repetir. Frequência = impressões / alcance estimado.",9,C.muted);
   input.data.warnings.forEach(warning=>text(warning,9,C.muted));
-  const total=doc.getNumberOfPages();for(let page=1;page<=total;page++){doc.setPage(page);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(C.muted);doc.text(`iGrow Reports | ${page} / ${total}`,18,290);}
+  const total=doc.getNumberOfPages();for(let page=1;page<=total;page++){doc.setPage(page);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(C.muted);doc.text(`Groow Ads | ${page} / ${total}`,18,290);}
   return doc;
 }
 

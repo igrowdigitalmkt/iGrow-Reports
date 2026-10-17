@@ -2,6 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "pnpm check:deploy && pnpm build",
+  "redirects": [
+    {
+      "source": "/((?!api/).*)",
+      "has": [{ "type": "host", "value": "i-grow-reports.vercel.app" }],
+      "destination": "https://groowads.com/$1",
+      "permanent": true
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/meta-daily",

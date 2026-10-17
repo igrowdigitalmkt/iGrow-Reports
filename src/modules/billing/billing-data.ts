@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Dados de cobrança do pagador. NÃO são guardados no iGrow Reports: seguem direto para o cadastro do cliente no Asaas
+// Dados de cobrança do pagador. NÃO são guardados no Groow Ads: seguem direto para o cadastro do cliente no Asaas
 // (que o checkout hospedado exige) e o cartão é digitado só na página do Asaas.
 
 export const onlyDigits = (value: string) => value.replace(/\D/g, "");

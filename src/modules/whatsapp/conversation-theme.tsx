@@ -54,7 +54,7 @@ export function ConversationThemeAction({ conversationId }: { conversationId: st
     {open && <div className="wai-details-export-backdrop" onClick={close} role="presentation">
       <div ref={dialog} className="wai-details-export wai-theme-dialog" role="dialog" aria-modal="true" aria-label="Tema da conversa" onClick={event => event.stopPropagation()}>
         <strong>Tema da conversa</strong>
-        <p>Personalize o fundo desta conversa na iGrow. A preferência fica neste navegador e não altera o tema no WhatsApp.</p>
+        <p>Personalize o fundo desta conversa no Groow Ads. A preferência fica neste navegador e não altera o tema no WhatsApp.</p>
         <fieldset><legend>Cor do fundo</legend>{themes.map(theme => <label key={theme.id}>
           <input type="radio" name="conversation-theme" value={theme.id} checked={choice === theme.id} onChange={() => setChoice(theme.id)} />
           <span className="wai-theme-swatch" style={{ backgroundColor: theme.color }} aria-hidden="true" />{theme.name}

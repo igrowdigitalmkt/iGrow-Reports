@@ -118,6 +118,6 @@ it("não expõe detalhe do banco quando liberação por email falha", async () =
     email: "cliente@empresa.com",
     active: true,
   })).toEqual({
-    error: "Não foi possível liberar o acesso. A conta precisa existir no iGrow Reports e estar com o e-mail confirmado.",
+    error: "Não foi possível liberar o acesso. A conta precisa existir no Groow Ads e estar com o e-mail confirmado.",
   });
 });

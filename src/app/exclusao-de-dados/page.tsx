@@ -6,18 +6,18 @@ export const metadata: Metadata = { title: "Exclusão de dados", robots: { index
 
 export default function DataDeletionPage() {
   return <LegalPage title="Exclusão de dados">
-    <p>Você pode pedir a exclusão dos dados tratados pelo iGrow Reports a qualquer momento. Esta página explica como.</p>
+    <p>Você pode pedir a exclusão dos dados tratados pelo Groow Ads a qualquer momento. Esta página explica como.</p>
 
-    <h2>Remover o acesso do iGrow à sua conta da Meta</h2>
+    <h2>Remover o acesso do Groow Ads à sua conta da Meta</h2>
     <ol>
       <li>No Facebook, abra <strong>Configurações e privacidade › Configurações › Integrações comerciais</strong> (ou <strong>Apps e sites</strong>).</li>
       <li>Encontre <strong>iGrow Digital</strong> e clique em <strong>Remover</strong>.</li>
-      <li>A partir daí, o iGrow deixa de acessar suas contas de anúncios e seu WhatsApp Business. Os dados já coletados continuam guardados até você pedir a exclusão, como explicado abaixo.</li>
+      <li>A partir daí, o Groow Ads deixa de acessar suas contas de anúncios e seu WhatsApp Business. Os dados já coletados continuam guardados até você pedir a exclusão, como explicado abaixo.</li>
     </ol>
 
     <h2>Pedir a exclusão dos dados</h2>
     <ol>
-      <li>Envie um e-mail para <a href={`mailto:${LEGAL_CONTACT_EMAIL}?subject=Exclus%C3%A3o%20de%20dados%20iGrow%20Reports`}>{LEGAL_CONTACT_EMAIL}</a> com o assunto <strong>“Exclusão de dados iGrow Reports”</strong>.</li>
+      <li>Envie um e-mail para <a href={`mailto:${LEGAL_CONTACT_EMAIL}?subject=Exclus%C3%A3o%20de%20dados%20Groow%20Ads`}>{LEGAL_CONTACT_EMAIL}</a> com o assunto <strong>“Exclusão de dados Groow Ads”</strong>.</li>
       <li>Informe o e-mail usado na plataforma, ou o telefone, se você recebe relatórios por WhatsApp, e o nome da empresa ou do cliente relacionado.</li>
       <li>Confirmaremos o pedido em até 5 dias úteis e concluiremos a exclusão em até 15 dias, informando o que foi apagado.</li>
     </ol>

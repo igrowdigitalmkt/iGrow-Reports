@@ -62,7 +62,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
           revoked_at: time, body: null, media_id: null, media_ref: null,
           media_name: null, media_mime: null,
         }).eq("agency_id", agencyId).eq("conversation_id", chat.id).eq("id", message.id).eq("direction", "out");
-        if (error) throw new Error("O WhatsApp recebeu a solicitação, mas o histórico do iGrow ainda não foi atualizado.");
+        if (error) throw new Error("O WhatsApp recebeu a solicitação, mas o histórico do Groow Ads ainda não foi atualizado.");
         // Refresh preview only if it still belongs to exactly this message.
         if (chat.last_message_direction === "out" && chat.last_message_at &&
           Date.parse(chat.last_message_at) === Date.parse(message.sent_at)) {
@@ -94,7 +94,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
       : { data: [] };
     const currentPins = new Set((sameChatPins ?? []).map(item => item.id));
     if (!canPinMessages([...currentPins], ids))
-      return Response.json({ error: "Você pode fixar até três mensagens por conversa no iGrow." }, { status: 409, headers });
+      return Response.json({ error: "Você pode fixar até três mensagens por conversa no Groow Ads." }, { status: 409, headers });
   }
 
   // Keep per-user actions, rather than mutating/deleting the shared message

@@ -22,7 +22,7 @@ export function AdminShell({ operator, children }: { operator: PlatformOperator;
     </div>
     <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-6 px-4 py-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-6">
       <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start">
-        <Link href="/admin" className="text-lg font-semibold tracking-tight">iGrow<span className="ml-1.5 font-normal text-[var(--muted)]">Admin</span></Link>
+        <Link href="/admin" className="text-lg font-semibold tracking-tight">Groow Ads<span className="ml-1.5 font-normal text-[var(--muted)]">Admin</span></Link>
         <nav aria-label="Módulos do Super Admin" className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
           <AdminNav />
           {MODULES.map(({ label, icon: Icon }) => <span key={label} aria-disabled="true" title="Disponível em uma próxima etapa" className="flex shrink-0 cursor-not-allowed items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--subtle)]"><Icon size={16} aria-hidden="true" />{label}<span className="ml-auto hidden rounded-full border border-[var(--border)] px-1.5 text-[10px] uppercase tracking-wide lg:inline">Em breve</span></span>)}

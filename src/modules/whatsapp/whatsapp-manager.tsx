@@ -163,12 +163,12 @@ function NumberCard({ number, canManage, embedded, ready }: { number: WhatsAppNu
       </> : <Button variant="secondary" className="button-sm" onClick={loadTemplates} disabled={pending}><RefreshCw size={14} />Atualizar mensagens modelo</Button>}
       {connectionId && <Button variant="ghost" className="button-sm" onClick={() => setRenaming(value => !value)}><Pencil size={14} />Renomear</Button>}
       {embedded && ready && <Button variant="ghost" className="button-sm" onClick={() => setReconnecting(value => !value)}><RefreshCw size={14} />Reconectar</Button>}
-      {connectionId && <DisconnectButton disabled={pending} message={`Desconectar ${numberName(number)} da iGrow? O número continua funcionando no WhatsApp, mas os agendamentos que usam este número param até você escolher outro.`}
+      {connectionId && <DisconnectButton disabled={pending} message={`Desconectar ${numberName(number)} do Groow Ads? O número continua funcionando no WhatsApp, mas os agendamentos que usam este número param até você escolher outro.`}
         onConfirm={() => run(() => removeWhatsAppNumberAction({ connectionId }), "Número desconectado.")} />}
     </div>}
 
     {renaming && <form className="whatsapp-rename" action={rename}>
-      <input className="input" name="label" maxLength={60} defaultValue={number.label ?? ""} placeholder="Ex.: Relatórios, Atendimento" aria-label="Nome do número na iGrow" autoFocus />
+      <input className="input" name="label" maxLength={60} defaultValue={number.label ?? ""} placeholder="Ex.: Relatórios, Atendimento" aria-label="Nome do número no Groow Ads" autoFocus />
       <Button type="submit" className="button-sm" disabled={pending}>Salvar</Button>
     </form>}
     {reconnecting && embedded && <EmbeddedSignupButton configId={embedded.configId} apiVersion={embedded.apiVersion} appId={embedded.appId} />}

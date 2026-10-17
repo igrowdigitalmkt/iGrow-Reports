@@ -9,7 +9,7 @@ export const LEGAL_UPDATED_AT = "7 de outubro de 2026";
 export function LegalPage({ title, children }: { title: string; children: ReactNode }) {
   return <div className="legal-page">
     <header className="legal-header">
-      <Link href="/" className="brand-link" aria-label="iGrow Reports"><Brand /></Link>
+      <Link href="/" className="brand-link" aria-label="Groow Ads"><Brand /></Link>
       <nav aria-label="Páginas legais"><Link href="/privacidade">Privacidade</Link><Link href="/exclusao-de-dados">Exclusão de dados</Link></nav>
     </header>
     <main className="legal-content">
@@ -17,6 +17,6 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
       <p className="legal-updated">Última atualização: {LEGAL_UPDATED_AT}</p>
       {children}
     </main>
-    <footer className="legal-footer">iGrow Reports · iGrow Digital · <a href={`mailto:${LEGAL_CONTACT_EMAIL}`}>{LEGAL_CONTACT_EMAIL}</a></footer>
+    <footer className="legal-footer">Groow Ads · iGrow Digital · <a href={`mailto:${LEGAL_CONTACT_EMAIL}`}>{LEGAL_CONTACT_EMAIL}</a></footer>
   </div>;
 }

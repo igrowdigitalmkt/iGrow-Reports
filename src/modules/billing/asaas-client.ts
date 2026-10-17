@@ -89,7 +89,7 @@ function createRequester(config: AsaasConfig, options: ClientOptions) {
     try {
       response = await fetchImpl(`${config.baseUrl}${path}`, {
         method, redirect: "error", signal: controller.signal, cache: "no-store",
-        headers: { access_token: config.apiKey, "Content-Type": "application/json", "User-Agent": "iGrow-Reports", Accept: "application/json" },
+        headers: { access_token: config.apiKey, "Content-Type": "application/json", "User-Agent": "Groow-Ads", Accept: "application/json" },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch {

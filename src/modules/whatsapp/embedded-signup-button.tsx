@@ -77,7 +77,7 @@ export function EmbeddedSignupButton({ configId, apiVersion, appId }: { configId
       });
     } catch {
       setWaiting(false);
-      setError("Não foi possível abrir a janela da Meta. Permita pop-ups para o iGrow e tente novamente.");
+      setError("Não foi possível abrir a janela da Meta. Permita pop-ups para o Groow Ads e tente novamente.");
     }
   }
 

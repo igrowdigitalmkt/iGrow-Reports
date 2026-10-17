@@ -106,7 +106,7 @@ export function CheckoutForm({ offers, requestKey, needsBillingData, canContract
 
     {needsBillingData && <fieldset disabled={pending} className="billing-fieldset">
       <legend className="billing-legend">3. Dados de cobrança</legend>
-      <p className="billing-muted">Exigidos pelo Asaas para emitir a cobrança. Não guardamos estes dados no iGrow Reports e o cartão é digitado só na página segura do Asaas.</p>
+      <p className="billing-muted">Exigidos pelo Asaas para emitir a cobrança. Não guardamos estes dados no Groow Ads e o cartão é digitado só na página segura do Asaas.</p>
       <div className="billing-grid">
         {FIELDS.map((field) => <label key={field.key} className={field.wide ? "billing-field billing-wide" : "billing-field"}>
           <span>{field.label}{field.optional ? " (opcional)" : ""}</span>

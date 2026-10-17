@@ -607,7 +607,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     // The demo may preview the forwarding dialog, but sending remains disabled.
     const selected = (messages ?? []).filter(item => ids.includes(item.id));
     if (selected.some(item => item.revoked || !canForwardInboxMessage(item))) {
-      setActionError("Este tipo de mensagem não pode ser encaminhado pelo iGrow."); return;
+      setActionError("Este tipo de mensagem não pode ser encaminhado pelo Groow Ads."); return;
     }
     if (selected.length > 10) { setActionError("Encaminhe até 10 mensagens por vez."); return; }
     setActionError("");
@@ -773,7 +773,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
 
     <section className="wai-list" aria-label="Conversas">
       {editingList === undefined && !managingLists && !picking && !starPanel && !showArchived && <header className="wai-list-head">
-        <div><h2>WhatsApp</h2><small title="Número conectado no iGrow">{channel.name}{channel.phone ? ` · ${channel.phone}` : ""}</small></div>
+        <div><h2>WhatsApp</h2><small title="Número conectado no Groow Ads">{channel.name}{channel.phone ? ` · ${channel.phone}` : ""}</small></div>
         <div className="wai-head-actions">
           <button type="button" className={`wai-icon-button${picking ? " is-on" : ""}`} disabled={channel.kind !== "qr" || !canReply} onClick={() => setPicking(value => !value)}
             title={channel.kind !== "qr" ? "Nos números oficiais, uma conversa nova só começa com mensagem modelo aprovada" : "Nova conversa"}><Plus size={27} strokeWidth={2.6} /></button>
@@ -824,7 +824,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
         onEdit={setEditingList} onRemove={setDeletingList} onMove={(item,delta) => void moveCustomList(item,delta)} />
       : picking ? <NewChat contacts={contacts} conversations={conversations.filter(item => item.channelKey === "qr" && !item.isGroup)} onExisting={id=>{setPicking(false);choose(id);}} onPick={startWith} onClose={() => setPicking(false)} /> : starPanel ? <div className="wai-new">
         <div className="wai-new-head"><button type="button" className="wai-icon-button" onClick={() => setStarPanel(false)} aria-label="Voltar"><ArrowLeft size={20} /></button><strong>Mensagens favoritas</strong></div>
-        <p className="wai-new-note">Favoritos privados nesta plataforma, preservados enquanto as mensagens estiverem disponíveis no iGrow.</p>
+        <p className="wai-new-note">Favoritos privados nesta plataforma, preservados enquanto as mensagens estiverem disponíveis no Groow Ads.</p>
         <div className="wai-rows">
           {!stars.length && <p className="wai-list-note">Nenhuma mensagem favorita.</p>}
           {stars.map(item => <button type="button" key={item.id} className="wai-starred-item" onClick={() => { setStarPanel(false); setChannelKey(item.channelKey); choose(item.conversationId); }}>
@@ -889,7 +889,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
     <section className={`wai-chat${draft ? " has-draft" : ""}${messageSelectionActive ? " is-selecting-messages" : ""}`} aria-label="Conversa">
       {draft && !open ? <DraftChat key={draft.phone} draft={draft} demo={demo} onClose={() => setDraft(null)} onStarted={started} /> : !open ? <div className="wai-empty">
         <div className="wai-empty-icon"><MessageSquareText size={44} strokeWidth={1.4} /></div>
-        <h3>WhatsApp na iGrow</h3>
+        <h3>WhatsApp no Groow Ads</h3>
         <p>Escolha uma conversa para ver as mensagens. As respostas dos seus clientes aos relatórios aparecem aqui, junto com o que foi enviado por cada número.</p>
         <span className="wai-empty-lock"><Lock size={13} />Visível só para a equipe com acesso ao WhatsApp</span>
       </div> : <>
@@ -956,9 +956,9 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <AlertCircle size={16} /><span>{actionError}</span>
           <button type="button" onClick={() => setActionError("")} aria-label="Fechar aviso"><X size={17} /></button>
         </div>}
-        {!!messages?.some(message => message.pinned) && !messageSelectionActive && <div className="wai-pinned-banner" aria-label="Mensagens fixadas no iGrow">
+        {!!messages?.some(message => message.pinned) && !messageSelectionActive && <div className="wai-pinned-banner" aria-label="Mensagens fixadas no Groow Ads">
           <Pin size={16} />
-          <span><strong>Fixadas no iGrow</strong><small>{messages.filter(item => item.pinned).map(item => item.body?.slice(0, 35) || kindLabel(item.kind)).join(" · ")}</small></span>
+          <span><strong>Fixadas no Groow Ads</strong><small>{messages.filter(item => item.pinned).map(item => item.body?.slice(0, 35) || kindLabel(item.kind)).join(" · ")}</small></span>
           {messages.filter(item => item.pinned).slice(0, 3).map(item =>
             <button key={item.id} type="button" title={item.body?.slice(0, 45) || kindLabel(item.kind)}
               onClick={() => document.getElementById(`wai-msg-${item.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
@@ -1006,7 +1006,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
           <span aria-live="polite">{selectedMessageIds.size} {selectedMessageIds.size === 1 ? "selecionada" : "itens selecionados"}</span>
           <button type="button" onClick={() => void copySelectedMessages()} aria-label="Copiar mensagens" title="Copiar"><Copy size={20} /></button>
           <button type="button" onClick={() => void favoriteSelectedMessages()} aria-label="Favoritar mensagens" title="Favoritar"><Star size={20} /></button>
-          <button type="button" disabled={messageActionBusy} onClick={() => void performLocalMessageAction("pin", [...selectedMessageIds])} aria-label="Fixar mensagens" title="Fixar no iGrow"><Pin size={20} /></button>
+          <button type="button" disabled={messageActionBusy} onClick={() => void performLocalMessageAction("pin", [...selectedMessageIds])} aria-label="Fixar mensagens" title="Fixar no Groow Ads"><Pin size={20} /></button>
           <button type="button" disabled={!(messages ?? []).filter(message => selectedMessageIds.has(message.id)).every(message =>
             canDeleteOwnMessage(message) && !message.id.startsWith("local-"))}
             onClick={() => { setActionError(""); setDeleteIds([...selectedMessageIds]); }}
@@ -1030,7 +1030,7 @@ export function WhatsAppInbox({ channels, demo = false, canReply = true, contact
                   title="Solicita exclusão no WhatsApp; só confirma se a integração aceitar." onClick={() => void performLocalMessageAction("revoke", deleteIds)}>
                   <span><strong>Apagar para todos</strong></span>
                 </button>}
-              <button type="button" disabled={messageActionBusy} title="Remove apenas do iGrow; não apaga no WhatsApp."
+              <button type="button" disabled={messageActionBusy} title="Remove apenas do Groow Ads; não apaga no WhatsApp."
                 onClick={() => void performLocalMessageAction("hide", deleteIds)}><span><strong>Apagar para mim</strong></span></button>
             </div>
             <p className="wai-delete-local-note">“Apagar para mim” remove apenas desta plataforma.</p>
@@ -1740,7 +1740,7 @@ function Bubble({ message, tail, showAuthor, live, voiceAvatarSrc, reactionAvata
           ? <a key={index} href={button.href} target="_blank" rel="noopener noreferrer"><WhatsAppEmojiText text={button.label}/></a>
           : <span key={index}><WhatsAppEmojiText text={button.label}/></span>)}</div>}
       </div>
-      {message.pinned && <span className="wai-message-pinned-indicator" title="Fixada no iGrow"><Pin size={12} />Fixada</span>}
+      {message.pinned && <span className="wai-message-pinned-indicator" title="Fixada no Groow Ads"><Pin size={12} />Fixada</span>}
       {/* Badge in the document flow AFTER the bubble: never covers timestamp or checkmarks. */}
       {!!message.reactions?.length && <div className="wai-reactions">
         <button type="button" className={`wai-reactions-group${message.reactions.some(item => item.mine) ? " is-mine" : ""}`}
@@ -2154,7 +2154,7 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
           const contents = <>{chat ? <Avatar item={chat} size={60} photo={!demo} /> : <span className="wai-avatar is-group"><UsersRound size={29} /></span>}
             <span className="wai-common-group-text"><strong><WhatsAppEmojiText text={group.subject} /></strong>{members && <small><WhatsAppEmojiText text={members} /></small>}</span></>;
           return chat ? <button type="button" className="wai-common-group" key={group.id} onClick={() => onOpenGroup(chat)} aria-label={`Abrir grupo ${group.subject}`}>{contents}</button>
-            : <div className="wai-common-group" key={group.id} title="Grupo ainda não disponível na caixa de entrada da iGrow">{contents}</div>;
+            : <div className="wai-common-group" key={group.id} title="Grupo ainda não disponível na caixa de entrada do Groow Ads">{contents}</div>;
         })}
         {data?.commonGroups?.incomplete && <p className="wai-details-muted">Alguns participantes ainda não puderam ser identificados pelo WhatsApp.</p>}
       </div>}
@@ -2167,7 +2167,7 @@ function ContactDetails({ item, data, loading, demo, canChange, conversations, o
     </div>
     {exportOpen && <div className="wai-details-export-backdrop" role="presentation" onClick={() => { setExportOpen(false); exportButton.current?.focus(); }}>
       <div ref={exportDialog} className="wai-details-export" role="dialog" aria-modal="true" aria-label="Exportar conversa" onClick={event => event.stopPropagation()}>
-        <strong>Exportar conversa</strong><p>Baixe {messages.length} mensagens carregadas na iGrow em um arquivo de texto. Os arquivos de mídia e o histórico que não está carregado não serão incluídos.</p>
+        <strong>Exportar conversa</strong><p>Baixe {messages.length} mensagens carregadas no Groow Ads em um arquivo de texto. Os arquivos de mídia e o histórico que não está carregado não serão incluídos.</p>
         <footer><button type="button" onClick={() => { setExportOpen(false); exportButton.current?.focus(); }}>Cancelar</button><button type="button" onClick={downloadExport}>Exportar</button></footer>
       </div>
     </div>}

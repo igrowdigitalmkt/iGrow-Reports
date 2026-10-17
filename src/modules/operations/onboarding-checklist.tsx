@@ -33,7 +33,7 @@ export function OnboardingChecklist({ workspaceId, clients, meta, reports, analy
     setCollapsed(value);
     try { localStorage.setItem(key, JSON.stringify({ collapsed: value, clientId: selected })); } catch { /* Sem armazenamento, o checklist continua disponível. */ }
   }
-  return <section className="panel onboarding-panel" aria-label="Primeiros passos no iGrow">
+  return <section className="panel onboarding-panel" aria-label="Primeiros passos no Groow Ads">
     <div className="panel-heading"><div><h2><Compass size={20} />{completed === steps.length ? "Tudo pronto para analisar" : "Do primeiro cliente ao primeiro relatório"}</h2><p>{completed} de {steps.length} etapas concluídas · seu progresso acompanha os dados reais</p></div><button className="button button-secondary button-sm" aria-expanded={!collapsed} onClick={() => remember(!collapsed)}>{collapsed ? "Retomar primeiros passos" : "Fazer depois"}{collapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}</button></div>
     {!collapsed && <>
       {active.length > 1 && <label className="onboarding-client">Acompanhar cliente<select className="input" value={client?.id ?? ""} onChange={event => { setClientId(event.target.value); remember(false, event.target.value); }}>{active.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}

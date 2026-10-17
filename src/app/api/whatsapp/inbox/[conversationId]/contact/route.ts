@@ -27,10 +27,10 @@ async function execute(conversationId: string, edit?: Edit) {
     const contact = await qrContact(context.agency.id, chat.remote_id, edit);
     if (edit) {
       const service = createSupabaseServiceClient();
-      if (!service) return Response.json({ error: "O nome foi enviado ao WhatsApp, mas a atualização na iGrow está pendente. Atualize a conversa." }, { status: 503, headers });
+      if (!service) return Response.json({ error: "O nome foi enviado ao WhatsApp, mas a atualização no Groow Ads está pendente. Atualize a conversa." }, { status: 503, headers });
       const result = await service.from("whatsapp_conversations").update({ title: contact.fullName, updated_at: new Date().toISOString() })
         .eq("agency_id", context.agency.id).eq("id", chat.id).eq("channel", "qr").eq("is_group", false).select("id");
-      if (result.error || !result.data?.length) return Response.json({ error: "O nome foi enviado ao WhatsApp, mas a atualização na iGrow está pendente. Atualize a conversa." }, { status: 503, headers });
+      if (result.error || !result.data?.length) return Response.json({ error: "O nome foi enviado ao WhatsApp, mas a atualização no Groow Ads está pendente. Atualize a conversa." }, { status: 503, headers });
     }
     return Response.json({ ...contact, canEdit: context.role !== "viewer" && contact.canEdit }, { headers });
   } catch (error) {

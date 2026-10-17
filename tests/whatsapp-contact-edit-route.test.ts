@@ -52,5 +52,5 @@ it("does not update the projection after native conflicts or errors and explains
   mocks.contact.mockRejectedValue(new EvolutionError("changed", 400, "IGROW_CONTACT_CHANGED")); expect((await patch(edit)).status).toBe(409);
   mocks.contact.mockRejectedValue(new Error("timeout")); expect((await patch(edit)).status).toBe(502); expect(writes).toEqual([]);
   mocks.contact.mockResolvedValue({ fullName: edit.fullName, firstName: edit.firstName, canEdit: true }); mocks.service.mockReturnValue(null);
-  const response = await patch(edit); expect(response.status).toBe(503); expect((await response.json()).error).toContain("atualização na iGrow está pendente");
+  const response = await patch(edit); expect(response.status).toBe(503); expect((await response.json()).error).toContain("atualização no Groow Ads está pendente");
 });

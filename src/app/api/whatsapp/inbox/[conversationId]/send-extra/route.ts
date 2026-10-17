@@ -43,6 +43,6 @@ export async function POST(request:Request,{params}:{params:Promise<{conversatio
   try {
     const content=payload.data;
     await recordInboxMessage(service,{agencyId:context.agency.id,connectionId:chat.whatsapp_connection_id,message:{remoteId:chat.remote_id,isGroup:chat.is_group,title:null,author:null,externalId,direction:"out",kind:content.type==="sticker"?"sticker":"text",body:content.type==="sticker"?null:content.type==="poll" ? `Enquete: ${content.name}\n${content.options.map(option=>"• "+option).join("\n")}` : `Contato: ${content.name}\n+${content.phone}`,mediaName:null,mediaMime:content.type==="sticker"?"image/webp":null,sentAt:new Date().toISOString(),mediaId:null}});
-  }catch{return Response.json({error:"Enviado no WhatsApp; a atualização na iGrow está pendente. Atualize a conversa sem reenviar."},{status:503,headers});}
+  }catch{return Response.json({error:"Enviado no WhatsApp; a atualização no Groow Ads está pendente. Atualize a conversa sem reenviar."},{status:503,headers});}
   return Response.json({ok:true},{headers});
 }

@@ -8,9 +8,9 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-blue-600/10 blur-[120px]" />
       <div className="relative grid w-full max-w-6xl gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-24">
         <section className="flex flex-col justify-center">
-          <Link href="/" aria-label="iGrow Reports, início" className="mb-12 inline-flex w-fit items-center gap-3 text-2xl font-semibold tracking-tight">
+          <Link href="/" aria-label="Groow Ads, início" className="mb-12 inline-flex w-fit items-center gap-3 text-2xl font-semibold tracking-tight">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 shadow-lg shadow-blue-500/20"><ChartNoAxesCombined size={23} /></span>
-            <span>iGrow<span className="ml-2 font-normal text-slate-400">Reports</span></span>
+            <span>Groow<span className="ml-2 font-normal text-slate-400">Ads</span></span>
           </Link>
           <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-xs font-medium text-cyan-300"><Sparkles size={13} /> Clareza para cada resultado</div>
           <h1 className="max-w-lg text-4xl leading-[1.15] font-semibold tracking-tight sm:text-5xl">Os números contam.<br /><span className="text-blue-400">A sua análise transforma.</span></h1>

@@ -12,7 +12,7 @@ export default async function FeaturesPage() {
   return <div className="space-y-6">
     <header>
       <h1 className="text-2xl font-semibold tracking-tight">Recursos e interruptores</h1>
-      <p className="mt-1 max-w-2xl text-sm text-[var(--secondary)]">Catálogo dos recursos que o iGrow Reports realmente sabe controlar. Só estes podem entrar nos planos: cadastrar algo novo exige que o código passe a aplicá-lo. O interruptor global é de emergência e vale para <strong>todas</strong> as organizações, com ou sem plano, acima de planos e concessões.</p>
+      <p className="mt-1 max-w-2xl text-sm text-[var(--secondary)]">Catálogo dos recursos que o Groow Ads realmente sabe controlar. Só estes podem entrar nos planos: cadastrar algo novo exige que o código passe a aplicá-lo. O interruptor global é de emergência e vale para <strong>todas</strong> as organizações, com ou sem plano, acima de planos e concessões.</p>
     </header>
     {error && <p role="alert" className="text-sm text-[var(--bad)]">Não foi possível carregar o catálogo agora.</p>}
     <section aria-label="Funcionalidades" className="space-y-3">

@@ -34,7 +34,7 @@ export const navigation = navigationGroups.flatMap(group => group.items);
 const REPORT_TAB_LABELS: Record<string, string> = { entregas: "Entregas", templates: "Templates", pdfs: "PDFs salvos" };
 
 export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; avatarUrl?: string | null; email?: string; }
-const SUPPORT_URL = "https://wa.me/5586995560428?text=" + encodeURIComponent("Olá! Preciso de ajuda com o iGrow Reports.");
+const SUPPORT_URL = "https://wa.me/5586995560428?text=" + encodeURIComponent("Olá! Preciso de ajuda com o Groow Ads.");
 
 const SearchContext = createContext<{ search: string; setSearch: (value: string) => void }>({ search: "", setSearch: () => {} });
 export const useWorkspaceSearch = () => useContext(SearchContext);
@@ -126,7 +126,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
       <Suspense fallback={null}><NavigationProgress /></Suspense>
       <aside className="sidebar" aria-label="Menu lateral" onMouseOver={showTooltip} onMouseLeave={() => setTooltip(null)} onFocus={showTooltip} onBlur={() => setTooltip(null)}>
         <div className="sidebar-head">
-          <Link href={base} aria-label="iGrow Reports, visão geral" className="brand-link"><Brand /></Link>
+          <Link href={base} aria-label="Groow Ads, visão geral" className="brand-link"><Brand /></Link>
         </div>
         {/* Switching only makes sense for people in more than one workspace (e.g. a freelancer for several agencies). */}
         {workspaceCount > 1 ? <Link className="agency-switch" href={demo ? "/demo/configuracoes" : "/selecionar-espaco"} data-tip={`${identity.agencyName} · trocar espaço`} aria-label={`Espaço de trabalho: ${identity.agencyName}. Trocar espaço`}>

@@ -6,10 +6,10 @@ export const metadata: Metadata = { title: "Política de Privacidade", robots: {
 
 export default function PrivacyPage() {
   return <LegalPage title="Política de Privacidade">
-    <p>O iGrow Reports é a plataforma de relatórios de tráfego pago da iGrow Digital. Ela reúne os resultados das campanhas de anúncios dos clientes de quem usa a plataforma (agências, profissionais autônomos e equipes de marketing), gera relatórios e os entrega aos responsáveis indicados. Esta política explica quais dados tratamos, por que, com quem compartilhamos e como você pode exercer seus direitos, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
+    <p>O Groow Ads é a plataforma de relatórios de tráfego pago da iGrow Digital. Ela reúne os resultados das campanhas de anúncios dos clientes de quem usa a plataforma (agências, profissionais autônomos e equipes de marketing), gera relatórios e os entrega aos responsáveis indicados. Esta política explica quais dados tratamos, por que, com quem compartilhamos e como você pode exercer seus direitos, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
 
     <h2>1. Quem é o controlador</h2>
-    <p>A iGrow Digital é a controladora dos dados tratados no iGrow Reports. Para qualquer assunto de privacidade, fale com <a href={`mailto:${LEGAL_CONTACT_EMAIL}`}>{LEGAL_CONTACT_EMAIL}</a>.</p>
+    <p>A iGrow Digital é a controladora dos dados tratados no Groow Ads. Para qualquer assunto de privacidade, fale com <a href={`mailto:${LEGAL_CONTACT_EMAIL}`}>{LEGAL_CONTACT_EMAIL}</a>.</p>
 
     <h2>2. Dados que tratamos</h2>
     <ul>

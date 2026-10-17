@@ -13,7 +13,7 @@ export default async function PlansPage() {
   return <div className="space-y-6">
     <header>
       <h1 className="text-2xl font-semibold tracking-tight">Planos</h1>
-      <p className="mt-1 max-w-2xl text-sm text-[var(--secondary)]">Catálogo comercial do iGrow Reports. Cada plano tem versões: uma versão publicada nunca muda, então alterar preços ou limites cria uma nova versão e quem já usa a anterior continua com as condições dela. Nenhuma cobrança é criada nesta etapa.</p>
+      <p className="mt-1 max-w-2xl text-sm text-[var(--secondary)]">Catálogo comercial do Groow Ads. Cada plano tem versões: uma versão publicada nunca muda, então alterar preços ou limites cria uma nova versão e quem já usa a anterior continua com as condições dela. Nenhuma cobrança é criada nesta etapa.</p>
     </header>
     <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5" aria-labelledby="lista">
       <h2 id="lista" className="text-sm font-semibold">Planos cadastrados</h2>

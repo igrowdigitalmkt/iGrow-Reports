@@ -135,7 +135,7 @@ export async function startCheckout(deps: BillingDeps, input: StartCheckoutInput
 
 export type CancelResult = { status: "requested"; effectiveAt: string | null; remoteCancel: "done" | "pending" } | { status: "rejected"; reason: "forbidden" | "none" | "unavailable" };
 
-/** Cancelamento: o período já pago é preservado no iGrow; o Asaas é avisado depois do registro (e repetido pela reconciliação se falhar). */
+/** Cancelamento: o período já pago é preservado no Groow Ads; o Asaas é avisado depois do registro (e repetido pela reconciliação se falhar). */
 export async function cancelSubscriptionRequest(deps: BillingDeps, input: { agencyId: string; userId: string }): Promise<CancelResult> {
   let requested: { subscription_id: string; asaas_subscription_id: string; effective_at: string | null; environment: string; remote_cancel_pending?: boolean };
   try {

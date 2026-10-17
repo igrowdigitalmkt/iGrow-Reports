@@ -206,11 +206,11 @@ describe("rotação do token do webhook", () => {
 });
 
 describe("regras puras do webhook e da conta", () => {
-  const url = webhookUrl("https://i-grow-reports.vercel.app/");
+  const url = webhookUrl("https://groowads.com/");
   const hook = (over: Record<string, unknown> = {}) => ({ id: "wh_000001", url, enabled: true, interrupted: false, hasAuthToken: true, events: [...REQUIRED_WEBHOOK_EVENTS], ...over });
   it("endereço oficial do webhook", () => {
-    expect(url).toBe("https://i-grow-reports.vercel.app/api/webhooks/asaas");
-    expect(webhookUrl(undefined)).toBe("https://i-grow-reports.vercel.app/api/webhooks/asaas");
+    expect(url).toBe("https://groowads.com/api/webhooks/asaas");
+    expect(webhookUrl(undefined)).toBe("https://groowads.com/api/webhooks/asaas");
   });
   it.each([["ok", [hook()]], ["missing", []], ["missing", [hook({ url: "https://outro.exemplo/api/webhooks/asaas" })]], ["duplicate", [hook(), hook({ id: "wh_000002" })]], ["disabled", [hook({ enabled: false })]],
     ["interrupted", [hook({ interrupted: true })]], ["no_token", [hook({ hasAuthToken: false })]], ["incomplete_events", [hook({ events: ["PAYMENT_CREATED"] })]]])("avaliação %s", (expected, hooks) => {
