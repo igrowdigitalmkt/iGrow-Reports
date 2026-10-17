@@ -1,6 +1,6 @@
 # Ativação da V1 em produção: Asaas, webhook, cron e sequência (16/10/2026)
 
-Nada abaixo foi executado em produção. Nunca cole chaves ou tokens em conversa, arquivo versionado ou log. Domínio de produção confirmado: `https://i-grow-reports.vercel.app` (alias do projeto `i-grow-reports`, sem proteção de deployment). A produção atual (commit `6032545`) ainda NÃO tem `/api/webhooks/asaas` nem `/api/cron/billing/health` (404): chegam com o merge.
+Nada abaixo foi executado em produção. Nunca cole chaves ou tokens em conversa, arquivo versionado ou log. Domínio de produção confirmado: `https://groowads.com` (alias do projeto `i-grow-reports`, sem proteção de deployment). A produção atual (commit `6032545`) ainda NÃO tem `/api/webhooks/asaas` nem `/api/cron/billing/health` (404): chegam com o merge.
 
 ## 1. Credenciais do Asaas: pelo Super Admin (sem Vercel e sem código)
 A partir da migration 0011, ambiente, chave de API e token do webhook são administrados em **Super Admin > Integrações: Pagamentos** (`/admin/integracoes/pagamentos`, só operador com MFA). Ficam no **Supabase Vault** (criptografados em repouso), são lidos só pelo servidor e a chave **nunca volta ao navegador**. Trocar chave ou token vale na próxima requisição de qualquer função e da rotina financeira, **sem novo deploy**.
@@ -12,7 +12,7 @@ A partir da migration 0011, ambiente, chave de API e token do webhook são admin
 - **Trocar o ambiente ativo** (Sandbox/Produção) exige confirmação. Registros são separados por ambiente.
 
 ## 2. Webhook (Asaas > Integrações > Webhooks)
-- URL: `https://i-grow-reports.vercel.app/api/webhooks/asaas` (só depois do merge/deploy; cadastrar antes gera 404 e interrompe a fila).
+- URL: `https://groowads.com/api/webhooks/asaas` (só depois do merge/deploy; cadastrar antes gera 404 e interrompe a fila).
 - **Token:** gere em "Gerar token do webhook" no Super Admin (aparece UMA vez; copie e cole no campo de token do Asaas). Para trocar depois, "Gerar novo token" com prazo de transição (0 a 24 h): o token anterior continua valendo só durante o prazo e depois deixa de valer (ou use "Encerrar transição agora"). Atualize o Asaas dentro do prazo.
 - "Conferir webhook no Asaas" lê a lista de webhooks do Asaas e informa: não encontrado, desativado, interrompido, sem token, eventos incompletos, duplicado ou ativo. **Nunca cria nem altera webhook** (o cadastro é manual). O Asaas não revela o valor do token: a confirmação do recebimento real é o "último evento recebido".
 - API versão 3, **fila sequencial ligada**, e-mail de aviso à sua escolha.
@@ -20,10 +20,10 @@ A partir da migration 0011, ambiente, chave de API e token do webhook são admin
 - Comportamento já homologado: grava o evento antes de responder 200, processa lendo o estado real na API do Asaas (o evento só avisa), duplicados respondem 200 sem reprocessar, eventos perdidos ou fora de ordem são recuperados pela reconciliação do cron, ativação só com cobrança de cartão confirmada e valor igual. Token ausente ou errado: 401. Não envie pagamentos de teste ao ambiente real.
 
 ## 3. Cron financeiro (QStash)
-- Endpoint: `GET https://i-grow-reports.vercel.app/api/cron/billing` (autenticação `Bearer CRON_SECRET`, o mesmo segredo que já existe no projeto: **não troque** (o agendador do WhatsApp e os crons da Vercel o usam)). Saúde: `/api/cron/billing/health` (200 saudável, 503 alerta).
+- Endpoint: `GET https://groowads.com/api/cron/billing` (autenticação `Bearer CRON_SECRET`, o mesmo segredo que já existe no projeto: **não troque** (o agendador do WhatsApp e os crons da Vercel o usam)). Saúde: `/api/cron/billing/health` (200 saudável, 503 alerta).
 - Custo: a cada 5 minutos são 288 mensagens por dia; o plano gratuito divulgado permite 1.000 por dia (o limite é "suave"). A frequência mínima de agendamento não é informada na documentação pública: a criação do agendamento é o teste (se recusar `*/5`, usar `*/10`).
 - Duplicidade e falhas: execuções simultâneas são seguras (reivindicação com trava no banco); retentativas (`2`), tempo limite e histórico em `private.billing_cron_runs`; falha vira 503 em `/health`.
-- Na sua conta: criar conta gratuita em upstash.com (QStash) e copiar o `QSTASH_TOKEN`. Para ativar, no seu terminal (valores só no ambiente do comando): `BILLING_CRON_ORIGIN=https://i-grow-reports.vercel.app`, `BILLING_CRON_ENVIRONMENT=production`, `QSTASH_TOKEN`, `CRON_SECRET` (obtido com `pnpm dlx vercel env pull .env.prod.tmp --environment production`, usado com `node --env-file=.env.prod.tmp scripts/billing-cron-schedule.mjs`; apague o arquivo logo depois; `.env*` já é ignorado pelo Git). Revisar: rodar sem argumentos; ativar: `--apply --confirm=<scheduleId impresso>`. Não depende da VPS.
+- Na sua conta: criar conta gratuita em upstash.com (QStash) e copiar o `QSTASH_TOKEN`. Para ativar, no seu terminal (valores só no ambiente do comando): `BILLING_CRON_ORIGIN=https://groowads.com`, `BILLING_CRON_ENVIRONMENT=production`, `QSTASH_TOKEN`, `CRON_SECRET` (obtido com `pnpm dlx vercel env pull .env.prod.tmp --environment production`, usado com `node --env-file=.env.prod.tmp scripts/billing-cron-schedule.mjs`; apague o arquivo logo depois; `.env*` já é ignorado pelo Git). Revisar: rodar sem argumentos; ativar: `--apply --confirm=<scheduleId impresso>`. Não depende da VPS.
 
 ## 4. Migrations 0010 e 0011
 - **0010 (Super Admin comercial):** já aplicada em produção em 16/10/2026 (aditiva).

@@ -6,5 +6,5 @@
 #   */5 * * * * root flock -n /run/igrow-automations.lock /opt/igrow/run-automations.sh >> /var/log/igrow-automations.log 2>&1
 set -eu
 . /opt/igrow/cron.env
-status=$(curl -s -m 290 -o /tmp/igrow-automations.json -w "%{http_code}" -H "Authorization: Bearer $CRON_SECRET" https://i-grow-reports.vercel.app/api/cron/report-automations || echo 000)
+status=$(curl -s -m 290 -o /tmp/igrow-automations.json -w "%{http_code}" -H "Authorization: Bearer $CRON_SECRET" https://groowads.com/api/cron/report-automations || echo 000)
 echo "$(date -Is) HTTP $status $(head -c 300 /tmp/igrow-automations.json 2>/dev/null)"

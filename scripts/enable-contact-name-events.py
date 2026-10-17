@@ -18,7 +18,7 @@ def api(path, data=None):
         return json.load(response)
 webhook = api("/webhook/find/" + instance)
 url = urlparse(webhook["url"])
-assert webhook["enabled"] and url.scheme == "https" and url.hostname == "i-grow-reports.vercel.app" and url.path == "/api/webhooks/evolution"
+assert webhook["enabled"] and url.scheme == "https" and url.hostname == "groowads.com" and url.path == "/api/webhooks/evolution"
 assert webhook["headers"].get("x-igrow-token")
 events = list(webhook["events"])
 missing_events = [event for event in ["CONTACTS_UPSERT", "CONTACTS_UPDATE"] if event not in events]
