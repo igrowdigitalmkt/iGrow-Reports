@@ -1,3 +1,7 @@
+# Diretriz de produto Groow Ads (18/10/2026)
+
+Leia docs/VISAO_ESTRATEGICA_GROOW_ADS.md e AGENTS.md antes de propor mudanças de produto. A plataforma deve executar ações reais de marketing por IA, não apenas oferecer ferramentas.
+
 @AGENTS.md
 
 # iGrow Reports — entrada para continuidade
