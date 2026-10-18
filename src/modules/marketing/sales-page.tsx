@@ -7,7 +7,7 @@ import { ArrowRight, ArrowUpRight, Check, Clock3, Menu, Pause, Play, Plus, Shiel
 import { DeviceShowcase, ProductShowcase, ProductTour } from "./sales-media";
 import styles from "./sales-page.module.css";
 import { EXECUTION_LIVE as live } from "./sales-flags";
-import { Motion, type MotionKind } from "./sales-motion";
+import { CoreMotion, Motion, MotionDefs, type MotionKind } from "./sales-motion";
 import { salesPhotos } from "./sales-photos";
 
 // Display snapshot of the published catalog (18/10/2026). Checkout is unchanged.
@@ -75,6 +75,7 @@ export function SalesPage() {
   const [paused, setPaused] = useState(false);
   return <div className={styles.site} data-motion={paused ? "paused" : "playing"}>
     <a href="#conteudo" className={styles.skipLink}>Pular para o conteúdo</a>
+    <MotionDefs />
     <header className={styles.header}>
       <div className={styles.headerInner}>
         <Link href="/" aria-label="Groow Ads, início"><Brand /></Link>
@@ -131,9 +132,10 @@ export function SalesPage() {
       <section id="como-funciona" className={styles.way}>
         <div className={styles.wrap}>
           <div className={styles.wayHead}>
-            <span className={styles.kicker}>Uma nova maneira de trabalhar</span>
+            <div><span className={styles.kicker}>Uma nova maneira de trabalhar</span>
             <h2 className={styles.h2}>Informe uma vez. <span className={styles.accent}>Delegue o resto.</span></h2>
-            <p className={styles.lead}>Em vez de aprender mais uma ferramenta, você apresenta o negócio, define os limites e deixa a inteligência assumir o trabalho, com transparência sobre o que foi feito.</p>
+            <p className={styles.lead}>Em vez de aprender mais uma ferramenta, você apresenta o negócio, define os limites e deixa a inteligência assumir o trabalho, com transparência sobre o que foi feito.</p></div>
+            <div className={styles.wayCore}><CoreMotion /></div>
           </div>
           <div className={styles.steps}>{steps.map(([number, title, text, status, soon]) => <article className={styles.step} key={number}><span className={styles.stepNum} aria-hidden="true">{number}</span><h3>{title}</h3><p>{text}</p><span className={`${styles.tag} ${soon ? styles.tagSoon : ""}`}>{soon ? <Clock3 size={13} /> : <Check size={13} />}{status}</span></article>)}</div>
         </div>
