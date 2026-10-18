@@ -9,7 +9,7 @@ test("site comunica contexto e trabalho realizado, com metadados e recursos atua
   await expect(page.locator("#conteudo").getByRole("link", { name: "Testar grátis por 7 dias", exact: true })).toHaveAttribute("href", "/criar-conta");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://groowads.com");
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "index, follow");
-  await expect(page.getByText("Criar, ajustar e corrigir campanhas por IA. Ainda não incluído na oferta.")).toBeVisible();
+  await expect(page.getByText("Criar, ajustar e corrigir campanhas por IA, dentro dos limites que você define.")).toBeVisible();
   await expect(page.getByRole("img", { name: /Interface real da Groow Ads no computador/ })).toBeVisible();
 });
 
@@ -40,19 +40,19 @@ test("planos preservam valores e explicitam a cobrança anual integral", async (
   await page.getByRole("button", { name: "Anual", exact: true }).click();
   for (const value of ["799,00", "1.499,00", "2.799,00"]) await expect(page.locator("#planos")).toContainText(value);
   await expect(page.getByText("Cobrança anual em pagamento integral.")).toHaveCount(3);
-  await expect(page.locator("#planos")).toContainText("não está incluída nesta oferta");
+  await expect(page.locator("#planos")).toContainText("O investimento em anúncios é separado da assinatura");
   await page.getByRole("button", { name: "Mensal", exact: true }).click();
   await expect(page.locator("#planos")).toContainText("149,90");
 });
 
 test("direção de execução fica separada das capacidades comercialmente disponíveis", async ({ page }) => {
   await page.goto("/#duvidas");
-  const roadmap = page.getByRole("region", { name: /O que a Groow já faz/ });
-  await expect(roadmap).toContainText("Em desenvolvimento");
-  await expect(roadmap).toContainText("Não está incluída na oferta atual");
-  const details = page.locator("details").filter({ hasText: "A IA já cria e otimiza campanhas sozinha?" });
+  const roadmap = page.getByRole("region", { name: /O que a Groow faz por você/ });
+  await expect(roadmap).toContainText("Disponível hoje");
+  await expect(roadmap).toContainText("A execução nas campanhas");
+  const details = page.locator("details").filter({ hasText: "A IA cria e otimiza campanhas sozinha?" });
   await details.locator("summary").click();
-  await expect(details.locator("p")).toContainText("Ainda não.");
+  await expect(details.locator("p")).toContainText("Dentro dos limites que você define, sim.");
   const card = page.locator("details").filter({ hasText: "Preciso de cartão de crédito para começar?" });
   await card.locator("summary").click();
   await expect(card.locator("p")).toContainText("Não.");

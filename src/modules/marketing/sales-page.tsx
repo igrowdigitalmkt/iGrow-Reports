@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ArrowRight, ArrowUpRight, Check, Clock3, Menu, Pause, Play, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
 import { DeviceShowcase, ProductShowcase, ProductTour } from "./sales-media";
 import styles from "./sales-page.module.css";
+import { EXECUTION_LIVE as live } from "./sales-flags";
 
 // Display snapshot of the published catalog (18/10/2026). Checkout is unchanged.
 const plans = [
@@ -24,15 +25,15 @@ const chores = [
 ];
 const steps = [
   ["01", "Conte o seu negócio", "Oferta, público, região e objetivos entram uma vez no perfil do cliente. A inteligência deixa de começar do zero a cada análise.", "Disponível hoje", false],
-  ["02", "Conecte e defina o escopo", "Ligue as contas de anúncios e decida o que a Groow pode fazer sozinha e o que pede a sua aprovação.", "Contas: hoje · Escopos de ação: em desenvolvimento", true],
-  ["03", "A Groow trabalha. Você acompanha.", "Hoje: análises, relatórios e entregas agendadas. Em breve: criar, ajustar e corrigir campanhas dentro dos seus limites, com registro de cada ação.", "Execução em campanhas: em desenvolvimento", true],
+  ["02", "Conecte e defina o escopo", "Ligue as contas de anúncios e decida o que a Groow pode fazer sozinha e o que pede a sua aprovação.", live ? "Disponível hoje" : "Contas: hoje · Escopos de ação: em desenvolvimento", !live],
+  ["03", "A Groow trabalha. Você acompanha.", live ? "A Groow analisa, cria, ajusta e corrige campanhas dentro dos seus limites, e entrega os resultados. Cada ação fica registrada para você acompanhar." : "Hoje: análises, relatórios e entregas agendadas. Em breve: criar, ajustar e corrigir campanhas dentro dos seus limites, com registro de cada ação.", live ? "Disponível hoje" : "Execução em campanhas: em desenvolvimento", !live],
 ] as const;
 const available = ["Perfil do negócio que orienta a análise da IA", "Análises e resumos com IA, a partir dos dados das contas", "Relatórios em PDF prontos para o cliente", "Entregas agendadas pelo seu WhatsApp, com histórico", "Portal para o cliente consultar os próprios resultados"];
 const upcoming = ["Criar campanhas a partir dos objetivos do negócio", "Ajustar orçamentos dentro dos limites que você definir", "Pausar e reativar anúncios elegíveis", "Confirmar na plataforma que a ação foi aplicada", "Aprender com o histórico e acompanhar o resultado depois"];
 const questions = [
-  ["A IA já cria e otimiza campanhas sozinha?", "Ainda não. A criação, a pausa e os ajustes de orçamento por IA estão em desenvolvimento e não fazem parte dos recursos desta oferta. É a direção do produto: executar dentro dos objetivos e limites de cada negócio. Só será anunciada como disponível depois de implementada e validada nas plataformas de anúncios."],
+  [live ? "A IA cria e otimiza campanhas sozinha?" : "A IA já cria e otimiza campanhas sozinha?", live ? "Dentro dos limites que você define, sim. Você informa objetivos, orçamento e o que a Groow pode fazer sozinha; o que passar disso pede a sua aprovação. Cada ação fica registrada, e a Groow confere na plataforma que ela foi aplicada." : "Ainda não. A criação, a pausa e os ajustes de orçamento por IA estão em desenvolvimento e não fazem parte dos recursos desta oferta. É a direção do produto: executar dentro dos objetivos e limites de cada negócio. Só será anunciada como disponível depois de implementada e validada nas plataformas de anúncios."],
   ["O que a inteligência artificial já faz?", "Usa os dados das contas conectadas e o perfil do negócio para preparar análises: comentários de relatório, resumos para WhatsApp e resumo da carteira. Os números vêm da plataforma. Você revisa os textos; nos envios com análise por IA existe uma etapa de aprovação."],
-  ["O que posso experimentar nos 7 dias grátis?", "Os recursos já disponíveis: conectar contas, conhecer a análise dos anúncios, cadastrar o contexto dos clientes, preparar relatórios e configurar agendamentos. Os limites do teste ficam visíveis na plataforma. A execução autônoma de campanhas não está incluída."],
+  ["O que posso experimentar nos 7 dias grátis?", live ? "Conectar contas, cadastrar o contexto dos clientes, receber análises, preparar relatórios, configurar agendamentos e experimentar a execução nas campanhas dentro dos limites que você definir. Os limites do teste ficam visíveis na plataforma." : "Os recursos já disponíveis: conectar contas, conhecer a análise dos anúncios, cadastrar o contexto dos clientes, preparar relatórios e configurar agendamentos. Os limites do teste ficam visíveis na plataforma. A execução autônoma de campanhas não está incluída."],
   ["Preciso de cartão de crédito para começar?", "Não. O teste começa com a criação do espaço de trabalho e dura sete dias. Para continuar, você escolhe um plano na área de assinatura. O investimento nos anúncios é separado da assinatura da Groow Ads."],
   ["Como a Groow Ads conhece meu negócio?", "Você preenche o perfil do cliente com segmento, oferta, região, público e objetivos, e pode completá-lo aos poucos. Esse contexto, junto dos dados das contas conectadas, torna as análises mais específicas."],
   ["Como os resultados chegam ao meu cliente?", "Com relatórios em PDF e mensagens agendadas pelo seu WhatsApp conectado por QR Code. A API oficial é uma alternativa com configuração própria. Existe também uma área autenticada para o cliente acompanhar os resultados aos quais tem acesso."],
@@ -68,7 +69,7 @@ export function SalesPage() {
           <div>
             <span className={styles.kicker}>Inteligência de marketing para anúncios</span>
             <h1>Você define onde chegar. <em>A Groow Ads faz o trabalho.</em></h1>
-            <p className={styles.lead}>Uma IA que conhece o seu negócio, lê as suas contas de anúncios e assume a rotina que hoje consome o seu dia. Já trabalha nas análises e nas entregas. A execução nas campanhas vem a seguir, dentro dos limites que você definir.</p>
+            <p className={styles.lead}>{live ? "Uma IA que conhece o seu negócio, lê as suas contas de anúncios e assume a rotina que hoje consome o seu dia: analisa, cria, ajusta e corrige campanhas dentro dos limites que você definir, e entrega os resultados." : "Uma IA que conhece o seu negócio, lê as suas contas de anúncios e assume a rotina que hoje consome o seu dia. Já trabalha nas análises e nas entregas. A execução nas campanhas vem a seguir, dentro dos limites que você definir."}</p>
             <div className={styles.heroActions}>
               <Link href="/criar-conta" className={`${styles.btn} ${styles.btnPrimary}`}>Testar grátis por 7 dias <ArrowRight size={18} /></Link>
               <a href="#plataforma" className={`${styles.btn} ${styles.btnGhost}`}><Play size={16} /> Ver a plataforma por dentro</a>
@@ -82,8 +83,8 @@ export function SalesPage() {
         </div>
         <div className={styles.wrap}>
           <div className={styles.statusBar}>
-            <div><i className={styles.dot} aria-hidden="true" /><span><strong>Disponível hoje</strong>Análises com IA, relatórios em PDF, entregas agendadas e portal do cliente.</span></div>
-            <div><i className={`${styles.dot} ${styles.dotSoon}`} aria-hidden="true" /><span><strong>Em desenvolvimento</strong>Criar, ajustar e corrigir campanhas por IA. Ainda não incluído na oferta.</span></div>
+            <div><i className={styles.dot} aria-hidden="true" /><span><strong>{live ? "Análises e entregas" : "Disponível hoje"}</strong>Análises com IA, relatórios em PDF, entregas agendadas e portal do cliente.</span></div>
+            <div><i className={`${styles.dot} ${live ? "" : styles.dotSoon}`} aria-hidden="true" /><span>{live ? <><strong>Execução nas campanhas</strong>Criar, ajustar e corrigir campanhas por IA, dentro dos limites que você define.</> : <><strong>Em desenvolvimento</strong>Criar, ajustar e corrigir campanhas por IA. Ainda não incluído na oferta.</>}</span></div>
           </div>
         </div>
       </section>
@@ -132,21 +133,21 @@ export function SalesPage() {
 
       <section className={`${styles.board} ${styles.light}`} aria-labelledby="board-title">
         <div className={styles.wrap}>
-          <div className={styles.boardHead}><span className={styles.kicker}>Transparência</span><h2 className={styles.h2} id="board-title">O que a Groow já faz. <span className={styles.accent}>E o que vem a seguir.</span></h2><p className={styles.lead}>Você decide com informação completa: separamos o que está disponível do que ainda está sendo construído.</p></div>
+          <div className={styles.boardHead}><span className={styles.kicker}>Transparência</span><h2 className={styles.h2} id="board-title">{live ? <>O que a Groow faz por você. <span className={styles.accent}>Do dado à ação.</span></> : <>O que a Groow já faz. <span className={styles.accent}>E o que vem a seguir.</span></>}</h2><p className={styles.lead}>{live ? "Ela entende o negócio, prepara a análise e executa o trabalho nas campanhas, sempre dentro dos limites que você definiu." : "Você decide com informação completa: separamos o que está disponível do que ainda está sendo construído."}</p></div>
           <div className={styles.boardGrid}>
             <div className={`${styles.boardCol} ${styles.boardNow}`}><span className={styles.tag}><Check size={13} /> Disponível hoje</span><h3>Trabalho que já sai da sua lista</h3><p>Incluído nos planos e no teste de 7 dias.</p><ul>{available.map(item => <li key={item}><Check size={18} />{item}</li>)}</ul></div>
-            <div className={`${styles.boardCol} ${styles.boardSoon}`}><span className={`${styles.tag} ${styles.tagSoon}`}><Clock3 size={13} /> Em desenvolvimento</span><h3>A execução nas campanhas</h3><p>Direção do produto. Não está incluída na oferta atual.</p><ul>{upcoming.map(item => <li key={item}><Clock3 size={18} />{item}</li>)}</ul></div>
+            <div className={`${styles.boardCol} ${styles.boardSoon}`}><span className={`${styles.tag} ${live ? "" : styles.tagSoon}`}>{live ? <Check size={13} /> : <Clock3 size={13} />} {live ? "Disponível hoje" : "Em desenvolvimento"}</span><h3>A execução nas campanhas</h3><p>{live ? "Incluída nos planos, dentro dos limites que você define." : "Direção do produto. Não está incluída na oferta atual."}</p><ul>{upcoming.map(item => <li key={item}>{live ? <Check size={18} /> : <Clock3 size={18} />}{item}</li>)}</ul></div>
           </div>
-          <p className={styles.boardFoot}><ShieldCheck size={18} /> Uma capacidade só passa para “disponível” depois de implementada e validada com as plataformas de anúncios.</p>
+          <p className={styles.boardFoot}><ShieldCheck size={18} /> {live ? "Cada ação é registrada e respeita as permissões e os limites que você configurou." : "Uma capacidade só passa para “disponível” depois de implementada e validada com as plataformas de anúncios."}</p>
         </div>
       </section>
 
       <section id="planos" className={styles.pricing}>
         <div className={styles.wrap}>
-          <div className={styles.pricingHead}><span className={styles.kicker}>Planos</span><h2 className={styles.h2}>Comece pelo que já funciona. <span className={styles.accent}>Sem cartão.</span></h2><p className={styles.lead}>Sete dias para experimentar os recursos disponíveis na sua própria rotina.</p></div>
+          <div className={styles.pricingHead}><span className={styles.kicker}>Planos</span><h2 className={styles.h2}>{live ? "Comece hoje. " : "Comece pelo que já funciona. "}<span className={styles.accent}>Sem cartão.</span></h2><p className={styles.lead}>{live ? "Sete dias para ver a Groow trabalhando na sua própria rotina." : "Sete dias para experimentar os recursos disponíveis na sua própria rotina."}</p></div>
           <div className={styles.billingToggle} role="group" aria-label="Período de cobrança"><button aria-pressed={!yearly} onClick={() => setYearly(false)}>Mensal</button><button aria-pressed={yearly} onClick={() => setYearly(true)}>Anual</button></div>
           <div className={styles.planGrid}>{plans.map((plan, index) => <article className={`${styles.planCard} ${index === 1 ? styles.recommendedPlan : ""}`} key={plan.name}>{index === 1 && <span className={styles.planBadge}><Sparkles size={13} /> RECOMENDADO</span>}<span className={styles.planName}>{plan.name}</span><p>{plan.description}</p><div className={styles.planPrice}><span>R$</span><strong>{money(yearly ? plan.yearly : plan.monthly)}</strong><span>/{yearly ? "ano" : "mês"}</span></div><small className={styles.planBilling}>{yearly ? "Cobrança anual em pagamento integral." : "Cobrança mensal."}</small><Link href="/criar-conta" className={`${styles.btn} ${index === 1 ? styles.btnPrimary : styles.btnGhost}`}>Testar grátis por 7 dias <ArrowRight size={16} /></Link><span className={styles.planIncludes}>Recursos e limites atuais</span><ul>{[`${plan.clients} clientes`, `${plan.accounts} contas de anúncios`, `${plan.team} ${plan.team === 1 ? "pessoa na equipe" : "pessoas na equipe"}`, `${plan.automations} automações ativas`, "Análises com IA, com limite de uso", "Relatórios e portal do cliente"].map(item => <li key={item}><Check size={17} />{item}</li>)}</ul></article>)}</div>
-          <p className={styles.planNote}><ShieldCheck size={17} /> O investimento em anúncios é separado da assinatura. A execução autônoma de campanhas está em desenvolvimento e não está incluída nesta oferta. Recursos e limites completos na área de assinatura.</p>
+          <p className={styles.planNote}><ShieldCheck size={17} /> {live ? "O investimento em anúncios é separado da assinatura. Recursos e limites completos na área de assinatura." : "O investimento em anúncios é separado da assinatura. A execução autônoma de campanhas está em desenvolvimento e não está incluída nesta oferta. Recursos e limites completos na área de assinatura."}</p>
         </div>
       </section>
 
@@ -160,7 +161,7 @@ export function SalesPage() {
       <section className={styles.finalCta}>
         <div className={styles.wrap}>
           <h2 className={styles.h2}>Menos operação. <span className={styles.accent}>Mais estratégia.</span></h2>
-          <p className={styles.lead}>Comece com as análises por IA e as entregas agendadas. Veja a Groow Ads trabalhando na sua rotina.</p>
+          <p className={styles.lead}>{live ? "Conte o seu negócio, defina os limites e veja a Groow Ads trabalhando na sua rotina." : "Comece com as análises por IA e as entregas agendadas. Veja a Groow Ads trabalhando na sua rotina."}</p>
           <Link href="/criar-conta" className={`${styles.btn} ${styles.btnPrimary}`}>Começar meus 7 dias grátis <ArrowRight size={18} /></Link>
           <small>Sem cartão. Você conhece antes de contratar.</small>
         </div>
