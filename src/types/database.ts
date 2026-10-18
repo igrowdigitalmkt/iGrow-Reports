@@ -278,6 +278,8 @@ type AgentDelegationRow = {
 type AgentActionJobRow = {
   id: string; agency_id: string; client_id: string; ad_account_id: string;
   delegation_id: string; idempotency_key: string; action_type: string;
+  execution_origin: "ai" | "manual"; requested_by: string | null;
+  approval_expires_at: string | null; approved_at: string | null; approved_by: string | null;
   meta_entity_id: string; daily_budget_minor: number | null; facts_collected_at: string;
   rationale: string; policy_version: number; status: string;
   before_state: Json | null; after_state: Json | null; provider_ref: string | null;
@@ -360,6 +362,7 @@ export type Database = {
     Functions: {
       agent_claim_action: { Args: { p_agency_id: string; p_job_id: string }; Returns: boolean };
       agent_meta_execution_allowed: { Args: { p_agency_id: string }; Returns: boolean };
+      agent_decide_financial_action: { Args: { p_agency_id: string; p_job_id: string; p_expected_fingerprint: string; p_approve: boolean }; Returns: string };
       ai_month_cost: { Args: { p_agency_id: string }; Returns: number };
       list_client_snapshot_accounts: { Args: { p_client_id: string }; Returns: { id: string; connection_id: string; external_id: string; name: string; currency: string; timezone_name: string }[] };
       get_confirmed_collection_snapshot: { Args: { p_client_id: string; p_connection_id: string; p_provider: string; p_external_account_id: string; p_date_from: string; p_date_to: string; p_entity_level: string; p_api_version: string; p_contract_version: number }; Returns: Json };

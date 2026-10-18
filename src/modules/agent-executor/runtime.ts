@@ -76,6 +76,16 @@ export async function resolveAgentRuntime(
     .eq("agency_id", identity.agencyId).eq("id", identity.jobId)
     .eq("status", "executing").single(), "job_not_claimed");
   if (job.policy_version !== 1) deny("unknown_policy_version");
+  // Este worker e EXCLUSIVO do agente. Acao manual tera caminho autenticado
+  // proprio: nao confundir clique de edicao com delegacao automatica.
+  if (job.execution_origin !== "ai") deny("invalid_execution_origin");
+  if (!job.approved_by || !job.approved_at || !job.approval_expires_at
+    || Date.parse(job.approval_expires_at) <= now.getTime()
+    || Date.parse(job.approved_at) > now.getTime()
+    || Date.parse(job.approved_at) < Date.parse(job.created_at)) deny("financial_approval_required");
+  const approver = await single(service.from("agency_users").select("role")
+    .eq("agency_id", identity.agencyId).eq("user_id", job.approved_by).single(), "approver_removed");
+  if (approver.role !== "owner" && approver.role !== "admin") deny("approver_not_authorized");
   const delegationRow = await single(service.from("agent_delegations").select("*")
     .eq("agency_id", identity.agencyId).eq("id", job.delegation_id)
     .eq("client_id", job.client_id).eq("ad_account_id", job.ad_account_id).single(), "no_delegation");

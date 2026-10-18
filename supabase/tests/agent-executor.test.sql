@@ -59,13 +59,16 @@ select is((select count(*)::integer from agent_delegations),0,'Viewer nao ve del
 reset role;
 select set_config('request.jwt.claim.sub','',true);
 
+-- Testes historicos de transicoes exercitam agora modo MANUAL:
+-- o motor IA nao recebe autorizacao automatica para a mesma acao.
 insert into agent_action_jobs(id,agency_id,client_id,ad_account_id,delegation_id,idempotency_key,
-  action_type,meta_entity_id,facts_collected_at,rationale)
+  action_type,meta_entity_id,facts_collected_at,rationale,execution_origin,requested_by)
 values
  ('b8000000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001',
  'b3000000-0000-4000-8000-000000000001','b6000000-0000-4000-8000-000000000001',
  'b7000000-0000-4000-8000-000000000001','test-action-idempotency-key-1',
- 'pause_campaign','111',now(),'Pausar campanha ficticia que excedeu as metas.');
+ 'pause_campaign','111',now(),'Pausar campanha ficticia que excedeu as metas.',
+ 'manual','b1000000-0000-4000-8000-000000000001');
 
 select is((select count(*)::integer from agent_action_events where job_id='b8000000-0000-4000-8000-000000000001'),1,
  'Insercao cria evento automatico de auditoria');
@@ -108,12 +111,13 @@ select throws_ok($$insert into agent_action_jobs(agency_id,client_id,ad_account_
  'Tentar criar trabalho diretamente na fila sem autorizar a proposta.','queued')$$,
  '23514',null,'Novo job nao pode ser inserido diretamente como queued');
 insert into agent_action_jobs(id,agency_id,client_id,ad_account_id,delegation_id,idempotency_key,
- action_type,meta_entity_id,facts_collected_at,rationale)
+ action_type,meta_entity_id,facts_collected_at,rationale,execution_origin,requested_by)
 values('b8000000-0000-4000-8000-000000000002',
  'b2000000-0000-4000-8000-000000000001','b3000000-0000-4000-8000-000000000001',
  'b6000000-0000-4000-8000-000000000001','b7000000-0000-4000-8000-000000000001',
  'test-action-idempotency-key-3','pause_campaign','112',now(),
- 'Segunda proposta ficticia enquanto a primeira ainda e incerta.');
+ 'Segunda proposta ficticia enquanto a primeira ainda e incerta.',
+ 'manual','b1000000-0000-4000-8000-000000000001');
 update agent_action_jobs set status='authorized'
 where id='b8000000-0000-4000-8000-000000000002';
 select throws_ok($$update agent_action_jobs set status='queued'

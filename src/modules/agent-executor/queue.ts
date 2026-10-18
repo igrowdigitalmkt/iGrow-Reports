@@ -39,8 +39,9 @@ async function move(service: Service, scope: TrustedScope, jobId: string, from: 
 }
 
 /**
- * Persiste proposta estruturada e autoriza/enfileira apenas apos validar
- * delegacao e vinculo atuais. Nao e endpoint; decisao so entra via server.
+ * Persiste proposta estruturada para aprovacao EXPLICITA por usuario.
+ * Nunca autoriza/enfileira mutacao financeira AI automaticamente.
+ * Nao e endpoint; decisao so entra via server.
  * O worker reavalia tudo e faz GET na Meta ANTES de qualquer POST.
  */
 export async function stageMetaDecision(
@@ -116,7 +117,8 @@ export async function stageMetaDecision(
     }
     reject("job_insert_failed");
   }
-  await move(service, ctx, id, "proposed", "authorized");
-  await move(service, ctx, id, "authorized", "queued");
+  // TODAS as mutacoes IA Meta atualmente implementadas impactam gastos
+  // ou veiculacao; nenhuma entra na fila sem clique humano por job.
+  await move(service, ctx, id, "proposed", "awaiting_approval");
   return { id, deduplicated: false };
 }

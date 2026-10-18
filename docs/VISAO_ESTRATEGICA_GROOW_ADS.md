@@ -2,6 +2,8 @@
 
 **Decisão do proprietário: 18/10/2026.** Este documento é a referência principal para estratégia, priorização, UX, posicionamento, IA, arquitetura e novas funcionalidades da Groow Ads. É uma **diretriz de produto**, não uma afirmação de que todas as capacidades descritas já existem.
 
+**REGRA SUPERIOR ATUALIZADA EM 18/10/2026 — OPERACAO MANUAL E IA:** criacao, alteracao, otimizacao ou qualquer outra mudanca nas campanhas devera poder ocorrer por **iniciativa manual de usuario autenticado** ou por **iniciativa da IA**. **Toda mudanca com impacto financeiro proposta pela IA exige aprovacao humana especifica por acao, sem nenhuma excecao, mesmo que existam delegacao previa e limites autorizados.** Inclui mudancas de orcamento, lances, criacao/publicacao com gastos e alteracao de veiculacao (pausa e reativacao, por cautela). A IA pode planejar e recomendar livremente dentro das permissoes; so executa uma mutacao financeira depois da aprovacao explicita e auditavel de owner/admin. Uma acao iniciada manualmente pelo usuario e um fluxo distinto e nao deve ser falsamente registrada como aprovada pela IA. Em caso de conflito com qualquer trecho historico deste documento, esta regra prevalece.
+
 ## 1. A tese que define a Groow Ads
 
 **A Groow Ads não existe para oferecer ferramentas que o usuário precisa operar. Existe para executar, com inteligência artificial, o trabalho de marketing que hoje dependeria do usuário.**
@@ -27,7 +29,7 @@ A experiência desejada não é “entre no sistema todos os dias e aprenda a us
 ## 3. Jornada ideal: cadastrar uma vez, acompanhar o trabalho acontecendo
 
 1. **Conhecer o negócio, sem burocracia.** Obter progressivamente ofertas/produtos, diferencial, região, públicos, metas, orçamento disponível, indicadores relevantes, ativos criativos e restrições. Reutilizar dados conectados e perguntar somente o que fizer falta. O briefing é uma memória viva, não um questionário que precisa ser repetido.
-2. **Conectar os canais e delegar escopos.** O usuário conecta as contas e define previamente as ações que a Groow Ads pode realizar, faixas de orçamento, limites e exceções. Permissões são explícitas, revogáveis e restritas à organização/conta correta; não pedir aprovação para cada ação rotineira quando ela já está autorizada dentro desses limites.
+2. **Conectar os canais e delegar escopos.** O usuário conecta as contas e define previamente as ações que a Groow Ads pode realizar, faixas de orçamento, limites e exceções. Permissões são explícitas, revogáveis e restritas à organização/conta correta; não repetir aprovações para rotinas não financeiras já delegadas; para qualquer ação de impacto financeiro iniciada pela IA, exigir confirmação específica do usuário, mesmo dentro do envelope.
 3. **Observar e compreender.** Reunir dados confiáveis de campanhas, contexto do negócio, histórico, metas e, quando disponível, informações legítimas sobre vendas/conversões reais. Separar fatos, hipóteses e incertezas.
 4. **Decidir e executar.** A IA identifica prioridades e produz um plano de ação. Um executor seguro faz as alterações de fato nas APIs das plataformas: orçamento, ativação/pausa, criação de campanhas, público, estratégia ou outras operações tecnicamente suportadas, de acordo com o escopo delegado.
 5. **Verificar e aprender.** Confirmar o estado efetivamente aplicado na API, registrar o antes/depois, acompanhar a performance, detectar efeitos inesperados e ajustar o plano. Nunca tratar “solicitação enviada” como “ação executada com sucesso”.
@@ -54,7 +56,7 @@ Critério mínimo a buscar para a primeira oferta pública:
 
 - Uma jornada real completa para pelo menos **um canal de anúncios**: briefing/contexto → diagnóstico → plano → ação permitida na conta conectada → verificação da alteração → acompanhamento → histórico compreensível.
 - Incluir **ações reais de escrita** nas plataformas, não apenas simulação: por exemplo, ajuste controlado de orçamento, pausa/reativação elegível e criação de campanha (ao menos uma via completa com publicação autorizada). A seleção final depende da viabilidade, das permissões de API e da homologação.
-- O proprietário deve conseguir configurar **delegação contínua** para ações rotineiras dentro de limites, sem confirmar uma a uma. Ações fora do envelope, irreversíveis, de risco elevado ou não cobertas pela autorização são bloqueadas ou encaminhadas para aprovação.
+- O proprietário deve conseguir configurar **delegação contínua** para ações rotineiras dentro de limites, sem confirmar uma a uma apenas para operações **não financeiras**. Ações da IA com impacto financeiro exigem aprovação humana individual. Ações fora do envelope, irreversíveis, de risco elevado ou não cobertas pela autorização são bloqueadas ou encaminhadas para aprovação.
 - Em ambiente real, provar ao menos uma execução bem-sucedida e o monitoramento posterior, sem afirmar ganho de performance que não foi demonstrado.
 - Diferenciar sempre: **planejado / implementado / testado em ambiente controlado / homologado com API real / disponível comercialmente**.
 

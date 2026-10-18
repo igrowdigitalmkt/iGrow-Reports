@@ -77,12 +77,12 @@ function fake(allowed = true) {
 }
 
 describe("Fila segura de decisoes (sem POST Meta)", () => {
-  it("valida vinculos e registra proposed→authorized→queued", async () => {
+  it("valida vinculos e exige aprovacao antes da fila", async () => {
     const data = fake();
     const outcome = await stageMetaDecision(data.service, scope, decision, new Date("2026-10-18T18:02:00Z"));
     expect(outcome.deduplicated).toBe(false);
     expect(data.jobs).toHaveLength(1);
-    expect(data.jobs[0]).toMatchObject({ status: "queued", action_type: "pause_campaign", meta_entity_id: "111" });
+    expect(data.jobs[0]).toMatchObject({ status: "awaiting_approval", action_type: "pause_campaign", meta_entity_id: "111" });
     expect(data.jobs[0].idempotency_key).toMatch(/^[a-f0-9]{64}$/);
   });
   it("mesmo ciclo e mesma acao nao criam nova operacao", async () => {
