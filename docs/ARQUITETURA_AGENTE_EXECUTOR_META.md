@@ -132,3 +132,20 @@ Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer u
 **Próximos passos de código:** (1) confirmar efetividade da permissão Meta `ads_management` sem escrever campanhas; (2) implementar persistência/RLS e ledger; (3) encaixar o adaptador em um executor que consulte dados reais e revalide o estado; (4) adicionar camada planejadora estruturada e primeiro loop com acompanhamento; (5) homologar uma ação controlada na conta de anúncios do proprietário, com autorização de escopo.
 
 **Limite operacional:** não executar escritos na Meta, não aplicar migrations, não alterar contas/financeiro nem fazer deploy de produção sem autorização específica. Este pacote pode coexistir com o trabalho do Codex no site de vendas.
+
+## 10. Segunda entrega técnica — persistência e travas do executor (18/10/2026)
+
+**Preparado em código, NÃO aplicado a produção:**
+
+- `supabase/migrations/202610180001_agent_delegations_and_actions.sql`: tabelas `public.agent_delegations`, `public.agent_action_jobs` e `public.agent_action_events`. Todas com RLS e leitura restrita a owner/admin/editor da própria organização, sem grants de escrita a `authenticated` ou `anon`. Escritas por servidor privilegiado somente após checagem de autorização.
+- Delegação com relacionamento composto que vincula `agency_id + client_id + ad_account_id` a contas associadas, identidade do usuário que concedeu a permissão, escopos de ações, moeda, validade/revogação e limites financeiros.
+- Jobs com chave de idempotência única por organização, relacionamento obrigatório com a delegação correta e **índice parcial único que proíbe uma segunda alteração concorrente sobre a mesma conta enquanto a primeira está queued/executing/verifying/needs_verification**.
+- Máquina de estados validada por trigger: ações novas só começam como `proposed`; transições fora de ordem, saltos para `verified` ou mudanças em proposta já registrada são bloqueados. Função `private.agent_claim_action` é restrita a `service_role` e faz transição atômica queued → executing sem permitir que outro worker adquira a mesma ação.
+- Eventos append-only via trigger após cada transição, protegidos por RLS. Um `unknown_outcome` permanece como `needs_verification` e impede novas alterações na conta até reconciliação.
+- `supabase/tests/agent-executor.test.sql`: 23 testes fictícios de relações, RLS entre organizações, grants, idempotência, claim, rejeição de saltos, auditoria, limites de fila e tratamento de resultado incerto.
+
+**Verificado localmente:** todas as migrations históricas + a migration nova foram executadas em PGlite descartável; todos os testes SQL/RLS/pgTAP da suíte aprovaram, inclusive os 23 testes novos. Ainda NÃO foi homologado isolamento/concurrency no Supabase real nem foi executada uma única operação Meta real.
+
+**Próxima frente técnica:** serviço server-only que resolve vinculações, contrato de permissão e cota comercial em banco, valida a delegação, obtém token de forma segura e registra/atualiza jobs transacionalmente. Em seguida, planejador IA estruturado e reconciliação de ações. Antes do primeiro deploy ou aplicação de migration, revisão do SQL e autorização específica do proprietário.
+
+**Coordenação:** o site de vendas permanece na branch/checkout do Codex. Não juntar estas alterações na master nem publicar até a integração estar pronta e revisada.
