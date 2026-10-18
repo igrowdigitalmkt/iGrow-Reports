@@ -48,7 +48,7 @@ test("planos preservam valores e explicitam a cobrança anual integral", async (
 test("direção de execução fica separada das capacidades comercialmente disponíveis", async ({ page }) => {
   await page.goto("/#duvidas");
   const roadmap = page.getByRole("region", { name: /O que a Groow faz por você/ });
-  await expect(roadmap).toContainText("Disponível hoje");
+  await expect(roadmap).toContainText("Executa nas campanhas");
   await expect(roadmap).toContainText("A execução nas campanhas");
   const details = page.locator("details").filter({ hasText: "A IA cria e otimiza campanhas sozinha?" });
   await details.locator("summary").click();
