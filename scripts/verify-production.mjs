@@ -23,8 +23,12 @@ try {
   assert.ok(ready, "Servidor de produção precisa responder.");
   assert.equal((await fetch(`${origin}/api/health`)).status, 503, "Sem credenciais, health deve informar configuração incompleta.");
   assert.equal((await fetch(`${origin}/demo`)).status, 404, "Demonstração desabilitada precisa retornar 404.");
-  const protectedPage = await fetch(`${origin}/`, { redirect: "manual" });
-  assert.equal(protectedPage.status, 307, "Visão geral exige contexto autenticado.");
+  const publicSite = await fetch(`${origin}/`, { redirect: "manual" });
+  assert.equal(publicSite.status, 200, "Visitantes devem receber o site de vendas.");
+  assert.match(publicSite.headers.get("cache-control"), /no-store/, "A entrada personalizada não pode compartilhar cache entre sessões.");
+  assert.match(await publicSite.text(), /Menos rotina/);
+  const protectedPage = await fetch(`${origin}/clientes`, { redirect: "manual" });
+  assert.equal(protectedPage.status, 307, "A área interna exige contexto autenticado.");
   assert.equal(new URL(protectedPage.headers.get("location"), origin).pathname, "/entrar");
   assert.match(protectedPage.headers.get("cache-control"), /no-store/);
   for (const [path, method] of [["/api/workers/meta", "POST"], ["/api/workers/meta/health", "GET"]]) {
@@ -38,7 +42,7 @@ try {
     assert.equal(response.status, 200, "Fontes locais do PDF precisam estar disponíveis.");
     assert.deepEqual([...new Uint8Array(await response.arrayBuffer()).subarray(0, 4)], [0, 1, 0, 0], "Fonte deve conter um arquivo TrueType.");
   }
-  console.log("Produção: demo bloqueada (404), painel protegido (307), resposta sem cache. Verificações aprovadas.");
+  console.log("Produção: site público (200), demo bloqueada (404), painel protegido (307), resposta sem cache. Verificações aprovadas.");
 } finally {
   server.kill();
 }
