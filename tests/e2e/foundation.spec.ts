@@ -103,7 +103,7 @@ test("menu lateral recolhe, lembra a escolha e mantém a navegação", async ({ 
 });
 
 test("painel privado exige configuração e nunca usa dados fictícios", async ({ page, request }) => {
-  await page.goto("/");
+  await page.goto("/clientes");
   await expect(page).toHaveURL(/\/entrar/);
   await expect(page.getByText("Não configurado", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Entrar na plataforma", exact: true })).toBeDisabled();

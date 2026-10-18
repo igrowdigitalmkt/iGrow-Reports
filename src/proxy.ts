@@ -6,7 +6,7 @@ import { isAuthCookie } from "@/lib/supabase/constants";
 
 const isAdminPath = (path: string) => path === "/admin" || path.startsWith("/admin/");
 const workspacePaths = ["/clientes", "/agendamentos", "/relatorios", "/integracoes", "/equipe", "/configuracoes", "/whatsapp", "/assinatura", "/entregas", "/templates", "/dashboard"];
-const isWorkspacePath = (path: string) => path === "/" || workspacePaths.some(prefix => path === prefix || path.startsWith(`${prefix}/`));
+const isWorkspacePath = (path: string) => workspacePaths.some(prefix => path === prefix || path.startsWith(`${prefix}/`));
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -23,9 +23,11 @@ export async function proxy(request: NextRequest) {
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   }
-  // Visitante sem sessão no Super Admin vai ao login com status HTTP real (a decisão de operador fica nas guardas do servidor).
-  if (isAdminPath(path) && !request.cookies.getAll().some(({ name }) => isAuthCookie(name))) {
-    const response = NextResponse.redirect(new URL(`/entrar?next=${encodeURIComponent(path)}`, request.url));
+  // Decide before a loading boundary can stream HTTP 200. Cookie presence is
+  // only a cheap redirect check; identity and authorization remain server-side.
+  if ((isAdminPath(path) || isWorkspacePath(path)) && !request.cookies.getAll().some(({ name }) => isAuthCookie(name))) {
+    const next = path + request.nextUrl.search;
+    const response = NextResponse.redirect(new URL(`/entrar?next=${encodeURIComponent(next)}`, request.url));
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   }

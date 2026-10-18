@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("endereços diretos mantêm a proteção da área interna", async ({ request }) => {
-  for (const path of ["/", "/whatsapp", "/clientes", "/clientes/cliente-teste", "/relatorios", "/relatorios/entregas", "/relatorios/templates", "/relatorios/pdfs", "/agendamentos", "/integracoes", "/equipe", "/configuracoes", "/assinatura", "/assinatura/retorno?e=ok"]) {
+  for (const path of ["/whatsapp", "/clientes", "/clientes/cliente-teste", "/relatorios", "/relatorios/entregas", "/relatorios/templates", "/relatorios/pdfs", "/agendamentos", "/integracoes", "/equipe", "/configuracoes", "/assinatura", "/assinatura/retorno?e=ok"]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.status(), path).toBe(307);
     const target = new URL(response.headers().location, "http://127.0.0.1:3100");
