@@ -268,6 +268,27 @@ export type MessageTemplateRow = {
   id: string; agency_id: string; name: string; segment: MessageTemplateSegment; channel: "whatsapp" | "whatsapp_pdf" | "email"; subject: string | null; body: string; created_by: string | null; created_at: string; updated_at: string;
 };
 
+type AgentDelegationRow = {
+  id: string; agency_id: string; client_id: string; ad_account_id: string;
+  granted_by: string | null; currency: string; enabled: boolean; allowed_actions: string[];
+  max_account_daily_budget_minor: number; max_entity_daily_budget_minor: number;
+  max_increase_minor_per_action: number; max_increase_percent_per_action: number;
+  expires_at: string; revoked_at: string | null; created_at: string; updated_at: string;
+};
+type AgentActionJobRow = {
+  id: string; agency_id: string; client_id: string; ad_account_id: string;
+  delegation_id: string; idempotency_key: string; action_type: string;
+  meta_entity_id: string; daily_budget_minor: number | null; facts_collected_at: string;
+  rationale: string; policy_version: number; status: string;
+  before_state: Json | null; after_state: Json | null; provider_ref: string | null;
+  failure_code: string | null; created_at: string; updated_at: string;
+  queued_at: string | null; started_at: string | null; verified_at: string | null; finished_at: string | null;
+};
+type AgentActionEventRow = {
+  id: number; agency_id: string; job_id: string; previous_status: string | null;
+  next_status: string; occurred_at: string; metadata: Json;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -293,6 +314,9 @@ export type Database = {
       meta_connections: Table<MetaConnectionRow, Pick<MetaConnectionRow, "agency_id" | "integration_id"> & Partial<MetaConnectionRow>, Partial<MetaConnectionRow>>;
       meta_ad_accounts: Table<MetaAdAccountRow, Pick<MetaAdAccountRow, "agency_id" | "meta_connection_id" | "external_id" | "name" | "currency" | "timezone_name"> & Partial<MetaAdAccountRow>, Partial<MetaAdAccountRow>>;
       client_ad_accounts: Table<ClientAdAccountRow, Pick<ClientAdAccountRow, "agency_id" | "client_id" | "ad_account_id"> & Partial<ClientAdAccountRow>, Partial<ClientAdAccountRow>>;
+      agent_delegations: Table<AgentDelegationRow, Pick<AgentDelegationRow, "agency_id" | "client_id" | "ad_account_id" | "currency" | "allowed_actions" | "max_account_daily_budget_minor" | "max_entity_daily_budget_minor" | "max_increase_minor_per_action" | "max_increase_percent_per_action" | "expires_at"> & Partial<AgentDelegationRow>, Partial<AgentDelegationRow>>;
+      agent_action_jobs: Table<AgentActionJobRow, Pick<AgentActionJobRow, "agency_id" | "client_id" | "ad_account_id" | "delegation_id" | "idempotency_key" | "action_type" | "meta_entity_id" | "facts_collected_at" | "rationale"> & Partial<AgentActionJobRow>, Partial<AgentActionJobRow>>;
+      agent_action_events: Table<AgentActionEventRow, never, never>;
       meta_daily_insights: Table<MetaDailyInsightRow, Pick<MetaDailyInsightRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "spend" | "impressions" | "api_version"> & Partial<MetaDailyInsightRow>, Partial<MetaDailyInsightRow>>;
       meta_daily_actions: Table<MetaDailyActionRow, Pick<MetaDailyActionRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "action_type"> & Partial<MetaDailyActionRow>, Partial<MetaDailyActionRow>>;
       meta_collection_runs: Table<MetaCollectionRunRow, Pick<MetaCollectionRunRow, "agency_id" | "client_id" | "ad_account_id" | "date_from" | "date_to" | "status"> & Partial<MetaCollectionRunRow>, Partial<MetaCollectionRunRow>>;
@@ -334,6 +358,8 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      agent_claim_action: { Args: { p_agency_id: string; p_job_id: string }; Returns: boolean };
+      agent_meta_execution_allowed: { Args: { p_agency_id: string }; Returns: boolean };
       ai_month_cost: { Args: { p_agency_id: string }; Returns: number };
       list_client_snapshot_accounts: { Args: { p_client_id: string }; Returns: { id: string; connection_id: string; external_id: string; name: string; currency: string; timezone_name: string }[] };
       get_confirmed_collection_snapshot: { Args: { p_client_id: string; p_connection_id: string; p_provider: string; p_external_account_id: string; p_date_from: string; p_date_to: string; p_entity_level: string; p_api_version: string; p_contract_version: number }; Returns: Json };

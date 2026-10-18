@@ -149,3 +149,20 @@ Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer u
 **Próxima frente técnica:** serviço server-only que resolve vinculações, contrato de permissão e cota comercial em banco, valida a delegação, obtém token de forma segura e registra/atualiza jobs transacionalmente. Em seguida, planejador IA estruturado e reconciliação de ações. Antes do primeiro deploy ou aplicação de migration, revisão do SQL e autorização específica do proprietário.
 
 **Coordenação:** o site de vendas permanece na branch/checkout do Codex. Não juntar estas alterações na master nem publicar até a integração estar pronta e revisada.
+
+
+## 11. Terceira entrega - integracao segura entre banco, delegacao e executor (18/10/2026)
+
+**Escopo realmente implementado nesta branch (sem deploy):**
+
+- `src/modules/agent-executor/queue.ts`: entrada server-only para proposta estruturada (sem dados de agencia/limites vindos da IA). O ciclo de observacao e timestamp sao informados pelo servidor. Valida vinculo entre organizacao/cliente/conta, concedente atual, delegacao, escopos persistidos, configuracao e direito comercial. Gera idempotency key SHA-256 do ciclo+acao e faz transicoes propostas -> autorizadas -> fila. Duplicatas nao geram nova acao.
+- `src/modules/agent-executor/runtime.ts`: consulta novamente job e delegacao, integracao, conexao Meta ligada ao cliente, conta e vinculo ativo, concedente owner/admin, moeda, limites, expiracao/revogacao e elegibilidade. Recupera segredo existente via `loadAccessToken` de `meta/server.ts`, sem fornecer token ao modelo. Faz **GET /me/permissions** e exige `ads_management` concedido ao vivo; armazenar scope nao basta.
+- `src/modules/agent-executor/worker.ts`: usa RPC de claim atomica `queued -> executing` e executa o adaptador ja existente. Antes do POST, revalida a delegacao e persistencia do before-state; depois da confirmacao real, persiste after-state e so entao chega a `verified`. Resultado incerto -> `needs_verification` ou `executing` travado, nunca novo POST automatico.
+- `supabase/migrations/202610180002_agent_execution_gate.sql`: nova feature `agent_executor_meta` **globalmente desligada** por padrao e RPCs `agent_meta_execution_allowed` e `agent_claim_action` restritas a `service_role`. Controle comercial bloqueia mesmo que a delegacao exista. Migration ainda **nao aplicada em producao**.
+- Tipos das novas tabelas/RPCs registrados em `src/types/database.ts`. Nenhuma rota, cron ou interface comercial foi ligada ao executor.
+
+**Bloqueio deliberado de seguranca:** neste corte, somente a acao de **pausar** campanha/conjunto e elegivel para fila. Reativacao e mudanca de orcamento ficam bloqueadas ate existir inventario financeiro **integral** diretamente da Meta, comprovando orcamentos ativos, cobertura, contas e moedas. A pausar tambem depende de escopo, plano, delegacao e permissao efetiva. A feature global continua OFF, portanto nenhuma operacao real sera disparada nesta entrega.
+
+**Evidencias locais:** 48 testes automatizados do executor passaram (incluindo 18 novos testes de runtime, worker, fila e persistencia antes/depois). TypeScript --noEmit passou. Todas as migrations, incluindo 002, e a suite SQL/RLS/pgTAP passaram em PGlite descartavel. ESLint direcionado passou. Nao houve acesso de escrita nem teste com credencial Meta real.
+
+**Lacunas seguintes, antes de homologacao comercial:** decisor Anthropic com schema/guardrails e fatos reais, levantamento financeiro Meta completo para resume/orcamentos, reconciliacao independente e conservadora de estados incertos, tests de integracao PostgREST/Supabase real de forma autorizada, checagem do app Meta/permissoes de escrita com conta de homologacao e fluxo de controle de delegacao para o cliente. **Nao abrir o gate em producao, aplicar migrations nem usar conta real sem autorizacao especifica.**

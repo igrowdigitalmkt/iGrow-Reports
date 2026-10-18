@@ -6,7 +6,14 @@ import { evaluateDelegatedAction, type PolicyInput, type AuthorizedOperation } f
  * A fonte dos vínculos/permissões/contexto precisa ser o banco (server-only).
  * Nunca enviar token, payload Graph ou mensagem de erro externa para o modelo.
  */
-type MetaWriteDeps = { fetchImpl?: typeof fetch; now?: () => Date };
+export type MetaWriteDeps = {
+  fetchImpl?: typeof fetch;
+  now?: () => Date;
+  /** Persistir preflight ANTES do POST, falhando fechado em caso de erro. */
+  beforePost?: (op: AuthorizedOperation, state: { status: string; dailyBudgetMinor: number | null }) => Promise<void>;
+  /** Persistir comprovacao no ledger antes de declarar 'verified'. */
+  afterVerified?: (op: AuthorizedOperation, state: { status: string; dailyBudgetMinor: number | null }) => Promise<void>;
+};
 type ExecuteInput = Omit<PolicyInput, "now" | "entity"> & {
   token: string;
   apiVersion: string;
@@ -101,6 +108,13 @@ export async function executeMetaWrite(input: ExecuteInput, deps: MetaWriteDeps 
   else if (op.requestedDailyBudgetMinor !== null) form.set("daily_budget", String(op.requestedDailyBudgetMinor));
   else return { status: "blocked", reason: "Operação não suportada." };
 
+  // Nunca existe uma escrita Meta sem antes-state durable.
+  try {
+    await deps.beforePost?.(op, { status: entity.configuredStatus, dailyBudgetMinor: entity.dailyBudgetMinor });
+  } catch {
+    return { status: "blocked", reason: "Falha ao registrar preflight; nada enviado." };
+  }
+
   let response: Response;
   try {
     response = await fetcher(new URL(base), {
@@ -118,6 +132,12 @@ export async function executeMetaWrite(input: ExecuteInput, deps: MetaWriteDeps 
   try {
     const after = await get();
     if (after.id === op.targetId && normalizeAccountId(after.account_id) === op.adAccountId && verified(op, after)) {
+      const value = after.daily_budget;
+      const amount = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
+      await deps.afterVerified?.(op, {
+        status: String(after.status),
+        dailyBudgetMinor: typeof amount === "number" && Number.isSafeInteger(amount) ? amount : null,
+      });
       return { status: "verified", actionId: op.actionId, metaEntityId: op.targetId };
     }
   } catch { /* envio aceito; confirmação indisponível */ }

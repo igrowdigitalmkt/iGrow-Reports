@@ -95,6 +95,25 @@ describe("Meta write — mock HTTP, NUNCA produção", () => {
     expect(result.status).toBe("blocked");
     expect(JSON.stringify(result)).not.toContain("test-token-not-real");
   });
+  it("preflight sem snapshot persistido nunca envia POST", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(response(active));
+    const beforePost = vi.fn().mockRejectedValue(new Error("db offline"));
+    const result = await executeMetaWrite(input(), { fetchImpl, now: () => now, beforePost });
+    expect(result.status).toBe("blocked");
+    expect(beforePost).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls.map(c => c[1].method)).toEqual(["GET"]);
+  });
+  it("Meta confirmou mas ledger nao gravou after-state: resultado continua incerto", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(response(active))
+      .mockResolvedValueOnce(response({ success: true }))
+      .mockResolvedValueOnce(response(paused));
+    const result = await executeMetaWrite(input(), {
+      fetchImpl, now: () => now, beforePost: async () => {},
+      afterVerified: async () => { throw new Error("db offline"); },
+    });
+    expect(result.status).toBe("needs_verification");
+    expect(fetchImpl.mock.calls.filter(c => c[1].method === "POST")).toHaveLength(1);
+  });
   it("não permite versão/ID arbitrários", async () => {
     const data = input();
     data.apiVersion = "v26.0/../accounts";
