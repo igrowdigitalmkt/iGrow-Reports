@@ -186,7 +186,7 @@ export function SalesPage() {
           <div className={styles.featureGrid}>{features.map(([kind, title, text]) => <article className={styles.feature} key={kind}><Motion kind={kind} /><h3>{title}</h3><p>{text}</p></article>)}</div>
         </div>
       </section>
-      {salesPhotos.some(photo => photo.src) && <section className={styles.photoBand} aria-label="A Groow Ads no dia a dia"><div className={`${styles.wrap} ${styles.photoGrid}`}>{salesPhotos.filter(photo => photo.src).map(photo => <figure className={styles.photo} key={photo.src}><Image src={photo.src!} alt={photo.alt} fill sizes="(max-width: 1100px) 100vw, 50vw" /><figcaption>{photo.caption}</figcaption></figure>)}</div></section>}
+      {salesPhotos.some(photo => photo.src) && <section className={styles.photoBand} aria-label="A Groow Ads no dia a dia"><div className={styles.wrap}><div className={styles.photoGrid}>{salesPhotos.filter(photo => photo.src).map(photo => <figure className={styles.photo} key={photo.src}><Image src={photo.src!} alt={photo.alt} width={photo.width} height={photo.height} sizes="(max-width: 1100px) 100vw, 55vw" className={styles.photoImage} /><figcaption>{photo.caption}</figcaption></figure>)}</div><p className={styles.photoNote}>Fotografias ilustrativas geradas com inteligência artificial. As telas são a interface real da Groow Ads, com dados demonstrativos.</p></div></section>}
 
       <section id="planos" className={styles.pricing}>
         <div className={styles.wrap}>

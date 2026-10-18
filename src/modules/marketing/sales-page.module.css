@@ -31,6 +31,7 @@
 .logo { width: 168px; height: auto; display: block; }
 .desktopNav { display: flex; gap: 34px; font-size: 15px; color: #cfd6e8; }
 .desktopNav a:hover { color: #fff; }
+.desktopNav a, .login, .headerActions .btn { white-space: nowrap; }
 .headerActions { display: flex; align-items: center; gap: 22px; }
 .login { font-size: 15px; display: flex; align-items: center; gap: 6px; color: #cfd6e8 !important; }
 .login:hover { color: #fff !important; }
@@ -127,11 +128,12 @@
 .feature h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin: 22px 12px 8px; }
 .feature p { font-size: 15px; line-height: 1.55; color: var(--mute-d); margin: 0 12px; }
 .photoBand { padding: 0 0 130px; background: var(--ink); }
-.photoGrid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
-.photo { position: relative; margin: 0; border-radius: 22px; overflow: hidden; min-height: 320px; background: #0d1220; }
-.photo:first-child { grid-row: span 2; min-height: 660px; }
-.photo img { object-fit: cover; }
-.photo figcaption { position: absolute; left: 18px; bottom: 18px; right: 18px; padding: 14px 18px; border-radius: 14px; background: #0c1018c0; backdrop-filter: blur(10px); font-size: 15px; color: #eef1fb; }
+.photoGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.photo { position: relative; margin: 0; border-radius: 22px; overflow: hidden; background: #0d1220; }
+
+.photoNote { margin: 22px 0 0; font-size: 13px; color: var(--mute-d); }
+.photoImage { display: block; width: 100%; height: auto; }
+.photo figcaption { position: absolute; left: 16px; bottom: 16px; right: 16px; padding: 12px 16px; border-radius: 12px; background: #0c1018c4; backdrop-filter: blur(10px); font-size: 15px; color: #eef1fb; }
 
 /* Motion graphics futuristas */
 .motion { width: 100%; height: auto; display: block; border-radius: 16px; }
@@ -355,8 +357,8 @@
   .wayHead { grid-template-columns: 1fr; gap: 20px; } .wayCore { margin: 0 auto; max-width: 420px; }
   .featureGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .featuresHead { flex-direction: column; align-items: start; gap: 22px; }
-  .photoGrid { grid-template-columns: 1fr; } .photo:first-child { grid-row: auto; min-height: 420px; }
-  .desktopNav { gap: 22px; }
+  .photoGrid { grid-template-columns: 1fr; }
+  .desktopNav { gap: 18px; font-size: 14px; } .headerInner { gap: 16px; } .headerActions { gap: 14px; }
   .heroGrid { grid-template-columns: 1fr; gap: 50px; }
   .heroVisual { max-width: 760px; margin: 0 auto; width: 100%; padding-inline: 4%; }
   .costGrid, .faqGrid, .tourSection { grid-template-columns: 1fr; gap: 44px; }
