@@ -7,6 +7,8 @@ import { ArrowRight, ArrowUpRight, Check, Clock3, Menu, Pause, Play, Plus, Shiel
 import { DeviceShowcase, ProductShowcase, ProductTour } from "./sales-media";
 import styles from "./sales-page.module.css";
 import { EXECUTION_LIVE as live } from "./sales-flags";
+import { Motion, type MotionKind } from "./sales-motion";
+import { salesPhotos } from "./sales-photos";
 
 // Display snapshot of the published catalog (18/10/2026). Checkout is unchanged.
 const plans = [
@@ -15,7 +17,7 @@ const plans = [
   { name: "Scale", description: "Para equipes com uma carteira maior de clientes.", monthly: 27990, yearly: 279900, clients: 60, accounts: 180, team: 6, automations: 60 },
 ];
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
-const navigation = [["O problema", "#problema"], ["Como funciona", "#como-funciona"], ["Produto", "#plataforma"], ["Planos", "#planos"], ["Dúvidas", "#duvidas"]];
+const navigation = [["O problema", "#problema"], ["Como funciona", "#como-funciona"], ["Produto", "#plataforma"], ["Recursos", "#recursos"], ["Planos", "#planos"], ["Dúvidas", "#duvidas"]];
 
 const chores = [
   ["Abrir conta por conta para descobrir o que mudou.", "Antes de decidir qualquer coisa, você já gastou a primeira hora do dia."],
@@ -41,6 +43,16 @@ const control = [
   ["Aprovação quando você quiser", "Defina o que a Groow faz sozinha e o que só acontece com o seu aval."],
   ["Você assume a qualquer momento", "Pause a atuação e retome o controle das campanhas quando precisar."],
 ];
+const features: [MotionKind, string, string][] = [
+  ["dashboard", "Dashboards e métricas", "Investimento, resultados e saldo por cliente e por carteira, com períodos comparáveis e visão por conta de anúncios."],
+  ["message", "Relatório por mensagem", "O resumo com os números do período segue pelo seu WhatsApp, no dia e na hora combinados, com histórico de entrega."],
+  ["pdf", "Relatórios em PDF", "Documento pronto para o cliente, na vertical (A4) ou na horizontal, com o layout que você configurar."],
+  ["present", "Modo apresentação", "Abra o painel em tela cheia ou gere o relatório horizontal em 1920 × 1080 para apresentar resultados em reunião."],
+  ["email", "Relatório por e-mail", "O PDF segue em uma mensagem com layout próprio, junto do envio pelo WhatsApp."],
+  ["ai", "Análise por IA", "Comentários e resumos escritos a partir dos dados e do contexto do negócio, para você revisar antes de enviar."],
+  ["portal", "Portal do cliente", "Seu cliente consulta os próprios resultados e documentos em uma área autenticada."],
+  ["schedule", "Agendamentos", "Defina frequência, destinatários e conteúdo uma vez. As entregas acontecem sem você lembrar."],
+];
 const available = ["Perfil do negócio que orienta a análise da IA", "Análises e resumos com IA, a partir dos dados das contas", "Relatórios em PDF prontos para o cliente", "Entregas agendadas pelo seu WhatsApp, com histórico", "Portal para o cliente consultar os próprios resultados"];
 const upcoming = ["Criar campanhas a partir dos objetivos do negócio", "Ajustar orçamentos dentro dos limites que você definir", "Pausar e reativar anúncios elegíveis", "Confirmar na plataforma que a ação foi aplicada", "Aprender com o histórico e acompanhar o resultado depois"];
 const questions = [
@@ -49,7 +61,7 @@ const questions = [
   ["O que posso experimentar nos 7 dias grátis?", live ? "Conectar contas, cadastrar o contexto dos clientes, receber análises, preparar relatórios, configurar agendamentos e experimentar a execução nas campanhas dentro dos limites que você definir. Os limites do teste ficam visíveis na plataforma." : "Os recursos já disponíveis: conectar contas, conhecer a análise dos anúncios, cadastrar o contexto dos clientes, preparar relatórios e configurar agendamentos. Os limites do teste ficam visíveis na plataforma. A execução autônoma de campanhas não está incluída."],
   ["Preciso de cartão de crédito para começar?", "Não. O teste começa com a criação do espaço de trabalho e dura sete dias. Para continuar, você escolhe um plano na área de assinatura. O investimento nos anúncios é separado da assinatura da Groow Ads."],
   ["Como a Groow Ads conhece meu negócio?", "Você preenche o perfil do cliente com segmento, oferta, região, público e objetivos, e pode completá-lo aos poucos. Esse contexto, junto dos dados das contas conectadas, torna as análises mais específicas."],
-  ["Como os resultados chegam ao meu cliente?", "Com relatórios em PDF e mensagens agendadas pelo seu WhatsApp conectado por QR Code. A API oficial é uma alternativa com configuração própria. Existe também uma área autenticada para o cliente acompanhar os resultados aos quais tem acesso."],
+  ["Como os resultados chegam ao meu cliente?", "Com relatórios em PDF, mensagens agendadas pelo seu WhatsApp conectado por QR Code e envio por e-mail. A API oficial é uma alternativa com configuração própria. Existe também uma área autenticada para o cliente acompanhar os resultados aos quais tem acesso."],
   ["Serve para quem cuida dos próprios anúncios?", "Sim. Gestores independentes, agências e equipes internas podem usar a Groow Ads, acompanhando um negócio ou uma carteira de clientes, com acessos e limites definidos pelo plano."],
 ];
 
@@ -96,7 +108,7 @@ export function SalesPage() {
         </div>
         <div className={styles.wrap}>
           <div className={styles.statusBar}>
-            <div><i className={styles.dot} aria-hidden="true" /><span><strong>{live ? "Análises e entregas" : "Disponível hoje"}</strong>Análises com IA, relatórios em PDF, entregas agendadas e portal do cliente.</span></div>
+            <div><i className={styles.dot} aria-hidden="true" /><span><strong>{live ? "Dashboards, relatórios e entregas" : "Disponível hoje"}</strong>{live ? "Métricas, PDF, mensagem e e-mail, modo apresentação, análise por IA e portal do cliente." : "Análises com IA, relatórios em PDF, entregas agendadas e portal do cliente."}</span></div>
             <div><i className={`${styles.dot} ${live ? "" : styles.dotSoon}`} aria-hidden="true" /><span>{live ? <><strong>Execução nas campanhas</strong>Criar, ajustar e corrigir campanhas por IA, dentro dos limites que você define.</> : <><strong>Em desenvolvimento</strong>Criar, ajustar e corrigir campanhas por IA. Ainda não incluído na oferta.</>}</span></div>
           </div>
         </div>
@@ -165,6 +177,14 @@ export function SalesPage() {
           <p className={styles.boardFoot}><ShieldCheck size={18} /> {live ? "Cada ação é registrada e respeita as permissões e os limites que você configurou." : "Uma capacidade só passa para “disponível” depois de implementada e validada com as plataformas de anúncios."}</p>
         </div>
       </section>
+
+      <section id="recursos" className={styles.features}>
+        <div className={styles.wrap}>
+          <div className={styles.featuresHead}><h2 className={styles.h2}>Tudo o que sustenta o trabalho. <span className={styles.accent}>Pronto para usar.</span></h2><p className={styles.lead}>Dashboards, relatórios, mensagens e apresentação: a base que mantém você e o seu cliente sempre bem informados.</p></div>
+          <div className={styles.featureGrid}>{features.map(([kind, title, text]) => <article className={styles.feature} key={kind}><Motion kind={kind} /><h3>{title}</h3><p>{text}</p></article>)}</div>
+        </div>
+      </section>
+      {salesPhotos.some(photo => photo.src) && <section className={styles.photoBand} aria-label="A Groow Ads no dia a dia"><div className={`${styles.wrap} ${styles.photoGrid}`}>{salesPhotos.filter(photo => photo.src).map(photo => <figure className={styles.photo} key={photo.src}><Image src={photo.src!} alt={photo.alt} fill sizes="(max-width: 1100px) 100vw, 50vw" /><figcaption>{photo.caption}</figcaption></figure>)}</div></section>}
 
       <section id="planos" className={styles.pricing}>
         <div className={styles.wrap}>
