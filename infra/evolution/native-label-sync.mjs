@@ -8,6 +8,37 @@ igrowLabelSyncCapture = undefined;
 igrowLabelSyncPending = undefined;
 igrowLabelSyncRetryAt = 0;
 igrowLabelSyncClient = undefined;
+igrowLabelOperationQueue = Promise.resolve();
+
+igrowQueueLabelOperation(run) {
+  const result = this.igrowLabelOperationQueue.then(run);
+  this.igrowLabelOperationQueue = result.catch(() => {});
+  return result;
+}
+
+handleLabel(input) {
+  // A reader submitted after this write must not join a pre-write snapshot.
+  this.igrowLabelSyncPending = undefined;
+  return this.igrowQueueLabelOperation(async () => {
+    await this.igrowSyncNativeLabels();
+    return this.igrowHandleLabel(input);
+  });
+}
+
+igrowEditLabel(input) {
+  this.igrowLabelSyncPending = undefined;
+  return this.igrowQueueLabelOperation(() => this.igrowEditLabelOriginal(input));
+}
+
+igrowConfirmNativeLabel(client, label) {
+  if (this.client !== client) throw new f('IGROW_LABEL_STATE_UNAVAILABLE');
+  this.igrowCaptureNativeLabel(label);
+}
+
+igrowConfirmNativeLabelAssociation(client, chatId, labelId, type) {
+  if (this.client !== client) throw new f('IGROW_LABEL_STATE_UNAVAILABLE');
+  this.igrowCaptureNativeLabelAssociation({ type, association: { type: 'label_jid', chatId, labelId } });
+}
 
 igrowCaptureNativeLabel(label) {
   const projection = this.igrowLabelSyncCapture || this.igrowLabelSyncProjection;
@@ -36,9 +67,10 @@ igrowCaptureNativeLabelAssociation(event) {
 
 async igrowLabelSnapshot() {
   if (!this.igrowLabelSyncPending) {
-    this.igrowLabelSyncPending = this.igrowSyncNativeLabels().finally(() => {
-      this.igrowLabelSyncPending = undefined;
+    const pending = this.igrowQueueLabelOperation(() => this.igrowSyncNativeLabels()).finally(() => {
+      if (this.igrowLabelSyncPending === pending) this.igrowLabelSyncPending = undefined;
     });
+    this.igrowLabelSyncPending = pending;
   }
   return this.igrowLabelSyncPending;
 }
@@ -109,7 +141,19 @@ if (start < 0 || end < start || !original.includes('regular_low:null')
   || !original.includes('IGROW_LABEL_STATE_UNAVAILABLE') || !original.includes('this.igrowNativeLists.clear()')) {
   throw Error("Unsupported native-label snapshot implementation");
 }
+// emitOwnEvents is disabled in this provider. Mirror only successful SDK
+// acknowledgements, before optional Prisma persistence can fail. Keep all
+// label reads/writes ordered without enabling unrelated own-message events.
 source = source.slice(0, start) + methods + source.slice(end);
+source = replaceOnce(source, 'igrowEditLabel(e){let t=this.igrowLabelQueue.then(async()=>{let o=await this.igrowLabelSnapshot();',
+  'igrowEditLabelOriginal(e){let t=this.igrowLabelQueue.then(async()=>{let o=await this.igrowSyncNativeLabels();const igrowClient=this.client;');
+source = replaceOnce(source, 'await this.client.addLabel(this.client.user.id,n),this.igrowNativeLists.set(i,{...n})',
+  'await igrowClient.addLabel(igrowClient.user.id,n),this.igrowConfirmNativeLabel(igrowClient,n),this.igrowNativeLists.set(i,{...n})');
+source = replaceOnce(source, 'async handleLabel(e){', 'async igrowHandleLabel(e){const igrowClient=this.client;');
+source = replaceOnce(source, 'await this.client.addChatLabel(o.jid,e.labelId),await this.addLabel(',
+  'await igrowClient.addChatLabel(o.jid,e.labelId),this.igrowConfirmNativeLabelAssociation(igrowClient,o.jid,e.labelId,"add"),await this.addLabel(');
+source = replaceOnce(source, 'await this.client.removeChatLabel(o.jid,e.labelId),await this.removeLabel(',
+  'await igrowClient.removeChatLabel(o.jid,e.labelId),this.igrowConfirmNativeLabelAssociation(igrowClient,o.jid,e.labelId,"remove"),await this.removeLabel(');
 source = replaceOnce(source, '"labels.edit":async e=>{', '"labels.edit":async e=>{this.igrowCaptureNativeLabel(e);');
 source = replaceOnce(source, '"labels.association":async(e,t)=>{', '"labels.association":async(e,t)=>{this.igrowCaptureNativeLabelAssociation(e);');
 // All version checks run before writing; labels, sessions and app-state keys

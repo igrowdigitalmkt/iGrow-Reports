@@ -38,11 +38,18 @@ type Access = Extract<Awaited<ReturnType<typeof access>>, { context: unknown }>;
 async function snapshot(scope: Access) {
   const result = await scope.client.labelSnapshot(scope.instance);
   if (!Array.isArray(result?.labels) || !Array.isArray(result.chats)) throw Error("Snapshot inválido");
-  const { data: chats, error } = await scope.context.supabase.from("whatsapp_conversations")
-    .select("id,remote_id").eq("agency_id", scope.context.agency.id).eq("channel_key", "qr").limit(1000);
-  if (error) throw error;
   const peers = await canonicalQrPeers(scope.service, scope.context.agency.id, scope.epoch, result.chats.map(chat => chat.remoteJid));
-  const byPeer = new Map((chats ?? []).map(chat => [chat.remote_id, chat.id]));
+  const peerKeys = [...new Set(result.chats.map(chat => labelChatKey(peers.get(chat.remoteJid) ?? chat.remoteJidAlt ?? chat.remoteJid)))];
+  const byPeer = new Map<string, string>();
+  // Query the actual labeled peers in bounded batches. Reading the first 1,000
+  // inbox rows silently dropped memberships for conversations beyond that cap.
+  for (let start = 0; start < peerKeys.length; start += 200) {
+    const { data: chats, error } = await scope.context.supabase.from("whatsapp_conversations")
+      .select("id,remote_id").eq("agency_id", scope.context.agency.id).eq("channel_key", "qr")
+      .in("remote_id", peerKeys.slice(start, start + 200));
+    if (error) throw error;
+    for (const chat of chats ?? []) byPeer.set(chat.remote_id, chat.id);
+  }
   // WhatsApp also transmits its built-in filters as IDs 1–3 with an LRM-prefixed name.
   // Those filters already have dedicated tabs and must not appear as editable labels.
   const labels = result.labels.filter(label => !label.deleted && label.isActive !== false && !label.isImmutable

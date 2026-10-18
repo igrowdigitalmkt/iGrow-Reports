@@ -115,8 +115,15 @@ export class EvolutionClient {
     return this.request(`/instance/logout/${encodeURIComponent(name)}`, { method: "DELETE" });
   }
 
-  labelSnapshot(name: string) {
-    return this.request<EvolutionLabelSnapshot>(`/label/igrowSnapshot/${encodeURIComponent(name)}`, { timeoutMs: 45_000 });
+  async labelSnapshot(name: string) {
+    const result = await this.request<EvolutionLabelSnapshot>(`/label/igrowSnapshot/${encodeURIComponent(name)}`, { timeoutMs: 45_000 });
+    if (!Array.isArray(result?.labels) || !Array.isArray(result?.chats)
+      || result.labels.some(label => !label || typeof label.id !== "string" || !/^\d{1,9}$/.test(label.id)
+        || typeof label.name !== "string" || !["string", "number"].includes(typeof label.color) || !Number.isInteger(Number(label.color)))
+      || result.chats.some(chat => !chat || typeof chat.remoteJid !== "string" || !Array.isArray(chat.labels)
+        || chat.labels.some(id => typeof id !== "string")))
+      throw new EvolutionError("O WhatsApp não confirmou o estado das etiquetas.");
+    return result;
   }
 
   async contactBlock(name: string, peer: string, blocked?: boolean) {
@@ -138,14 +145,21 @@ export class EvolutionClient {
     return result;
   }
 
-  editLabel(name: string, data: { id?: string; name?: string; color?: number; deleted?: boolean }) {
-    return this.request<{ id: string }>(`/label/igrowEdit/${encodeURIComponent(name)}`, { method: "POST", body: data, timeoutMs: 45_000 });
+  async editLabel(name: string, data: { id?: string; name?: string; color?: number; deleted?: boolean }) {
+    const result = await this.request<{ id: string }>(`/label/igrowEdit/${encodeURIComponent(name)}`, { method: "POST", body: data, timeoutMs: 45_000 });
+    if (typeof result?.id !== "string" || !/^\d{1,9}$/.test(result.id) || (data.id !== undefined && result.id !== data.id))
+      throw new EvolutionError("O WhatsApp não confirmou a etiqueta.");
+    return result;
   }
 
-  setChatLabel(name: string, jid: string, labelId: string, member: boolean) {
-    return this.request(`/label/handleLabel/${encodeURIComponent(name)}`, {
-      method: "POST", body: { number: jid, labelId, action: member ? "add" : "remove" },
+  async setChatLabel(name: string, jid: string, labelId: string, member: boolean) {
+    const result = await this.request<{ numberJid: string; labelId: string; add?: boolean; remove?: boolean }>(`/label/handleLabel/${encodeURIComponent(name)}`, {
+      method: "POST", timeoutMs: 45_000, body: { number: jid, labelId, action: member ? "add" : "remove" },
     });
+    if (result?.numberJid !== jid || result?.labelId !== labelId || result[member ? "add" : "remove"] !== true
+      || result[member ? "remove" : "add"] === true)
+      throw new EvolutionError("O WhatsApp não confirmou a seleção da etiqueta.");
+    return result;
   }
 
   remove(name: string) {

@@ -11,9 +11,12 @@ const chat = "44444444-4444-4444-8444-444444444444";
 let validChat: boolean, blocked: boolean, unavailable: boolean, invalidState: boolean, membershipRejected:boolean, role: string;
 let writes: Array<{ path: string; body: Record<string, unknown> }>;
 let nativeSnapshot: unknown;
+let malformedAck: boolean;
+let requireTargetedLookup: boolean;
 const reply = (body: unknown, status=200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 beforeEach(() => {
   validChat=true; blocked=false; unavailable=false; invalidState=false; membershipRejected=false; role="owner"; writes=[];
+  malformedAck=false; requireTargetedLookup=false;
   nativeSnapshot={labels:[{id:"1",name:"\u200eNão lidas",color:"0"},{id:"3",name:"Pagamento pendente",color:"3"}],chats:[{remoteJid:"123456789012@lid",labels:["3"]}]};
   vi.stubEnv("EVOLUTION_API_URL", "https://evo.example.test");
   vi.stubEnv("EVOLUTION_API_KEY", "test-key");
@@ -24,6 +27,11 @@ beforeEach(() => {
     if (url.pathname.endsWith("/whatsapp_qr_peer_links")) return reply([{lid:"123456789012@lid",phone:"5586999999999"}]);
     if (url.pathname.endsWith("/whatsapp_conversations")) {
       expect(url.searchParams.get("channel_key")).toBe("eq.qr");
+      if (requireTargetedLookup) {
+        // The relevant conversation can lie beyond the first 1,000 inbox rows.
+        expect(url.searchParams.get("remote_id")).toContain("5586999999999");
+        expect(url.searchParams.has("limit")).toBe(false);
+      }
       return reply(validChat ? [{id:chat, remote_id:"5586999999999"}] : []);
     }
     throw Error("Unexpected database table");
@@ -40,7 +48,11 @@ beforeEach(() => {
       : reply(nativeSnapshot);
     writes.push({path,body:JSON.parse(String(init?.body))});
     const rejected=unavailable || (membershipRejected && path.startsWith("/label/handleLabel/"));
-    return reply(rejected?{error:"provider rejected"}:{id:"4"},rejected?500:200);
+    const body = writes.at(-1)!.body;
+    const confirmed = path.startsWith("/label/handleLabel/")
+      ? {numberJid:body.number,labelId:body.labelId,[body.action === "add" ? "add" : "remove"]:true}
+      : {id:body.id ?? "4"};
+    return reply(rejected?{error:"provider rejected"}:malformedAck?{}:confirmed,rejected?500:200);
   }));
 });
 afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
@@ -53,6 +65,15 @@ it("reads the native ID, name, color and proven LID membership",async()=>{
   expect(body.lists).toHaveLength(1);
   expect(body.lists[0]).toMatchObject({id:"wa:3",name:"Pagamento pendente",color:"#c15add",conversationIds:[chat]});
   expect(writes).toEqual([]);
+});
+it("maps only the labeled peers instead of truncating the inbox at 1,000 conversations",async()=>{
+  requireTargetedLookup=true;
+  expect((await (await GET()).json()).lists[0].conversationIds).toEqual([chat]);
+});
+it("does not report a successful mutation for an HTTP 200 without the native acknowledgement",async()=>{
+  malformedAck=true;
+  expect((await PATCH(request({id:"wa:3",conversationId:chat,member:true}))).status).toBe(503);
+  expect((await POST(request({name:"Teste",color:"#c0835d"},"POST"))).status).toBe(503);
 });
 it("uses native order and excludes inactive, deleted and built-in lists",async()=>{
   nativeSnapshot={labels:[

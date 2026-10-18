@@ -38,6 +38,7 @@ export function useCustomLists(channelKey: string, demo: boolean) {
   const [error, setError] = useState("");
   const writing = useRef(false);
   const refreshVersion = useRef(0);
+  const scopeVersion = useRef(0);
 
   const refresh = useCallback(async (preserveError = false) => {
     if (demo) return;
@@ -46,7 +47,8 @@ export function useCustomLists(channelKey: string, demo: boolean) {
     const body = await response.json().catch(() => null) as { lists?: CustomList[]; error?: string } | null;
     if (version !== refreshVersion.current) return;
     if (!response.ok) throw new Error(body?.error ?? "Não foi possível carregar as listas.");
-    if (version === refreshVersion.current) { setListState({ channelKey, items: body?.lists ?? [] }); if (!preserveError) setError(""); }
+    if (!Array.isArray(body?.lists)) throw new Error("A sincronização retornou listas inválidas.");
+    if (version === refreshVersion.current) { setListState({ channelKey, items: body.lists }); if (!preserveError) setError(""); }
   }, [API, channelKey, demo]);
 
   useEffect(() => {
@@ -64,13 +66,25 @@ export function useCustomLists(channelKey: string, demo: boolean) {
       .then(async response => {
         const body = await response.json().catch(() => null) as { lists?: CustomList[]; error?: string } | null;
         if (!response.ok) throw new Error(body?.error ?? "Listas indisponíveis.");
-        if (active && version === refreshVersion.current) { setListState({ channelKey, items: body?.lists ?? [] }); setError(""); }
+        if (!Array.isArray(body?.lists)) throw new Error("A sincronização retornou listas inválidas.");
+        if (active && version === refreshVersion.current) { setListState({ channelKey, items: body.lists }); setError(""); }
       }).catch(failure => { if (active && version === refreshVersion.current && !controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Não foi possível carregar as listas."); });
     return () => { active = false; controller.abort(); };
   }, [API, channelKey, demo]);
 
   const membershipQueue = useRef<ListMembershipQueue | null>(null);
-  useEffect(() => { membershipQueue.current = null; }, [API, channelKey, refresh]);
+  const clearChannelWork = useCallback(() => {
+    // In-flight work belongs to the channel where it started. Its queued
+    // writes may finish, but must not retain overlays or replace another
+    // channel's lists when their responses arrive.
+    scopeVersion.current++;
+    refreshVersion.current++;
+    membershipQueue.current = null;
+    writing.current = false;
+    setPendingMemberships([]);
+    setBusy(false);
+  }, []);
+  useEffect(() => clearChannelWork, [API, channelKey, refresh, clearChannelWork]);
   function getMembershipQueue() {
     if (membershipQueue.current) return membershipQueue.current;
     const queue = new ListMembershipQueue({
@@ -97,6 +111,7 @@ export function useCustomLists(channelKey: string, demo: boolean) {
 
   async function request(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>, id?: string) {
     if (demo || writing.current || membershipQueue.current?.size) return false;
+    const scope = scopeVersion.current;
     writing.current = true;
     refreshVersion.current++;
     setBusy(true); setError("");
@@ -106,6 +121,7 @@ export function useCustomLists(channelKey: string, demo: boolean) {
         body: method === "DELETE" ? undefined : JSON.stringify(body),
       });
       const payload = await response.json().catch(() => null) as { error?: string; warning?:string } | null;
+      if (scope !== scopeVersion.current) return false;
       if (!response.ok) throw new Error(payload?.error ?? "Falha ao atualizar a lista.");
       // A successful native write must not become a failed create just because
       // its follow-up read failed: retrying could create a duplicate label.
@@ -116,14 +132,19 @@ export function useCustomLists(channelKey: string, demo: boolean) {
         });
       };
       await refreshAfterWrite();
+      if (scope !== scopeVersion.current) return false;
       if(payload?.warning)setError(payload.warning);
       return true;
     } catch (failure) {
+      if (scope !== scopeVersion.current) return false;
       // Some remote changes can have succeeded before a later peer fails. Re-read the device state.
       if (channelKey === "qr") await refresh().catch(() => undefined);
+      if (scope !== scopeVersion.current) return false;
       setError(failure instanceof Error ? failure.message : "Não foi possível atualizar a lista.");
       return false;
-    } finally { writing.current = false; setBusy(false); }
+    } finally {
+      if (scope === scopeVersion.current) { writing.current = false; setBusy(false); }
+    }
   }
 
   return {
