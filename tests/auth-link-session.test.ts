@@ -28,7 +28,14 @@ it("validates the link session with Supabase, accepts invitations and sends invi
 
 it("sends sign-in links straight to the application", async () => {
   mocks.setSession.mockResolvedValue({ data: { user: { invited_at: null, app_metadata: {} } }, error: null });
-  expect(await establishLinkSessionAction({ ...tokens, type: "magiclink" })).toEqual({ redirectTo: "/dashboard" });
+  expect(await establishLinkSessionAction({ ...tokens, type: "magiclink" })).toEqual({ redirectTo: "/" });
+});
+
+it("preserves the normalized destination after a sign-in link or password setup", async () => {
+  mocks.setSession.mockResolvedValue({ data: { user: { invited_at: null, app_metadata: {} } }, error: null });
+  const next = "/dashboard/whatsapp?conversa=abc";
+  expect(await establishLinkSessionAction({ ...tokens, type: "magiclink", next })).toEqual({ redirectTo: "/whatsapp?conversa=abc" });
+  expect(await establishLinkSessionAction({ ...tokens, type: "recovery", next })).toEqual({ redirectTo: "/auth/definir-senha?next=%2Fwhatsapp%3Fconversa%3Dabc" });
 });
 
 it("sends invited accounts that never set a password to password setup", async () => {

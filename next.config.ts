@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   deploymentId: process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA,
   poweredByHeader: false,
   devIndicators: false,
+  async redirects() {
+    return [{ source: "/dashboard/:path*", destination: "/:path*", permanent: true }];
+  },
   async headers() {
     return [{
       source: "/:path*",

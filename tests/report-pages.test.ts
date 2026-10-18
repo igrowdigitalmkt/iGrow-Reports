@@ -15,11 +15,11 @@ describe("endereços de Relatórios", () => {
   });
 
   it("endereços antigos redirecionam mantendo os parâmetros", () => {
-    expect(legacyRedirect("/dashboard", "relatorios/agendamentos", { cliente: "abc" })).toBe("/dashboard/agendamentos?cliente=abc");
-    expect(legacyRedirect("/dashboard", "entregas", {})).toBe("/dashboard/relatorios/entregas");
+    expect(legacyRedirect("", "relatorios/agendamentos", { cliente: "abc" })).toBe("/agendamentos?cliente=abc");
+    expect(legacyRedirect("", "entregas", {})).toBe("/relatorios/entregas");
     expect(legacyRedirect("/demo", "templates", {})).toBe("/demo/relatorios/templates");
-    expect(legacyRedirect("/dashboard", "agendamentos", {})).toBeNull();
-    expect(legacyRedirect("/dashboard", "relatorios", {})).toBeNull();
+    expect(legacyRedirect("", "agendamentos", {})).toBeNull();
+    expect(legacyRedirect("", "relatorios", {})).toBeNull();
   });
 });
 

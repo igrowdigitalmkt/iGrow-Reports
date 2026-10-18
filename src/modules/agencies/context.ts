@@ -15,7 +15,7 @@ export type AgencyMembership = {
   role: AgencyRole;
 };
 
-export async function requireUserSession(next = "/dashboard") {
+export async function requireUserSession(next = "/") {
   const supabase = await createSupabaseServerClient();
   if (!supabase) redirect("/entrar?estado=nao-configurado");
   const { data: { user }, error } = await supabase.auth.getUser();

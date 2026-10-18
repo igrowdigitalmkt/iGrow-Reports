@@ -97,13 +97,13 @@ export function ClientManager({ demo, initialClients = [], agencyId, canEdit = f
         return <tr key={client.id} className="client-row">
           <th scope="row" style={{ fontWeight: 400 }}><div className="client-cell">
             <span className="client-avatar blue">{initials}</span>
-            <div style={{ minWidth: 0 }}>{demo ? <strong>{client.name}</strong> : <Link href={`/dashboard/clientes/${client.id}`}><strong>{client.name}</strong></Link>}{firstLine(client.notes) && <small>{firstLine(client.notes)}</small>}</div>
+            <div style={{ minWidth: 0 }}>{demo ? <strong>{client.name}</strong> : <Link href={`/clientes/${client.id}`}><strong>{client.name}</strong></Link>}{firstLine(client.notes) && <small>{firstLine(client.notes)}</small>}</div>
           </div></th>
           <td>{linked ? `${linked} ${linked === 1 ? "conta" : "contas"}` : <span className="muted">Sem contas</span>}</td>
           <td>{client.archived_at ? <span className="badge neutral">Arquivado</span> : linked ? <span className="badge green"><span className="status-dot" />Ativo</span> : <span className="badge amber"><span className="status-dot" />Configurar Meta</span>}</td>
           <td className="muted">{new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(client.updated_at))}</td>
           <td><div className="row-actions">
-            {!demo && !client.archived_at && <Link className="button button-primary button-sm" href={`/dashboard/clientes/${client.id}`}>Abrir painel<ArrowUpRight size={14} /></Link>}
+            {!demo && !client.archived_at && <Link className="button button-primary button-sm" href={`/clientes/${client.id}`}>Abrir painel<ArrowUpRight size={14} /></Link>}
             <RowMenu label={`Configurações de ${client.name}`} items={items} icon={<Settings size={17} />} />
           </div></td>
         </tr>;

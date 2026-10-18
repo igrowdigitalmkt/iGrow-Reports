@@ -40,7 +40,7 @@ export async function saveGoogleLoginCustomer(input: unknown) {
   try {
     const { error } = await googleServiceClient().from("google_connections").update({ login_customer_id: normalizeCustomerId(parsed.data.customerId) }).eq("agency_id", context.agency.id);
     if (error) return { error: "Conecte o Google Ads antes de informar o gerente." };
-    revalidatePath("/dashboard/integracoes");
+    revalidatePath("/integracoes");
     return { success: true as const };
   } catch (error) { return failure(error); }
 }
@@ -50,7 +50,7 @@ export async function syncGoogleAdsAccountsAction() {
   if (!isAdmin(context.role)) return { error: "Apenas proprietários e administradores configuram o Google Ads." };
   try {
     const result = await syncGoogleAccounts(googleServiceClient(), context.agency.id);
-    revalidatePath("/dashboard/integracoes");
+    revalidatePath("/integracoes");
     return { success: true as const, ...result };
   } catch (error) { return failure(error); }
 }
@@ -60,7 +60,7 @@ export async function disconnectGoogleAdsAction() {
   if (!isAdmin(context.role)) return { error: "Apenas proprietários e administradores configuram o Google Ads." };
   try {
     const result = await disconnectGoogle(googleServiceClient(), context.agency.id);
-    revalidatePath("/dashboard/integracoes");
+    revalidatePath("/integracoes");
     return { success: true as const, ...result };
   } catch (error) { return failure(error); }
 }
@@ -79,6 +79,6 @@ export async function linkGoogleAccountAction(input: unknown) {
       ? await context.supabase.from("client_google_accounts").update({ active: linked }).eq("agency_id", context.agency.id).eq("client_id", clientId).eq("google_ad_account_id", accountId)
       : linked ? await context.supabase.from("client_google_accounts").insert({ agency_id: context.agency.id, client_id: clientId, google_ad_account_id: accountId, active: true }) : { error: null };
   if (error) return { error: "Não foi possível alterar o vínculo da conta." };
-  revalidatePath("/dashboard/integracoes");
+  revalidatePath("/integracoes");
   return { success: true as const };
 }

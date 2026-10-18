@@ -50,8 +50,8 @@ export async function collectDashboardData(input: unknown) {
       }
     } finally {
       revalidatePath(`/cliente/${parsed.data.clientId}`);
-      revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
-      revalidatePath("/dashboard/clientes");
+      revalidatePath(`/clientes/${parsed.data.clientId}`);
+      revalidatePath("/clientes");
     }
     let verified = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.from, parsed.data.to);
     // A transient Meta/network failure can leave one slice behind. Retry the

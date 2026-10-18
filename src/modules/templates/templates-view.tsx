@@ -125,7 +125,7 @@ export function TemplatesView({ snapshot, canEdit, demo = false, workspaceName, 
         <pre className="templates-readonly">{SUGGESTED_TEMPLATE.body}</pre>
         <p className="automation-hint">{"{{1}}"} nome do destinatário · {"{{2}}"} cliente · {"{{3}}"} período · {"{{4}}"} nome da sua empresa. Cabeçalho: documento (PDF). Categoria: utilidade.</p>
       </div>
-      <Link className="button button-secondary" href={demo ? "/demo/integracoes" : "/dashboard/integracoes"}>Configurar em Integrações</Link>
+      <Link className="button button-secondary" href={demo ? "/demo/integracoes" : "/integracoes"}>Configurar em Integrações</Link>
     </section> : <div className="templates-grid">
       <aside className="panel templates-library">
         <div className="templates-library-head">

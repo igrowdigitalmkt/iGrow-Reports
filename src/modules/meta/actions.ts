@@ -56,9 +56,9 @@ export async function setClientAdAccount(
     };
   }
 
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/clientes");
   revalidatePath(`/cliente/${parsed.data.clientId}`);
-  revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
+  revalidatePath(`/clientes/${parsed.data.clientId}`);
   return { success: true };
 }
 
@@ -130,8 +130,8 @@ export async function connectMetaIntegration(
       accessToken,
       selectedAccountIds: parsed.data.selectedAccountIds,
     });
-    revalidatePath("/dashboard/integracoes");
-    revalidatePath("/dashboard/clientes");
+    revalidatePath("/integracoes");
+    revalidatePath("/clientes");
     return { success: true, accountCount: result.accountCount };
   } catch (error) {
     return { error: safeMetaOperationError(error) };
@@ -147,8 +147,8 @@ export async function disconnectMetaClientAction(input: unknown): Promise<MetaAd
   if (!client) return { error: "Cliente indisponível neste espaço de trabalho." };
   try {
     await disconnectMetaForClient({ agencyId: context.agency.id, clientId: parsed.data.clientId });
-    revalidatePath("/dashboard/integracoes");
-    revalidatePath("/dashboard/clientes");
+    revalidatePath("/integracoes");
+    revalidatePath("/clientes");
     return { success: true };
   } catch (error) {
     return { error: safeMetaOperationError(error) };
@@ -190,8 +190,8 @@ export async function syncMetaAccounts(
       clientId: parsed.data.clientId,
       actorId: context.user.id,
     });
-    revalidatePath("/dashboard/integracoes");
-    revalidatePath("/dashboard/clientes");
+    revalidatePath("/integracoes");
+    revalidatePath("/clientes");
     return { success: true, accountCount: result.accountCount };
   } catch (error) {
     return { error: safeMetaOperationError(error) };
@@ -255,8 +255,8 @@ export async function collectClientMetaData(
       until: dateTo,
       forceRefresh: parsed.data.forceRefresh,
     });
-    revalidatePath("/dashboard/clientes");
-    revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
+    revalidatePath("/clientes");
+    revalidatePath(`/clientes/${parsed.data.clientId}`);
     revalidatePath(`/cliente/${parsed.data.clientId}`);
     if (result.failures.length) {
       return {

@@ -41,5 +41,5 @@ it("arquivamento preserva registro e revalida páginas após persistir", async (
   expect(await setClientArchived({ id, agencyId, archived: true })).toEqual({ client: row });
   expect(query.eq).toHaveBeenCalledWith("agency_id", agencyId);
   expect(query.update).toHaveBeenCalledWith({ archived_at: expect.any(String) });
-  expect(mocks.revalidate).toHaveBeenCalledWith("/dashboard/clientes");
+  expect(mocks.revalidate).toHaveBeenCalledWith("/clientes");
 });

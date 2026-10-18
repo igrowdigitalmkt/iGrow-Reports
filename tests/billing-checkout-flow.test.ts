@@ -124,7 +124,7 @@ describe("início da contratação (servidor)", () => {
     expect(result).toEqual({ status: "redirect", url: "https://sandbox.asaas.com/checkoutSession/show?id=chk_123456", reused: false });
     expect(asaas.createCustomer.mock.calls[0][0]).toMatchObject({ name: "Empresa Teste LTDA", cpfCnpj: "11222333000181", email: "cobranca@example.test", phone: "4738010919", postalCode: "89223005", externalReference: "agency-A" });
     expect(asaas.createCheckout).toHaveBeenCalledTimes(1);
-    expect(asaas.createCheckout.mock.calls[0][0]).toMatchObject({ valueCents: 4990, cycle: "monthly", successUrl: "https://teste.example.com/dashboard/assinatura/retorno?e=ok", cancelUrl: "https://teste.example.com/dashboard/assinatura/retorno?e=cancelado", expiredUrl: "https://teste.example.com/dashboard/assinatura/retorno?e=expirado" });
+    expect(asaas.createCheckout.mock.calls[0][0]).toMatchObject({ valueCents: 4990, cycle: "monthly", successUrl: "https://teste.example.com/assinatura/retorno?e=ok", cancelUrl: "https://teste.example.com/assinatura/retorno?e=cancelado", expiredUrl: "https://teste.example.com/assinatura/retorno?e=expirado" });
   });
   it("o valor cobrado é o do BANCO: preço, valor ou plano enviados pelo navegador são ignorados", async () => {
     const f = standard({ billing_create_intent: () => intent({ amount_cents: 4990 }) });
@@ -233,7 +233,7 @@ describe("início da contratação (servidor)", () => {
   });
   it("URLs de retorno usam só a origem configurada e caminhos fixos", () => {
     expect(buildReturnUrls("https://app.exemplo.com/qualquer/coisa?x=1")).toEqual({
-      successUrl: "https://app.exemplo.com/dashboard/assinatura/retorno?e=ok", cancelUrl: "https://app.exemplo.com/dashboard/assinatura/retorno?e=cancelado", expiredUrl: "https://app.exemplo.com/dashboard/assinatura/retorno?e=expirado",
+      successUrl: "https://app.exemplo.com/assinatura/retorno?e=ok", cancelUrl: "https://app.exemplo.com/assinatura/retorno?e=cancelado", expiredUrl: "https://app.exemplo.com/assinatura/retorno?e=expirado",
     });
   });
   it("nenhum dado pessoal vai para os registros de falha", async () => {

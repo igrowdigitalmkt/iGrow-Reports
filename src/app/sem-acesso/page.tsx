@@ -13,7 +13,7 @@ export default async function NoAccessPage() {
   const { supabase, user } = await requireUserSession();
   await acceptPendingAgencyInvitations(supabase);
   const memberships = await getUserMemberships(supabase, user.id);
-  if (memberships.length > 0) redirect("/dashboard");
+  if (memberships.length > 0) redirect("/");
   // Client portal users have no agency membership; send them to their area.
   await acceptPendingClientInvitations(supabase);
   if ((await getClientPortalAccesses(supabase).catch(() => [])).length > 0) redirect("/cliente");

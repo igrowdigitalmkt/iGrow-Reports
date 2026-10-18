@@ -78,8 +78,8 @@ export async function establishLinkSessionAction(input: unknown): Promise<{ erro
   await acceptPendingAgencyInvitations(supabase);
   (await cookies()).delete(AGENCY_COOKIE);
   const setup = parsed.data.type === "invite" || parsed.data.type === "recovery" || needsPasswordSetup(data?.user);
-  const next = parsed.data.next ? safeRedirect(parsed.data.next) : "/dashboard";
-  return { redirectTo: setup ? `/auth/definir-senha${next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : ""}` : next };
+  const next = parsed.data.next ? safeRedirect(parsed.data.next) : "/";
+  return { redirectTo: setup ? `/auth/definir-senha${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}` : next };
 }
 
 export async function acceptInvitationAction(_state: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -92,7 +92,7 @@ export async function acceptInvitationAction(_state: AuthActionState, formData: 
     httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 30,
   });
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect("/");
 }
 
 async function requestOrigin() {
@@ -165,5 +165,5 @@ export async function createOwnWorkspaceAction(_state: AuthActionState, formData
     httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 30,
   });
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect("/");
 }

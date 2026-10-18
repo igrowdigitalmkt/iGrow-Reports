@@ -99,7 +99,7 @@ export async function saveAutomationAction(input: unknown) {
   const inserted = await context.supabase.from("report_automation_targets").insert(targets);
   if (inserted.error) return { error: "O agendamento foi salvo, mas não foi possível gravar os destinatários." };
 
-  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/agendamentos");
   return { success: true as const, id: automationId, nextRunAt: row.next_run_at };
 }
 
@@ -115,7 +115,7 @@ export async function setAutomationActiveAction(input: unknown) {
   const { error } = await context.supabase.from("report_automations").update({ active: parsed.data.active, next_run_at: next?.toISOString() ?? null, updated_at: new Date().toISOString() })
     .eq("agency_id", context.agency.id).eq("id", parsed.data.id);
   if (error) return { error: planRestrictionMessage(error) ?? "Não foi possível alterar o agendamento." };
-  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/agendamentos");
   return { success: true as const, nextRunAt: next?.toISOString() ?? null };
 }
 
@@ -126,7 +126,7 @@ export async function deleteAutomationAction(input: unknown) {
   if (context.role === "viewer") return denied;
   const { error } = await context.supabase.from("report_automations").delete().eq("agency_id", context.agency.id).eq("id", parsed.data.id);
   if (error) return { error: "Não foi possível excluir o agendamento." };
-  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/agendamentos");
   return { success: true as const };
 }
 
@@ -162,8 +162,8 @@ export async function sendAutomationNowAction(input: unknown) {
     sendOfficialPdf,
     appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null,
   });
-  revalidatePath("/dashboard/agendamentos");
-  revalidatePath("/dashboard/relatorios/entregas");
+  revalidatePath("/agendamentos");
+  revalidatePath("/relatorios/entregas");
   if (!outcome) return { error: "Já existe um envio em andamento para este agendamento. Tente de novo em instantes." };
   return { success: true as const, ...outcome };
 }
@@ -187,8 +187,8 @@ export async function approveAutomationRunAction(input: unknown) {
     appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null,
     approval: { runId: run.id, aiText: parsed.data.text },
   });
-  revalidatePath("/dashboard/agendamentos");
-  revalidatePath("/dashboard/relatorios/entregas");
+  revalidatePath("/agendamentos");
+  revalidatePath("/relatorios/entregas");
   if (!outcome) return { error: "Este envio já foi aprovado ou descartado." };
   return { success: true as const, ...outcome };
 }
@@ -205,7 +205,7 @@ export async function discardAutomationRunAction(input: unknown) {
     .update({ status: "discarded", finished_at: new Date().toISOString() })
     .eq("agency_id", context.agency.id).eq("id", parsed.data.runId).eq("status", "awaiting_approval").select("id").maybeSingle();
   if (error || !data) return { error: "Este envio já foi aprovado, descartado ou não existe mais." };
-  revalidatePath("/dashboard/agendamentos");
-  revalidatePath("/dashboard/relatorios/entregas");
+  revalidatePath("/agendamentos");
+  revalidatePath("/relatorios/entregas");
   return { success: true as const };
 }

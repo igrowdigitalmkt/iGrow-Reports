@@ -7,8 +7,25 @@ import { invitationTokenSchema, passwordSchema } from "@/modules/auth/schemas";
 afterEach(() => vi.unstubAllEnvs());
 
 describe("destinos após autenticação", () => {
-  it.each(["https://evil.example", "//evil.example", "/\\evil.example", "/%2f%2fevil.example", "/%5cevil.example", "/dashboard%0d%0aLocation:https://evil.example", "/entrar", "javascript:alert(1)", "/%", undefined])("rejeita destino externo ou inválido %s", (value) => {
-    expect(safeRedirect(value)).toBe("/dashboard");
+  it.each(["https://evil.example", "//evil.example", "/\\evil.example", "/%2f%2fevil.example", "/%5cevil.example", "/dashboard%0d%0aLocation:https://evil.example", "/dashboard//evil.example", "/dashboard/%2f%2fevil.example", "/entrar", "javascript:alert(1)", "/%", "/%E0%A4%A", undefined])("rejeita destino externo ou inválido %s", (value) => {
+    expect(safeRedirect(value)).toBe("/");
+  });
+
+  it.each(["/", "/clientes", "/clientes/11111111-0000-4000-8000-000000000001", "/agendamentos", "/relatorios", "/relatorios/pdfs", "/integracoes", "/equipe", "/configuracoes", "/whatsapp", "/assinatura", "/assinatura/retorno?e=ok"])("permite a rota autenticada direta %s", (path) => {
+    expect(safeRedirect(path)).toBe(path);
+  });
+
+  it.each(["/whatsappexterno", "/clientes-outro", "/relatoriosprivados", "/dashboard-outro", "/api/whatsapp/inbox", "/privacidade", "/demo", "/desconhecido"])("não amplia a permissão para %s", (path) => {
+    expect(safeRedirect(path)).toBe("/");
+  });
+
+  it.each([
+    ["/dashboard?periodo=7d", "/?periodo=7d"],
+    ["/dashboard/whatsapp?conversa=abc&canal=qr", "/whatsapp?conversa=abc&canal=qr"],
+    ["/dashboard/clientes/abc?conta=a&conta=b", "/clientes/abc?conta=a&conta=b"],
+    ["/dashboard/assinatura/retorno?e=cancelado", "/assinatura/retorno?e=cancelado"],
+  ])("normaliza o destino antigo %s sem perder parâmetros", (legacy, current) => {
+    expect(safeRedirect(legacy)).toBe(current);
   });
 
   it("preserva convite interno após login", () => {

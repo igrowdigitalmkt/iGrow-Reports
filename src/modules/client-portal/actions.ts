@@ -58,7 +58,7 @@ export async function setClientPortalAccess(
     };
   }
 
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/clientes");
   return { success: true };
 }
 
@@ -93,10 +93,10 @@ export async function setClientPortalAccessByEmail(
     };
   }
 
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/clientes");
   revalidatePath("/cliente");
   revalidatePath(`/cliente/${parsed.data.clientId}`);
-  revalidatePath(`/dashboard/clientes/${parsed.data.clientId}`);
+  revalidatePath(`/clientes/${parsed.data.clientId}`);
   return { success: true, userId: data };
 }
 
@@ -171,7 +171,7 @@ export async function inviteClientPortalUser(input: unknown): Promise<ClientPort
     return { error: "Não foi possível enviar o e-mail do convite. Tente novamente em alguns minutos." };
   }
 
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/clientes");
   const now = new Date();
   return { success: true, status, invitation: { id: row.invitation_id, email: parsed.data.email,
     createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 7 * 86_400_000).toISOString() } };
@@ -184,6 +184,6 @@ export async function revokeClientPortalInvitation(input: unknown): Promise<Clie
   if (!parsed.success || parsed.data.agencyId !== context.agency.id) return { error: "Solicitação inválida. Atualize a página e tente novamente." };
   const { error } = await context.supabase.rpc("revoke_client_portal_invitation", { p_agency_id: context.agency.id, p_invitation_id: parsed.data.invitationId });
   if (error) return { error: "Não foi possível cancelar o convite. Atualize a página e tente novamente." };
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/clientes");
   return { success: true };
 }

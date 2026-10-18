@@ -29,12 +29,12 @@ export function ClientPortalShell({
     <main className="client-portal">
       <header className="client-topbar">
         <div className="client-topbar-inner">
-          <Link href={agencyMode ? "/dashboard/clientes" : "/cliente"} aria-label="Groow Ads, Área do Cliente" className="client-brand-link">
+          <Link href={agencyMode ? "/clientes" : "/cliente"} aria-label="Groow Ads, Área do Cliente" className="client-brand-link">
             <Brand />
           </Link>
           <div className="client-topbar-actions">
             {agencyMode && (
-              <Link href="/dashboard/clientes" className="client-topbar-link">
+              <Link href="/clientes" className="client-topbar-link">
                 <ArrowLeft size={14} /> Voltar aos clientes
               </Link>
             )}

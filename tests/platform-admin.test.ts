@@ -155,7 +155,7 @@ describe("redirecionamento após o login", () => {
   it("permite voltar para /admin, mas não para destinos externos", () => {
     expect(safeRedirect("/admin")).toBe("/admin");
     expect(safeRedirect("/admin/mfa")).toBe("/admin/mfa");
-    expect(safeRedirect("//evil.test/admin")).toBe("/dashboard");
-    expect(safeRedirect("/administrador")).toBe("/dashboard");
+    expect(safeRedirect("//evil.test/admin")).toBe("/");
+    expect(safeRedirect("/administrador")).toBe("/");
   });
 });

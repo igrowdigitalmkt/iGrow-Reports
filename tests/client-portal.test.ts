@@ -56,7 +56,7 @@ it("usa a agência autenticada ao conceder acesso", async () => {
     p_user_id: userId,
     p_active: true,
   });
-  expect(mocks.revalidate).toHaveBeenCalledWith("/dashboard/clientes");
+  expect(mocks.revalidate).toHaveBeenCalledWith("/clientes");
 });
 
 it("não expõe detalhes internos do banco quando a RPC falha", async () => {
@@ -83,7 +83,7 @@ it("concede acesso administrativo pelo email confirmado", async () => {
     p_email: "Cliente@Empresa.com",
     p_active: true,
   });
-  expect(mocks.revalidate).toHaveBeenCalledWith("/dashboard/clientes");
+  expect(mocks.revalidate).toHaveBeenCalledWith("/clientes");
 });
 
 it("restringe gestão por email a proprietário e administrador", async () => {

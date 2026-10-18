@@ -37,7 +37,7 @@ export async function saveRecipient(input: unknown): Promise<RecipientResult> {
   if (value.agencyId !== context.agency.id) return { error: "O espaço de trabalho mudou. Atualize a página." };
   const { error } = await context.supabase.rpc("save_client_recipient", { p_agency_id: context.agency.id, p_client_id: value.clientId, p_id: value.id, p_name: value.name, p_phone: value.phone, p_active: value.active });
   if (error) return { error: error.code === "23505" ? "Este telefone já está cadastrado para o cliente." : "Não foi possível salvar. Confira seu acesso e se o cliente está ativo." };
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/clientes");
   return loadRecipients(value);
 }
 
@@ -54,6 +54,6 @@ export async function recordRecipientConsent(input: unknown): Promise<RecipientR
   if (parsed.data.agencyId !== context.agency.id) return { error: "O espaço de trabalho mudou. Atualize a página." };
   const { error } = await context.supabase.rpc("set_recipient_consent", { p_agency_id: context.agency.id, p_client_id: parsed.data.clientId, p_recipient_id: parsed.data.id, p_phone: parsed.data.phone, p_granted: consent.data.granted, p_source: consent.data.source, p_occurred_at: consent.data.occurredAt && Date.parse(consent.data.occurredAt) > Date.now() ? new Date().toISOString() : consent.data.occurredAt });
   if (error) return { error: "Registro recusado. Atualize os dados e confira se a autorização é posterior ao último descadastro e o destinatário está ativo." };
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/clientes");
   return loadRecipients(parsed.data);
 }

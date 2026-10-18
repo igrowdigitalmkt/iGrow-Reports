@@ -24,12 +24,12 @@ function queryString(query: ClientAnalyticsQuery) {
   return value ? `?${value}` : "";
 }
 
-// Shared by /dashboard/clientes/[clientId] (agency, inside the workspace shell)
+// Shared by /clientes/[clientId] (agency, inside the workspace shell)
 // and /cliente/[clientId] (client users, inside the client area).
 export async function ClientAnalyticsScreen({ clientId, query, frame }: { clientId: string; query: ClientAnalyticsQuery; frame: "workspace" | "portal" }) {
   const { supabase, user, access, accesses, agencyMode, canCollect, canManageReports } = await requireClientDashboardAccess(clientId);
   // Agency members work inside the workspace shell; client users keep the client area.
-  if (frame === "portal" && agencyMode) redirect(`/dashboard/clientes/${clientId}${queryString(query)}`);
+  if (frame === "portal" && agencyMode) redirect(`/clientes/${clientId}${queryString(query)}`);
   if (frame === "workspace" && !agencyMode) redirect(`/cliente/${clientId}${queryString(query)}`);
   const { data: context } = await supabase.rpc("get_client_portal_data_context", { p_client_id: clientId }).single();
   const timezone = context?.timezone_name ?? "America/Sao_Paulo";

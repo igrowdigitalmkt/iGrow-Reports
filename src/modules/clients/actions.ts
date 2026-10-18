@@ -20,8 +20,8 @@ export async function saveClient(input: unknown): Promise<ClientResult> {
     : context.supabase.from("clients").insert({ agency_id: context.agency.id, name, notes: notes || null });
   const { data, error } = await query.select(fields).maybeSingle();
   if (error || !data) return { error: planRestrictionMessage(error) ?? "Não foi possível salvar. O cliente pode ter sido arquivado ou seu acesso alterado. Atualize e tente novamente." };
-  revalidatePath("/dashboard", "page");
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/", "page");
+  revalidatePath("/clientes");
   return { client: data };
 }
 
@@ -35,7 +35,7 @@ export async function setClientArchived(input: unknown): Promise<ClientResult> {
     .update({ archived_at: parsed.data.archived ? new Date().toISOString() : null })
     .eq("agency_id", context.agency.id).eq("id", parsed.data.id).select(fields).maybeSingle();
   if (error || !data) return { error: "Não foi possível alterar este cliente. Atualize a página e confira seu acesso." };
-  revalidatePath("/dashboard", "page");
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/", "page");
+  revalidatePath("/clientes");
   return { client: data };
 }

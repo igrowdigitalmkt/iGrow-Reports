@@ -22,7 +22,7 @@ export async function connectWhatsAppAction(input: unknown) {
   if (!canManageAgency(context.role)) return { error: "Apenas proprietários e administradores podem conectar o WhatsApp." };
   try {
     const result = await connectWhatsApp({ agencyId: context.agency.id, ...parsed.data });
-    revalidatePath("/dashboard/integracoes");
+    revalidatePath("/integracoes");
     return { success: true as const, ...result };
   } catch (error) { return failure(error, "Não foi possível conectar o WhatsApp agora."); }
 }
@@ -44,7 +44,7 @@ export async function selectWhatsAppTemplateAction(input: unknown) {
   if (!canManageAgency(context.role)) return { error: "Apenas proprietários e administradores podem alterar a mensagem modelo." };
   try {
     await selectWhatsAppTemplate(context.agency.id, parsed.data.connectionId ?? null, parsed.data.name, parsed.data.language);
-    revalidatePath("/dashboard/integracoes");
+    revalidatePath("/integracoes");
     return { success: true as const };
   } catch (error) { return failure(error, "Não foi possível salvar a mensagem modelo."); }
 }
@@ -60,7 +60,7 @@ export async function connectWhatsAppEmbeddedAction(input: unknown) {
   if (!canManageAgency(context.role)) return { error: "Apenas proprietários e administradores podem conectar o WhatsApp." };
   try {
     const result = await connectWhatsAppEmbedded({ agencyId: context.agency.id, appId: whatsAppAppId(META_LOGIN_APP_ID), ...parsed.data });
-    revalidatePath("/dashboard/integracoes");
+    revalidatePath("/integracoes");
     return { success: true as const, ...result };
   } catch (error) { return failure(error, "Não foi possível conectar o WhatsApp agora."); }
 }
@@ -72,7 +72,7 @@ export async function renameWhatsAppNumberAction(input: unknown) {
   if (!canManageAgency(context.role)) return { error: "Apenas proprietários e administradores podem alterar os números." };
   try {
     await renameWhatsAppNumber(context.agency.id, parsed.data.connectionId, parsed.data.label || null);
-    revalidatePath("/dashboard/integracoes");
+    revalidatePath("/integracoes");
     return { success: true as const };
   } catch (error) { return failure(error, "Não foi possível renomear o número."); }
 }
@@ -84,8 +84,8 @@ export async function removeWhatsAppNumberAction(input: unknown) {
   if (!canManageAgency(context.role)) return { error: "Apenas proprietários e administradores podem remover números." };
   try {
     await removeWhatsAppNumber(context.agency.id, parsed.data.connectionId);
-    revalidatePath("/dashboard/integracoes");
-    revalidatePath("/dashboard/agendamentos");
+    revalidatePath("/integracoes");
+    revalidatePath("/agendamentos");
     return { success: true as const };
   } catch (error) { return failure(error, "Não foi possível remover o número."); }
 }

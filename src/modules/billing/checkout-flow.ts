@@ -20,7 +20,7 @@ export function buildReturnUrls(origin: string | null | undefined): CheckoutUrls
   try {
     const base = new URL(String(origin));
     if (!["https:", "http:"].includes(base.protocol)) return null;
-    const url = (hint: "ok" | "cancelado" | "expirado") => `${base.origin}/dashboard/assinatura/retorno?e=${hint}`;
+    const url = (hint: "ok" | "cancelado" | "expirado") => `${base.origin}/assinatura/retorno?e=${hint}`;
     return { successUrl: url("ok"), cancelUrl: url("cancelado"), expiredUrl: url("expirado") };
   } catch { return null; }
 }

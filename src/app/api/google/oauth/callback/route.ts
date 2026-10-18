@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 // Retorno do Google: confere quem iniciou a conexão, troca o código pelo token de renovação e guarda cifrado.
 export async function GET(request: NextRequest) {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;
-  const back = (status: string) => NextResponse.redirect(new URL(`/dashboard/integracoes?google=${status}`, base));
+  const back = (status: string) => NextResponse.redirect(new URL(`/integracoes?google=${status}`, base));
   const context = await requireAgencyContext();
   const config = googleAdsAppConfig();
   const redirectUri = googleRedirectUri();

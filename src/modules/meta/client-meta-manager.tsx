@@ -159,7 +159,7 @@ export function ClientMetaManager({
               </p>
               {!connected && ready && !archived && (
                 <Button asChild className="mt-4">
-                  <Link href={`/dashboard/integracoes?client=${encodeURIComponent(clientId)}`}>
+                  <Link href={`/integracoes?client=${encodeURIComponent(clientId)}`}>
                     Conectar Meta deste cliente <ArrowRight size={14} />
                   </Link>
                 </Button>

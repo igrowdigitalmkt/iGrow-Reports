@@ -36,9 +36,9 @@ await paid("WhatsApp: relatório em PDF", () => call("POST", "/api/whatsapp/send
 await paid("Meta ao vivo: saldo das contas", () => call("GET", `/api/clientes/${clientId}/billing`));
 await paid("Meta ao vivo: audiência", () => call("GET", `/api/clientes/${clientId}/audiencia?from=2026-09-01&to=2026-09-30`));
 await read("Leitura: lista de conversas", "GET", "/api/whatsapp/inbox");
-await read("Leitura: área de assinatura", "GET", "/dashboard/assinatura");
-await read("Leitura: painel do cliente (histórico)", "GET", `/dashboard/clientes/${clientId}`);
-await read("Leitura: visão geral", "GET", "/dashboard");
+await read("Leitura: área de assinatura", "GET", "/assinatura");
+await read("Leitura: painel do cliente (histórico)", "GET", `/clientes/${clientId}`);
+await read("Leitura: visão geral", "GET", "/");
 if (otherClientId) {
   const r = await call("GET", `/api/clientes/${otherClientId}/billing`);
   results.push({ label: "Isolamento: cliente de OUTRA organização", kind: "isolamento", ...r, ok: r.status !== 200 && r.code !== "billing_restricted" ? true : r.status !== 200 });

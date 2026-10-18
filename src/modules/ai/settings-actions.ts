@@ -54,7 +54,7 @@ export async function saveAiSettings(input: unknown): Promise<AiSettingsResult> 
     updated_by: context.user.id, updated_at: new Date().toISOString(),
   }, { onConflict: "agency_id" });
   if (error) return { error: "Não foi possível salvar. Confira seu acesso e tente novamente." };
-  revalidatePath("/dashboard/configuracoes");
+  revalidatePath("/configuracoes");
   return loadView(context);
 }
 

@@ -12,7 +12,7 @@ export default async function CreateWorkspacePage({ searchParams }: { searchPara
   const { supabase, user } = await requireUserSession("/criar-espaco");
   const { novo } = await searchParams;
   const memberships = await getUserMemberships(supabase, user.id);
-  if (memberships.length > 0 && novo !== "1") redirect("/dashboard");
+  if (memberships.length > 0 && novo !== "1") redirect("/");
   const metadata = user.user_metadata as { pending_agency_name?: string | null; full_name?: string | null } | undefined;
   return <AuthShell>
     <p className="text-xs font-medium uppercase tracking-[0.16em] text-blue-400">Último passo</p>

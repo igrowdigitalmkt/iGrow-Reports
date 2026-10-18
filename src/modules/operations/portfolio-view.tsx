@@ -99,7 +99,7 @@ export function PortfolioView({ summary, base, demo = false }: { summary: Portfo
   }
   const allResults = [...totals.values()].sort((a, b) => b.value - a.value);
   const sorted = [...rows].sort((a, b) => (b.spend ?? -1) - (a.spend ?? -1));
-  const clientHref = (id: string) => demo ? `${base}/clientes` : `/dashboard/clientes/${id}`;
+  const clientHref = (id: string) => demo ? `${base}/clientes` : `/clientes/${id}`;
 
   return <>
     {!demo && summary.aiAgencyId && summary.period && rows.length > 0 && <PortfolioAiSummary agencyId={summary.aiAgencyId} period={summary.period} />}

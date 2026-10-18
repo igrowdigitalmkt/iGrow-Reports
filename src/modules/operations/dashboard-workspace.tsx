@@ -51,7 +51,7 @@ export function DashboardWorkspace({ portfolio, whatsapp = [], whatsappReadiness
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
   const { theme, setTheme } = useTheme();
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
-  const base = demo ? "/demo" : "/dashboard";
+  const base = demo ? "/demo" : "";
   const data = demo ? getDemoSnapshot("30d") : emptySnapshot(activeClients);
   const matchingReports = data.reports.filter(report => `${report.client} ${report.type} ${report.id}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")) && (status === "Todos os estados" || report.status === status));
   const reportTab = isReportTab(section);
@@ -59,7 +59,7 @@ export function DashboardWorkspace({ portfolio, whatsapp = [], whatsappReadiness
 
   return <>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .18 }}>
-      {section !== "whatsapp" && <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · todo o trabalho com os clientes no período`}</p></div><div className="heading-actions">{!section && <nav className="segmented" aria-label="Período da visão geral">{([["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"]] as const).map(([key, label]) => <Link key={key} href={key === "30d" ? base : `${base}?periodo=${key}`} aria-current={(demo ? "30d" : overviewPeriod) === key ? "page" : undefined} className="segmented-link" scroll={false}>{label}</Link>)}</nav>}</div></div>}
+      {section !== "whatsapp" && <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · todo o trabalho com os clientes no período`}</p></div><div className="heading-actions">{!section && <nav className="segmented" aria-label="Período da visão geral">{([["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"]] as const).map(([key, label]) => <Link key={key} href={key === "30d" ? base || "/" : `${base || "/"}?periodo=${key}`} aria-current={(demo ? "30d" : overviewPeriod) === key ? "page" : undefined} className="segmented-link" scroll={false}>{label}</Link>)}</nav>}</div></div>}
 
       {blocked ? <section className="panel empty-state"><ShieldCheck size={22} /><h3>Área não liberada para você</h3><p>O acesso a esta área foi limitado por um proprietário ou administrador do espaço de trabalho. Peça a liberação em Equipe.</p></section> : <>
       {!section && (demo ? <PortfolioView summary={demoPortfolio} base={base} demo /> : portfolio)}

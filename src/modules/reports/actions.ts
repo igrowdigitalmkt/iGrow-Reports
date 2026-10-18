@@ -169,7 +169,7 @@ export async function generateManualReport(
     };
   }
 
-  revalidatePath("/dashboard/relatorios/pdfs");
+  revalidatePath("/relatorios/pdfs");
   return {
     success: true,
     reportVersionId: data,
@@ -215,7 +215,7 @@ export async function publishReportVersion(
     };
   }
 
-  revalidatePath("/dashboard/relatorios/pdfs");
+  revalidatePath("/relatorios/pdfs");
   revalidatePath("/cliente");
   return { success: true };
 }

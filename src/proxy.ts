@@ -5,6 +5,8 @@ import { gateAdminRequest } from "@/modules/platform-admin/proxy-gate";
 import { isAuthCookie } from "@/lib/supabase/constants";
 
 const isAdminPath = (path: string) => path === "/admin" || path.startsWith("/admin/");
+const workspacePaths = ["/clientes", "/agendamentos", "/relatorios", "/integracoes", "/equipe", "/configuracoes", "/whatsapp", "/assinatura", "/entregas", "/templates", "/dashboard"];
+const isWorkspacePath = (path: string) => path === "/" || workspacePaths.some(prefix => path === prefix || path.startsWith(`${prefix}/`));
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -16,7 +18,7 @@ export async function proxy(request: NextRequest) {
     });
     return NextResponse.next();
   }
-  if ((path === "/dashboard" || path.startsWith("/dashboard/") || path === "/cliente" || path.startsWith("/cliente/") || isAdminPath(path)) && !getSupabaseConfig()) {
+  if ((isWorkspacePath(path) || path === "/cliente" || path.startsWith("/cliente/") || isAdminPath(path)) && !getSupabaseConfig()) {
     const response = NextResponse.redirect(new URL("/entrar?estado=nao-configurado", request.url));
     response.headers.set("Cache-Control", "private, no-store");
     return response;
@@ -31,6 +33,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/demo/:path*", "/dashboard/:path*", "/cliente/:path*", "/admin/:path*", "/entrar", "/selecionar-espaco", "/selecionar-agencia", "/sem-acesso", "/convite", "/auth/:path*", "/criar-conta", "/recuperar-senha", "/criar-espaco"],
+  matcher: ["/", "/clientes/:path*", "/agendamentos/:path*", "/relatorios/:path*", "/integracoes/:path*", "/equipe/:path*", "/configuracoes/:path*", "/whatsapp/:path*", "/assinatura/:path*", "/entregas/:path*", "/templates/:path*", "/demo/:path*", "/dashboard/:path*", "/cliente/:path*", "/admin/:path*", "/entrar", "/selecionar-espaco", "/selecionar-agencia", "/sem-acesso", "/convite", "/auth/:path*", "/criar-conta", "/recuperar-senha", "/criar-espaco"],
 };
 

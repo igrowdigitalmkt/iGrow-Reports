@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
     if (!error) {
       await acceptPendingClientInvitations(supabase);
-      destination = needsPasswordSetup(data?.user) ? "/auth/definir-senha" : "/dashboard";
+      destination = needsPasswordSetup(data?.user) ? "/auth/definir-senha" : "/";
     }
   }
   return new NextResponse(null, { status: 303, headers: { Location: destination, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });

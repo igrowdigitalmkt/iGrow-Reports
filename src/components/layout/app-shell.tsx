@@ -46,7 +46,7 @@ const subscribeToHydration = () => () => {};
 const initialsOf = (value: string) => value.split(/[ @._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
 export function AppShell({ demo, identity, initialCollapsed = false, clientCount, whatsappUnread, workspaceCount = 1, hiddenKeys = [], children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; whatsappUnread?: number; workspaceCount?: number; hiddenKeys?: string[]; children: ReactNode }) {
-  const base = demo ? "/demo" : "/dashboard";
+  const base = demo ? "/demo" : "";
   const pathname = usePathname();
   const segments = pathname.replace(base, "").split("/").filter(Boolean);
   const activeKey = segments[0] ?? "";
@@ -66,7 +66,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   const themeLabel = !hydrated ? "Mudar tema" : dark ? "Mudar para o tema claro" : "Mudar para o tema escuro";
   const toggleLabel = mobile ? (drawerOpen ? "Fechar menu" : "Abrir menu") : (collapsed ? "Expandir menu" : "Recolher menu");
   const initials = initialsOf(identity.userName) || "IG";
-  const href = (key: string) => `${base}${key ? `/${key}` : ""}`;
+  const href = (key: string) => key ? `${base}/${key}` : base || "/";
 
   const toggleSidebar = useCallback(() => {
     if (window.matchMedia(MOBILE_QUERY).matches) { setDrawerOpen(open => !open); return; }
@@ -126,7 +126,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
       <Suspense fallback={null}><NavigationProgress /></Suspense>
       <aside className="sidebar" aria-label="Menu lateral" onMouseOver={showTooltip} onMouseLeave={() => setTooltip(null)} onFocus={showTooltip} onBlur={() => setTooltip(null)}>
         <div className="sidebar-head">
-          <Link href={base} aria-label="Groow Ads, visão geral" className="brand-link"><Brand /></Link>
+          <Link href={href("")} aria-label="Groow Ads, visão geral" className="brand-link"><Brand /></Link>
         </div>
         {/* Switching only makes sense for people in more than one workspace (e.g. a freelancer for several agencies). */}
         {workspaceCount > 1 ? <Link className="agency-switch" href={demo ? "/demo/configuracoes" : "/selecionar-espaco"} data-tip={`${identity.agencyName} · trocar espaço`} aria-label={`Espaço de trabalho: ${identity.agencyName}. Trocar espaço`}>

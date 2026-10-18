@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 // Inicia a conexão com o Google Ads: só dono e administrador, e só com as credenciais do aplicativo configuradas.
 export async function GET() {
   const context = await requireAgencyContext();
-  const back = (status: string) => NextResponse.redirect(new URL(`/dashboard/integracoes?google=${status}`, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"));
+  const back = (status: string) => NextResponse.redirect(new URL(`/integracoes?google=${status}`, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"));
   if (context.role !== "owner" && context.role !== "admin") return back("sem-permissao");
   const config = googleAdsAppConfig();
   const redirectUri = googleRedirectUri();

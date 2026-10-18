@@ -23,8 +23,8 @@ try {
   assert.ok(ready, "Servidor de produção precisa responder.");
   assert.equal((await fetch(`${origin}/api/health`)).status, 503, "Sem credenciais, health deve informar configuração incompleta.");
   assert.equal((await fetch(`${origin}/demo`)).status, 404, "Demonstração desabilitada precisa retornar 404.");
-  const protectedPage = await fetch(`${origin}/dashboard`, { redirect: "manual" });
-  assert.equal(protectedPage.status, 307, "Dashboard exige contexto autenticado.");
+  const protectedPage = await fetch(`${origin}/`, { redirect: "manual" });
+  assert.equal(protectedPage.status, 307, "Visão geral exige contexto autenticado.");
   assert.equal(new URL(protectedPage.headers.get("location"), origin).pathname, "/entrar");
   assert.match(protectedPage.headers.get("cache-control"), /no-store/);
   for (const [path, method] of [["/api/workers/meta", "POST"], ["/api/workers/meta/health", "GET"]]) {

@@ -27,6 +27,6 @@ export async function savePdfLayoutSetting(input: unknown): Promise<PdfLayoutRes
     agency_id: context.agency.id, pdf_layout: parsed.data.layout, updated_by: context.user.id, updated_at: new Date().toISOString(),
   }, { onConflict: "agency_id" });
   if (error) return { error: "Não foi possível salvar. Confira seu acesso e tente novamente." };
-  revalidatePath("/dashboard/configuracoes");
+  revalidatePath("/configuracoes");
   return { layout: parsed.data.layout };
 }

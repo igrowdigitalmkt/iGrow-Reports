@@ -24,21 +24,18 @@ import { loadOwnModules, loadTeam } from "@/modules/team/admin";
 import { canOpenSection } from "@/modules/team/permissions";
 import { legacyRedirect, SECTION_ROUTES } from "@/modules/operations/routes";
 
-export const dynamic = "force-dynamic";
-export const maxDuration = 300;
-
-export default async function DashboardPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ section?: string[] }>;
+export type WorkspacePageProps = {
   searchParams: Promise<{ client?: string; clientId?: string; from?: string; to?: string; periodo?: string; cliente?: string }>;
-}) {
+};
+
+export default async function WorkspacePage({
+  section = [],
+  searchParams,
+}: WorkspacePageProps & { section?: string[] }) {
   const context = await requireAgencyContext();
-  const { section = [] } = await params;
   const query = await searchParams;
   const path = section.join("/");
-  const legacy = legacyRedirect("/dashboard", path, query);
+  const legacy = legacyRedirect("", path, query);
   if (legacy) redirect(legacy);
   const key = SECTION_ROUTES[path];
   if (key === undefined) notFound();
@@ -94,5 +91,5 @@ export default async function DashboardPage({
 
 async function Portfolio({ supabase, clients, meta, reportsGenerated, period, aiAgencyId }: { supabase: SupabaseClient<Database>; clients: ClientItem[]; meta: MetaAdminSnapshot | undefined; reportsGenerated: number | null; period: PortfolioPeriod; aiAgencyId?: string }) {
   const rows = await loadPortfolioRows(supabase, clients, meta, period);
-  return <PortfolioView base="/dashboard" summary={{ rows, reportsGenerated, period, aiAgencyId, periodLabel: PORTFOLIO_PERIODS.find(item => item.key === period)?.label ?? "Últimos 30 dias" }} />;
+  return <PortfolioView base="" summary={{ rows, reportsGenerated, period, aiAgencyId, periodLabel: PORTFOLIO_PERIODS.find(item => item.key === period)?.label ?? "Últimos 30 dias" }} />;
 }

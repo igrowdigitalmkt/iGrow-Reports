@@ -17,7 +17,7 @@ async function removeOldPhotos(supabase: Awaited<ReturnType<typeof requireUserSe
 export async function updateProfileAction(formData: FormData) {
   const name = z.string().trim().min(2, "Informe seu nome com pelo menos 2 letras.").max(120).safeParse(formData.get("name"));
   if (!name.success) return { error: name.error.issues[0].message };
-  const { supabase, user } = await requireUserSession("/dashboard/configuracoes");
+  const { supabase, user } = await requireUserSession("/configuracoes");
   const file = formData.get("photo");
   let avatarUrl: string | undefined;
   if (file instanceof Blob && file.size > 0) {
@@ -32,15 +32,15 @@ export async function updateProfileAction(formData: FormData) {
   }
   const { error } = await supabase.auth.updateUser({ data: { full_name: name.data, ...(avatarUrl ? { avatar_url: avatarUrl } : {}) } });
   if (error) return { error: "Não foi possível salvar o perfil." };
-  revalidatePath("/dashboard", "layout");
+  revalidatePath("/(workspace)", "layout");
   return { success: true as const, avatarUrl: avatarUrl ?? null };
 }
 
 export async function removeAvatarAction() {
-  const { supabase, user } = await requireUserSession("/dashboard/configuracoes");
+  const { supabase, user } = await requireUserSession("/configuracoes");
   await removeOldPhotos(supabase, user.id);
   const { error } = await supabase.auth.updateUser({ data: { avatar_url: null } });
   if (error) return { error: "Não foi possível remover a foto." };
-  revalidatePath("/dashboard", "layout");
+  revalidatePath("/(workspace)", "layout");
   return { success: true as const };
 }

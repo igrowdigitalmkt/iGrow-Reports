@@ -31,6 +31,6 @@ export async function saveClientProfile(input: unknown): Promise<ProfileResult> 
     updated_by: context.user.id, updated_at: new Date().toISOString(),
   }, { onConflict: "client_id" }).select(columns).maybeSingle();
   if (error || !data) return { error: "Não foi possível salvar o perfil. Confira seu acesso e tente novamente." };
-  revalidatePath("/dashboard/clientes");
+  revalidatePath("/clientes");
   return { profile: { ...EMPTY_PROFILE, ...(data as unknown as Partial<ClientProfile>) } };
 }

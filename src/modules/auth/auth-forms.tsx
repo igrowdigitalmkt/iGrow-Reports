@@ -25,7 +25,7 @@ function GoogleIcon() {
 }
 
 /** "Entrar com Google" with the "ou" divider above it. */
-export function GoogleButton({ configured, next = "/dashboard", label = "Entrar com Google" }: { configured: boolean; next?: string; label?: string }) {
+export function GoogleButton({ configured, next = "/", label = "Entrar com Google" }: { configured: boolean; next?: string; label?: string }) {
   return <form action={googleSignInAction} className="mt-5">
     <input type="hidden" name="next" value={next} />
     <div className="flex items-center gap-3 text-xs text-slate-500" aria-hidden="true"><span className="h-px flex-1 bg-white/10" />ou<span className="h-px flex-1 bg-white/10" /></div>
@@ -102,7 +102,7 @@ export function CreateWorkspaceForm({ suggestion }: { suggestion: string }) {
   </form>;
 }
 
-export function SetPasswordForm({ next = "/dashboard" }: { next?: string }) {
+export function SetPasswordForm({ next = "/" }: { next?: string }) {
   const [state, action, pending] = useActionState(setPasswordAction, { error: null });
   return <form action={action} className="mt-7">
     <input type="hidden" name="next" value={next} />

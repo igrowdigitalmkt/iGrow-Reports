@@ -47,7 +47,7 @@ export async function inviteMemberAction(input: unknown) {
       emailed = !otp.error;
     }
   }
-  revalidatePath("/dashboard/equipe");
+  revalidatePath("/equipe");
   return { success: true as const, link, emailed, expiresAt: row.expires_at };
 }
 
@@ -59,7 +59,7 @@ export async function setMemberRoleAction(input: unknown) {
   const { error } = await context.supabase.rpc("set_agency_member_role", { p_agency_id: context.agency.id, p_user_id: parsed.data.userId, p_role: parsed.data.role });
   if (error?.code === "23514") return { error: "O espaço de trabalho precisa manter pelo menos um proprietário." };
   if (error) return { error: error.code === "42501" ? "Somente proprietários gerenciam proprietários." : "Não foi possível alterar o papel." };
-  revalidatePath("/dashboard/equipe");
+  revalidatePath("/equipe");
   return { success: true as const };
 }
 
@@ -72,7 +72,7 @@ export async function setMemberModulesAction(input: unknown) {
   const modules = parsed.data.modules && parsed.data.modules.length === MODULES.length ? null : parsed.data.modules;
   const { error } = await context.supabase.rpc("set_agency_member_modules", { p_agency_id: context.agency.id, p_user_id: parsed.data.userId, p_modules: modules });
   if (error) return { error: error.code === "22023" ? "Proprietários e administradores têm acesso a tudo." : "Não foi possível salvar as permissões." };
-  revalidatePath("/dashboard/equipe");
+  revalidatePath("/equipe");
   return { success: true as const };
 }
 
@@ -85,7 +85,7 @@ export async function removeMemberAction(input: unknown) {
   const { error } = await context.supabase.rpc("remove_agency_member", { p_agency_id: context.agency.id, p_user_id: parsed.data.userId });
   if (error?.code === "23514") return { error: "O espaço de trabalho precisa manter pelo menos um proprietário." };
   if (error) return { error: "Não foi possível remover este membro." };
-  revalidatePath("/dashboard/equipe");
+  revalidatePath("/equipe");
   return { success: true as const };
 }
 
@@ -96,6 +96,6 @@ export async function revokeInvitationAction(input: unknown) {
   if (!canManageAgency(context.role)) return denied;
   const { error } = await context.supabase.rpc("revoke_agency_invitation", { p_invitation_id: parsed.data.id });
   if (error) return { error: "Não foi possível cancelar o convite." };
-  revalidatePath("/dashboard/equipe");
+  revalidatePath("/equipe");
   return { success: true as const };
 }
