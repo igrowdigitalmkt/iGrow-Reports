@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, BrainCircuit, Check, ChevronDown, CircleHelp, Menu, Pause, Play, Plus, ShieldCheck, Sparkles, Target, Workflow, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Clock3, Menu, Pause, Play, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
 import { DeviceShowcase, ProductShowcase, ProductTour } from "./sales-media";
 import styles from "./sales-page.module.css";
 
@@ -14,15 +14,29 @@ const plans = [
   { name: "Scale", description: "Para equipes com uma carteira maior de clientes.", monthly: 27990, yearly: 279900, clients: 60, accounts: 180, team: 6, automations: 60 },
 ];
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
-const navigation = [["A Groow por dentro", "#plataforma"], ["Nossa inteligência", "#inteligencia"], ["Planos", "#planos"], ["Dúvidas", "#duvidas"]];
+const navigation = [["O problema", "#problema"], ["Como funciona", "#como-funciona"], ["Produto", "#plataforma"], ["Planos", "#planos"], ["Dúvidas", "#duvidas"]];
+
+const chores = [
+  ["Abrir conta por conta para descobrir o que mudou.", "Antes de decidir qualquer coisa, você já gastou a primeira hora do dia."],
+  ["Copiar números e escrever a mesma análise, de novo.", "O relatório do mês toma o tempo que a estratégia pediria."],
+  ["Lembrar quem recebe o quê, e quando.", "Cada envio manual é mais um item na sua memória."],
+  ["Responder “como estão os anúncios?” a qualquer hora.", "O cliente quer clareza. Você precisa montá-la na hora."],
+];
+const steps = [
+  ["01", "Conte o seu negócio", "Oferta, público, região e objetivos entram uma vez no perfil do cliente. A inteligência deixa de começar do zero a cada análise.", "Disponível hoje", false],
+  ["02", "Conecte e defina o escopo", "Ligue as contas de anúncios e decida o que a Groow pode fazer sozinha e o que pede a sua aprovação.", "Contas: hoje · Escopos de ação: em desenvolvimento", true],
+  ["03", "A Groow trabalha. Você acompanha.", "Hoje: análises, relatórios e entregas agendadas. Em breve: criar, ajustar e corrigir campanhas dentro dos seus limites, com registro de cada ação.", "Execução em campanhas: em desenvolvimento", true],
+] as const;
+const available = ["Perfil do negócio que orienta a análise da IA", "Análises e resumos com IA, a partir dos dados das contas", "Relatórios em PDF prontos para o cliente", "Entregas agendadas pelo seu WhatsApp, com histórico", "Portal para o cliente consultar os próprios resultados"];
+const upcoming = ["Criar campanhas a partir dos objetivos do negócio", "Ajustar orçamentos dentro dos limites que você definir", "Pausar e reativar anúncios elegíveis", "Confirmar na plataforma que a ação foi aplicada", "Aprender com o histórico e acompanhar o resultado depois"];
 const questions = [
-  ["A IA já cria e otimiza campanhas sozinha?", "Ainda não. A criação, a pausa e os ajustes de orçamento por IA estão em desenvolvimento e não fazem parte dos recursos disponíveis nesta oferta. Nossa direção é permitir a execução delegada dentro dos objetivos e limites de cada negócio. Essa capacidade só será disponibilizada depois de implementada e validada nas plataformas de anúncios."],
-  ["O que a inteligência artificial já faz?", "A IA usa os dados das contas conectadas e o perfil do negócio para preparar análises: comentários de relatório, resumos para WhatsApp e resumo da carteira. Os números vêm dos dados da plataforma. Você pode revisar os textos; nos envios com análise por IA, existe uma etapa de aprovação."],
-  ["O que eu posso experimentar nos 7 dias grátis?", "Os recursos já disponíveis no teste: conectar contas, conhecer a análise dos anúncios, cadastrar o contexto dos clientes, preparar relatórios e configurar agendamentos. Os limites e recursos do teste ficam visíveis na plataforma. A execução autônoma de campanhas não está incluída."],
+  ["A IA já cria e otimiza campanhas sozinha?", "Ainda não. A criação, a pausa e os ajustes de orçamento por IA estão em desenvolvimento e não fazem parte dos recursos desta oferta. É a direção do produto: executar dentro dos objetivos e limites de cada negócio. Só será anunciada como disponível depois de implementada e validada nas plataformas de anúncios."],
+  ["O que a inteligência artificial já faz?", "Usa os dados das contas conectadas e o perfil do negócio para preparar análises: comentários de relatório, resumos para WhatsApp e resumo da carteira. Os números vêm da plataforma. Você revisa os textos; nos envios com análise por IA existe uma etapa de aprovação."],
+  ["O que posso experimentar nos 7 dias grátis?", "Os recursos já disponíveis: conectar contas, conhecer a análise dos anúncios, cadastrar o contexto dos clientes, preparar relatórios e configurar agendamentos. Os limites do teste ficam visíveis na plataforma. A execução autônoma de campanhas não está incluída."],
   ["Preciso de cartão de crédito para começar?", "Não. O teste começa com a criação do espaço de trabalho e dura sete dias. Para continuar, você escolhe um plano na área de assinatura. O investimento nos anúncios é separado da assinatura da Groow Ads."],
-  ["Como a Groow Ads conhece meu negócio?", "Você pode preencher o perfil do cliente com segmento, oferta, região, público e objetivos. Esse contexto ajuda a IA a preparar análises mais específicas, junto dos dados das contas conectadas. O perfil pode ser completado aos poucos."],
-  ["Como os resultados chegam ao meu cliente?", "Você pode preparar relatórios em PDF e agendar mensagens pelo seu WhatsApp conectado por QR Code. A API oficial é uma alternativa com configuração própria. Também existe uma área autenticada para o cliente acompanhar os resultados aos quais tem acesso."],
-  ["A Groow Ads serve para quem cuida dos próprios anúncios?", "Sim. Gestores independentes, agências e equipes internas podem usar a Groow Ads. A estrutura permite acompanhar um negócio ou uma carteira de clientes, com acessos e limites definidos pelo plano."],
+  ["Como a Groow Ads conhece meu negócio?", "Você preenche o perfil do cliente com segmento, oferta, região, público e objetivos, e pode completá-lo aos poucos. Esse contexto, junto dos dados das contas conectadas, torna as análises mais específicas."],
+  ["Como os resultados chegam ao meu cliente?", "Com relatórios em PDF e mensagens agendadas pelo seu WhatsApp conectado por QR Code. A API oficial é uma alternativa com configuração própria. Existe também uma área autenticada para o cliente acompanhar os resultados aos quais tem acesso."],
+  ["Serve para quem cuida dos próprios anúncios?", "Sim. Gestores independentes, agências e equipes internas podem usar a Groow Ads, acompanhando um negócio ou uma carteira de clientes, com acessos e limites definidos pelo plano."],
 ];
 
 function Brand() {
@@ -36,62 +50,128 @@ export function SalesPage() {
   return <div className={styles.site} data-motion={paused ? "paused" : "playing"}>
     <a href="#conteudo" className={styles.skipLink}>Pular para o conteúdo</a>
     <header className={styles.header}>
-      <Link href="/" aria-label="Groow Ads, início"><Brand /></Link>
-      <nav className={styles.desktopNav} aria-label="Navegação do site">{navigation.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</nav>
-      <div className={styles.headerActions}><Link href="/entrar" className={styles.login}>Entrar <ArrowUpRight size={14} /></Link><Link href="/criar-conta" className={styles.headerCta}>Começar grátis <ArrowRight size={15} /></Link><button className={styles.menuToggle} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} aria-controls="sales-mobile-menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button></div>
-    </header>
-    {menuOpen && <nav id="sales-mobile-menu" className={styles.mobileNav} aria-label="Navegação móvel">{navigation.map(([label, href]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}<ArrowUpRight size={16} /></a>)}<Link href="/entrar">Entrar na plataforma <ArrowRight size={16} /></Link></nav>}
-    <main>
-      <div className={styles.heroArea}>
-        <section id="conteudo" className={styles.hero}>
-          <span className={styles.eyebrow}><Sparkles size={14} /> INTELIGÊNCIA A SERVIÇO DO SEU NEGÓCIO</span>
-          <h1>Seu marketing precisa avançar.<br /><span>Você não precisa fazer tudo.</span></h1>
-          <p>Seu negócio tem uma história, uma oferta e objetivos próprios. A Groow Ads conecta esse contexto aos dados dos anúncios para tirar trabalho da sua rotina — da análise à entrega.</p>
-          <div className={styles.heroActions}><Link href="/criar-conta" className={styles.primaryCta}>Testar grátis por 7 dias <ArrowRight size={18} /></Link><a href="#demonstracao" className={styles.secondaryCta}><Play size={16} /> Ver a Groow em ação</a></div>
-          <div className={styles.heroChecks}><span><Check size={14} /> Sem cartão de crédito</span><span><Check size={14} /> IA para análises e resumos</span></div>
-          <p className={styles.availability}>Hoje: análises com IA e entregas agendadas. Execução de campanhas por IA em desenvolvimento.</p>
-          <div className={styles.heroGlow} aria-hidden="true" />
-        </section>
-        <div className={styles.heroVisual}><div className={styles.visualHeading}><span><i /> INTERFACE REAL. DADOS DEMONSTRATIVOS.</span><button onClick={() => setPaused(!paused)} aria-pressed={paused} aria-label={paused ? "Ativar animações decorativas" : "Pausar animações decorativas"}>{paused ? <Play size={13} /> : <Pause size={13} />}{paused ? "Ativar movimento" : "Pausar movimento"}</button></div><DeviceShowcase /></div>
-        <div className={styles.manifesto}><span>O QUE NOS MOVE</span><p>Você define a direção.<br /><strong>A inteligência assume cada vez mais do trabalho.</strong></p><a href="#inteligencia" aria-label="Conhecer a inteligência da Groow Ads"><ArrowDown size={22} /></a></div>
+      <div className={styles.headerInner}>
+        <Link href="/" aria-label="Groow Ads, início"><Brand /></Link>
+        <nav className={styles.desktopNav} aria-label="Navegação do site">{navigation.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</nav>
+        <div className={styles.headerActions}>
+          <Link href="/entrar" className={styles.login}>Entrar <ArrowUpRight size={15} /></Link>
+          <Link href="/criar-conta" className={`${styles.btn} ${styles.btnSm} ${styles.btnPrimary}`}>Começar grátis</Link>
+          <button className={styles.menuToggle} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen} aria-controls="sales-mobile-menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button>
+        </div>
       </div>
+      {menuOpen && <nav id="sales-mobile-menu" className={styles.mobileNav} aria-label="Navegação móvel">{navigation.map(([label, href]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}<ArrowUpRight size={17} /></a>)}<Link href="/entrar">Entrar na plataforma <ArrowRight size={17} /></Link></nav>}
+    </header>
 
-      <section id="inteligencia" className={styles.intelligence}>
-        <div className={styles.sectionHeading}><span className={styles.sectionKicker}>UM NEGÓCIO REAL TEM CONTEXTO.</span><h2>A inteligência começa<br /><span>entendendo o seu.</span></h2><p>Uma campanha não conta a história inteira. O que você vende, para quem vende e o que pretende alcançar dão sentido aos números.</p></div>
-        <div className={styles.principles}>
-          <article><BrainCircuit /><span>01 / CONTEXTO</span><h3>Seu negócio não começa do zero a cada análise.</h3><p>Registre oferta, público, região e objetivos no perfil do cliente. A IA usa esse contexto junto dos dados para preparar comentários mais específicos.</p></article>
-          <article><Target /><span>02 / PRIORIDADE</span><h3>Menos tempo procurando. Mais clareza sobre o próximo passo.</h3><p>Compare períodos, veja os resultados por conta e acompanhe os clientes que pedem atenção. A IA ajuda a transformar esses fatos em uma análise compreensível.</p></article>
-          <article><Workflow /><span>03 / CONTINUIDADE</span><h3>O trabalho precisa continuar depois da análise.</h3><p>Prepare o relatório, revise a mensagem e programe as entregas. O histórico permite acompanhar o que foi enviado e identificar falhas.</p></article>
+    <main>
+      <section id="conteudo" className={styles.hero}>
+        <div className={`${styles.wrap} ${styles.heroGrid}`}>
+          <div>
+            <span className={styles.kicker}>Inteligência de marketing para anúncios</span>
+            <h1>Você define onde chegar. <em>A Groow Ads faz o trabalho.</em></h1>
+            <p className={styles.lead}>Uma IA que conhece o seu negócio, lê as suas contas de anúncios e assume a rotina que hoje consome o seu dia. Já trabalha nas análises e nas entregas. A execução nas campanhas vem a seguir, dentro dos limites que você definir.</p>
+            <div className={styles.heroActions}>
+              <Link href="/criar-conta" className={`${styles.btn} ${styles.btnPrimary}`}>Testar grátis por 7 dias <ArrowRight size={18} /></Link>
+              <a href="#plataforma" className={`${styles.btn} ${styles.btnGhost}`}><Play size={16} /> Ver a plataforma por dentro</a>
+            </div>
+            <div className={styles.heroNote}><span><Check size={16} /> Sem cartão de crédito</span><span><Check size={16} /> Interface real, dados fictícios</span></div>
+          </div>
+          <div className={styles.heroVisual}>
+            <button className={styles.motionToggle} onClick={() => setPaused(!paused)} aria-pressed={paused} aria-label={paused ? "Ativar animações decorativas" : "Pausar animações decorativas"}>{paused ? <Play size={13} /> : <Pause size={13} />}{paused ? "Ativar movimento" : "Pausar movimento"}</button>
+            <DeviceShowcase />
+          </div>
+        </div>
+        <div className={styles.wrap}>
+          <div className={styles.statusBar}>
+            <div><i className={styles.dot} aria-hidden="true" /><span><strong>Disponível hoje</strong>Análises com IA, relatórios em PDF, entregas agendadas e portal do cliente.</span></div>
+            <div><i className={`${styles.dot} ${styles.dotSoon}`} aria-hidden="true" /><span><strong>Em desenvolvimento</strong>Criar, ajustar e corrigir campanhas por IA. Ainda não incluído na oferta.</span></div>
+          </div>
         </div>
       </section>
 
-      <section id="plataforma" className={styles.productSection}>
-        <div className={styles.sectionHeading}><span className={styles.sectionKicker}>VEJA O PRODUTO QUE VOCÊ VAI USAR.</span><h2>Por dentro da Groow.<br /><span>Veja o trabalho acontecer.</span></h2><p>Explore capturas da própria plataforma. Os nomes, valores e conversas são demonstrativos; a interface é a do produto.</p></div>
-        <ProductShowcase />
+      <section id="problema" className={`${styles.cost} ${styles.light}`}>
+        <div className={`${styles.wrap} ${styles.costGrid}`}>
+          <div>
+            <span className={styles.kicker}>O custo de fazer tudo na mão</span>
+            <h2 className={styles.h2}>Seu tempo está sendo gasto <span className={styles.accent}>onde menos rende.</span></h2>
+            <p className={styles.lead}>Gestão de anúncios não deveria ser sinônimo de planilha, cópia de números e lembrete de envio. É trabalho necessário, mas repetível. E o que é repetível pode ser delegado.</p>
+          </div>
+          <div>
+            <ul className={styles.costList}>{chores.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}</ul>
+            <p className={styles.costClose}>Nenhuma dessas tarefas é a razão pela qual você é bom no que faz.</p>
+          </div>
+        </div>
       </section>
 
-      <section id="demonstracao" className={styles.tourSection}>
-        <div className={styles.tourCopy}><span className={styles.sectionKicker}>DO DADO AO TRABALHO ENTREGUE.</span><h2>Veja o caminho.<br /><span>Na tela de verdade.</span></h2><p>Uma gravação da navegação pela análise de um cliente, pelos agendamentos e pelo acompanhamento das entregas.</p><p className={styles.smallNote}>Ambiente demonstrativo. Sem alteração de campanhas, envio de mensagens ou dados de clientes reais.</p></div>
-        <ProductTour />
+      <section id="como-funciona" className={styles.way}>
+        <div className={styles.wrap}>
+          <div className={styles.wayHead}>
+            <span className={styles.kicker}>Uma nova maneira de trabalhar</span>
+            <h2 className={styles.h2}>Informe uma vez. <span className={styles.accent}>Delegue o resto.</span></h2>
+            <p className={styles.lead}>Em vez de aprender mais uma ferramenta, você apresenta o negócio, define os limites e deixa a inteligência assumir o trabalho, com transparência sobre o que foi feito.</p>
+          </div>
+          <div className={styles.steps}>{steps.map(([number, title, text, status, soon]) => <article className={styles.step} key={number}><span className={styles.stepNum} aria-hidden="true">{number}</span><h3>{title}</h3><p>{text}</p><span className={`${styles.tag} ${soon ? styles.tagSoon : ""}`}>{soon ? <Clock3 size={13} /> : <Check size={13} />}{status}</span></article>)}</div>
+        </div>
       </section>
 
-      <section className={styles.workSection}>
-        <div className={styles.workImage}><Image src="/product/automations.webp" alt="Tela real de agendamentos da Groow Ads, com clientes e rotinas de envio demonstrativos" width={1440} height={1000} sizes="(max-width: 760px) 100vw, 55vw" /><span><Check size={14} /> ROTINAS COM DIA, HORA E HISTÓRICO.</span></div>
-        <div className={styles.workCopy}><span className={styles.sectionKicker}>TRABALHO QUE JÁ SAI DA SUA LISTA.</span><h2>Parar para escrever.<br />Lembrar de enviar.<br /><span>Repetir tudo de novo.</span></h2><p>A rotina de anúncios não termina quando os números chegam. É preciso explicar o que aconteceu e manter quem decide bem informado.</p><ul><li><Check /><div><strong>Comece a análise com um rascunho da IA.</strong><span>Comentários e resumos preparados a partir dos dados e do contexto do cliente, para você revisar.</span></div></li><li><Check /><div><strong>Defina uma vez a frequência da entrega.</strong><span>Agende mensagens com os números do período e acompanhe o histórico de envio pelo WhatsApp.</span></div></li><li><Check /><div><strong>Dê acesso ao resultado sem refazer a apresentação.</strong><span>Relatórios em PDF e área do cliente para consultar os próprios indicadores e documentos.</span></div></li></ul></div>
+      <section id="plataforma" className={styles.product}>
+        <div className={styles.wrap}>
+          <div className={styles.productHead}>
+            <h2 className={styles.h2}>O produto de verdade. <span className={styles.accent}>Sem ilustração genérica.</span></h2>
+            <p className={styles.lead}>Capturas da própria plataforma. Nomes, valores e conversas são demonstrativos; a interface é a que você vai usar.</p>
+          </div>
+          <ProductShowcase />
+        </div>
       </section>
 
-      <section className={styles.roadmap} aria-labelledby="roadmap-title">
-        <div className={styles.roadmapIntro}><span className={styles.development}>EM DESENVOLVIMENTO</span><h2 id="roadmap-title">O próximo passo:<br /><span>delegar a execução.</span></h2><p>A direção da Groow Ads é clara: conhecer o negócio, receber objetivos e limites e executar o trabalho nas contas de anúncios. Você acompanha o que foi feito, por quê e o que aconteceu depois.</p><p className={styles.roadmapNote}>Estas capacidades ainda não estão disponíveis nos planos. A liberação depende de implementação e validação real nas plataformas de anúncios.</p></div>
-        <div className={styles.actionPath}>{[["01", "Planejar a partir do negócio", "Objetivo, oferta, público e orçamento orientam o plano."], ["02", "Agir dentro dos limites delegados", "Criar campanhas, ajustar orçamento e pausar ou reativar anúncios elegíveis."], ["03", "Verificar, acompanhar e aprender", "Confirmar a ação aplicada e usar o histórico para orientar os próximos passos."]].map(([number, title, text]) => <article key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div><ChevronDown size={18} /></article>)}<span className={styles.pathCaption}>Visão do produto · não é uma simulação de uma função disponível.</span></div>
+      <section id="demonstracao" className={styles.tourBand}>
+        <div className={`${styles.wrap} ${styles.tourSection}`}>
+          <div className={styles.tourCopy}><span className={styles.kicker}>Da análise à entrega</span><h2 className={styles.h2}>Veja o caminho, <span className={styles.accent}>na tela real.</span></h2><p className={styles.lead}>Uma gravação da navegação pela análise de um cliente, pelos agendamentos e pelo acompanhamento das entregas.</p><p className={styles.smallNote}>Ambiente demonstrativo. Sem alteração de campanhas, envio de mensagens ou dados de clientes reais.</p></div>
+          <ProductTour />
+        </div>
       </section>
 
-      <section className={styles.audience}><span className={styles.sectionKicker}>PARA QUEM RESPONDE PELO RESULTADO.</span><h2>Uma empresa ou uma carteira inteira.<br /><span>O seu tempo continua sendo um só.</span></h2><div>{[["Gestores de tráfego", "Devolva espaço à estratégia. Use a IA na preparação das análises e tire os envios recorrentes da sua memória."], ["Agências", "Acompanhe o contexto de cada cliente, organize o trabalho da equipe e mantenha as entregas com continuidade."], ["Equipes internas", "Reúna os dados do negócio e dos anúncios. Compartilhe a evolução com quem precisa decidir."]].map(([title, text], index) => <article key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div></section>
+      <section className={`${styles.board} ${styles.light}`} aria-labelledby="board-title">
+        <div className={styles.wrap}>
+          <div className={styles.boardHead}><span className={styles.kicker}>Transparência</span><h2 className={styles.h2} id="board-title">O que a Groow já faz. <span className={styles.accent}>E o que vem a seguir.</span></h2><p className={styles.lead}>Você decide com informação completa: separamos o que está disponível do que ainda está sendo construído.</p></div>
+          <div className={styles.boardGrid}>
+            <div className={`${styles.boardCol} ${styles.boardNow}`}><span className={styles.tag}><Check size={13} /> Disponível hoje</span><h3>Trabalho que já sai da sua lista</h3><p>Incluído nos planos e no teste de 7 dias.</p><ul>{available.map(item => <li key={item}><Check size={18} />{item}</li>)}</ul></div>
+            <div className={`${styles.boardCol} ${styles.boardSoon}`}><span className={`${styles.tag} ${styles.tagSoon}`}><Clock3 size={13} /> Em desenvolvimento</span><h3>A execução nas campanhas</h3><p>Direção do produto. Não está incluída na oferta atual.</p><ul>{upcoming.map(item => <li key={item}><Clock3 size={18} />{item}</li>)}</ul></div>
+          </div>
+          <p className={styles.boardFoot}><ShieldCheck size={18} /> Uma capacidade só passa para “disponível” depois de implementada e validada com as plataformas de anúncios.</p>
+        </div>
+      </section>
 
-      <section id="planos" className={styles.pricing}><div className={styles.centerHeading}><span className={styles.sectionKicker}>CONHEÇA O TRABALHO QUE JÁ PODE DELEGAR.</span><h2>Comece com a Groow.<br /><span>Veja a diferença na sua rotina.</span></h2><p>Sete dias para experimentar os recursos disponíveis. Sem cartão.</p></div><div className={styles.billingToggle} role="group" aria-label="Período de cobrança"><button aria-pressed={!yearly} onClick={() => setYearly(false)}>Mensal</button><button aria-pressed={yearly} onClick={() => setYearly(true)}>Anual <span>Economize</span></button></div><div className={styles.planGrid}>{plans.map((plan, index) => <article className={`${styles.planCard} ${index === 1 ? styles.recommendedPlan : ""}`} key={plan.name}>{index === 1 && <span className={styles.planBadge}><Sparkles size={12} /> RECOMENDADO</span>}<span className={styles.planName}>{plan.name}</span><p>{plan.description}</p><div className={styles.planPrice}><span>R$</span><strong>{money(yearly ? plan.yearly : plan.monthly)}</strong><span>/{yearly ? "ano" : "mês"}</span></div><small className={styles.planBilling}>{yearly ? "Cobrança anual em pagamento integral." : "Cobrança mensal."}</small><Link href="/criar-conta" className={index === 1 ? styles.primaryCta : styles.planCta}>Experimentar a Groow <ArrowRight size={16} /></Link><div className={styles.planDivider} /><span className={styles.planIncludes}>RECURSOS E LIMITES ATUAIS</span><ul>{[`${plan.clients} clientes`, `${plan.accounts} contas de anúncios`, `${plan.team} ${plan.team === 1 ? "pessoa na equipe" : "pessoas na equipe"}`, `${plan.automations} automações ativas`, "Análises com IA, com limite de uso", "Relatórios e portal do cliente"].map(item => <li key={item}><Check size={15} />{item}</li>)}</ul></article>)}</div><p className={styles.planNote}><ShieldCheck size={16} /> O investimento em anúncios é separado. Execução autônoma de campanhas em desenvolvimento, não incluída nesta oferta. Recursos e limites completos na área de assinatura.</p></section>
+      <section id="planos" className={styles.pricing}>
+        <div className={styles.wrap}>
+          <div className={styles.pricingHead}><span className={styles.kicker}>Planos</span><h2 className={styles.h2}>Comece pelo que já funciona. <span className={styles.accent}>Sem cartão.</span></h2><p className={styles.lead}>Sete dias para experimentar os recursos disponíveis na sua própria rotina.</p></div>
+          <div className={styles.billingToggle} role="group" aria-label="Período de cobrança"><button aria-pressed={!yearly} onClick={() => setYearly(false)}>Mensal</button><button aria-pressed={yearly} onClick={() => setYearly(true)}>Anual</button></div>
+          <div className={styles.planGrid}>{plans.map((plan, index) => <article className={`${styles.planCard} ${index === 1 ? styles.recommendedPlan : ""}`} key={plan.name}>{index === 1 && <span className={styles.planBadge}><Sparkles size={13} /> RECOMENDADO</span>}<span className={styles.planName}>{plan.name}</span><p>{plan.description}</p><div className={styles.planPrice}><span>R$</span><strong>{money(yearly ? plan.yearly : plan.monthly)}</strong><span>/{yearly ? "ano" : "mês"}</span></div><small className={styles.planBilling}>{yearly ? "Cobrança anual em pagamento integral." : "Cobrança mensal."}</small><Link href="/criar-conta" className={`${styles.btn} ${index === 1 ? styles.btnPrimary : styles.btnGhost}`}>Testar grátis por 7 dias <ArrowRight size={16} /></Link><span className={styles.planIncludes}>Recursos e limites atuais</span><ul>{[`${plan.clients} clientes`, `${plan.accounts} contas de anúncios`, `${plan.team} ${plan.team === 1 ? "pessoa na equipe" : "pessoas na equipe"}`, `${plan.automations} automações ativas`, "Análises com IA, com limite de uso", "Relatórios e portal do cliente"].map(item => <li key={item}><Check size={17} />{item}</li>)}</ul></article>)}</div>
+          <p className={styles.planNote}><ShieldCheck size={17} /> O investimento em anúncios é separado da assinatura. A execução autônoma de campanhas está em desenvolvimento e não está incluída nesta oferta. Recursos e limites completos na área de assinatura.</p>
+        </div>
+      </section>
 
-      <section id="duvidas" className={styles.faq}><div><span className={styles.sectionKicker}>CLAREZA ANTES DE COMEÇAR.</span><h2>O que a Groow faz.<br /><span>E o que vem depois.</span></h2><p>Entenda a inteligência, os recursos atuais e o seu primeiro passo.</p><CircleHelp size={30} /></div><div className={styles.faqItems}>{questions.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={19} /></summary><p>{answer}</p></details>)}</div></section>
-      <section className={styles.finalCta}><span className={styles.eyebrow}><Sparkles size={14} /> MAIS TRABALHO FEITO. MAIS TEMPO SEU.</span><h2>Conheça seu próximo jeito<br /><span>de trabalhar com marketing.</span></h2><p>Comece pelas análises com IA e pelas entregas agendadas.<br />Veja a Groow Ads trabalhando na sua rotina.</p><Link href="/criar-conta" className={styles.primaryCta}>Começar meus 7 dias grátis <ArrowRight size={18} /></Link><small>Sem cartão. Você conhece antes de contratar.</small></section>
+      <section id="duvidas" className={`${styles.faq} ${styles.light}`}>
+        <div className={`${styles.wrap} ${styles.faqGrid}`}>
+          <div><span className={styles.kicker}>Dúvidas</span><h2 className={styles.h2}>Clareza antes de <span className={styles.accent}>começar.</span></h2><p className={styles.lead}>O que a Groow faz hoje, o que vem depois e como dar o primeiro passo.</p></div>
+          <div className={styles.faqItems}>{questions.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={22} /></summary><p>{answer}</p></details>)}</div>
+        </div>
+      </section>
+
+      <section className={styles.finalCta}>
+        <div className={styles.wrap}>
+          <h2 className={styles.h2}>Menos operação. <span className={styles.accent}>Mais estratégia.</span></h2>
+          <p className={styles.lead}>Comece com as análises por IA e as entregas agendadas. Veja a Groow Ads trabalhando na sua rotina.</p>
+          <Link href="/criar-conta" className={`${styles.btn} ${styles.btnPrimary}`}>Começar meus 7 dias grátis <ArrowRight size={18} /></Link>
+          <small>Sem cartão. Você conhece antes de contratar.</small>
+        </div>
+      </section>
     </main>
-    <footer className={styles.footer}><div className={styles.footerTop}><div><Link href="/" aria-label="Groow Ads, início"><Brand /></Link><p>Inteligência para conhecer o negócio.<br />Tecnologia para assumir o trabalho.</p></div><nav aria-label="Links do rodapé"><a href="#plataforma">A plataforma</a><a href="#inteligencia">Nossa inteligência</a><a href="#planos">Planos</a><Link href="/entrar">Entrar</Link></nav></div><div className={styles.footerBottom}><span>© {new Date().getFullYear()} Groow Ads · Uma plataforma da iGrow Digital.</span><div><Link href="/privacidade">Privacidade</Link><Link href="/exclusao-de-dados">Exclusão de dados</Link></div></div></footer>
+
+    <footer className={styles.footer}>
+      <div className={styles.wrap}>
+        <div className={styles.footerTop}><div><Link href="/" aria-label="Groow Ads, início"><Brand /></Link><p>Inteligência para conhecer o negócio.<br />Tecnologia para assumir o trabalho.</p></div><nav aria-label="Links do rodapé"><a href="#problema">O problema</a><a href="#como-funciona">Como funciona</a><a href="#planos">Planos</a><Link href="/entrar">Entrar</Link></nav></div>
+        <div className={styles.footerBottom}><span>© {new Date().getFullYear()} Groow Ads · Uma plataforma da iGrow Digital.</span><div><Link href="/privacidade">Privacidade</Link><Link href="/exclusao-de-dados">Exclusão de dados</Link></div></div>
+      </div>
+    </footer>
   </div>;
 }

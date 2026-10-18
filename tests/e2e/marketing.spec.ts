@@ -4,12 +4,12 @@ import { expect, test } from "@playwright/test";
 test("site comunica contexto e trabalho realizado, com metadados e recursos atuais", async ({ page }) => {
   const response = await page.goto("/");
   expect(response?.status()).toBe(200);
-  await expect(page).toHaveTitle("Groow Ads — Inteligência a serviço do seu negócio");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Seu marketing precisa avançar.Você não precisa fazer tudo.");
-  await expect(page.getByRole("link", { name: "Testar grátis por 7 dias", exact: true })).toHaveAttribute("href", "/criar-conta");
+  await expect(page).toHaveTitle("Groow Ads — Inteligência de marketing para os seus anúncios");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Você define onde chegar. A Groow Ads faz o trabalho.");
+  await expect(page.locator("#conteudo").getByRole("link", { name: "Testar grátis por 7 dias", exact: true })).toHaveAttribute("href", "/criar-conta");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://groowads.com");
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "index, follow");
-  await expect(page.getByText("Hoje: análises com IA e entregas agendadas. Execução de campanhas por IA em desenvolvimento.")).toBeVisible();
+  await expect(page.getByText("Criar, ajustar e corrigir campanhas por IA. Ainda não incluído na oferta.")).toBeVisible();
   await expect(page.getByRole("img", { name: /Interface real da Groow Ads no computador/ })).toBeVisible();
 });
 
@@ -37,19 +37,19 @@ test("galeria usa capturas reais, alterna por clique e teclado e amplia com foco
 test("planos preservam valores e explicitam a cobrança anual integral", async ({ page }) => {
   await page.goto("/#planos");
   await expect(page.locator("#planos")).toContainText("79,90");
-  await page.getByRole("button", { name: "Anual Economize" }).click();
+  await page.getByRole("button", { name: "Anual", exact: true }).click();
   for (const value of ["799,00", "1.499,00", "2.799,00"]) await expect(page.locator("#planos")).toContainText(value);
   await expect(page.getByText("Cobrança anual em pagamento integral.")).toHaveCount(3);
-  await expect(page.locator("#planos")).toContainText("não incluída nesta oferta");
+  await expect(page.locator("#planos")).toContainText("não está incluída nesta oferta");
   await page.getByRole("button", { name: "Mensal", exact: true }).click();
   await expect(page.locator("#planos")).toContainText("149,90");
 });
 
 test("direção de execução fica separada das capacidades comercialmente disponíveis", async ({ page }) => {
   await page.goto("/#duvidas");
-  const roadmap = page.getByRole("region", { name: /O próximo passo:/ });
-  await expect(roadmap).toContainText("EM DESENVOLVIMENTO");
-  await expect(roadmap).toContainText("ainda não estão disponíveis nos planos");
+  const roadmap = page.getByRole("region", { name: /O que a Groow já faz/ });
+  await expect(roadmap).toContainText("Em desenvolvimento");
+  await expect(roadmap).toContainText("Não está incluída na oferta atual");
   const details = page.locator("details").filter({ hasText: "A IA já cria e otimiza campanhas sozinha?" });
   await details.locator("summary").click();
   await expect(details.locator("p")).toContainText("Ainda não.");
