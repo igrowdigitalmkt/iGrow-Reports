@@ -6,10 +6,10 @@
 # Apenas o Caddy publica portas (80/443, HTTPS automático); o resto fica na rede interna.
 services:
   evolution:
-    image: igrow/evolution-api:2.3.7-native-settings-3
+    image: igrow/evolution-api:2.3.7-native-label-sync-1
     build:
       context: .
-      dockerfile: Dockerfile.igrow
+      dockerfile: Dockerfile.native-label-sync
     restart: unless-stopped
     depends_on: [postgres, redis]
     environment:

@@ -106,11 +106,14 @@ it("never reports success when WhatsApp refuses the operation",async()=>{
   unavailable=true;
   expect((await PATCH(request({id:"wa:3",conversationId:chat,member:true}))).status).toBe(503);
 });
-it("asks to reconnect instead of pretending an unreadable WhatsApp state is an empty label list",async()=>{
+it("reports a temporary label sync failure without asking to reconnect or pretending it is an empty list",async()=>{
   invalidState=true;
   const response=await GET();
   expect(response.status).toBe(409);
-  expect((await response.json()).error).toContain("Reconecte");
+  const body=await response.json();
+  expect(body.error).toContain("tentaremos novamente automaticamente");
+  expect(body.error).not.toMatch(/reconect/i);
+  expect(body).not.toHaveProperty("lists");
   expect((await PATCH(request({id:"wa:3",conversationId:chat,member:true}))).status).toBe(409);
   expect(writes).toEqual([]);
 });

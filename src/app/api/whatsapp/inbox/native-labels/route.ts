@@ -82,7 +82,7 @@ async function setMember(scope:Access,peer:Awaited<ReturnType<typeof ownChats>>[
   for(const jid of member?[peer.jid]:peer.aliases)await scope.client.setChatLabel(scope.instance,jid,labelId,member);
 }
 const failure = (error: unknown) => error instanceof EvolutionError && error.code === "IGROW_LABEL_STATE_UNAVAILABLE"
-  ? Response.json({ error: "O WhatsApp não conseguiu compartilhar suas etiquetas nesta conexão. Reconecte o número por QR Code para tentar sincronizar novamente." }, { status: 409, headers })
+  ? Response.json({ error: "Não foi possível sincronizar as etiquetas agora. A conexão com o WhatsApp continua ativa; tentaremos novamente automaticamente." }, { status: 409, headers })
   : Response.json({ error: "Não foi possível sincronizar com o WhatsApp. Atualize e tente novamente." }, { status: 503, headers });
 
 export async function GET() {

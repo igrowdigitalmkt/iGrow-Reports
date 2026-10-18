@@ -1,0 +1,4 @@
+FROM igrow/evolution-api:2.3.7-native-conversation-1@sha256:146a5dff9be12414fd5ae14c68e4cb46d97017ddf8515393107dc78ad6ca948b
+WORKDIR /evolution
+COPY native-label-sync.mjs /tmp/native-label-sync.mjs
+RUN node /tmp/native-label-sync.mjs && node --check dist/main.js
