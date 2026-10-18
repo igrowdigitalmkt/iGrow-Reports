@@ -90,6 +90,24 @@
 .tag { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; padding: 6px 12px; border-radius: 30px; border: 1px solid #5bd6a066; color: #8be8bd; }
 .tagSoon { border-color: #e8c87266; color: var(--amber); }
 
+/* Antes x Com a Groow */
+.contrast { padding: 130px 0; border-top: 1px solid var(--line-l); }
+.contrastHead { max-width: 760px; margin-bottom: 52px; }
+.contrastTable { border-radius: 22px; overflow: hidden; border: 1px solid var(--line-l); background: #fff; box-shadow: 0 24px 60px #1a285a14; }
+.contrastRow { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line-l); }
+.contrastRow:first-child { border-top: 0; background: #f6f7fb; }
+.contrastRow > span { padding: 18px 34px; font-size: 13px; font-weight: 600; letter-spacing: 1.3px; text-transform: uppercase; color: var(--mute-l); }
+.contrastRow > span.contrastNew { color: var(--blue); }
+.contrastRow > p { margin: 0; padding: 28px 34px; display: flex; gap: 14px; align-items: flex-start; font-size: 18px; line-height: 1.45; color: var(--mute-l); }
+.contrastRow > p svg { flex-shrink: 0; margin-top: 3px; color: #b2b8cc; }
+.contrastRow > p.contrastNew { color: var(--ink); font-weight: 520; background: linear-gradient(90deg, #4162de10, transparent); border-left: 1px solid var(--line-l); }
+.contrastRow > p.contrastNew svg { color: var(--blue); }
+.control { margin-top: 56px; padding-top: 40px; border-top: 1px solid var(--line-l); }
+.control h3 { font-size: clamp(24px, 2.4vw, 32px); font-weight: 600; letter-spacing: -0.03em; margin-bottom: 26px; }
+.control ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; }
+.control li strong { display: block; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.control li span { font-size: 15px; color: var(--mute-l); line-height: 1.55; }
+
 /* Produto */
 .product { padding: 120px 0 130px; background: var(--ink); }
 .productHead { display: flex; justify-content: space-between; align-items: end; gap: 40px; margin-bottom: 46px; }
@@ -241,6 +259,12 @@
   .planGrid { gap: 14px; } .planCard { padding: 32px 22px; } .planPrice strong { font-size: 44px; }
 }
 @media (max-width: 860px) {
+  .contrast { padding: 80px 0; }
+  .contrastRow { grid-template-columns: 1fr; }
+  .contrastRow:first-child { display: none; }
+  .contrastRow > p { padding: 20px 22px; font-size: 16px; }
+  .contrastRow > p.contrastNew { border-left: 0; border-top: 1px dashed var(--line-l); }
+  .control ul { grid-template-columns: 1fr 1fr; }
   .steps { grid-template-columns: 1fr; border-top: 0; }
   .step, .step + .step { padding: 34px 0; border-left: 0; border-top: 1px solid var(--line-d); }
   .boardGrid { grid-template-columns: 1fr; }

@@ -28,6 +28,19 @@ const steps = [
   ["02", "Conecte e defina o escopo", "Ligue as contas de anúncios e decida o que a Groow pode fazer sozinha e o que pede a sua aprovação.", live ? "Disponível hoje" : "Contas: hoje · Escopos de ação: em desenvolvimento", !live],
   ["03", "A Groow trabalha. Você acompanha.", live ? "A Groow analisa, cria, ajusta e corrige campanhas dentro dos seus limites, e entrega os resultados. Cada ação fica registrada para você acompanhar." : "Hoje: análises, relatórios e entregas agendadas. Em breve: criar, ajustar e corrigir campanhas dentro dos seus limites, com registro de cada ação.", live ? "Disponível hoje" : "Execução em campanhas: em desenvolvimento", !live],
 ] as const;
+const contrast = [
+  ["O contexto do negócio vive na cabeça de quem gerencia e some quando a equipe muda.", "O perfil do negócio fica registrado e orienta cada análise e cada decisão."],
+  ["Um problema na campanha aparece quando o cliente já perguntou.", "A Groow acompanha as contas e corrige o que estiver dentro dos limites que você definiu."],
+  ["Ajustar orçamento depende de alguém abrir a conta no momento certo.", "Ajustes feitos dentro do teto e das regras combinadas, com o motivo registrado."],
+  ["O relatório é montado na mão, no fim do mês.", "Relatório e resumo prontos, entregues no dia e no canal combinados."],
+  ["Cada decisão é esquecida, e o aprendizado não se acumula.", "O histórico de ações e resultados vira memória para as próximas decisões."],
+];
+const control = [
+  ["Limites definidos por você", "Orçamento, escopo e regras de atuação são configurados antes de qualquer ação."],
+  ["Cada ação registrada", "O que foi feito, quando e por quê fica no histórico para consulta."],
+  ["Aprovação quando você quiser", "Defina o que a Groow faz sozinha e o que só acontece com o seu aval."],
+  ["Você assume a qualquer momento", "Pause a atuação e retome o controle das campanhas quando precisar."],
+];
 const available = ["Perfil do negócio que orienta a análise da IA", "Análises e resumos com IA, a partir dos dados das contas", "Relatórios em PDF prontos para o cliente", "Entregas agendadas pelo seu WhatsApp, com histórico", "Portal para o cliente consultar os próprios resultados"];
 const upcoming = ["Criar campanhas a partir dos objetivos do negócio", "Ajustar orçamentos dentro dos limites que você definir", "Pausar e reativar anúncios elegíveis", "Confirmar na plataforma que a ação foi aplicada", "Aprender com o histórico e acompanhar o resultado depois"];
 const questions = [
@@ -114,6 +127,16 @@ export function SalesPage() {
         </div>
       </section>
 
+      <section className={`${styles.contrast} ${styles.light}`} aria-labelledby="contrast-title">
+        <div className={styles.wrap}>
+          <div className={styles.contrastHead}><span className={styles.kicker}>O que muda na prática</span><h2 className={styles.h2} id="contrast-title">Você comanda. <span className={styles.accent}>A Groow executa.</span></h2></div>
+          <div className={styles.contrastTable} role="table" aria-label="Rotina até aqui comparada à rotina com a Groow Ads">
+            <div className={styles.contrastRow} role="row"><span role="columnheader">Rotina até aqui</span><span role="columnheader" className={styles.contrastNew}>Com a Groow Ads</span></div>
+            {contrast.map(([before, after]) => <div className={styles.contrastRow} role="row" key={before}><p role="cell"><X size={18} aria-hidden="true" />{before}</p><p role="cell" className={styles.contrastNew}><Check size={18} aria-hidden="true" />{after}</p></div>)}
+          </div>
+        </div>
+      </section>
+
       <section id="plataforma" className={styles.product}>
         <div className={styles.wrap}>
           <div className={styles.productHead}>
@@ -138,6 +161,7 @@ export function SalesPage() {
             <div className={`${styles.boardCol} ${styles.boardNow}`}><span className={styles.tag}><Check size={13} /> Disponível hoje</span><h3>Trabalho que já sai da sua lista</h3><p>Incluído nos planos e no teste de 7 dias.</p><ul>{available.map(item => <li key={item}><Check size={18} />{item}</li>)}</ul></div>
             <div className={`${styles.boardCol} ${styles.boardSoon}`}><span className={`${styles.tag} ${live ? "" : styles.tagSoon}`}>{live ? <Check size={13} /> : <Clock3 size={13} />} {live ? "Disponível hoje" : "Em desenvolvimento"}</span><h3>A execução nas campanhas</h3><p>{live ? "Incluída nos planos, dentro dos limites que você define." : "Direção do produto. Não está incluída na oferta atual."}</p><ul>{upcoming.map(item => <li key={item}>{live ? <Check size={18} /> : <Clock3 size={18} />}{item}</li>)}</ul></div>
           </div>
+          {live && <div className={styles.control}><h3>Você no controle</h3><ul>{control.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}</ul></div>}
           <p className={styles.boardFoot}><ShieldCheck size={18} /> {live ? "Cada ação é registrada e respeita as permissões e os limites que você configurou." : "Uma capacidade só passa para “disponível” depois de implementada e validada com as plataformas de anúncios."}</p>
         </div>
       </section>
