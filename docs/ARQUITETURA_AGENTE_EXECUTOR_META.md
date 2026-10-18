@@ -114,3 +114,21 @@ Nenhuma migração aplicada, credencial alterada, campanha editada ou cobrança 
 Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer uma **conta de anúncios própria apropriada para homologação**, autorizar escopo e teto de investimento, e confirmar a permissão de escrita da integração. A escolha do negócio-modelo e limites pode ocorrer depois que os pacotes A–D estiverem prontos para teste.
 
 **Próxima tarefa técnica recomendada:** pacote A, seguido dos contratos/políticas do pacote B, em branch isolada. Não voltar a polir dashboards antes desse caminho de execução.
+
+## 9. Implementação iniciada em 18/10/2026 — núcleo técnico isolado
+
+**Implementado neste trabalho (branch de funcionalidade separada do Codex):**
+
+- `src/modules/agent-executor/policy.ts`: contratos de ações estruturadas, delegações e contexto de execução, com decisão determinística **fail-closed** para pausa/reativação e alteração de orçamento em campanha/conjunto. Confere agência, cliente, conta, entidade, tipos, prazos, permissão de escrita, elegibilidade comercial, teto por entidade e conta, percentual de aumento e atualização dos dados.
+- `src/modules/agent-executor/meta-write.ts`: adaptador **server-only**, sem importação por rota/job, que consulta estado da entidade e verifica tipo e titularidade da conta Meta, reavalia a política, envia exclusivamente `status` ou `daily_budget` e consulta novamente para confirmar o efeito. Falha de rede após POST é **resultado incerto**, nunca tentativa automática de repetir a mutação.
+- `tests/agent-executor-policy.test.ts` e `tests/agent-executor-meta-write.test.ts`: simulações de permissões, revogação, contas divergentes, orçamento, estado antigo, tipo de entidade e confirmação da Meta. Nenhum token nem anúncio real utilizado nos testes.
+
+**Evidência local:** 30 testes direcionados passaram; TypeScript `--noEmit` e ESLint direcionado passaram. Ambiente local reportou Node 26.7.0, enquanto `package.json` exige Node 24; homologar sob Node 24 no CI antes de integrar.
+
+**Ainda NÃO implementado:** delegações persistidas no banco; cálculo completo e confirmado do orçamento ativo de uma conta; fila/ledger transacional e chave de idempotência; RPC/RLS do agente; cron de decisão; integração real do `MetaClient`/credentials com o executor; interface para objetivo, permissão e histórico; criação completa de campanhas; ação de IA conectada ao fluxo; escrita testada numa conta de anúncios real.
+
+**Não confundir base do executor com agente autônomo pronto.** Nenhum importador chama `executeMetaWrite` hoje. Uma futura chamada deve resolver contexto, vínculo Meta, direitos comerciais e delegação **no servidor**, nunca aceitar esses campos diretamente do modelo/navegador. A execução deve passar pelo ledger com idempotência e confirmação independente da Meta.
+
+**Próximos passos de código:** (1) confirmar efetividade da permissão Meta `ads_management` sem escrever campanhas; (2) implementar persistência/RLS e ledger; (3) encaixar o adaptador em um executor que consulte dados reais e revalide o estado; (4) adicionar camada planejadora estruturada e primeiro loop com acompanhamento; (5) homologar uma ação controlada na conta de anúncios do proprietário, com autorização de escopo.
+
+**Limite operacional:** não executar escritos na Meta, não aplicar migrations, não alterar contas/financeiro nem fazer deploy de produção sem autorização específica. Este pacote pode coexistir com o trabalho do Codex no site de vendas.
