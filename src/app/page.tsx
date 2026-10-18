@@ -17,12 +17,12 @@ const hasSession = cache(async () => {
 export async function generateMetadata(): Promise<Metadata> {
   if (await hasSession()) return { title: "Visão geral", robots: { index: false, follow: false } };
   return {
-    title: { absolute: "Groow Ads — Sua operação de marketing, conectada" },
-    description: "Campanhas, relatórios, clientes e WhatsApp em um só lugar. Conheça a Groow Ads e comece seu teste gratuito de 7 dias.",
+    title: { absolute: "Groow Ads — Inteligência a serviço do seu negócio" },
+    description: "Conheça a inteligência da Groow Ads: contexto do negócio, análises com IA e entregas agendadas. Veja a interface real e experimente por 7 dias.",
     alternates: { canonical: "https://groowads.com" },
     icons: { icon: "/brand/groow-icon-blue.png", apple: "/brand/groow-icon-blue.png" },
     robots: { index: true, follow: true },
-    openGraph: { title: "Menos rotina. Mais crescimento. | Groow Ads", description: "Conecte seus dados, organize sua operação e entregue resultados com mais clareza.", url: "https://groowads.com", siteName: "Groow Ads", locale: "pt_BR", type: "website" },
+    openGraph: { title: "Seu marketing precisa avançar. Você não precisa fazer tudo. | Groow Ads", description: "Conheça a Groow Ads por dentro: análises com IA, relatórios e entregas agendadas. Execução de campanhas por IA em desenvolvimento.", url: "https://groowads.com", siteName: "Groow Ads", locale: "pt_BR", type: "website" },
   };
 }
 

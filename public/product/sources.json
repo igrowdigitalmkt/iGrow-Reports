@@ -1,0 +1,47 @@
+{
+  "source": "Local demo rendered by the production UI components; fictional data. No customer session.",
+  "sources": [
+    {
+      "file": "overview.webp",
+      "route": "/demo",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "analytics.webp",
+      "route": "/demo/clientes/demo-4",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "automations.webp",
+      "route": "/demo/agendamentos",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "reports.webp",
+      "route": "/demo/relatorios",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "whatsapp.webp",
+      "route": "/demo/whatsapp",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "tablet.webp",
+      "route": "/demo/clientes/demo-4",
+      "width": 1024,
+      "height": 1366
+    },
+    {
+      "file": "mobile.webp",
+      "route": "/demo",
+      "width": 390,
+      "height": 844
+    }
+  ]
+}

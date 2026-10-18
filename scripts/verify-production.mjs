@@ -26,7 +26,7 @@ try {
   const publicSite = await fetch(`${origin}/`, { redirect: "manual" });
   assert.equal(publicSite.status, 200, "Visitantes devem receber o site de vendas.");
   assert.match(publicSite.headers.get("cache-control"), /no-store/, "A entrada personalizada não pode compartilhar cache entre sessões.");
-  assert.match(await publicSite.text(), /Menos rotina/);
+  assert.match(await publicSite.text(), /Seu marketing precisa avançar/);
   const protectedPage = await fetch(`${origin}/clientes`, { redirect: "manual" });
   assert.equal(protectedPage.status, 307, "A área interna exige contexto autenticado.");
   assert.equal(new URL(protectedPage.headers.get("location"), origin).pathname, "/entrar");
