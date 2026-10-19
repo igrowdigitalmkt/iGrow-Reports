@@ -47,7 +47,7 @@ export default async function AgentApprovalsPage({ searchParams }: { searchParam
   const analysisText = (() => {
     switch (sp.analise) {
       case undefined: return null;
-      case "ok": return `Analise concluida: ${sp.p ?? 0} proposta(s) aguardando sua aprovacao, ${sp.b ?? 0} bloqueada(s) pelas travas, ${sp.o ?? 0} observacao(oes) sem acao, ${sp.r ?? 0} descartada(s) pela validacao${sp.rm ? ` (motivos: ${sp.rm.split(",").map(code => REJECTION_LABELS[code]).filter(Boolean).join("; ") || "nao detalhados"})` : ""}${Number(sp.s) > 0 ? `; ${sp.s} conta(s) nao analisada(s)${sp.motivo ? ` (${sp.motivo})` : ""}` : ""}.`;
+      case "ok": return `Analise concluida: ${sp.p ?? 0} proposta(s) aguardando sua aprovacao, ${sp.b ?? 0} bloqueada(s) pelas travas, ${sp.o ?? 0} observacao(oes) sem acao, ${sp.r ?? 0} descartada(s) pela validacao${sp.rm ? ` (motivos: ${sp.rm.split(",").map(code => REJECTION_LABELS[code]).filter(Boolean).join("; ") || "nao detalhados"}${sp.un ? `; numeros barrados: ${sp.un.replace(/[^0-9.,]/g, "")}` : ""})` : ""}${Number(sp.s) > 0 ? `; ${sp.s} conta(s) nao analisada(s)${sp.motivo ? ` (${sp.motivo})` : ""}` : ""}.`;
       case "disabled": return "O motor de decisao esta desligado neste ambiente (AGENT_DECISION_ENGINE_ENABLED).";
       case "no_delegation": return "Este cliente nao tem delegacao vigente; nada foi analisado.";
       case "ai_unavailable": return "A IA nao esta disponivel (plano, configuracao ou erro de verificacao); nada foi analisado.";

@@ -19,7 +19,7 @@ export type CycleDeps = {
 };
 export type AccountCycleResult =
   | { adAccountId: string; status: "skipped"; reason: string }
-  | { adAccountId: string; status: "done"; summary: string; stages: StageOutcome[]; observations: number; rejected: number; rejectedReasons: string[] };
+  | { adAccountId: string; status: "done"; summary: string; stages: StageOutcome[]; observations: number; rejected: number; rejectedReasons: string[]; rejectedDetails: string[] };
 export type CycleResult =
   | { ok: false; reason: "disabled" | "no_delegation" | "ai_unavailable" | "ai_budget" }
   | { ok: true; accounts: AccountCycleResult[] };
@@ -128,6 +128,7 @@ export async function runDecisionCycle(
       adAccountId, status: "done", summary: result.decision.summary, stages,
       observations: result.decision.observations.length, rejected: result.decision.rejected.length,
       rejectedReasons: result.decision.rejected.map(r => r.reason),
+      rejectedDetails: result.decision.rejected.flatMap(r => r.detail ? [r.detail] : []),
     });
   }
   return { ok: true, accounts };

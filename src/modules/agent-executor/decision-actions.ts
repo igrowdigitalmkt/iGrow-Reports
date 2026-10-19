@@ -38,17 +38,20 @@ export async function analyzeClientNow(formData: FormData) {
   let proposals = 0, blocked = 0, skipped = 0, observations = 0, rejected = 0;
   let skipReason = "";
   const reasons = new Set<string>();
+  const numbersBlocked = new Set<string>();
   for (const account of result.accounts) {
     if (account.status === "skipped") { skipped += 1; skipReason ||= account.reason; continue; }
     observations += account.observations;
     rejected += account.rejected;
     for (const reason of account.rejectedReasons) reasons.add(reason);
+    for (const detail of account.rejectedDetails) for (const n of detail.split(",")) numbersBlocked.add(n);
     for (const stage of account.stages) { if (stage.status === "awaiting_approval") proposals += 1; else blocked += 1; }
   }
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/agente/aprovacoes");
   const q = new URLSearchParams({ analise: "ok", p: String(proposals), b: String(blocked), s: String(skipped), o: String(observations), r: String(rejected) });
   if (reasons.size > 0) q.set("rm", [...reasons].join(",").replace(/[^a-z_,]/g, ""));
+  if (numbersBlocked.size > 0) q.set("un", [...numbersBlocked].slice(0, 12).join(",").replace(/[^0-9.,]/g, ""));
   if (skipReason) q.set("motivo", skipReason.replace(/[^a-z0-9_:]/g, ""));
   return redirect(`/agente/aprovacoes?${q.toString()}`);
 }

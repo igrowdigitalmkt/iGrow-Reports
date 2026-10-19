@@ -21,7 +21,7 @@ export type AcceptedRecommendation = {
   /** Valor absoluto calculado NO SERVIDOR a partir do orcamento confirmado. */
   dailyBudgetMinor: number | null;
 };
-export type RejectedRecommendation = { index: number; reason: string };
+export type RejectedRecommendation = { index: number; reason: string; /** So numeros barrados (diagnostico); nunca texto livre. */ detail?: string };
 
 export type ValidatedDecision = {
   summary: string;
@@ -67,12 +67,12 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
   const claimed = new Set<string>();
 
   parsed.data.recommendations.forEach((rec, index) => {
-    const reject = (reason: string) => out.rejected.push({ index, reason });
+    const reject = (reason: string, detail?: string) => out.rejected.push({ index, reason, ...(detail ? { detail } : {}) });
     const target = facts.targets.get(rec.targetRef);
     if (!target) return reject("unknown_target");
     if (!rec.evidenceRefs.includes(rec.targetRef) || rec.evidenceRefs.some(r => !facts.targets.has(r))) return reject("invalid_evidence");
     const numbers = verifyNumbers(rec.rationale, [...allowed, rec.budgetChangePercent ?? ""]);
-    if (!numbers.ok) return reject("unverified_numbers");
+    if (!numbers.ok) return reject("unverified_numbers", numbers.unverified.slice(0, 6).join(","));
 
     if (rec.action === "no_action") {
       if (rec.budgetChangePercent !== undefined) return reject("unexpected_budget");
