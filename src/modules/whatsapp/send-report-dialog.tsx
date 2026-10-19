@@ -6,6 +6,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { buildSavedReportPdfFile } from "@/modules/reports/pdf-download";
 import { numberName, type WhatsAppSummary } from "./whatsapp-manager";
+import { Select } from "@/components/ui/select";
 
 export type SendableRecipient = { id: string; clientId: string; name: string; phone: string; authorized: boolean; reason: string | null };
 type Result = { recipientId: string; name: string; status: "accepted" | "failed" | "skipped"; message?: string };
@@ -52,9 +53,9 @@ export function SendReportDialog({ open, onOpenChange, clientId, clientName, rep
     {whatsAppReady && recipients.length > 0 && !results && <>
       <p className="muted text-sm">O PDF do relatório vai como arquivo na mensagem. Só destinatários com autorização de recebimento podem ser escolhidos.</p>
       {numbers.length > 1 && <label className="send-number"><span>Enviar pelo número</span>
-        <select className="input" value={numberId} onChange={event => setNumberId(event.target.value)} disabled={sending}>
+        <Select className="input" value={numberId} onChange={event => setNumberId(event.target.value)} disabled={sending}>
           {numbers.map(number => <option key={number.id ?? "legacy"} value={number.id ?? ""}>{numberName(number)}{number.displayPhone && number.label ? ` · ${number.displayPhone}` : ""}</option>)}
-        </select></label>}
+        </Select></label>}
       <ul className="send-recipient-list">{recipients.map(recipient => <li key={recipient.id}>
         <label className={recipient.authorized ? undefined : "is-disabled"}>
           <input type="checkbox" disabled={!recipient.authorized || sending} checked={selected.includes(recipient.id)}

@@ -20,6 +20,7 @@ import type { AutomationItem } from "./types";
 import { WhatsAppPreview } from "./whatsapp-preview";
 import { SUGGESTED_TEMPLATE } from "@/modules/whatsapp/templates";
 import { numberName, type WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
+import { Select } from "@/components/ui/select";
 
 export type EditorDraft = Omit<AutomationItem, "id" | "nextRunAt" | "lastRunAt" | "timezone"> & { id?: string };
 
@@ -153,19 +154,19 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
           <header><span className="step-number">1</span><div><h3>Cliente</h3><p>De quem são os números enviados.</p></div></header>
           <div className="automation-fields two">
             <label><span>Cliente</span>
-              <select className="input" value={draft.clientId} onChange={event => update({ clientId: event.target.value, targets: [] })}>
+              <Select className="input" value={draft.clientId} onChange={event => update({ clientId: event.target.value, targets: [] })}>
                 {clients.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select>
+              </Select>
             </label>
             <label><span>Nome do agendamento</span>
               <input className="input" value={draft.name} maxLength={120} onChange={event => update({ name: event.target.value })} placeholder="Ex.: Resumo de segunda" />
             </label>
             <label className="automation-sender"><span>Enviar por</span>
-              <select className="input" value={senderValue} onChange={event => update(event.target.value === "qr" ? { sender: "qr", connectionId: null } : { sender: "official", connectionId: event.target.value, targets: draft.targets.filter(target => target.recipientId) })}>
+              <Select className="input" value={senderValue} onChange={event => update(event.target.value === "qr" ? { sender: "qr", connectionId: null } : { sender: "official", connectionId: event.target.value, targets: draft.targets.filter(target => target.recipientId) })}>
                 <option value="qr">Seu WhatsApp (QR Code) · texto livre</option>
                 {officialNumbers.map(number => <option key={number.id!} value={number.id!}>{numberName(number)}{number.displayPhone && number.label ? ` · ${number.displayPhone}` : ""} · PDF pela API oficial</option>)}
                 {official && !chosenNumber && <option value={draft.connectionId ?? ""}>Número removido, escolha outro</option>}
-              </select>
+              </Select>
             </label>
           </div>
           {!officialNumbers.length && <p className="automation-hint"><Sparkles size={14} />Para enviar o PDF, conecte um número da API oficial com mensagem modelo aprovada em Integrações.</p>}
@@ -223,15 +224,15 @@ export function AutomationEditor({ draft: initial, clients, recipients, timezone
             </div>}
             <div className="automation-fields three">
               {draft.frequency === "monthly" && <label><span>Dia do mês</span>
-                <select className="input" value={draft.monthDay} onChange={event => update({ monthDay: Number(event.target.value) })}>
+                <Select className="input" value={draft.monthDay} onChange={event => update({ monthDay: Number(event.target.value) })}>
                   {Array.from({ length: 28 }, (_, index) => index + 1).map(day => <option key={day} value={day}>Dia {day}</option>)}
-                </select>
+                </Select>
               </label>}
               <label><span>Horário</span><input className="input" type="time" step={300} value={draft.sendTime} onChange={event => update({ sendTime: event.target.value.slice(0, 5) })} /></label>
               <label><span>Período dos números</span>
-                <select className="input" value={draft.periodKey} onChange={event => update({ periodKey: event.target.value as ReportPeriodKey })}>
+                <Select className="input" value={draft.periodKey} onChange={event => update({ periodKey: event.target.value as ReportPeriodKey })}>
                   {Object.entries(PERIOD_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                </select>
+                </Select>
               </label>
             </div>
           </div>

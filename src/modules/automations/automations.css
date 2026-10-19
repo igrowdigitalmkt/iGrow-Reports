@@ -151,7 +151,7 @@
   .variable-group { flex-direction: column; gap: 6px; }
   .automation-field-row .field-label { width: auto; }
   .automation-step > header { flex-wrap: wrap; }
-  .automation-step > header > select { width: 100%; }
+  .automation-step > header > .ui-select { width: 100%; }
 }
 
 /* Pages split by client (Agendamentos, Entregas) */
@@ -221,7 +221,7 @@
 .templates-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
 .templates-library { position: sticky; top: 72px; display: grid; gap: 6px; max-height: calc(100dvh - 100px); padding: 12px; overflow-y: auto; }
 .templates-library-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
-.templates-library-head select { width: 100%; min-width: 0; }
+.templates-library-head .ui-select { width: 100%; min-width: 0; }
 .templates-library-head .button { white-space: nowrap; }
 .templates-library h3 { display: flex; align-items: center; gap: 6px; margin: 10px 6px 2px; color: var(--muted); font-size: 12px; font-weight: 500; }
 .templates-library ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
@@ -278,7 +278,7 @@
 }
 
 .automation-template-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.automation-template-bar > select { flex: 1 1 220px; max-width: 340px; }
+.automation-template-bar > .ui-select { flex: 1 1 220px; max-width: 340px; }
 
 /* Relatórios › Visão geral */
 .reports-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }

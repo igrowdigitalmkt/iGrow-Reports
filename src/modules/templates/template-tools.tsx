@@ -7,18 +7,18 @@ import { Dialog } from "@/components/ui/dialog";
 import { SYSTEM_TEMPLATES } from "@/modules/automations/message";
 import { saveMessageTemplateAction } from "./actions";
 import type { SavedTemplate } from "./types";
+import { Select } from "@/components/ui/select";
 
 /** "Escolher template": the platform's ready-made ones and the workspace's own. */
 export function TemplatePicker({ saved, onPick, className }: { saved: SavedTemplate[]; onPick: (body: string, name: string) => void; className?: string }) {
-  return <select className={className ?? "input compact-select"} aria-label="Escolher template" value="" onChange={event => {
+  return <Select className={className ?? "input compact-select"} aria-label="Escolher template" placeholder="Escolher template…" value="" onChange={event => {
     const id = event.target.value;
     const template = SYSTEM_TEMPLATES.find(item => item.id === id) ?? saved.find(item => item.id === id);
     if (template) onPick(template.body, template.name);
   }}>
-    <option value="">Escolher template…</option>
     {saved.some(item => item.channel === "whatsapp") && <optgroup label="Seus templates">{saved.filter(item => item.channel === "whatsapp").map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>}
     <optgroup label="Prontos da plataforma">{SYSTEM_TEMPLATES.filter(item => item.channel === "whatsapp").map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
-  </select>;
+  </Select>;
 }
 
 /** "Salvar como template": keeps the current message for reuse with other clients. */

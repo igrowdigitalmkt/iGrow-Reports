@@ -4,6 +4,7 @@ import { startTransition, useActionState, useEffect, useState } from "react";
 import { Check, Copy, KeyRound, LoaderCircle } from "lucide-react";
 import { inputClass, primaryButton, secondaryButton } from "../commercial/action-form";
 import { rotateWebhookTokenAction, type IntegrationFormState } from "./actions";
+import { Select } from "@/components/ui/select";
 
 const initial: IntegrationFormState = { error: null, ok: null, secret: null };
 
@@ -33,10 +34,10 @@ export function WebhookTokenForm({ hasToken }: { hasToken: boolean }) {
   }}>
     <fieldset disabled={pending} className="m-0 min-w-0 space-y-3 border-0 p-0">
       {hasToken && <label className="block text-sm"><span className="font-medium text-[var(--secondary)]">Tempo em que o token anterior continua válido</span>
-        <select name="graceMinutes" defaultValue="60" className={`${inputClass} mt-1.5`}>
+        <Select name="graceMinutes" defaultValue="60" className={`${inputClass} mt-1.5`}>
           <option value="0">Encerrar já (o Asaas precisa ser atualizado imediatamente)</option>
           <option value="15">15 minutos</option><option value="60">1 hora</option><option value="240">4 horas</option><option value="1440">24 horas</option>
-        </select>
+        </Select>
         <span className="mt-1 block text-xs text-[var(--muted)]">Dá tempo de atualizar o token no painel do Asaas sem perder eventos. Depois do prazo, o anterior deixa de valer.</span></label>}
       <button type="submit" className={hasToken ? secondaryButton : primaryButton}>
         {pending ? <LoaderCircle className="animate-spin" size={15} aria-hidden="true" /> : <KeyRound size={15} aria-hidden="true" />}{hasToken ? "Gerar novo token" : "Gerar token do webhook"}</button>

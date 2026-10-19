@@ -3,6 +3,7 @@
 import { createContext, startTransition, useActionState, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
 import type { FormState } from "./actions";
+import { Select } from "@/components/ui/select";
 
 export const inputClass = "w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text)] outline-none placeholder:text-[var(--subtle)] focus:border-[var(--focus)] focus:ring-2 focus:ring-[var(--focus)]/25 disabled:opacity-50";
 export const primaryButton = "inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50";
@@ -64,9 +65,9 @@ export function LimitRow({ name, label, unit, prefix, initialMode, initialValue 
   const [mode, setMode] = useState(initialMode);
   return <div className="grid items-center gap-2 py-2.5 sm:grid-cols-[minmax(0,1fr)_11rem_9rem]">
     <div><p className="text-sm font-medium">{label}</p>{unit && <p className="text-xs text-[var(--muted)]">{unit}</p>}</div>
-    <select name={`mode_${name}`} value={mode} onChange={(event) => setMode(event.target.value as typeof mode)} className={inputClass} aria-label={`${label}: situação`}>
+    <Select name={`mode_${name}`} value={mode} onChange={(event) => setMode(event.target.value as typeof mode)} className={inputClass} aria-label={`${label}: situação`}>
       <option value="none">Não incluso</option><option value="limit">Limitado a</option><option value="unlimited">Ilimitado</option>
-    </select>
+    </Select>
     <div className="flex items-center gap-1.5">{prefix && <span className="text-xs text-[var(--muted)]">{prefix}</span>}
       <input name={`limit_${name}`} defaultValue={initialValue} inputMode="decimal" disabled={mode !== "limit"} className={inputClass} aria-label={`${label}: valor do limite`} /></div>
   </div>;

@@ -5,6 +5,7 @@ import { requirePlatformOperator } from "@/modules/platform-admin/guard";
 import { assignPlanAction, grantOverrideAction, revokeOverrideAction, unassignPlanAction } from "@/modules/platform-admin/commercial/actions";
 import { ActionForm, dangerButton, Field, inputClass, primaryButton, secondaryButton, SubmitButton } from "@/modules/platform-admin/commercial/action-form";
 import { assignmentKindDescription, describeEntitlement, SOURCE_LABELS, USD_LIMIT_KEYS, formatUsdFromCents } from "@/modules/platform-admin/commercial/format";
+import { Select } from "@/components/ui/select";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Organização" };
@@ -38,7 +39,7 @@ export default async function AgencyPage({ params }: { params: Promise<{ id: str
         : <ActionForm action={assignPlanAction} className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
           <>
             <input type="hidden" name="agencyId" value={agency.agency_id} />
-            <Field label={managed ? "Trocar para" : "Conceder plano"} hint="Sempre a versão atual do plano escolhido. Concessão gratuita: não é uma assinatura paga."><select name="versionId" required className={inputClass} defaultValue=""><option value="" disabled>Escolha…</option>{offered.map((plan) => <option key={plan.plan_id} value={plan.current_version_id ?? ""}>{plan.name} (v{plan.current_version})</option>)}</select></Field>
+            <Field label={managed ? "Trocar para" : "Conceder plano"} hint="Sempre a versão atual do plano escolhido. Concessão gratuita: não é uma assinatura paga."><Select name="versionId" required className={inputClass} defaultValue=""><option value="" disabled>Escolha…</option>{offered.map((plan) => <option key={plan.plan_id} value={plan.current_version_id ?? ""}>{plan.name} (v{plan.current_version})</option>)}</Select></Field>
             <Field label="Motivo da concessão" hint="Obrigatório; fica na auditoria."><input name="note" required minLength={3} maxLength={300} placeholder="Ex.: parceiro, cortesia, organização fundadora" className={inputClass} /></Field>
             <SubmitButton className={primaryButton}>{managed ? "Trocar plano" : "Conceder plano"}</SubmitButton>
           </>
@@ -70,9 +71,9 @@ export default async function AgencyPage({ params }: { params: Promise<{ id: str
       {managed ? <ActionForm action={grantOverrideAction} resetOnSuccess className="mt-5 grid gap-4 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
         <>
           <input type="hidden" name="agencyId" value={agency.agency_id} />
-          <Field label="Recurso"><select name="key" required className={inputClass} defaultValue="">{<option value="" disabled>Escolha…</option>}{definitions.data?.map((def) => <option key={def.key} value={def.key}>{def.label}</option>)}</select></Field>
+          <Field label="Recurso"><Select name="key" required className={inputClass} defaultValue="">{<option value="" disabled>Escolha…</option>}{definitions.data?.map((def) => <option key={def.key} value={def.key}>{def.label}</option>)}</Select></Field>
           <Field label="Valor concedido" hint="Para funcionalidades: liberar ou bloquear. Para limites: informe o número (ou marque ilimitado). Dólares para o orçamento de IA (ex.: 10,00)."><div className="flex flex-wrap items-center gap-2">
-            <select name="featureValue" className={`${inputClass} !w-auto`} aria-label="Funcionalidade"><option value="allow">Liberar</option><option value="block">Bloquear</option></select>
+            <Select name="featureValue" className={`${inputClass} !w-auto`} aria-label="Funcionalidade"><option value="allow">Liberar</option><option value="block">Bloquear</option></Select>
             <input name="limitValue" inputMode="decimal" placeholder="Limite" className={`${inputClass} !w-28`} aria-label="Limite" />
             <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" name="limitMode" value="unlimited" />Ilimitado</label></div></Field>
           <Field label="Válida até (opcional)" hint="Sem data, vale até ser revogada."><input type="date" name="until" className={inputClass} /></Field>

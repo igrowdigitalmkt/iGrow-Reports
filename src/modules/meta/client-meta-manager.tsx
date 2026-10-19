@@ -10,6 +10,7 @@ import type {
   ClientMetricMapping,
   MetaAdminAccount,
 } from "./types";
+import { Select } from "@/components/ui/select";
 
 type Props = {
   agencyId: string;
@@ -182,7 +183,7 @@ export function ClientMetaManager({
           </span>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <select
+          <Select
             className="input compact-select"
             aria-label="Período de coleta Meta"
             value={collectionPeriod}
@@ -191,7 +192,7 @@ export function ClientMetaManager({
           >
             <option value="7d">Últimos 7 dias completos</option>
             <option value="30d">Últimos 30 dias completos</option>
-          </select>
+          </Select>
           <Button
             type="button"
             variant="secondary"

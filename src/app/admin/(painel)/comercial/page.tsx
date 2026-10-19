@@ -5,6 +5,7 @@ import { ActionForm, Field, inputClass, primaryButton, SubmitButton } from "@/mo
 import { adminRpc, billingDashboardSchema, billingSettingsSchema, ENTITLEMENT_LABELS, limitOf } from "@/modules/platform-admin/commercial/billing-settings";
 import { formatUsdFromCents, planDetailSchema } from "@/modules/platform-admin/commercial/format";
 import { resolveBillingEnvironment } from "@/modules/billing/credentials";
+import { Select } from "@/components/ui/select";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Configurações comerciais" };
@@ -48,10 +49,10 @@ export default async function CommercialSettingsPage() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Duração do teste (dias)" hint="De 1 a 90."><input name="trialDays" type="number" min={1} max={90} defaultValue={s.trial_days} required className={inputClass} /></Field>
             <Field label="Plano usado no teste" hint="Só planos privados e não vendáveis, em versão publicada.">
-              <select name="trialPlanVersionId" defaultValue={s.trial_plan_version_id ?? ""} className={inputClass}>
+              <Select name="trialPlanVersionId" defaultValue={s.trial_plan_version_id ?? ""} className={inputClass}>
                 <option value="">Sem teste gratuito (cadastros novos nascem restritos)</option>
                 {s.trial_candidates.map(item => <option key={item.version_id} value={item.version_id}>{item.label}</option>)}
-              </select>
+              </Select>
             </Field>
           </div>
           {s.trial_plan ? <div className="mt-4">

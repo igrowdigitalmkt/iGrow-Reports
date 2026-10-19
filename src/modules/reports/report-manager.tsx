@@ -12,6 +12,7 @@ import { publishReportVersion } from "./actions";
 import type { AdminReportVersion, ReportsAdminSnapshot } from "./types";
 import { SendReportDialog, type SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
 import type { WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
+import { Select } from "@/components/ui/select";
 
 export function ReportManager({ agencyId, clients, snapshot, canEdit, canSend = false, recipients = [], whatsappNumbers = [] }: {
   agencyId: string; clients: ClientItem[]; snapshot: ReportsAdminSnapshot; canEdit: boolean;
@@ -58,8 +59,8 @@ export function ReportManager({ agencyId, clients, snapshot, canEdit, canSend = 
       </div>
       <div className="reports-filter-grid">
         <label className="search-control !w-auto"><Search size={15} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar cliente, relatório ou período…" aria-label="Buscar relatório" /></label>
-        <select className="input" value={clientFilter} onChange={event => setClientFilter(event.target.value)} aria-label="Filtrar por cliente"><option value="all">Todos os clientes</option>{clients.filter(c => !c.archived_at).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <select className="input" value={stateFilter} onChange={event => setStateFilter(event.target.value)} aria-label="Filtrar por status"><option value="all">Todos os status</option><option value="ready">Não publicados</option><option value="published">Publicados</option><option value="superseded">Histórico</option></select>
+        <Select className="input" value={clientFilter} onChange={event => setClientFilter(event.target.value)} aria-label="Filtrar por cliente"><option value="all">Todos os clientes</option>{clients.filter(c => !c.archived_at).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+        <Select className="input" value={stateFilter} onChange={event => setStateFilter(event.target.value)} aria-label="Filtrar por status"><option value="all">Todos os status</option><option value="ready">Não publicados</option><option value="published">Publicados</option><option value="superseded">Histórico</option></Select>
       </div>
       <p className="reports-help">Publicado significa que o relatório está disponível na conta do cliente. Os demais ficam visíveis apenas para sua equipe.</p>
       {error && <p role="alert" className="text-sm text-rose-400">{error}</p>}

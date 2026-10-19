@@ -5,6 +5,7 @@ import { requirePlatformOperator } from "@/modules/platform-admin/guard";
 import { discardDraftAction, saveDraftAction, startDraftAction, updatePlanAction } from "@/modules/platform-admin/commercial/actions";
 import { ActionForm, Field, inputClass, LimitRow, primaryButton, secondaryButton, SubmitButton } from "@/modules/platform-admin/commercial/action-form";
 import { centsToInput, describeEntitlement, formatBrl, planDetailSchema, USD_LIMIT_KEYS, type PlanVersion } from "@/modules/platform-admin/commercial/format";
+import { Select } from "@/components/ui/select";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Plano" };
@@ -37,7 +38,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
         <>
           <input type="hidden" name="planId" value={plan.id} />
           <Field label="Nome"><input name="name" defaultValue={plan.name} required minLength={2} maxLength={80} className={inputClass} /></Field>
-          <Field label="Visibilidade" hint="Efeito: público/privado define se o plano poderá aparecer na página de vendas (etapa futura)."><select name="visibility" defaultValue={plan.visibility} className={inputClass}><option value="private">Privado</option><option value="public">Público</option></select></Field>
+          <Field label="Visibilidade" hint="Efeito: público/privado define se o plano poderá aparecer na página de vendas (etapa futura)."><Select name="visibility" defaultValue={plan.visibility} className={inputClass}><option value="private">Privado</option><option value="public">Público</option></Select></Field>
           <div className="sm:col-span-2"><Field label="Descrição comercial"><textarea name="description" defaultValue={plan.description} rows={2} maxLength={500} className={inputClass} /></Field></div>
           <Field label="Ordem de apresentação" hint="Menor número aparece primeiro (usado na página de vendas, etapa futura)."><input name="sortOrder" defaultValue={plan.sort_order} inputMode="numeric" className={inputClass} /></Field>
           <div className="space-y-2 text-sm">

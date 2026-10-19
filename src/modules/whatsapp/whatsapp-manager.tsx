@@ -9,6 +9,7 @@ import { connectWhatsAppAction, listWhatsAppTemplatesAction, removeWhatsAppNumbe
 import { SUGGESTED_TEMPLATE } from "./templates";
 import { EmbeddedSignupButton } from "./embedded-signup-button";
 import type { TokenExpiry } from "./token-expiry";
+import { Select } from "@/components/ui/select";
 
 /** One official number of the workspace. `id` is null while the database keeps a single number. */
 export type WhatsAppNumber = {
@@ -154,10 +155,10 @@ function NumberCard({ number, canManage, embedded, ready }: { number: WhatsAppNu
 
     {canManage && <div className="whatsapp-actions">
       {templates ? <>
-        <select className="input compact-select" aria-label={`Mensagem modelo de ${numberName(number)}`} value={chosen} onChange={event => setChosen(event.target.value)} disabled={pending || !templates.length}>
+        <Select className="input compact-select" aria-label={`Mensagem modelo de ${numberName(number)}`} value={chosen} onChange={event => setChosen(event.target.value)} disabled={pending || !templates.length}>
           {!templates.length && <option value="">Nenhuma aprovada com PDF</option>}
           {templates.map(item => <option key={`${item.name}|${item.language}`} value={`${item.name}|${item.language}`}>{item.name} · {item.language}</option>)}
-        </select>
+        </Select>
         {templates.length > 0 && chosen !== current && <Button className="button-sm" disabled={pending}
           onClick={() => { const [name, language] = chosen.split("|"); run(() => selectWhatsAppTemplateAction({ connectionId, name, language }), "Mensagem modelo atualizada."); }}>Usar esta mensagem</Button>}
       </> : <Button variant="secondary" className="button-sm" onClick={loadTemplates} disabled={pending}><RefreshCw size={14} />Atualizar mensagens modelo</Button>}

@@ -10,6 +10,7 @@ import type { AgencyRole } from "@/types/database";
 import { inviteMemberAction, removeMemberAction, revokeInvitationAction, setMemberModulesAction, setMemberRoleAction } from "./actions";
 import type { TeamMember, TeamSnapshot } from "./admin";
 import { ROLE_HINTS, TEAM_MODULES } from "./permissions";
+import { Select } from "@/components/ui/select";
 
 const ROLES: AgencyRole[] = ["owner", "admin", "editor", "viewer"];
 const initialsOf = (value: string) => value.split(/[ @._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
@@ -57,9 +58,9 @@ export function TeamView({ snapshot, currentUserId, currentRole, timezone, demo 
               <span style={{ minWidth: 0 }}><strong>{member.name ?? member.email.split("@")[0]}{member.userId === currentUserId && <span className="badge neutral team-you">Você</span>}</strong><small>{member.email}</small></span>
             </div></th>
             <td>{manageable(member)
-              ? <select className="input compact-select" aria-label={`Papel de ${member.email}`} value={member.role} disabled={busy} onChange={event => act(() => setMemberRoleAction({ userId: member.userId, role: event.target.value }))}>
+              ? <Select className="input compact-select" aria-label={`Papel de ${member.email}`} value={member.role} disabled={busy} onChange={event => act(() => setMemberRoleAction({ userId: member.userId, role: event.target.value }))}>
                 {ROLES.filter(role => currentRole === "owner" || role !== "owner").map(role => <option key={role} value={role}>{roleLabels[role]}</option>)}
-              </select>
+              </Select>
               : <span className="badge neutral">{roleLabels[member.role]}</span>}</td>
             <td><div className="team-access">
               <span>{full ? "Todas as áreas" : `${member.modules!.length} de ${TEAM_MODULES.length} áreas`}</span>

@@ -6,6 +6,7 @@ import { asaasStateSchema, REQUIRED_WEBHOOK_EVENTS, webhookUrl } from "@/modules
 import { WebhookTokenForm } from "@/modules/platform-admin/integrations/token-form";
 import { productionUnlocked } from "@/modules/billing/config";
 import { resolveBillingCredentials } from "@/modules/billing/credentials";
+import { Select } from "@/components/ui/select";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Integrações: Pagamentos" };
@@ -77,7 +78,7 @@ export default async function PaymentsIntegrationPage() {
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Ambiente" hint="Sandbox usa chaves de teste; Produção usa a chave real e fica sujeita às travas.">
-              <select name="environment" defaultValue={s.environment ?? activeEnvironment} className={inputClass}><option value="sandbox">Sandbox (testes)</option><option value="production">Produção</option></select>
+              <Select name="environment" defaultValue={s.environment ?? activeEnvironment} className={inputClass}><option value="sandbox">Sandbox (testes)</option><option value="production">Produção</option></Select>
             </Field>
             <Field label={s.key_configured ? "Nova chave de API" : "Chave de API"} hint="Começa com $aact_. Cole e envie: ela não fica visível depois.">
               <input name="apiKey" type="password" autoComplete="off" spellCheck={false} required minLength={20} maxLength={400} className={`${inputClass} font-mono`} />

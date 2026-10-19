@@ -5,6 +5,7 @@ import { Globe2, Loader2, MapPin, RefreshCw } from "lucide-react";
 import type { AudienceRow, ClientAudienceBreakdowns } from "@/modules/meta/server";
 import { ANALYTICS_COLORS } from "./analytics-charts";
 import { DonutRing } from "./donut-ring";
+import { Select } from "@/components/ui/select";
 
 type Metric = "impressions" | "reach" | "clicks" | "spend" | "results";
 const METRICS: Array<{ key: Metric; label: string }> = [
@@ -75,7 +76,7 @@ export function AudienceBreakdowns({ clientId, dateFrom, dateTo, accountIds, dem
     <div className="audience-head">
       <div><h3>Público do período</h3><p>Plataformas, gênero, idade e local, direto da Meta</p></div>
       <label className="analytics-chart-metric"><span>Indicador</span>
-        <select className="input" value={metric} onChange={event => setMetric(event.target.value as Metric)}>{METRICS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}</select>
+        <Select className="input" value={metric} onChange={event => setMetric(event.target.value as Metric)}>{METRICS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}</Select>
       </label>
     </div>
     {state.status === "loading" && <div className="audience-loading"><Loader2 size={16} className="spin" />Consultando o público na Meta…</div>}

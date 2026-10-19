@@ -135,6 +135,44 @@ h1, h2, h3, h4 { text-wrap: balance; }
 .input:disabled { opacity: .6; cursor: not-allowed; }
 textarea.input { padding-top: 9px; padding-bottom: 9px; line-height: 1.5; }
 .compact-select { width: auto; min-height: 32px; padding: 4px 10px; font-size: 13px; background: var(--surface); }
+
+/* Lista suspensa da plataforma (components/ui/select.tsx) */
+.ui-select { position: relative; display: block; min-width: 0; max-width: 100%; }
+.ui-select.is-inline { display: inline-block; vertical-align: middle; }
+.ui-select-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.ui-select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+.ui-select-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-select-trigger > svg { flex: none; color: var(--muted); transition: transform .15s; }
+.ui-select-trigger[aria-expanded="true"] { border-color: var(--accent); }
+.ui-select-trigger[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.ui-select-trigger.is-placeholder > span { color: var(--muted); }
+.ui-select-trigger:disabled { opacity: .6; cursor: not-allowed; }
+.ui-select-popover { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; z-index: 80; display: flex; flex-direction: column; gap: 2px; padding: 6px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); overflow-y: auto; outline: none; animation: fade-in .12s ease-out; }
+.ui-select-popover.is-inline { position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; max-height: 260px; }
+.ui-select-group { padding: 8px 10px 4px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.ui-select-option { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 10px; border-radius: 8px; color: var(--text); font-size: 14px; line-height: 1.35; cursor: pointer; }
+.ui-select-option > span { flex: 1; min-width: 0; }
+.ui-select-option > svg { flex: none; color: var(--accent-text); }
+.ui-select-option.is-active { background: var(--surface-raised); }
+.ui-select-option.is-selected { color: var(--accent-text); font-weight: 600; }
+.ui-select-option.is-disabled { color: var(--muted); opacity: .55; cursor: not-allowed; }
+
+/* Caixas de seleção e botões de opção no padrão da plataforma (o WhatsApp mantém o visual próprio). */
+input[type="checkbox"]:not(:where(.wai-shell *)), input[type="radio"]:not(:where(.wai-shell *)) {
+  appearance: none; -webkit-appearance: none; flex: none; display: inline-grid; place-content: center; width: 18px; height: 18px; margin: 0; padding: 0;
+  border: 1.5px solid var(--border-strong); background: var(--bg); color: #fff; cursor: pointer; vertical-align: middle;
+  transition: background-color .15s, border-color .15s, box-shadow .15s;
+}
+input[type="checkbox"]:not(:where(.wai-shell *)) { border-radius: 6px; }
+input[type="radio"]:not(:where(.wai-shell *)) { border-radius: 50%; }
+input[type="checkbox"]:not(:where(.wai-shell *))::after { content: ""; width: 10px; height: 6px; margin-top: -2px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg) scale(0); transition: transform .12s ease-out; }
+input[type="radio"]:not(:where(.wai-shell *))::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; transform: scale(0); transition: transform .12s ease-out; }
+input[type="checkbox"]:not(:where(.wai-shell *)):hover:not(:disabled), input[type="radio"]:not(:where(.wai-shell *)):hover:not(:disabled) { border-color: var(--accent); }
+input[type="checkbox"]:not(:where(.wai-shell *)):checked, input[type="radio"]:not(:where(.wai-shell *)):checked { border-color: var(--accent); background: var(--accent); }
+input[type="checkbox"]:not(:where(.wai-shell *)):checked::after { transform: rotate(-45deg) scale(1); }
+input[type="radio"]:not(:where(.wai-shell *)):checked::after { transform: scale(1); }
+input[type="checkbox"]:not(:where(.wai-shell *)):focus-visible, input[type="radio"]:not(:where(.wai-shell *)):focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-bg); border-color: var(--accent); }
+input[type="checkbox"]:not(:where(.wai-shell *)):disabled, input[type="radio"]:not(:where(.wai-shell *)):disabled { opacity: .5; cursor: not-allowed; }
 .badge { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 22px; padding: 0 8px; border: 0; border-radius: 999px; font-size: 12px; font-weight: 500; line-height: 1.3; white-space: nowrap; }
 .badge.neutral { background: var(--surface-raised); color: var(--secondary); }
 .text-link { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-text); font-size: 13px; font-weight: 500; }
@@ -520,7 +558,8 @@ a.attention-item:hover { background: var(--surface-hover); }
 .onboarding-steps p, .onboarding-note { margin: 2px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .onboarding-steps a { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--accent-text); font-size: 13px; font-weight: 500; }
 .onboarding-client { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-.onboarding-client select { width: auto; max-width: 100%; }
+.onboarding-client .ui-select { display: inline-block; max-width: 100%; }
+.onboarding-client .ui-select-trigger { width: auto; max-width: 100%; }
 
 /* Meta integration */
 .meta-operational-card { grid-column: 1 / -1; padding: 20px; }

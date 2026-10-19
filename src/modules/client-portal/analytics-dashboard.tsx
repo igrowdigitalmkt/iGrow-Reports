@@ -45,6 +45,7 @@ import {
   EntityMetricValue, formatAnalyticsValue, type AnalyticsMetric,
 } from "./analytics-charts";
 import "./analytics-dashboard.css";
+import { Select } from "@/components/ui/select";
 type DashboardProps = {
   /** Modo menu do cliente: a secao vem do endereco (/clientes/ID/dashboard...) e as abas internas somem. */
   sectioned?: boolean;
@@ -987,11 +988,11 @@ export function ClientAnalyticsDashboard({
               onDragEnd={() => { setDraggingCard(null); setDropTarget(null); }}>
               <div className="analytics-kpi-top"><span><GripVertical size={14} className="analytics-kpi-grip" aria-hidden="true" />{metric.label}</span>
                 <div className="analytics-kpi-tools">
-                  {replacements.length > 0 && <label className="analytics-kpi-swap" title="Trocar métrica"><ArrowLeftRight size={13} />
-                    <select aria-label={`Trocar ${metric.label} por outra métrica`} value="" onChange={event => replaceMetric(metric.key, event.target.value)}>
-                      <option value="">Trocar por…</option>
+                  {replacements.length > 0 && <span className="analytics-kpi-swap">
+                    <Select className="analytics-kpi-swap-trigger" title="Trocar métrica" aria-label={`Trocar ${metric.label} por outra métrica`} value="" alignEnd
+                      triggerContent={<ArrowLeftRight size={13} />} onChange={event => replaceMetric(metric.key, event.target.value)}>
                       {replacements.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
-                    </select></label>}
+                    </Select></span>}
                   {!isPinned(metric.key) && <button className="analytics-kpi-remove" type="button" onClick={() => toggleMetric(metric.key)}
                     aria-label={`Remover ${metric.label} da visão geral`}><X size={14} /></button>}
                 </div>
@@ -1035,13 +1036,13 @@ export function ClientAnalyticsDashboard({
               <div className="analytics-chart-head-series">
                 {chartOptions.length > 0 && <>
                   <label className="analytics-series-pick"><span>Principal</span>
-                    <select className="input" value={primaryMetric?.key ?? ""} onChange={event => setPrimaryKey(event.target.value)} aria-label="Indicador principal do gráfico">
+                    <Select className="input" value={primaryMetric?.key ?? ""} onChange={event => setPrimaryKey(event.target.value)} aria-label="Indicador principal do gráfico">
                       {chartOptionGroups(compareMetric?.key)}
-                    </select></label>
+                    </Select></label>
                   <label className="analytics-series-pick"><span>Comparar com</span>
-                    <select className="input" value={compareMetric?.key ?? ""} onChange={event => setCompareKey(event.target.value)} aria-label="Indicador comparado com o principal">
+                    <Select className="input" value={compareMetric?.key ?? ""} onChange={event => setCompareKey(event.target.value)} aria-label="Indicador comparado com o principal">
                       {chartOptionGroups(primaryMetric?.key)}
-                    </select></label>
+                    </Select></label>
                 </>}
               </div>
             </div>
@@ -1094,11 +1095,11 @@ export function ClientAnalyticsDashboard({
 
       {tab === "campaigns" && analyticsReady && <>
         <div className="analytics-campaign-scope-bar">
-          <label><span>Plataforma</span><select className="input" defaultValue="meta">
+          <label><span>Plataforma</span><Select className="input" defaultValue="meta">
             <option value="meta">Meta Ads</option>
             <option value="google" disabled>Google Ads · em breve</option>
             <option value="tiktok" disabled>TikTok Ads · em breve</option>
-          </select></label>
+          </Select></label>
           <div><span>Conta(s)</span><strong>{data.selectedAccountIds.length === data.accounts.length ? "Todas as contas selecionadas" : `${data.selectedAccountIds.length} conta(s)`}</strong></div>
           <div><span>Campanhas</span><strong>{draftEntityKeys.length} de {roots.length}</strong></div>
           <button type="button" className="analytics-button analytics-button-primary" onClick={applyCampaignScope} disabled={pending || hierarchyLoading || !roots.length}>
@@ -1188,10 +1189,10 @@ export function ClientAnalyticsDashboard({
       {tab === "reports" && <div className="analytics-reports-space">
         <section className="analytics-card analytics-report-list-card">
           <div className="analytics-card-heading"><div><h3>Relatórios {canManageReports ? "deste cliente" : "publicados"}</h3><p className="analytics-report-help">{canManageReports ? `Revise os arquivos gerados ${dash.in}. Ao publicar, o relatório fica disponível na conta do cliente.` : "Consulte e baixe os relatórios publicados para você."}</p></div>
-            <select className="input" aria-label="Estado dos relatórios" value={reportState} onChange={event => setReportState(event.target.value)}>
+            <Select className="input" aria-label="Estado dos relatórios" value={reportState} onChange={event => setReportState(event.target.value)}>
               <option value="all">Todos os status</option><option value="published">Publicados</option>
               {canManageReports && <option value="ready">Não publicados</option>}<option value="superseded">Histórico</option>
-            </select>
+            </Select>
             <label className="analytics-search"><Search size={14} /><input type="search" value={reportSearch}
               onChange={(event) => setReportSearch(event.target.value)} placeholder="Buscar relatório…" aria-label="Buscar relatório" /></label>
           </div>
