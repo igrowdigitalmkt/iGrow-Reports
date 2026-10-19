@@ -12,6 +12,7 @@ import { CampaignTree } from "./campaign-tree";
 import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKeys, relevantCampaignHierarchy, type AnalyticsEntity } from "./analytics-hierarchy";
 import { downloadCombinedPdf, downloadCombinedSavedReports, downloadDashboardPdf, downloadSavedReportPdf, type DashboardPdfInput } from "@/modules/reports/pdf-download";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { clientSectionPath, parseClientPath, type ClientSection } from "./client-sections";
 import { Dialog } from "@/components/ui/dialog";
 import { AudienceBreakdowns } from "./audience-breakdowns";
 import { demoAudience } from "./demo-analytics";
@@ -43,6 +44,8 @@ import {
 } from "./analytics-charts";
 import "./analytics-dashboard.css";
 type DashboardProps = {
+  /** Modo menu do cliente: a secao vem do endereco (/clientes/ID/dashboard...) e as abas internas somem. */
+  sectioned?: boolean;
   data: AnalyticsDashboardData;
   // Uma leitura por conta selecionada, para mostrar os resultados de cada conta separadamente.
   accountViews?: Array<{ id: string; name: string; data: AnalyticsDashboardData }>;
@@ -174,7 +177,7 @@ function makeObservations(data: AnalyticsDashboardData) {
 const retryClock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 export function ClientAnalyticsDashboard({
-  data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, demo = false, demoBilling, accountViews, googleSections = [], googleFailures = [],
+  sectioned = false, data, entities, workspaceName, clientName, clientId, workspaceId, canCollect, canManageReports, reports, preferenceKey, demo = false, demoBilling, accountViews, googleSections = [], googleFailures = [],
 }: DashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -194,7 +197,9 @@ export function ClientAnalyticsDashboard({
       .filter((key) => data.metrics.some((metric) => metric.key === key)),
   );
   const [draggedMetricKey, setDraggedMetricKey] = useState<string | null>(null);
-  const [tab, setTab] = useState<"overview" | "campaigns" | "metrics" | "reports">(query.get("aba") === "reports" ? "reports" : "overview");
+  // Abas internas (portal do cliente): estado local. Com `sectioned`, a secao e o endereco, e o menu do cliente a troca.
+  const [legacyTab, setLegacyTab] = useState<Exclude<ClientSection, "summary">>(query.get("aba") === "reports" ? "reports" : "overview");
+  const tab: ClientSection = sectioned ? (parseClientPath(pathname)?.section ?? "summary") : legacyTab;
   const [campaignQuery, setCampaignQuery] = useState("");
   const [hierarchyEntities, setHierarchyEntities] = useState<AnalyticsEntity[]>(() => relevantCampaignHierarchy(entities));
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
@@ -574,7 +579,7 @@ export function ClientAnalyticsDashboard({
     if (!draftEntityKeys.length) { setError("Selecione ao menos uma campanha, conjunto ou anúncio."); return; }
     const nextKeys = [...draftEntityKeys];
     if (selectedLeaves.length === allLeaves.length) {
-      setScopeData(null); setScopeSnapshotKey(null); setAppliedEntityKeys(nextKeys); setTab("overview"); return;
+      setScopeData(null); setScopeSnapshotKey(null); setAppliedEntityKeys(nextKeys); selectTab("overview"); return;
     }
     startTransition(async () => {
       const result = await getCampaignScopedAnalytics({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo,
@@ -582,7 +587,7 @@ export function ClientAnalyticsDashboard({
       if ("error" in result) { setError(result.error ?? "Não foi possível aplicar a seleção."); return; }
       setScopeData(result);
       setScopeSnapshotKey(dataSnapshotKey);
-      setAppliedEntityKeys(nextKeys); setTab("overview");
+      setAppliedEntityKeys(nextKeys); selectTab("overview");
     });
   }
 
@@ -673,8 +678,11 @@ export function ClientAnalyticsDashboard({
     setSortKey(key);
   }
 
-  function selectTab(nextTab: typeof tab) {
-    setTab(nextTab);
+  function selectTab(nextTab: ClientSection) {
+    if (!sectioned) { if (nextTab !== "summary") setLegacyTab(nextTab); return; }
+    const parsed = parseClientPath(window.location.pathname);
+    // So o endereco muda (integrado ao roteador): este componente continua montado e preserva selecao e rascunhos.
+    if (parsed) window.history.pushState(null, "", `${clientSectionPath(parsed.base, nextTab)}${window.location.search}`);
   }
 
   useEffect(() => {
@@ -879,9 +887,17 @@ export function ClientAnalyticsDashboard({
               onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); if (accounts.length) navigate(period); }}>Aplicar contas</button>
           </div>
         </details>}</div></div>
-    <BillingSummary clientId={clientId} dailySpend={dailySpend} accountIds={data.selectedAccountIds} demoAccounts={demo ? demoBilling ?? [] : undefined} />
-    <div className="analytics-section-toolbar">
-      <div className="analytics-tabs" role="tablist" aria-label="Seções do painel">
+    {(!sectioned || tab === "summary") && <BillingSummary clientId={clientId} dailySpend={dailySpend} accountIds={data.selectedAccountIds} demoAccounts={demo ? demoBilling ?? [] : undefined} />}
+    {sectioned && tab === "summary" && <section className="client-summary" aria-label="Contas de anúncios">
+      <h3>Contas de anúncios</h3>
+      <ul>{data.accounts.map(account => {
+        const inPeriod = data.selectedAccountIds.includes(account.id);
+        return <li key={account.id}><strong>{account.name}</strong><span>{account.externalId} · {account.currency} · {account.timezoneName}</span>
+          <em className={inPeriod ? "is-selected" : undefined}>{inPeriod ? "No período" : "Fora da seleção"}</em></li>;
+      })}</ul>
+    </section>}
+    {(!sectioned || tab === "overview") && <div className="analytics-section-toolbar">
+      {!sectioned && <div className="analytics-tabs" role="tablist" aria-label="Seções do painel">
         {[
           { key: "overview", label: "Visão geral", icon: Activity },
           { key: "campaigns", label: "Campanhas", icon: BarChart3 },
@@ -891,7 +907,7 @@ export function ClientAnalyticsDashboard({
           id={`analytics-tab-${key}`} aria-controls={`analytics-panel-${key}`}
           aria-selected={tab === key} key={key} className={tab === key ? "is-active" : ""}
           onClick={() => selectTab(key as typeof tab)}><Icon size={14} />{label}</button>)}
-      </div>
+      </div>}
       {tab === "overview" && analyticsReady && <div className="analytics-toolbar-actions"><button type="button" className="analytics-button analytics-button-ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal size={15} />Personalizar relatório</button><details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Métricas <span className="analytics-count">{overviewMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
@@ -905,7 +921,7 @@ export function ClientAnalyticsDashboard({
           </div>)}
         </div>
       </details></div>}
-    </div>
+    </div>}
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
       {tab === "overview" && analyticsReady && separated && <AccountComparison data={scopedData} views={accountViews} onOpen={accountId => navigate(period, [accountId])} />}
       {tab === "overview" && analyticsReady && !separated && <>

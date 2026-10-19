@@ -11,6 +11,7 @@ import { Brand } from "./brand";
 import { NavigationProgress } from "./navigation-progress";
 import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
 import { Dialog } from "@/components/ui/dialog";
+import { isClientRoute } from "@/modules/client-portal/client-sections";
 import { cn } from "@/lib/utils";
 
 /** iconSize deve ser multiplo de 4: em telas com escala de 125% (comum no Windows) so assim o icone fecha em pixel inteiro e fica nitido. */
@@ -59,7 +60,12 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   const activeKey = segments[0] ?? "";
   const reportTab = activeKey === "relatorios" ? REPORT_TAB_LABELS[segments[1] ?? ""] : undefined;
   const current = navigation.find(item => item.key === activeKey)?.label ?? "Visão geral";
-  const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const [savedCollapsed, setCollapsed] = useState(initialCollapsed);
+  // Dentro de um cliente a barra principal recolhe sozinha (o menu do cliente aparece ao lado). Expandir a mao abre por cima
+  // ("peek"), sem empurrar o conteudo e sem alterar a preferencia salva, que volta ao sair do cliente.
+  const clientMode = isClientRoute(pathname);
+  const [peek, setPeek] = useState(false);
+  const collapsed = clientMode ? !peek : savedCollapsed;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [noticeOpen, setNoticeOpen] = useState(false);
@@ -78,26 +84,27 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   const toggleSidebar = useCallback(() => {
     if (window.matchMedia(MOBILE_QUERY).matches) { setDrawerOpen(open => !open); return; }
     setTooltip(null);
+    if (clientMode) { setPeek(open => !open); return; }
     setCollapsed(previous => {
       const next = !previous;
       document.cookie = `${SIDEBAR_COOKIE}=${next ? "collapsed" : "expanded"}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}; samesite=lax`;
       return next;
     });
-  }, []);
+  }, [clientMode]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if ((event.ctrlKey || event.metaKey) && key === "b") { event.preventDefault(); toggleSidebar(); }
       if ((event.ctrlKey || event.metaKey) && key === "k") { event.preventDefault(); searchInput.current?.focus(); }
-      if (event.key === "Escape") setDrawerOpen(false);
+      if (event.key === "Escape") { setDrawerOpen(false); setPeek(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleSidebar]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- the drawer closes after any route change
-  useEffect(() => { setDrawerOpen(false); setTooltip(null); }, [pathname]);
+  useEffect(() => { setDrawerOpen(false); setPeek(false); setTooltip(null); }, [pathname]);
 
   // WhatsApp unread conversations, refreshed in the background (and shown in the tab title like WhatsApp Web).
   const [liveUnread, setLiveUnread] = useState<number | null>(null);
@@ -128,7 +135,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   }
 
   return <SearchContext.Provider value={{ search, setSearch }}>
-    <div className={cn("app-shell", collapsed && "is-collapsed", drawerOpen && "is-drawer-open")}>
+    <div className={cn("app-shell", collapsed && "is-collapsed", clientMode && "is-client-mode", clientMode && peek && "is-peek", drawerOpen && "is-drawer-open")}>
       <a href="#main-content" className="skip-link">Pular para o conteúdo</a>
       <Suspense fallback={null}><NavigationProgress /></Suspense>
       <aside className="sidebar" aria-label="Menu lateral" onMouseOver={showTooltip} onMouseLeave={() => setTooltip(null)} onFocus={showTooltip} onBlur={() => setTooltip(null)}>
@@ -170,6 +177,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         </div>
       </aside>
       <div className="sidebar-scrim" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
+      {clientMode && peek && <div className="peek-scrim" onClick={() => setPeek(false)} aria-hidden="true" />}
       {tooltip && <span className="shell-tooltip" role="tooltip" style={{ top: tooltip.top, left: tooltip.left, transform: "translateY(-50%)" }}>{tooltip.text}</span>}
 
       <div className="workspace">

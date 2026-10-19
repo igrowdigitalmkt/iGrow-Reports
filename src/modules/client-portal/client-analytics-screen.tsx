@@ -113,6 +113,7 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
     {filterError && <p role="alert" className="client-alert">{filterError} Exibindo os últimos 30 dias completos.</p>}
     {access.client.archivedAt && <p className="client-alert">Cliente arquivado. Histórico preservado para consulta.</p>}
     <ClientAnalyticsDashboard
+      sectioned={frame === "workspace"}
       key={JSON.stringify([data.dateFrom, data.dateTo, data.selectedAccountIds])}
       entities={entities} workspaceName={workspaceName} clientName={access.client.name}
       data={data} clientId={clientId} workspaceId={access.agencyId}
