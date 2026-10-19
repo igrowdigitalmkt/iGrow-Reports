@@ -77,6 +77,17 @@ describe("validacao deterministica", () => {
     expect(withBadSummary.ok && withBadSummary.decision.summary).toBe(SUMMARY_OMITTED);
     expect(withBadSummary.ok && withBadSummary.decision.accepted).toHaveLength(1);
   });
+  it("aceita arredondamento de valor confirmado, mas nao numero que nao deriva dos dados", () => {
+    const f = buildDecisionFacts({
+      entities: [entity({ id: "111", values: { spend: 434.3841, conversions: 2 } })],
+      currency: "BRL", periodFrom: "2026-10-01", periodTo: "2026-10-17", collectedAt: "2026-10-18T11:30:00Z",
+    });
+    const ok = validateModelDecision(out([rec({ rationale: "Gasto de R$ 434,38 com 2 conversoes no periodo." })], "Campanha c1 gastou 434 no periodo."), f, NOW);
+    expect(ok.ok && ok.decision.accepted).toHaveLength(1);
+    expect(ok.ok && ok.decision.summary).not.toBe(SUMMARY_OMITTED);
+    const bad = validateModelDecision(out([rec({ rationale: "Gasto de R$ 435,39 com 2 conversoes no periodo." })]), f, NOW);
+    expect(bad.ok && bad.decision.rejected.map(r => r.reason)).toEqual(["unverified_numbers"]);
+  });
   it("calcula orcamento no servidor e exige orcamento confirmado", () => {
     const rb = rec({ action: "set_campaign_daily_budget", budgetChangePercent: 20, rationale: "Aumentar 20 porcento pois c1 gastou 500." });
     const known = validateModelDecision(out([rb]), facts(new Map([["act_9:111", 10_000]])), NOW);

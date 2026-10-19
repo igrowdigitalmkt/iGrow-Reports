@@ -34,6 +34,20 @@ export type ValidationResult =
   | { ok: false; reason: "invalid_output" | "stale_facts" | "unverified_numbers"; unverified?: string[] };
 
 const MAX_FACTS_AGE_MS = 60 * 60_000;
+
+/**
+ * Numeros que a IA pode citar: os literais dos fatos e seus ARREDONDAMENTOS (0 a 2 casas). Arredondar um valor
+ * confirmado nao e inventar; qualquer numero que nao derive de um valor real continua bloqueado.
+ */
+export function allowedNumberSources(factsText: string): string[] {
+  const rounded = new Set<string>();
+  for (const token of factsText.match(/\d+\.\d+/g) ?? []) {
+    const n = Number(token);
+    if (!Number.isFinite(n)) continue;
+    for (const places of [0, 1, 2]) rounded.add(n.toFixed(places));
+  }
+  return [factsText, [...rounded].join(" ")];
+}
 export const SUMMARY_OMITTED = "Resumo omitido: continha numeros que nao constam nos dados confirmados.";
 
 export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: Date): ValidationResult {
@@ -44,7 +58,8 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
 
   // O resumo e fala livre: com numero fora dos fatos ele e OMITIDO (nunca exibido), mas as recomendacoes,
   // que sao conferidas uma a uma, seguem valendo.
-  const summaryCheck = verifyNumbers(parsed.data.summary, [facts.factsText]);
+  const allowed = allowedNumberSources(facts.factsText);
+  const summaryCheck = verifyNumbers(parsed.data.summary, allowed);
   const out: ValidatedDecision = {
     summary: summaryCheck.ok ? parsed.data.summary : SUMMARY_OMITTED,
     accepted: [], observations: [], rejected: [],
@@ -56,7 +71,7 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
     const target = facts.targets.get(rec.targetRef);
     if (!target) return reject("unknown_target");
     if (!rec.evidenceRefs.includes(rec.targetRef) || rec.evidenceRefs.some(r => !facts.targets.has(r))) return reject("invalid_evidence");
-    const numbers = verifyNumbers(rec.rationale, [facts.factsText, rec.budgetChangePercent ?? ""]);
+    const numbers = verifyNumbers(rec.rationale, [...allowed, rec.budgetChangePercent ?? ""]);
     if (!numbers.ok) return reject("unverified_numbers");
 
     if (rec.action === "no_action") {
