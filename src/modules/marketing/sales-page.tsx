@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, ArrowUpRight, Check, Clock3, Menu, Pause, Play, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
-import { ProductShowcase, ProductTour } from "./sales-media";
+import { DeviceShowcase, ProductShowcase, ProductTour } from "./sales-media";
 import styles from "./sales-page.module.css";
 import { EXECUTION_LIVE as live } from "./sales-flags";
 import { CoreMotion, Motion, MotionDefs, type MotionKind } from "./sales-motion";
@@ -108,10 +108,7 @@ export function SalesPage() {
           </div>
           <div className={styles.heroVisual}>
             <button className={styles.motionToggle} onClick={() => setPaused(!paused)} aria-pressed={paused} aria-label={paused ? "Ativar animações decorativas" : "Pausar animações decorativas"}>{paused ? <Play size={13} /> : <Pause size={13} />}{paused ? "Ativar movimento" : "Pausar movimento"}</button>
-            <div className={styles.heroFrame}>
-              <Pic photo={photos.hero} className={styles.heroImg} sizes="(max-width: 1100px) 94vw, 600px" priority />
-              <div className={styles.heroPhone}><span className={styles.heroPhoneCam} aria-hidden="true" /><Image src="/product/mobile.webp" alt="Versão móvel real da visão geral da Groow Ads, com indicadores demonstrativos" width={390} height={844} sizes="140px" /></div>
-            </div>
+            <DeviceShowcase />
           </div>
         </div>
         <div className={styles.wrap}>

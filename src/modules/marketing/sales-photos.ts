@@ -3,7 +3,6 @@
 export type SalesPhoto = { src: string; alt: string; width: number; height: number };
 const photo = (src: string, alt: string): SalesPhoto => ({ src, alt, width: 2000, height: 1116 });
 export const photos = {
-  hero: photo("/photos/gestor-paineis-ia.jpg", "Gestor de tráfego trabalhando no notebook, cercado por painéis translúcidos com os indicadores da Groow Ads (dados demonstrativos)"),
   problem: photo("/photos/gestor-celular-notebook.jpg", "Profissional conferindo os resultados de um cliente no celular e no notebook, em uma cafeteria (dados demonstrativos)"),
   command: photo("/photos/gestor-escritorio.jpg", "Gestor de tráfego diante do monitor com o painel de um cliente na Groow Ads, ao lado de um painel translúcido de indicadores (dados demonstrativos)"),
   meeting: photo("/photos/equipe-reuniao.jpg", "Equipe de uma agência reunida em torno dos resultados exibidos na Groow Ads em notebook e TV (dados demonstrativos)"),

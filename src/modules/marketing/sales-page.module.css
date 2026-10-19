@@ -138,11 +138,6 @@
 .feature p { font-size: 15px; line-height: 1.55; color: var(--mute-d); margin: 0 12px; }
 
 /* Fotos com função narrativa */
-.heroFrame { position: relative; }
-.heroImg { display: block; width: 100%; height: auto; aspect-ratio: 6 / 5; object-fit: cover; object-position: 50% 40%; border-radius: 24px; border: 1px solid #ffffff26; box-shadow: 0 40px 90px #00000080, 0 0 120px #4162de40; }
-.heroPhone { position: absolute; right: -14px; bottom: -34px; width: 24%; padding: 5px; border: 1px solid #a5aec170; border-radius: 24px; background: linear-gradient(110deg, #515968, #101521 70%); box-shadow: 0 22px 70px #000b, 0 0 60px #4162de40; transform: rotate(4deg); animation: phoneFloat 7s ease-in-out infinite; }
-.heroPhone img { display: block; width: 100%; height: auto; border-radius: 19px; }
-.heroPhoneCam { position: absolute; top: 10px; left: calc(50% - 15px); background: #05070b; border-radius: 15px; width: 30px; height: 7px; z-index: 1; }
 .spotlight { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 64px; align-items: center; margin-top: 110px; }
 .spotlight h3 { font-size: clamp(28px, 3.2vw, 44px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; margin: 0 0 18px; text-wrap: balance; }
 .spotlight p { font-size: 17px; color: var(--mute-d); line-height: 1.65; margin-bottom: 26px; max-width: 520px; }
@@ -373,7 +368,6 @@
 
 @media (max-width: 1100px) {
   .contrastHead, .control, .spotlight { grid-template-columns: 1fr; gap: 36px; }
-  .heroPhone { right: 4px; bottom: -28px; width: 22%; }
   .wayHead { grid-template-columns: 1fr; gap: 20px; } .wayCore { margin: 0 auto; max-width: 420px; }
   .featureGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .featuresHead { flex-direction: column; align-items: start; gap: 22px; }
@@ -399,7 +393,7 @@
   .planCard > p { min-height: 0; }
 }
 @media (max-width: 760px) {
-  .spotlight { margin-top: 70px; } .control ul { grid-template-columns: 1fr; } .heroPhone { width: 26%; bottom: -24px; }
+  .spotlight { margin-top: 70px; } .control ul { grid-template-columns: 1fr; }
   .features { padding: 80px 0; } .photoBand { padding-bottom: 80px; }
   .featureGrid { grid-template-columns: 1fr; }
   .site { font-size: 16px; }
