@@ -215,3 +215,21 @@ Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer u
 **Evidencia:** 82 testes do agente, tsc, ESLint e suite SQL/RLS/pgTAP (PGlite, com a migration nova) passaram. Nenhuma chamada real a Meta/Anthropic, nenhum dado de producao.
 
 **Pendente:** reconciliacao de `needs_verification`/`unknown_outcome`; inventario financeiro Meta (liberar retomar/orcamento); disparo agendado e tela de recomendacoes; homologacao com conta de teste; `ai_usage` real exige aplicar a migration com autorizacao.
+
+
+## 15. Setima entrega - reconciliacao de resultados incertos (19/10/2026)
+
+**Implementado (`reconciler.ts`; sem rota, cron ou UI; sem migration nova - usa a maquina de estados existente):**
+
+- Alcance: jobs de origem `ai` em `needs_verification` e `executing` parado ha mais de 10 min. Lotes de 25, ordem de criacao.
+- **Somente GET.** Nunca envia POST, nunca reaplica, nunca aprova. Nova tentativa exige nova proposta e nova aprovacao humana individual.
+- `executing` sem `before_state`: o snapshot e gravado antes do POST, logo nada foi enviado -> `failed` (`reconciled_not_sent`), sem consultar a Meta.
+- Com `before_state`: leitura ao vivo (status configurado e `daily_budget`) conferindo que a entidade pertence a conta esperada. Estado final = pretendido e != anterior -> `verified` (passando por `verifying` se estava `executing`), com `after_state.reconciled = true`. Estado = anterior ha pelo menos 15 min do inicio -> `failed` (`reconciled_not_applied`), liberando a trava da conta. Antes disso -> `too_soon`.
+- Qualquer outra situacao (leitura indisponivel, conta divergente, valor de terceiros, estados ambiguos) -> `inconclusive`: job permanece bloqueando a conta. Transicoes por CAS; perda de corrida e relatada, nunca forcada.
+- `decision-live-state.ts` passou a ler e normalizar `account_id` da entidade para conferir titularidade.
+
+**Limite conhecido:** se um humano alterar a entidade para o mesmo valor pretendido durante a janela, a conciliacao nao distingue autoria (o efeito financeiro e o mesmo; `reconciled: true` marca a origem da prova).
+
+**Evidencia:** 10 testes novos (92 do agente), tsc e ESLint direcionado passaram. Nenhuma chamada real a Meta.
+
+**Pendente:** agendar o reconciliador e alertar sobre jobs `inconclusive` antigos; inventario financeiro Meta (retomar/orcamento); disparo agendado do ciclo de decisao e tela de recomendacoes; homologacao com conta de teste e aplicacao autorizada das migrations.

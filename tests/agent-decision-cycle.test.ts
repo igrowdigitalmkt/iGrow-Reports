@@ -46,7 +46,7 @@ const baseRpcs = (over: Record<string, Table> = {}): Record<string, Table> => ({
   ai_month_cost: { data: 1 }, agency_ai_entitlement: { data: { allowed: true, budget_usd: 50, restricted: false } },
   service_client_hierarchy: { data: hierarchy }, ...over,
 });
-const live = (status = "ACTIVE") => vi.fn(async () => new Map([["900", { configuredStatus: status, effectiveStatus: status, dailyBudgetMinor: 10_000 }]]));
+const live = (status = "ACTIVE") => vi.fn(async () => new Map([["900", { configuredStatus: status, effectiveStatus: status, dailyBudgetMinor: 10_000, accountExternalId: null }]]));
 const model = (recs: unknown[] = [{ action: "pause_campaign", targetRef: "c1", evidenceRefs: ["c1"], confidence: "high",
   rationale: "Gasto de 800 com apenas 3 conversoes no periodo." }]) => ({
   decide: vi.fn(async () => ({ output: { summary: "Campanha c1 gastou 800 com 3 conversoes.", recommendations: recs }, usage: { inputTokens: 1000, outputTokens: 200 } })),

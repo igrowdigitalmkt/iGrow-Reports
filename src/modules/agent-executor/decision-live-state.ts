@@ -10,6 +10,8 @@ export type LiveEntityState = {
   configuredStatus: string | null;
   effectiveStatus: string | null;
   dailyBudgetMinor: number | null;
+  /** Conta de anuncios dona da entidade segundo a Meta (`act_...`), para conferir titularidade. */
+  accountExternalId: string | null;
 };
 export type LiveStateDeps = {
   tokenLoader?: typeof loadAccessToken;
@@ -42,11 +44,13 @@ export async function readLiveEntityState(
   try {
     const token = await (deps.tokenLoader ?? loadAccessToken)(service, scope.agencyId, integration.id, connection.id);
     const client = new MetaClient({ accessToken: token, apiVersion, fetchImpl: deps.fetchImpl, timeoutMs: 25_000, retryDelayMs: 1_000 });
-    const objects = await client.getObjects<{ id?: string; status?: string; effective_status?: string; daily_budget?: string }>(
-      metaIds, "id,status,effective_status,daily_budget");
+    const objects = await client.getObjects<{ id?: string; account_id?: string; status?: string; effective_status?: string; daily_budget?: string }>(
+      metaIds, "id,account_id,status,effective_status,daily_budget");
     return new Map(objects.map(o => {
       const budget = o.daily_budget !== undefined && /^\d{1,15}$/.test(o.daily_budget) ? Number(o.daily_budget) : null;
-      return [o.id, { configuredStatus: o.status ?? null, effectiveStatus: o.effective_status ?? null, dailyBudgetMinor: budget }];
+      const account = typeof o.account_id === "string" && /^(?:act_)?[1-9]\d*$/.test(o.account_id)
+        ? (o.account_id.startsWith("act_") ? o.account_id : `act_${o.account_id}`) : null;
+      return [o.id, { configuredStatus: o.status ?? null, effectiveStatus: o.effective_status ?? null, dailyBudgetMinor: budget, accountExternalId: account }];
     }));
   } catch { return null; }
 }
