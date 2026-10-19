@@ -50,7 +50,7 @@ export function ReportManager({ agencyId, clients, snapshot, canEdit, canSend = 
   if (!snapshot.ready) return <section className="panel empty-state"><FileText size={28} /><h3>Não foi possível carregar os relatórios</h3><p>Atualize a página para tentar novamente.</p></section>;
   return <div className="reports-management">
     <section className="panel settings-panel">
-      <div className="panel-heading"><div><h2>Relatórios</h2><p>Revise e gerencie os arquivos gerados na Visão geral de cada cliente.</p></div></div>
+      <div className="panel-heading"><div><h2>Relatórios</h2><p>Revise e gerencie os arquivos gerados no Dashboard de cada cliente.</p></div></div>
       <div className="reports-status-summary">
         <span><strong>{snapshot.versions.length}</strong> relatórios</span>
         <span><strong>{snapshot.versions.filter(v => v.state === "ready").length}</strong> não publicados</span>
@@ -81,7 +81,7 @@ export function ReportManager({ agencyId, clients, snapshot, canEdit, canSend = 
       {sending && <SendReportDialog key={sending.id} open onOpenChange={open => { if (!open) setSending(null); }} clientId={sending.clientId} clientName={sending.clientName}
         reportVersionId={sending.id} title={sending.title} recipients={recipients.filter(recipient => recipient.clientId === sending.clientId)} numbers={whatsappNumbers.filter(number => number.templateName)}
         onSent={() => router.refresh()} />}
-      {!rows.length && <section className="panel empty-state"><FileText size={28} /><h3>Nenhum relatório encontrado</h3><p>{snapshot.versions.length ? "Ajuste a busca ou os filtros." : "Os relatórios gerados na Visão geral aparecerão aqui."}</p></section>}
+      {!rows.length && <section className="panel empty-state"><FileText size={28} /><h3>Nenhum relatório encontrado</h3><p>{snapshot.versions.length ? "Ajuste a busca ou os filtros." : "Os relatórios gerados no Dashboard aparecerão aqui."}</p></section>}
     </div>
   </div>;
 }

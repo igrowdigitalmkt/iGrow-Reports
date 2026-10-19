@@ -203,6 +203,8 @@ export function ClientAnalyticsDashboard({
   const tab: ClientSection = sectioned ? (parseClientPath(pathname)?.section ?? "summary") : legacyTab;
   // Visao geral (menu do cliente): saldo, contas e resumo, independente da selecao de plataformas e sem dados de campanha.
   const summaryView = sectioned && tab === "summary";
+  // Onde os indicadores e relatorios sao montados: Dashboard (menu do cliente) ou Visao geral (abas antigas do portal).
+  const dash = sectioned ? { in: "no Dashboard", of: "do Dashboard", to: "ao Dashboard", subject: "o Dashboard" } : { in: "na Visão geral", of: "da Visão geral", to: "à Visão geral", subject: "a Visão geral" };
   const [campaignQuery, setCampaignQuery] = useState("");
   const [hierarchyEntities, setHierarchyEntities] = useState<AnalyticsEntity[]>(() => relevantCampaignHierarchy(entities));
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
@@ -907,7 +909,7 @@ export function ClientAnalyticsDashboard({
       {tab === "overview" && analyticsReady && <div className="analytics-toolbar-actions"><button type="button" className="analytics-button analytics-button-ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal size={15} />Personalizar relatório</button><details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Métricas <span className="analytics-count">{overviewMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
-          <div className="analytics-metric-picker-heading"><strong>Métricas da Visão geral</strong>
+          <div className="analytics-metric-picker-heading"><strong>Métricas {dash.of}</strong>
             <button type="button" onClick={() => setOptionalMetricKeys(DEFAULT_OPTIONAL_METRICS.filter((key) => scopedData.metrics.some((metric) => metric.key === key)))}>Padrão</button>
           </div>
           {scopedData.metrics.map((metric) => <div className="analytics-metric-picker-row" key={metric.key}>
@@ -1130,7 +1132,7 @@ export function ClientAnalyticsDashboard({
               sortKey={sortKey} sortDirection={sortDirection} statusLabel={entityDeliveryLabel} />
           </table></div>
           {!roots.length && <p className="analytics-empty-copy">Nenhuma campanha em veiculação ou com valor gasto neste período.</p>}
-          <p className="analytics-footnote">A seleção aplicada passa a controlar a Visão geral. Expanda as linhas para escolher conjuntos ou anúncios. Se não houver detalhamento, atualize os dados.</p>
+          <p className="analytics-footnote">A seleção aplicada passa a controlar {dash.subject}. Expanda as linhas para escolher conjuntos ou anúncios. Se não houver detalhamento, atualize os dados.</p>
         </article>
       </>}
       {tab === "metrics" && analyticsReady && <div className="analytics-metric-catalog">
@@ -1151,7 +1153,7 @@ export function ClientAnalyticsDashboard({
                 key={metric.key} style={{ "--metric-color": color } as CSSProperties}>
                 <div className="analytics-kpi-top"><span>{metric.label}</span><label className="analytics-metric-checkbox">
                   <input type="checkbox" checked={checked} disabled={isPinned(metric.key)}
-                    aria-label={`Adicionar ${metric.label} à Visão geral`}
+                    aria-label={`Adicionar ${metric.label} ${dash.to}`}
                     onChange={() => toggleMetric(metric.key)} />
                   <span>{FIXED_METRICS.includes(metric.key) ? <Lock size={12} /> : <Check size={12} />}</span>
                 </label></div>
@@ -1159,7 +1161,7 @@ export function ClientAnalyticsDashboard({
                   {formatAnalyticsValue(scopedData.summary[metric.key], metric, data.currency)}
                 </strong>
                 {estimatedMetric(scopedData, metric.key) && <small className="analytics-estimate">Estimado entre contas</small>}
-                <p className="analytics-metric-card-note">{FIXED_METRICS.includes(metric.key) ? "Indicador fixo da Visão geral" : checked ? "Exibida na Visão geral" : "Marque para adicionar à Visão geral"}</p>
+                <p className="analytics-metric-card-note">{FIXED_METRICS.includes(metric.key) ? `Indicador fixo ${dash.of}` : checked ? `Exibida ${dash.in}` : "Marque para adicionar à Visão geral"}</p>
               </article>;
             })}</div>
           </section>;
@@ -1167,7 +1169,7 @@ export function ClientAnalyticsDashboard({
       </div>}
       {tab === "reports" && <div className="analytics-reports-space">
         <section className="analytics-card analytics-report-list-card">
-          <div className="analytics-card-heading"><div><h3>Relatórios {canManageReports ? "deste cliente" : "publicados"}</h3><p className="analytics-report-help">{canManageReports ? "Revise os arquivos gerados na Visão geral. Ao publicar, o relatório fica disponível na conta do cliente." : "Consulte e baixe os relatórios publicados para você."}</p></div>
+          <div className="analytics-card-heading"><div><h3>Relatórios {canManageReports ? "deste cliente" : "publicados"}</h3><p className="analytics-report-help">{canManageReports ? `Revise os arquivos gerados ${dash.in}. Ao publicar, o relatório fica disponível na conta do cliente.` : "Consulte e baixe os relatórios publicados para você."}</p></div>
             <select className="input" aria-label="Estado dos relatórios" value={reportState} onChange={event => setReportState(event.target.value)}>
               <option value="all">Todos os status</option><option value="published">Publicados</option>
               {canManageReports && <option value="ready">Não publicados</option>}<option value="superseded">Histórico</option>
@@ -1201,7 +1203,7 @@ export function ClientAnalyticsDashboard({
 
     {tab !== "reports" && <footer className="analytics-data-footer" style={{ order: 100 }}><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
       <span>Sem estimativas para datas não coletadas</span></footer>}
-    <Dialog open={customizing} onOpenChange={setCustomizing} title="Personalizar relatório" description="Indicadores, cabeçalho e comentários usados na Visão geral e no PDF.">
+    <Dialog open={customizing} onOpenChange={setCustomizing} title="Personalizar relatório" description={`Indicadores, cabeçalho e comentários usados ${dash.in} e no PDF.`}>
       <div className="analytics-customize">
         <section><h3>Modelo de análise</h3>
           <div className="analytics-report-create-body">
