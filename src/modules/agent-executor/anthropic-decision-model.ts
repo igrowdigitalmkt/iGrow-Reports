@@ -10,12 +10,20 @@ type Messages = { create: (params: Anthropic.MessageCreateParamsNonStreaming) =>
 export function createAnthropicDecisionModel(client?: { messages: Messages }): DecisionModel {
   return {
     async decide({ system, factsText }) {
+      // Erros viram codigos curtos e seguros (sem chave, URL ou conteudo): ajudam o diagnostico na tela.
+      if (!client && !process.env.ANTHROPIC_API_KEY) throw new Error("no_api_key");
       const anthropic = client ?? new Anthropic();
-      const response = await anthropic.messages.create({
-        model: AI_MODEL, max_tokens: 2500, system,
-        tools: [DECISION_TOOL], tool_choice: { type: "tool", name: DECISION_TOOL.name },
-        messages: [{ role: "user", content: `Fatos confirmados (JSON):\n${factsText}` }],
-      });
+      let response: Anthropic.Message;
+      try {
+        response = await anthropic.messages.create({
+          model: AI_MODEL, max_tokens: 2500, system,
+          tools: [DECISION_TOOL], tool_choice: { type: "tool", name: DECISION_TOOL.name },
+          messages: [{ role: "user", content: `Fatos confirmados (JSON):\n${factsText}` }],
+        });
+      } catch (error) {
+        const status = error instanceof Anthropic.APIError ? error.status : undefined;
+        throw new Error(`anthropic_http_${typeof status === "number" ? status : "network"}`);
+      }
       const block = response.content.find(b => b.type === "tool_use" && b.name === DECISION_TOOL.name);
       if (response.stop_reason !== "tool_use" || !block || block.type !== "tool_use") throw new Error("no_structured_output");
       return {

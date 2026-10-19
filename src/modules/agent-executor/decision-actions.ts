@@ -46,6 +46,6 @@ export async function analyzeClientNow(formData: FormData) {
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/agente/aprovacoes");
   const q = new URLSearchParams({ analise: "ok", p: String(proposals), b: String(blocked), s: String(skipped), o: String(observations), r: String(rejected) });
-  if (skipReason) q.set("motivo", skipReason.replace(/[^a-z_]/g, ""));
+  if (skipReason) q.set("motivo", skipReason.replace(/[^a-z0-9_:]/g, ""));
   return redirect(`/agente/aprovacoes?${q.toString()}`);
 }

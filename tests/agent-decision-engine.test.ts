@@ -109,6 +109,12 @@ describe("motor", () => {
     expect(await runDecisionEngine({ model: model({ lixo: 1 }), enabled: true }, facts(), NOW))
       .toEqual({ ok: false, reason: "invalid_output" });
   });
+  it("informa apenas codigos seguros do provedor, nunca mensagens livres", async () => {
+    const safe = await runDecisionEngine({ model: { decide: async () => { throw new Error("anthropic_http_401"); } }, enabled: true }, facts(), NOW);
+    expect(safe).toEqual({ ok: false, reason: "model_error", detail: "anthropic_http_401" });
+    const leaky = await runDecisionEngine({ model: { decide: async () => { throw new Error("401 invalid x-api-key sk-ant-123"); } }, enabled: true }, facts(), NOW);
+    expect(leaky).toEqual({ ok: false, reason: "model_error" });
+  });
   it("devolve decisao validada com uso de tokens", async () => {
     const r = await runDecisionEngine({ model: model(out([rec()])), enabled: true }, facts(), NOW);
     expect(r.ok && r.decision.accepted).toHaveLength(1);
@@ -124,6 +130,8 @@ describe("provedor Anthropic", () => {
     expect(ok.output).toEqual({ a: 1 });
     await expect(call({ stop_reason: "end_turn", usage: {}, content: [{ type: "text", text: "pause tudo" }] })
       .decide({ system: "s", factsText: "{}" })).rejects.toThrow("no_structured_output");
+    await expect(createAnthropicDecisionModel({ messages: { create: vi.fn(async () => { throw new Error("boom"); }) } })
+      .decide({ system: "s", factsText: "{}" })).rejects.toThrow("anthropic_http_network");
   });
 });
 

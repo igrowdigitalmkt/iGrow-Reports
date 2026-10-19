@@ -119,7 +119,7 @@ export async function runDecisionCycle(
       source_ref: `${range.from}..${range.to}`, request_id: result.ok ? (result.requestId?.slice(0, 120) ?? null) : null,
     });
     if (error) console.error("agent_decision ai_usage insert failed", error.code);
-    if (!result.ok) { skip(result.reason); continue; }
+    if (!result.ok) { skip(result.detail ? `${result.reason}:${result.detail}` : result.reason); continue; }
 
     const stages = await stageValidatedDecisions(service, {
       ...scope, observationId: observationIdFrom(facts.factsHash), factsCollectedAt: collectedAt,

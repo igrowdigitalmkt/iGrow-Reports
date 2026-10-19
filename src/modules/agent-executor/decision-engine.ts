@@ -20,7 +20,7 @@ export const DECISION_SYSTEM_PROMPT = [
 
 export type EngineResult =
   | { ok: true; decision: ValidatedDecision; usage?: { inputTokens: number; outputTokens: number }; requestId?: string | null }
-  | { ok: false; reason: "disabled" | "no_facts" | "model_error" | "invalid_output" | "stale_facts" | "unverified_numbers" };
+  | { ok: false; reason: "disabled" | "no_facts" | "model_error" | "invalid_output" | "stale_facts" | "unverified_numbers"; detail?: string };
 
 /** Motor desligado por padrao; so roda com AGENT_DECISION_ENGINE_ENABLED=true. */
 export function decisionEngineEnabled(env: Record<string, string | undefined> = process.env): boolean {
@@ -37,8 +37,10 @@ export async function runDecisionEngine(
   let response: Awaited<ReturnType<DecisionModel["decide"]>>;
   try {
     response = await deps.model.decide({ system: DECISION_SYSTEM_PROMPT, factsText: facts.factsText });
-  } catch {
-    return { ok: false, reason: "model_error" };
+  } catch (error) {
+    // So codigos proprios (anthropic_*, no_*): nunca mensagens livres de bibliotecas.
+    const message = error instanceof Error ? error.message : "";
+    return { ok: false, reason: "model_error", ...(/^(anthropic|no)_[a-z0-9_]{1,40}$/.test(message) ? { detail: message } : {}) };
   }
   const result = validateModelDecision(response.output, facts, now);
   if (!result.ok) return { ok: false, reason: result.reason };
