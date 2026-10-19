@@ -396,10 +396,8 @@
 @media (max-width: 860px) {
   .included ul { grid-template-columns: 1fr 1fr; } .included { padding: 30px 26px; }
   .contrast { padding: 80px 0; }
-  .contrastRow { grid-template-columns: 1fr; }
-  .contrastRow:first-child { display: none; }
-  .contrastRow > p { padding: 20px 22px; font-size: 16px; }
-  .contrastRow > p.contrastNew { border-left: 0; border-top: 1px dashed var(--line-l); }
+  .contrastRow > span { padding: 14px 18px; font-size: 11px; letter-spacing: 1px; }
+  .contrastRow > p { padding: 20px 18px; font-size: 15px; gap: 10px; }
   .control ul { grid-template-columns: 1fr 1fr; }
   .steps { grid-template-columns: 1fr; border-top: 0; }
   .step, .step + .step { padding: 34px 0; border-left: 0; border-top: 1px solid var(--line-d); }
@@ -409,6 +407,10 @@
 }
 @media (max-width: 760px) {
   .included ul { grid-template-columns: 1fr; } .included { padding: 26px 22px; }
+  .contrastTable { border-radius: 18px; }
+  .contrastRow > span { padding: 13px 14px; font-size: 10px; letter-spacing: .6px; }
+  .contrastRow > p { flex-direction: column; gap: 8px; padding: 16px 14px; font-size: 14px; line-height: 1.45; }
+  .contrastRow > p svg { width: 16px; height: 16px; margin-top: 0; }
   .spotlight { margin-top: 70px; } .control ul { grid-template-columns: 1fr; }
   .features { padding: 80px 0; } .photoBand { padding-bottom: 80px; }
   .featureGrid { grid-template-columns: 1fr; }
