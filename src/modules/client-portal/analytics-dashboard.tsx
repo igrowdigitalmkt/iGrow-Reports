@@ -23,9 +23,9 @@ import { GoogleAdsSection, type GoogleSectionView } from "@/modules/google-ads/g
 import { sortActionsByImportance } from "./action-priority";
 import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "./platform-picker";
 import type { ClientAccountBilling } from "@/modules/meta/server";
-import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarRange, Check, ChevronDown,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, Check, ChevronDown,
   Download, FileText, Filter, Info, Layers3, Lock,
   RefreshCw, Search, Sparkles, Target, Trash2, TrendingUp,
   WalletCards, X, RectangleHorizontal, RectangleVertical, SlidersHorizontal, GripVertical, ArrowLeftRight,
@@ -35,7 +35,8 @@ import { generateCommentDraft } from "@/modules/ai/actions";
 import { getCampaignScopedAnalytics, getClientAnalyticsHierarchy } from "./analytics-scope-actions";
 import { deleteDashboardReport, generateDashboardReport } from "./report-actions";
 import { publishReportVersion } from "@/modules/reports/actions";
-import { resolveAnalyticsRange } from "./range";
+import { PeriodPicker } from "./period-picker";
+import { PERIOD_LABELS, resolveAnalyticsRange } from "./range";
 import { ANALYTICS_MAX_AUTOMATIC_FAILURES, ANALYTICS_REFRESH_MS, analyticsRetryDelay } from "./analytics-freshness";
 import { estimatedMetric } from "@/modules/reports/report-presentation";
 import type { AnalyticsDashboardData, AnalyticsReportItem, AnalyticsValues } from "./analytics-types";
@@ -65,11 +66,6 @@ type DashboardProps = {
   demoBilling?: ClientAccountBilling[];
 };
 
-const PERIODS = [
-  { key: "7d", label: "7 dias" }, { key: "30d", label: "30 dias" },
-  { key: "90d", label: "3 meses" }, { key: "180d", label: "6 meses" },
-  { key: "365d", label: "1 ano" }, { key: "custom", label: "Personalizado" },
-];
 const FIXED_METRICS = ["spend", "primary_results", "cost_per_result"];
 const DEFAULT_OPTIONAL_METRICS = ["reach", "impressions", "cpm", "link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
 const OVERVIEW_PREFERENCE_VERSION = 2;
@@ -184,6 +180,11 @@ export function ClientAnalyticsDashboard({
   const pathname = usePathname();
   const query = useSearchParams();
   const [period, setPeriod] = useState(query.get("periodo") ?? "30d");
+  // Hoje no fuso da conta, so para bloquear dias futuros no calendario (o servidor valida de novo).
+  const todayIso = useMemo(() => {
+    try { return new Intl.DateTimeFormat("en-CA", { timeZone: data.timezoneName ?? "America/Sao_Paulo" }).format(new Date()); }
+    catch { return new Date().toISOString().slice(0, 10); }
+  }, [data.timezoneName]);
   const [from, setFrom] = useState(data.dateFrom);
   const [to, setTo] = useState(data.dateTo);
   const [accounts, setAccounts] = useState(data.selectedAccountIds);
@@ -493,29 +494,29 @@ export function ClientAnalyticsDashboard({
       next.set("accounts", selectedAccounts.join(","));
     }
     if (consolidate && selectedAccounts.length > 1) next.set("consolidar", "1");
-    const selectedLabel = PERIODS.find((item) => item.key === nextPeriod)?.label ?? "período selecionado";
+    const selectedLabel = PERIOD_LABELS[nextPeriod as keyof typeof PERIOD_LABELS] ?? "período selecionado";
     setApplyingPeriodLabel(nextPeriod === "custom"
       ? `${displayDate(customFrom)} a ${displayDate(customTo)}`
       : selectedLabel);
     startNavigation(() => router.push(`${pathname}?${next.toString()}`, { scroll: false }));
   }
 
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function applyPeriod(selection: { period: string; from: string; to: string }) {
     setError("");
     if (data.accounts.length && !accounts.length) {
       setError("Selecione pelo menos uma conta de anúncios.");
       return;
     }
-    if (period === "custom") {
+    if (selection.period === "custom") {
       try {
-        resolveAnalyticsRange({ periodo: "custom", from, to }, data.timezoneName ?? "America/Sao_Paulo");
+        resolveAnalyticsRange({ periodo: "custom", from: selection.from, to: selection.to }, data.timezoneName ?? "America/Sao_Paulo");
       } catch (validationError) {
         setError(validationError instanceof Error ? validationError.message : "Escolha um período válido.");
         return;
       }
     }
-    navigate(period);
+    setPeriod(selection.period); setFrom(selection.from); setTo(selection.to);
+    navigate(selection.period, accounts, selection.from, selection.to);
   }
 
   function collect(range: "current" | "previous" = "current") {
@@ -809,33 +810,9 @@ export function ClientAnalyticsDashboard({
     </header>
 
     {tab !== "reports" && <>
-    <form className="analytics-filter-bar" onSubmit={applyFilters}>
-      <div className="analytics-period-options" aria-label="Período de análise">
-        {PERIODS.map((item) => <button type="button" key={item.key}
-          className={period === item.key ? "is-active" : ""} aria-pressed={period === item.key}
-          onClick={() => {
-            setPeriod(item.key); setError("");
-            if (item.key !== "custom") navigate(item.key);
-          }}>{item.label}</button>)}
-      </div>
-      <div className="analytics-filter-fields">
-        <label className="analytics-date-field"><CalendarRange size={14} />
-          <span className="sr-only">Data inicial</span>
-          <input type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPeriod("custom"); }} required />
-        </label>
-        <span className="analytics-date-divider">até</span>
-        <label className="analytics-date-field">
-          <span className="sr-only">Data final</span>
-          <input type="date" value={to} onChange={(event) => { setTo(event.target.value); setPeriod("custom"); }} required />
-        </label>
-        <button type="submit" className="analytics-button analytics-button-apply" disabled={navigating}>
-          {navigating ? "Aplicando…" : "Aplicar"}
-        </button>
-        {navigating && <span className="analytics-updating" role="status" aria-live="polite"><RefreshCw size={13} className="analytics-spin" />Carregando {applyingPeriodLabel || "o período"}</span>}
-      </div>
-    </form>
-    <div className="analytics-context-strip">
-      <span><CalendarRange size={14} /><strong>{displayDate(data.dateFrom)} – {displayDate(data.dateTo)}</strong></span>
+    <div className="analytics-period-row">
+      <PeriodPicker period={period} dateFrom={data.dateFrom} dateTo={data.dateTo} today={todayIso} disabled={navigating} onApply={applyPeriod} />
+      {navigating && <span className="analytics-updating" role="status" aria-live="polite"><RefreshCw size={13} className="analytics-spin" />Carregando {applyingPeriodLabel || "o período"}</span>}
       <span className="analytics-last-update"><span className="analytics-status-dot" />Atualizado em {latest}</span>
     </div>
 
