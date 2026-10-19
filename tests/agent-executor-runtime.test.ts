@@ -108,6 +108,27 @@ describe("Agente: contexto exclusivamente server-only", () => {
       inventoryReader: async () => ({ confirmedActiveDailyBudgetMinor: 999, coverageComplete: false, gaps: ["lifetime_budget"] }) });
     expect(runtime.context).toMatchObject({ confirmedActiveDailyBudgetMinor: null, budgetCoverageComplete: false });
   });
+  const manualRows = () => {
+    const rows = fixtures();
+    Object.assign(rows.agent_action_jobs[0]!, { execution_origin: "manual", requested_by: granter, delegation_id: null,
+      approved_by: null, approved_at: null, approval_expires_at: null });
+    return rows;
+  };
+  it("job manual so roda no caminho manual, com envelope derivado do pedido do usuario", async () => {
+    await expect(resolveAgentRuntime(fake(manualRows()).service, id, deps())).rejects.toMatchObject({ code: "invalid_execution_origin" });
+    const runtime = await resolveAgentRuntime(fake(manualRows()).service, id, { ...deps(), origin: "manual" });
+    expect(runtime.delegation).toMatchObject({ allowedActions: ["pause_campaign"], enabled: true, revokedAt: null });
+    expect(runtime.context.userMayDelegate).toBe(true);
+  });
+  it("job da IA nunca roda como manual e solicitante rebaixado nao executa", async () => {
+    await expect(resolveAgentRuntime(fake(fixtures()).service, id, { ...deps(), origin: "manual" })).rejects.toMatchObject({ code: "invalid_execution_origin" });
+    const demoted = manualRows();
+    demoted.agency_users[0]!.role = "viewer";
+    await expect(resolveAgentRuntime(fake(demoted).service, id, { ...deps(), origin: "manual" })).rejects.toMatchObject({ code: "requester_not_authorized" });
+    const noRequester = manualRows();
+    noRequester.agent_action_jobs[0]!.requested_by = null;
+    await expect(resolveAgentRuntime(fake(noRequester).service, id, { ...deps(), origin: "manual" })).rejects.toMatchObject({ code: "missing_requester" });
+  });
   it("bloqueia quando recurso comercial nao esta habilitado", async () => {
     const { service, from } = fake(fixtures(), false);
     const trusted = deps();

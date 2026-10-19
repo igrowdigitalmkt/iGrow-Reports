@@ -7,6 +7,8 @@ export const ACTIONS = [
 ] as const;
 export type ActionKind = (typeof ACTIONS)[number];
 
+/** Delegacoes da IA continuam limitadas a 100% por coluna no banco; o manual pode ir ate este valor. */
+export const MANUAL_MAX_INCREASE_PERCENT = 1000;
 const money = z.number().int().nonnegative().max(1_000_000_000_000);
 const accountId = z.string().regex(/^act_[1-9]\d*$/);
 const metaId = z.string().regex(/^[1-9]\d*$/);
@@ -33,7 +35,7 @@ export const delegationSchema = z.object({
   maxAccountDailyBudgetMinor: money.positive(),
   maxEntityDailyBudgetMinor: money.positive(),
   maxIncreaseMinorPerAction: money.positive(),
-  maxIncreasePercentPerAction: z.number().int().min(0).max(100),
+  maxIncreasePercentPerAction: z.number().int().min(0).max(MANUAL_MAX_INCREASE_PERCENT),
 }).strict();
 
 export const accountContextSchema = z.object({

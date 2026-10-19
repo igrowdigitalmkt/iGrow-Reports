@@ -277,7 +277,7 @@ type AgentDelegationRow = {
 };
 type AgentActionJobRow = {
   id: string; agency_id: string; client_id: string; ad_account_id: string;
-  delegation_id: string; idempotency_key: string; action_type: string;
+  delegation_id: string | null; idempotency_key: string; action_type: string;
   execution_origin: "ai" | "manual"; requested_by: string | null;
   approval_expires_at: string | null; approved_at: string | null; approved_by: string | null;
   meta_entity_id: string; daily_budget_minor: number | null; facts_collected_at: string;
@@ -317,7 +317,7 @@ export type Database = {
       meta_ad_accounts: Table<MetaAdAccountRow, Pick<MetaAdAccountRow, "agency_id" | "meta_connection_id" | "external_id" | "name" | "currency" | "timezone_name"> & Partial<MetaAdAccountRow>, Partial<MetaAdAccountRow>>;
       client_ad_accounts: Table<ClientAdAccountRow, Pick<ClientAdAccountRow, "agency_id" | "client_id" | "ad_account_id"> & Partial<ClientAdAccountRow>, Partial<ClientAdAccountRow>>;
       agent_delegations: Table<AgentDelegationRow, Pick<AgentDelegationRow, "agency_id" | "client_id" | "ad_account_id" | "currency" | "allowed_actions" | "max_account_daily_budget_minor" | "max_entity_daily_budget_minor" | "max_increase_minor_per_action" | "max_increase_percent_per_action" | "expires_at"> & Partial<AgentDelegationRow>, Partial<AgentDelegationRow>>;
-      agent_action_jobs: Table<AgentActionJobRow, Pick<AgentActionJobRow, "agency_id" | "client_id" | "ad_account_id" | "delegation_id" | "idempotency_key" | "action_type" | "meta_entity_id" | "facts_collected_at" | "rationale"> & Partial<AgentActionJobRow>, Partial<AgentActionJobRow>>;
+      agent_action_jobs: Table<AgentActionJobRow, Pick<AgentActionJobRow, "agency_id" | "client_id" | "ad_account_id" | "idempotency_key" | "action_type" | "meta_entity_id" | "facts_collected_at" | "rationale"> & Partial<AgentActionJobRow>, Partial<AgentActionJobRow>>;
       agent_action_events: Table<AgentActionEventRow, never, never>;
       meta_daily_insights: Table<MetaDailyInsightRow, Pick<MetaDailyInsightRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "spend" | "impressions" | "api_version"> & Partial<MetaDailyInsightRow>, Partial<MetaDailyInsightRow>>;
       meta_daily_actions: Table<MetaDailyActionRow, Pick<MetaDailyActionRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "action_type"> & Partial<MetaDailyActionRow>, Partial<MetaDailyActionRow>>;

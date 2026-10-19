@@ -248,3 +248,19 @@ Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer u
 **Evidencia:** 100 testes do agente (8 novos), 131 de Meta, tsc e ESLint passaram. Nenhuma chamada real.
 
 **Pendente:** agendar ciclo de decisao e reconciliador, alertas de jobs `inconclusive`, tela de recomendacoes; homologacao em conta de teste com aplicacao autorizada das migrations; fluxo manual de edicao.
+
+
+## 17. Nona entrega - agendador, execucao da fila, fluxo manual e atividade (19/10/2026)
+
+**Implementado (tudo desligado por padrao; migrations nao aplicadas; nenhuma chamada Meta/Anthropic real):**
+
+- `scheduler.ts` + `GET /api/cron/agent` (`vercel.json`, a cada 15 min, `CRON_SECRET`): so roda com `AGENT_SCHEDULER_ENABLED=true`. Um passe: (1) expira aprovacoes/fila vencidas da IA (libera a conta), (2) reconciliador, (3) executa jobs `queued` (antes, o ledger enfileirava mas **nada os executava**) conferindo o gate comercial por organizacao ANTES do claim, na origem correta (`ai` ou `manual`), (4) ciclo de decisao apenas para clientes com delegacao vigente, sem aprovacao pendente e fora de um cooldown de 12 h (gasto de IA limitado a 5 clientes por passe), (5) lista jobs `needs_verification` com mais de 24 h como atencao.
+- **Fluxo manual** (`manual-actions.ts`, tela `/agente/manual`, fora do menu): proprietario/administrador autenticado pausa/reativa/altera orcamento; o servidor cria job `execution_origin = 'manual'`, `requested_by`, sem delegacao, `proposed -> authorized -> queued`, compartilhando fila, trava de uma mutacao por conta e auditoria. Nao se registra como aprovacao de IA. `runtime.ts` ganhou `origin`: o worker da IA continua rejeitando jobs manuais e vice-versa; no manual o solicitante precisa ser owner/admin na hora da execucao e o envelope e sintetico (tetos da delegacao da IA nao se aplicam; conta, titularidade, estado, frescor, permissao e inventario continuam). Percentual maximo de aumento do manual: 1000%.
+- Migration `202610190002_agent_manual_origin.sql`: `delegation_id` anulavel somente para origem manual (IA continua exigindo delegacao por CHECK).
+- `/agente/aprovacoes` agora mostra "Exige atencao" e "Atividade recente" (IA e manual) com explicacoes das falhas.
+
+**Decisoes/limites:** retomar e orcamento manuais tambem exigem inventario financeiro completo (sem ele a politica nega) - contas com orcamento vitalicio ficam restritas a pausa; orcamento e informado em unidade minima da moeda (sem presumir casas decimais). Alerta ativo (e-mail/WhatsApp) para `needs_attention` nao existe; hoje aparece na tela e no retorno do cron.
+
+**Evidencia:** 109 testes do agente (9 novos), tsc, ESLint e SQL/RLS/pgTAP (PGlite, com as duas migrations novas) passaram. Suite completa: 1403 passaram; `whatsapp-native-label-sync-provider` falha tambem na base sem estas alteracoes (WhatsApp, fora do escopo) e `whatsapp-labels-browser` e intermitente.
+
+**Para homologar:** aplicar migrations 001-003 do agente + 20261019 0001/0002 (autorizacao especifica), definir `AGENT_SCHEDULER_ENABLED`, `AGENT_DECISION_ENGINE_ENABLED`, `CRON_SECRET`, abrir o gate `agent_executor_meta` somente para a organizacao de teste, delegar uma conta de teste do proprietario com teto baixo, e acompanhar a primeira pausa real ponta a ponta.

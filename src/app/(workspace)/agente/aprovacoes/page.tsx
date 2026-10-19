@@ -1,4 +1,4 @@
-import { listPendingAgentFinancialApprovals, submitAgentFinancialApproval } from "@/modules/agent-executor/approval-actions";
+import { listPendingAgentFinancialApprovals, listRecentAgentActivity, submitAgentFinancialApproval } from "@/modules/agent-executor/approval-actions";
 
 export const dynamic = "force-dynamic";
 const names: Record<string, string> = {
@@ -8,9 +8,16 @@ const names: Record<string, string> = {
   set_adset_daily_budget: "Alterar orcamento diario de conjunto",
 };
 
+const statusLabels: Record<string, string> = {
+  queued: "Na fila", executing: "Executando", verifying: "Verificando", verified: "Concluida e confirmada na Meta",
+  failed: "Nao executada", rejected: "Recusada", expired: "Expirada", needs_verification: "Aguardando conciliacao",
+  authorized: "Autorizada", proposed: "Proposta",
+};
+
 /** Tela interna, nao incluida no menu ate a homologacao. */
 export default async function AgentApprovalsPage() {
-  const pending = await listPendingAgentFinancialApprovals();
+  const [pending, activity] = await Promise.all([listPendingAgentFinancialApprovals(), listRecentAgentActivity()]);
+  const attention = activity.filter(item => item.needsAttention);
   return <main className="mx-auto w-full max-w-5xl space-y-6 px-5 py-8">
     <header className="space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Groow Ads · Agente IA</p>
@@ -62,5 +69,22 @@ export default async function AgentApprovalsPage() {
         </form>
       </article>;
     })}</div>}
+    {attention.length > 0 && <section className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-6">
+      <h2 className="text-lg font-semibold">Exige atencao</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {attention.length} alteracao(oes) com resultado incerto. Enquanto nao forem conciliadas, a conta fica bloqueada
+        para novas alteracoes. Confira a campanha na Meta se isso persistir.
+      </p>
+    </section>}
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Atividade recente</h2>
+      {activity.length === 0 ? <p className="text-sm text-muted-foreground">Ainda nao ha atividade registrada.</p> : <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
+        {activity.map(item => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
+          <span>{names[item.action] ?? "Alteracao de campanha"} <span className="text-muted-foreground">· {item.origin === "manual" ? "manual" : "IA"}</span>
+            {item.note && <span className="block text-xs text-muted-foreground">{item.note}</span>}</span>
+          <span className="text-xs text-muted-foreground">{statusLabels[item.status] ?? item.status} · {new Date(item.updatedAt).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}</span>
+        </li>)}
+      </ul>}
+    </section>
   </main>;
 }

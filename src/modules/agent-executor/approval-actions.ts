@@ -65,3 +65,31 @@ export async function decideAgentFinancialAction(input: unknown) {
     throw new Error("Nao foi possivel concluir a aprovacao. Atualize a solicitacao.");
   return { status: data, jobId: parsed.data.jobId };
 }
+
+const FAILURE_LABELS: Record<string, string> = {
+  preflight_denied: "Bloqueada antes de enviar: alguma verificacao de seguranca falhou.",
+  policy_blocked: "Bloqueada pela politica no momento da execucao.",
+  provider_uncertain: "A Meta nao confirmou; aguardando conciliacao.",
+  worker_uncertain: "Resultado incerto; aguardando conciliacao.",
+  reconciled_not_applied: "Conferido na Meta: a alteracao nao foi aplicada.",
+  reconciled_not_sent: "Conferido: a alteracao nunca foi enviada.",
+  user_rejected: "Recusada por voce.",
+  account_busy: "Havia outra alteracao em andamento na conta.",
+};
+
+/** Historico recente do agente para a organizacao (RLS: owner/admin/editor). Sem tokens nem dados de outras organizacoes. */
+export async function listRecentAgentActivity() {
+  const ctx = await requireAgencyContext();
+  verifyApprover(ctx.role);
+  const { data, error } = await ctx.supabase.from("agent_action_jobs")
+    .select("id,client_id,action_type,daily_budget_minor,status,execution_origin,failure_code,updated_at,after_state")
+    .eq("agency_id", ctx.agency.id).neq("status", "awaiting_approval")
+    .order("updated_at", { ascending: false }).limit(30);
+  if (error) throw new Error("Nao foi possivel consultar o historico do agente.");
+  return (data ?? []).map((row) => ({
+    id: row.id, action: row.action_type, status: row.status, origin: row.execution_origin,
+    dailyBudgetMinor: row.daily_budget_minor, updatedAt: row.updated_at,
+    note: row.failure_code ? (FAILURE_LABELS[row.failure_code] ?? "Encerrada sem execucao.") : null,
+    needsAttention: row.status === "needs_verification",
+  }));
+}
