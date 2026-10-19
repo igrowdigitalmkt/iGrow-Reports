@@ -233,3 +233,18 @@ Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer u
 **Evidencia:** 10 testes novos (92 do agente), tsc e ESLint direcionado passaram. Nenhuma chamada real a Meta.
 
 **Pendente:** agendar o reconciliador e alertar sobre jobs `inconclusive` antigos; inventario financeiro Meta (retomar/orcamento); disparo agendado do ciclo de decisao e tela de recomendacoes; homologacao com conta de teste e aplicacao autorizada das migrations.
+
+
+## 16. Oitava entrega - inventario financeiro Meta e retomada/orcamento sob aprovacao (19/10/2026)
+
+**Implementado (gate global continua OFF; nenhuma escrita Meta real; migrations nao aplicadas):**
+
+- `financial-inventory.ts` + `MetaClient.listBudgetInventory` (somente GET, paginacao completa; pagina nao avancada lanca erro): soma o orcamento diario que pode gastar agora. Orcamento de campanha (CBO) cobre os conjuntos; sem ele soma os conjuntos ativos. Pausados/arquivados/excluidos e conjuntos encerrados sao ignorados; status desconhecido conta como ativo. Orcamento vitalicio, ausente ou malformado, conjunto orfao ou falha de leitura => `coverageComplete=false` e total `null`.
+- `runtime.ts`: para retomar e alterar orcamento le o inventario imediatamente antes da escrita e preenche o contexto da politica (`confirmedActiveDailyBudgetMinor`, `budgetCoverageComplete`). Pausa dispensa a leitura (nao aumenta gasto). A politica ja existente continua negando cobertura incompleta, teto da conta/entidade e variacao percentual.
+- `queue.ts` e `decision-bridge.ts`: retomar e orcamento agora chegam ao ledger como `awaiting_approval` com `daily_budget_minor` (consistencia acao x valor exigida). **Continuam sem executar sem aprovacao humana individual**, que vale o fingerprint incluindo o valor.
+
+**Limites conhecidos:** o inventario considera so o orcamento diario (gasto real pode variar ate 25% acima do diario na Meta; os tetos delegados devem considerar essa folga); campanhas CBO com orcamento vitalicio e contas com muitos objetos dependem de homologacao.
+
+**Evidencia:** 100 testes do agente (8 novos), 131 de Meta, tsc e ESLint passaram. Nenhuma chamada real.
+
+**Pendente:** agendar ciclo de decisao e reconciliador, alertas de jobs `inconclusive`, tela de recomendacoes; homologacao em conta de teste com aplicacao autorizada das migrations; fluxo manual de edicao.

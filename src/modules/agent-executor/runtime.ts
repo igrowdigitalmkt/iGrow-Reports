@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMetaApiConfig } from "@/lib/env";
 import type { Database } from "@/types/database";
 import { loadAccessToken } from "@/modules/meta/server";
+import { readBudgetInventory, type BudgetInventory } from "./financial-inventory";
 import { delegationSchema, proposalSchema, type AccountContext, type ActionProposal, type Delegation } from "./policy";
 
 /**
@@ -31,6 +32,7 @@ export type RuntimeDeps = {
   apiVersion?: string;
   tokenLoader?: (service: Service, agencyId: string, integrationId: string, connectionId: string) => Promise<string>;
   permissionProbe?: (token: string, version: string) => Promise<boolean>;
+  inventoryReader?: (token: string, adAccountId: string, version: string) => Promise<BudgetInventory>;
 };
 
 function deny(code: string): never { throw new AgentContextError(code); }
@@ -150,13 +152,19 @@ export async function resolveAgentRuntime(
   } catch { return deny("token_unavailable"); }
   if (!token || !(await (deps.permissionProbe ?? probeMetaWritePermission)(token, apiVersion))) deny("meta_permission");
 
+  // Retomar e orcamento dependem de inventario financeiro INTEGRAL lido agora na Meta.
+  // Pausar nao aumenta gasto: dispensa a leitura. Falha/cobertura incompleta => politica nega.
+  const needsInventory = !proposal.data.action.startsWith("pause_");
+  const inventory: BudgetInventory = needsInventory
+    ? await (deps.inventoryReader ?? ((t, a, v) => readBudgetInventory(t, a, { apiVersion: v })))(token, account.external_id, apiVersion)
+    : { confirmedActiveDailyBudgetMinor: null, coverageComplete: false, gaps: [] };
+
   const context: AccountContext = {
     agencyId: identity.agencyId, clientId: job.client_id, adAccountId: account.external_id,
     currency: account.currency, hasWritePermission: true, userMayDelegate: true,
     commercialAccessActive: true, metaConnectionActive: true,
-    // Deliberadamente bloqueia resume e alteracao de orcamento ate
-    // existir inventario financeiro Meta completo e comprovado.
-    confirmedActiveDailyBudgetMinor: null, budgetCoverageComplete: false,
+    confirmedActiveDailyBudgetMinor: inventory.coverageComplete ? inventory.confirmedActiveDailyBudgetMinor : null,
+    budgetCoverageComplete: inventory.coverageComplete,
   };
   return { proposal: proposal.data, delegation: delegation.data, context, token, apiVersion, targetId: job.meta_entity_id };
 }

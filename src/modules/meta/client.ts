@@ -84,6 +84,16 @@ export type MetaAdSet = {
   end_time?: string;
 };
 
+export type MetaBudgetEntity = {
+  id: string;
+  status?: string;
+  effective_status?: string;
+  daily_budget?: string | number | null;
+  lifetime_budget?: string | number | null;
+  campaign_id?: string;
+  end_time?: string;
+};
+
 export type MetaAd = {
   id: string;
   name: string;
@@ -421,6 +431,17 @@ export class MetaClient {
       fields: "id,name,campaign_id,status,effective_status,start_time,end_time,issues_info",
       limit: "500",
     });
+  }
+
+  /** Campos de orcamento para o inventario financeiro do agente. Paginacao incompleta lanca erro. */
+  async listBudgetInventory(adAccountId: string): Promise<{ campaigns: MetaBudgetEntity[]; adsets: MetaBudgetEntity[] }> {
+    validateAccountId(adAccountId);
+    const fields = "id,status,effective_status,daily_budget,lifetime_budget,campaign_id,end_time";
+    const [campaigns, adsets] = await Promise.all([
+      this.getAll<MetaBudgetEntity>(`${adAccountId}/campaigns`, { fields, limit: "500" }),
+      this.getAll<MetaBudgetEntity>(`${adAccountId}/adsets`, { fields, limit: "500" }),
+    ]);
+    return { campaigns, adsets };
   }
 
   async listAds(adAccountId: string): Promise<MetaAd[]> {

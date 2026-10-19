@@ -129,7 +129,7 @@ describe("provedor Anthropic", () => {
 
 describe("ponte para a fila", () => {
   const scope = { agencyId: "a", clientId: "c", observationId: "o", factsCollectedAt: "2026-10-18T11:30:00Z" };
-  it("somente pausas viram job aguardando aprovacao; orcamento permanece recomendacao", async () => {
+  it("pausa e orcamento viram jobs aguardando aprovacao, com valor calculado no servidor", async () => {
     stage.mockReset().mockResolvedValue({ id: "job1", deduplicated: false });
     const f = facts(new Map([["act_9:111", 10_000], ["act_9:222", 5_000]]));
     const r = validateModelDecision(out([rec(),
@@ -138,9 +138,10 @@ describe("ponte para a fila", () => {
     const res = await stageValidatedDecisions({} as never, scope, r.decision, NOW);
     expect(res).toEqual([
       { ref: "c1", status: "awaiting_approval", jobId: "job1", deduplicated: false },
-      { ref: "a2", status: "recommendation_only", reason: "financial_inventory_pending" },
+      { ref: "a2", status: "awaiting_approval", jobId: "job1", deduplicated: false },
     ]);
-    expect(stage).toHaveBeenCalledTimes(1);
+    expect(stage).toHaveBeenCalledTimes(2);
+    expect(stage.mock.calls[1]![2]).toMatchObject({ action: "set_adset_daily_budget", targetId: "222", dailyBudgetMinor: 5_500 });
     expect(stage.mock.calls[0]![2]).toEqual({ action: "pause_campaign", targetId: "111", rationale: expect.any(String) });
   });
   it("bloqueio da fila vira resultado, nao excecao", async () => {

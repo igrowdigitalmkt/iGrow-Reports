@@ -103,12 +103,26 @@ describe("Fila segura de decisoes (sem POST Meta)", () => {
     await expect(stageMetaDecision(data.service, scope, decision, new Date("2026-10-18T18:02:00Z")))
       .rejects.toMatchObject({ code: "delegation_ineligible" });
   });
-  it("nao enfileira orcamento sem inventario financeiro", async () => {
-    const data = fake();
-    await expect(stageMetaDecision(data.service, scope, {
+  it("orcamento e retomada entram apenas pendentes de aprovacao, com o valor registrado", async () => {
+    const data = fake(); data.rows.agent_delegations[0].allowed_actions = ["set_campaign_daily_budget", "resume_campaign"];
+    const at = new Date("2026-10-18T18:02:00Z");
+    await stageMetaDecision(data.service, scope, {
       action: "set_campaign_daily_budget", targetId: "111", dailyBudgetMinor: 1000,
-      rationale: "Aumentar orcamento, mas sem cobertura financeira.",
-    }, new Date("2026-10-18T18:02:00Z"))).rejects.toMatchObject({ code: "financial_inventory_pending" });
+      rationale: "Aumentar orcamento diante de resultado confirmado.",
+    }, at);
+    expect(data.jobs[0]).toMatchObject({ status: "awaiting_approval", action_type: "set_campaign_daily_budget", daily_budget_minor: 1000 });
+    await stageMetaDecision(data.service, { ...scope, observationId: "90000000-0000-4000-8000-000000000009" }, {
+      action: "resume_campaign", targetId: "222", rationale: "Retomar campanha com historico favoravel.",
+    }, at);
+    expect(data.jobs[1]).toMatchObject({ status: "awaiting_approval", action_type: "resume_campaign", daily_budget_minor: null });
+  });
+  it("rejeita orcamento incompativel com a acao antes de tocar o banco", async () => {
+    const data = fake();
+    const at = new Date("2026-10-18T18:02:00Z");
+    await expect(stageMetaDecision(data.service, scope, { action: "pause_campaign", targetId: "111", dailyBudgetMinor: 5,
+      rationale: "Pausar com orcamento indevido informado." }, at)).rejects.toMatchObject({ code: "budget_mismatch" });
+    await expect(stageMetaDecision(data.service, scope, { action: "set_campaign_daily_budget", targetId: "111",
+      rationale: "Alterar orcamento sem informar valor." }, at)).rejects.toMatchObject({ code: "budget_mismatch" });
     expect(data.db.rpc).not.toHaveBeenCalled();
   });
 });

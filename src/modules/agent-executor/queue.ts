@@ -54,12 +54,11 @@ export async function stageMetaDecision(
   }).strict().safeParse(scope);
   if (!parsed.success || !trusted.success || !Number.isFinite(now.getTime())) reject("invalid_decision");
   const item = parsed.data, ctx = trusted.data;
-  // Primeiro corte: somente pausas. Resume/orcamento aguardam cobertura
-  // financeira verificada na API, nao apenas autorizacao declarada.
-  if (!item.action.startsWith("pause_")) reject("financial_inventory_pending");
+  // Retomar/orcamento so entram para APROVACAO humana; o inventario financeiro integral
+  // e exigido pelo runtime/politica imediatamente antes de qualquer escrita.
+  if (item.action.startsWith("set_") !== (item.dailyBudgetMinor !== undefined)) reject("budget_mismatch");
   const age = now.getTime() - Date.parse(ctx.factsCollectedAt);
   if (age < 0 || age > 60 * 60_000) reject("stale_facts");
-  if (item.dailyBudgetMinor !== undefined) reject("unexpected_budget");
   const [{ data: enabled, error: eGate }, { data: link, error: eLink },
     { data: grant, error: eGrant }, { data: account, error: eAccount }] = await Promise.all([
     service.rpc("agent_meta_execution_allowed", { p_agency_id: ctx.agencyId }),
@@ -94,6 +93,7 @@ export async function stageMetaDecision(
   const proposal = proposalSchema.safeParse({
     actionId: id, action: item.action, targetId: item.targetId,
     adAccountId: account.external_id, factsCollectedAt: ctx.factsCollectedAt, rationale: item.rationale,
+    ...(item.dailyBudgetMinor !== undefined ? { dailyBudgetMinor: item.dailyBudgetMinor } : {}),
   });
   if (!proposal.success) reject("invalid_proposal");
   const idempotencyKey = createHash("sha256").update(JSON.stringify([
@@ -104,7 +104,7 @@ export async function stageMetaDecision(
   const { error } = await service.from("agent_action_jobs").insert({
     id, agency_id: ctx.agencyId, client_id: ctx.clientId, ad_account_id: ctx.adAccountId,
     delegation_id: grant.id, idempotency_key: idempotencyKey,
-    action_type: item.action, meta_entity_id: item.targetId,
+    action_type: item.action, meta_entity_id: item.targetId, daily_budget_minor: item.dailyBudgetMinor ?? null,
     facts_collected_at: ctx.factsCollectedAt, rationale: item.rationale,
   });
   if (error) {

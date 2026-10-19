@@ -92,6 +92,22 @@ describe("Agente: contexto exclusivamente server-only", () => {
     expect(runtime.context.budgetCoverageComplete).toBe(false);
     expect(trusted.tokenLoader).toHaveBeenCalledWith(service, agencyId, integrationId, connectionId);
   });
+  it("pausa dispensa inventario; retomar le o inventario e preenche o contexto da politica", async () => {
+    const reader = vi.fn(async () => ({ confirmedActiveDailyBudgetMinor: 12_000, coverageComplete: true, gaps: [] }));
+    const pause = await resolveAgentRuntime(fake(fixtures()).service, id, { ...deps(), inventoryReader: reader });
+    expect(reader).not.toHaveBeenCalled();
+    expect(pause.context.budgetCoverageComplete).toBe(false);
+    const rows = fixtures(); rows.agent_action_jobs[0]!.action_type = "resume_campaign";
+    const resume = await resolveAgentRuntime(fake(rows).service, id, { ...deps(), inventoryReader: reader });
+    expect(reader).toHaveBeenCalledWith("fake-not-real", "act_123", "v26.0");
+    expect(resume.context).toMatchObject({ confirmedActiveDailyBudgetMinor: 12_000, budgetCoverageComplete: true });
+  });
+  it("inventario incompleto nunca vira orcamento confirmado", async () => {
+    const rows = fixtures(); rows.agent_action_jobs[0]!.action_type = "resume_campaign";
+    const runtime = await resolveAgentRuntime(fake(rows).service, id, { ...deps(),
+      inventoryReader: async () => ({ confirmedActiveDailyBudgetMinor: 999, coverageComplete: false, gaps: ["lifetime_budget"] }) });
+    expect(runtime.context).toMatchObject({ confirmedActiveDailyBudgetMinor: null, budgetCoverageComplete: false });
+  });
   it("bloqueia quando recurso comercial nao esta habilitado", async () => {
     const { service, from } = fake(fixtures(), false);
     const trusted = deps();
