@@ -164,7 +164,7 @@ textarea.input { padding-top: 9px; padding-bottom: 9px; line-height: 1.5; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1s linear infinite; }
 
-/* Brand: logo oficial do site (groow-ads-color para fundo escuro, groow-ads-dark para fundo claro, icone G recolhido). */
+/* Brand: logo oficial do site (groow-ads-color para fundo escuro, groow-ads-light (G azul + texto escuro) para fundo claro, icone G recolhido). */
 .brand { display: inline-flex; align-items: center; line-height: 1; }
 .brand-wordmark { display: block; height: 22px; width: auto; }
 .brand-icon { display: none; height: 26px; width: auto; }
