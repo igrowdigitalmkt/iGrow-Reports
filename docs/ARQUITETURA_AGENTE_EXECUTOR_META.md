@@ -311,3 +311,11 @@ Por autorizacao expressa do proprietario ("EU autorizo", 19/10/2026) para o clie
 - **ALERTA FORA DO CODIGO:** o painel da Vercel mostra "Payment failed — pay any open invoices before your account is shut down" (conta iGrow Digital marcada Overdue). Precisa ser resolvido pelo proprietario; pode derrubar a producao inteira.
 
 **Proximos passos:** quando a IA propuser uma acao real, aprovar/recusar em `/agente/aprovacoes` e conferir o ledger; persistir a ultima analise (resumo e observacoes) para exibir; habilitar `fallbacks`; reconciliacao e retomar/orcamento em producao; cron diario (`0 10 * * *`) so apos a analise manual estar estavel.
+
+
+## 22. Historico de analises da IA (19/10/2026)
+
+- Migration `202610190003_agent_analysis_runs.sql` (aplicada em homologacao e producao): tabela `agent_analysis_runs` (resumo, observacoes por campanha/conjunto, contagens, motivos de descarte); leitura so para owner/admin/editor da organizacao, escrita so por `service_role`; teste pgTAP em `supabase/tests/agent-analysis-runs.test.sql`.
+- O ciclo grava a analise ao fim (falha ao gravar nao derruba o ciclo) e `/agente/aprovacoes` exibe "Ultimas analises da IA" com o nome da campanha (nunca o id Meta). Marcadores `{ref.metrica}` aceitam as chaves reais (`result:registrations`, `action:landing_page_view`) e `previousMetrics.<chave>`; chave inexistente vira "[dado indisponivel]". Resumo com numero nao confirmado e omitido.
+- **Verificado em producao** (analises das 15:23 e 15:28 UTC-3, Colégio Crescer): 0 propostas, 3 observacoes, sem alteracao em campanha. A entrada das 15:23 foi gravada antes da correcao dos marcadores e mostra chaves cruas (apenas historico).
+- **Observacao de produto:** o cliente nao tem meta no perfil ("Nao ha metas definidas"), por isso a IA, corretamente, so recomenda monitorar. Preencher o campo `goal` do perfil do cliente da criterios para propostas de pausa/ajuste. O caminho IA -> proposta -> aprovacao -> execucao continua pendente de homologacao real.
