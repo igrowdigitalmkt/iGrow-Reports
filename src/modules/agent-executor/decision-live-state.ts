@@ -13,7 +13,6 @@ export type LiveEntityState = {
   /** Conta de anuncios dona da entidade segundo a Meta (`act_...`), para conferir titularidade. */
   accountExternalId: string | null;
 };
-type LiveObject = { id?: string; account_id?: string; status?: string; effective_status?: string; daily_budget?: string };
 export type LiveStateDeps = {
   tokenLoader?: typeof loadAccessToken;
   apiVersion?: string;
@@ -36,7 +35,7 @@ export async function readLiveEntityStateDetailed(
   metaIds: string[],
   deps: LiveStateDeps = {},
 ): Promise<LiveReadResult> {
-  const { data: account } = await service.from("meta_ad_accounts").select("meta_connection_id")
+  const { data: account } = await service.from("meta_ad_accounts").select("meta_connection_id,external_id")
     .eq("agency_id", scope.agencyId).eq("id", scope.adAccountId).is("archived_at", null).maybeSingle();
   if (!account) return { ok: false, reason: "account_missing" };
   const { data: connection } = await service.from("meta_connections").select("id,integration_id,connected_at")
@@ -53,18 +52,17 @@ export async function readLiveEntityStateDetailed(
   } catch { return { ok: false, reason: "token_failed" }; }
   try {
     const client = new MetaClient({ accessToken: token, apiVersion, fetchImpl: deps.fetchImpl, timeoutMs: 25_000, retryDelayMs: 1_000 });
-    // A Graph API limita `ids` a 50 objetos por chamada.
-    const objects: Awaited<ReturnType<typeof client.getObjects<LiveObject>>> = [];
-    for (let i = 0; i < metaIds.length; i += 40) {
-      objects.push(...await client.getObjects<LiveObject>(
-        metaIds.slice(i, i + 40), "id,account_id,status,effective_status,daily_budget"));
+    // Leitura pela conta: titularidade garantida e id inexistente nao derruba tudo.
+    const { campaigns, adsets } = await client.listEntityStates(account.external_id);
+    const wanted = new Set(metaIds);
+    const state = new Map<string, LiveEntityState>();
+    for (const o of [...campaigns, ...adsets]) {
+      if (!wanted.has(o.id)) continue;
+      const budget = typeof o.daily_budget === "string" && /^\d{1,15}$/.test(o.daily_budget) ? Number(o.daily_budget)
+        : typeof o.daily_budget === "number" && Number.isSafeInteger(o.daily_budget) ? o.daily_budget : null;
+      state.set(o.id, { configuredStatus: o.status ?? null, effectiveStatus: o.effective_status ?? null, dailyBudgetMinor: budget, accountExternalId: account.external_id });
     }
-    return { ok: true, state: new Map(objects.map(o => {
-      const budget = o.daily_budget !== undefined && /^\d{1,15}$/.test(o.daily_budget) ? Number(o.daily_budget) : null;
-      const account = typeof o.account_id === "string" && /^(?:act_)?[1-9]\d*$/.test(o.account_id)
-        ? (o.account_id.startsWith("act_") ? o.account_id : `act_${o.account_id}`) : null;
-      return [o.id, { configuredStatus: o.status ?? null, effectiveStatus: o.effective_status ?? null, dailyBudgetMinor: budget, accountExternalId: account }];
-    })) };
+    return { ok: true, state };
   } catch (error) {
     // Somente o codigo numerico da Meta e o status HTTP; nunca a mensagem, a URL ou o token.
     const e = error as { code?: unknown; httpStatus?: unknown };
