@@ -209,28 +209,26 @@
 .analytics-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }
 .analytics-card-heading h3 { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; }
 .analytics-card-heading > svg { color: var(--muted); }
-.analytics-chart-metrics { display: grid; grid-template-columns: auto minmax(0, 220px); gap: 6px 8px; align-items: center; margin-left: auto; }
-.analytics-chart-metrics .analytics-chart-metric { display: contents; }
-.analytics-chart-metrics .analytics-chart-metric span { justify-self: end; }
-.analytics-chart-metrics .analytics-chart-metric select { width: 100%; max-width: none; }
 .analytics-chart-metric { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
 .analytics-chart-metric select { width: auto; max-width: 260px; min-height: 32px; padding: 4px 10px; font-size: 13px; background: var(--surface); }
-.analytics-evolution-card .analytics-card-heading { flex-wrap: wrap; align-items: flex-start; row-gap: 12px; }
-.analytics-evolution-card .analytics-card-heading > div:first-child { padding-top: 5px; }
-.analytics-evolution-card .analytics-chart-view-controls { flex-basis: 100%; }
-.analytics-chart-view-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .analytics-chart-switcher { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 .analytics-chart-switcher > button { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; }
 .analytics-chart-switcher > button.is-active { background: var(--surface-raised); color: var(--text); }
-.analytics-comparison-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.analytics-chart-head { display: grid; gap: 10px; padding: 14px 18px 0; }
+.analytics-chart-head h3 { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; }
+.analytics-chart-head-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.analytics-chart-head-series { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.analytics-series-pick { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 4px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 12px; white-space: nowrap; }
+.analytics-series-pick:focus-within { border-color: var(--accent); }
+.analytics-series-pick > i { flex: none; width: 12px; height: 3px; border-radius: 2px; }
+.analytics-series-pick select { width: auto; max-width: 180px; min-height: 30px; padding: 2px 26px 2px 6px; border: 0; background-color: transparent; box-shadow: none; color: var(--text); font-size: 13px; font-weight: 500; }
+.analytics-comparison-controls { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.analytics-compare-toggle > i.is-dashed { width: 16px; height: 3px; background: repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 5px); }
 .analytics-compare-toggle { display: flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 13px; white-space: nowrap; cursor: pointer; }
 .analytics-compare-toggle:has(input:disabled) { color: var(--muted); }
 .analytics-collect-comparison { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 12px; }
 .analytics-chart { width: 100%; min-width: 0; }
-.analytics-chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 18px 0; color: var(--secondary); font-size: 13px; }
-.analytics-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.analytics-chart-legend i { width: 12px; height: 3px; border-radius: 2px; }
-.analytics-chart-legend i.is-dashed { background: repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 5px); }
+.analytics-evolution-card .analytics-chart { margin-top: 8px; }
 .analytics-chart-fallback { display: grid; place-items: center; min-height: 180px; padding: 30px; color: var(--muted); line-height: 1.6; }
 .analytics-chart-data { margin: 0 18px 14px; color: var(--muted); font-size: 12px; }
 .analytics-chart-data > summary { width: fit-content; padding: 4px 0; cursor: pointer; }
