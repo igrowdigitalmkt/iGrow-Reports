@@ -34,6 +34,7 @@ export type ValidationResult =
   | { ok: false; reason: "invalid_output" | "stale_facts" | "unverified_numbers"; unverified?: string[] };
 
 const MAX_FACTS_AGE_MS = 60 * 60_000;
+export const SUMMARY_OMITTED = "Resumo omitido: continha numeros que nao constam nos dados confirmados.";
 
 export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: Date): ValidationResult {
   const parsed = decisionOutputSchema.safeParse(raw);
@@ -41,11 +42,13 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
   const age = now.getTime() - Date.parse(facts.collectedAt);
   if (!Number.isFinite(age) || age < 0 || age > MAX_FACTS_AGE_MS) return { ok: false, reason: "stale_facts" };
 
-  // O resumo e a unica fala livre: numero fora dos fatos invalida a resposta inteira.
+  // O resumo e fala livre: com numero fora dos fatos ele e OMITIDO (nunca exibido), mas as recomendacoes,
+  // que sao conferidas uma a uma, seguem valendo.
   const summaryCheck = verifyNumbers(parsed.data.summary, [facts.factsText]);
-  if (!summaryCheck.ok) return { ok: false, reason: "unverified_numbers", unverified: summaryCheck.unverified };
-
-  const out: ValidatedDecision = { summary: parsed.data.summary, accepted: [], observations: [], rejected: [] };
+  const out: ValidatedDecision = {
+    summary: summaryCheck.ok ? parsed.data.summary : SUMMARY_OMITTED,
+    accepted: [], observations: [], rejected: [],
+  };
   const claimed = new Set<string>();
 
   parsed.data.recommendations.forEach((rec, index) => {

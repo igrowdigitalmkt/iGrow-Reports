@@ -8,7 +8,7 @@ vi.mock("@/modules/agent-executor/queue", () => {
 });
 
 import { buildDecisionFacts } from "@/modules/agent-executor/decision-facts";
-import { validateModelDecision } from "@/modules/agent-executor/decision-validator";
+import { SUMMARY_OMITTED, validateModelDecision } from "@/modules/agent-executor/decision-validator";
 import { runDecisionEngine, decisionEngineEnabled } from "@/modules/agent-executor/decision-engine";
 import { createAnthropicDecisionModel } from "@/modules/agent-executor/anthropic-decision-model";
 import { stageValidatedDecisions } from "@/modules/agent-executor/decision-bridge";
@@ -72,8 +72,10 @@ describe("validacao deterministica", () => {
   it("bloqueia numero inventado na justificativa e no resumo", () => {
     const r = validateModelDecision(out([rec({ rationale: "CPA de 77 acima da meta definida." })]), facts(), NOW);
     expect(r.ok && r.decision.rejected[0]?.reason).toBe("unverified_numbers");
-    expect(validateModelDecision(out([rec()], "Economia de 9999 prevista."), facts(), NOW))
-      .toMatchObject({ ok: false, reason: "unverified_numbers" });
+    // Resumo com numero inventado e omitido, sem derrubar recomendacoes validas.
+    const withBadSummary = validateModelDecision(out([rec()], "Economia de 9999 prevista."), facts(), NOW);
+    expect(withBadSummary.ok && withBadSummary.decision.summary).toBe(SUMMARY_OMITTED);
+    expect(withBadSummary.ok && withBadSummary.decision.accepted).toHaveLength(1);
   });
   it("calcula orcamento no servidor e exige orcamento confirmado", () => {
     const rb = rec({ action: "set_campaign_daily_budget", budgetChangePercent: 20, rationale: "Aumentar 20 porcento pois c1 gastou 500." });
