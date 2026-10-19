@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { submitManualMetaChange } from "@/modules/agent-executor/manual-actions";
-import { readLiveEntityState, type LiveEntityState } from "@/modules/agent-executor/decision-live-state";
+import { readLiveEntityStateDetailed, type LiveEntityState } from "@/modules/agent-executor/decision-live-state";
 import { normalizeHierarchy, type AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +31,7 @@ export default async function ManualChangesPage({ searchParams }: { searchParams
   const selected = clients?.find(client => client.id === cliente);
 
   const rows: Row[] = [];
+  const notes: string[] = [];
   let liveFailed = false;
   if (selected && canEdit) {
     const { data: links } = await ctx.supabase.from("client_ad_accounts").select("ad_account_id")
@@ -46,10 +47,18 @@ export default async function ManualChangesPage({ searchParams }: { searchParams
     const service = createSupabaseServiceClient();
     for (const account of accounts ?? []) {
       const own = entities.filter(entity => entity.accountId === account.id);
-      if (own.length === 0) continue;
-      const live = service ? await readLiveEntityState(service,
+      const usable = account.account_status === "1" || account.account_status === "ACTIVE";
+      if (!usable) { notes.push(`${account.name}: conta indisponivel na Meta (status ${account.account_status ?? "?"}); nao consultada.`); continue; }
+      if (own.length === 0) { notes.push(`${account.name}: nenhuma campanha com dados nos ultimos 14 dias.`); continue; }
+      const result = service ? await readLiveEntityStateDetailed(service,
         { agencyId: ctx.agency.id, clientId: selected.id, adAccountId: account.id }, own.map(entity => entity.id)) : null;
-      if (!live) { liveFailed = true; continue; }
+      if (!result?.ok) {
+        liveFailed = true;
+        notes.push(`${account.name}: falha ao ler na Meta (${result ? `${result.reason}${result.detail ? `, ${result.detail}` : ""}` : "servico indisponivel"}).`);
+        continue;
+      }
+      const live = result.state;
+      notes.push(`${account.name}: ${live.size} de ${own.length} entidades confirmadas na Meta.`);
       for (const entity of own) {
         const state = live.get(entity.id);
         // Descarta qualquer entidade que a Meta nao confirme como pertencente a esta conta.
@@ -76,6 +85,7 @@ export default async function ManualChangesPage({ searchParams }: { searchParams
       {!selected && <p className="text-sm text-muted-foreground">Escolha um cliente para ver as campanhas confirmadas na Meta.</p>}
       {selected && liveFailed && <p className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
         Nao foi possivel confirmar o estado atual na Meta para alguma conta. Nada e exibido sem essa confirmacao.</p>}
+      {selected && notes.length > 0 && <ul className="space-y-1 text-xs text-muted-foreground">{notes.map(note => <li key={note}>{note}</li>)}</ul>}
       {selected && !liveFailed && rows.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma campanha ou conjunto confirmado na Meta para este cliente.</p>}
       <div className="space-y-3">{rows.map(({ entity, live, accountName, accountOk }) => {
         const status = (live.configuredStatus ?? "").toUpperCase();
