@@ -286,3 +286,12 @@ Por autorizacao expressa do proprietario ("EU autorizo", 19/10/2026) para o clie
 - Limite descoberto: o override por organizacao nao abre um recurso desligado globalmente (`resolve_entitlement` retorna antes). Para testar e preciso ligar `globally_enabled` e conceder override so a esta organizacao; as demais com plano ficam em `plan_not_included`. Nao feito ainda.
 
 **Bloqueios fora do codigo:** o MCP da Vercel retorna 403 para o escopo da conta e nao ha CLI; as variaveis de ambiente precisam ser definidas no painel Vercel. Build local usa `next build --webpack` (o Turbopack rejeita o symlink de `node_modules` dos worktrees).
+
+
+## 20. Primeira alteracao real homologada em producao (19/10/2026)
+
+**Homologado com API real:** pausa **manual** do conjunto "Conjunto Leads Teste" (conta "Colégio Crescer", campanha-mae ja pausada, sem efeito na veiculacao), solicitada pelo proprietario em `/agente/manual` as 14:44 UTC. Ledger: `proposed -> authorized -> queued -> executing -> verifying -> verified` em ~5 s; estado na Meta `ACTIVE -> PAUSED`, confirmado por leitura posterior (sem conciliacao). Deploy `1f77df6` com `AGENT_SCHEDULER_ENABLED=true` (Production). Gate `agent_executor_meta` ligado globalmente, com override apenas para a organizacao iGrow Digital (expira em 7 dias).
+
+**Ainda NAO homologado:** caminho da IA (proposta -> aprovacao individual -> execucao), retomar campanha, alteracao de orcamento (inventario financeiro real), reconciliacao com resultado incerto real, cron diario e motor de decisao (`AGENT_DECISION_ENGINE_ENABLED` continua desligado). A delegacao da IA (id `4a89c02a-ec77-46ea-8cd5-7e8fc22443b7`, pausar/reativar, teto R$ 100,00/dia) existe, mas nenhuma acao da IA foi executada.
+
+**Incidentes e correcoes durante a homologacao (todos corrigidos e publicados):** (1) tela usava status do cache (tudo "Desativado") -> leitura ao vivo pela conta; (2) erro Meta 100 por id inexistente e por campo `end_time` invalido em campanhas -> leitura por edges da conta e campos corretos no inventario; (3) botoes invisiveis por tokens de tema inexistentes -> componente `Button` do app; (4) variavel de ambiente inicialmente ineficaz: pedido manual era rejeitado com `executor_disabled` sem tocar na Meta (trava funcionou); (5) resultado do pedido exibido na propria pagina. Diagnostico "Executor neste deploy: ligado/desligado · commit" permanece na tela.
