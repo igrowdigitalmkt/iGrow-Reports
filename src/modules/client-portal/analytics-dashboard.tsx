@@ -17,6 +17,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { AudienceBreakdowns } from "./audience-breakdowns";
 import { demoAudience } from "./demo-analytics";
 import { BillingSummary } from "./billing-section";
+import { ClientSummary } from "./client-summary";
 import { AccountComparison } from "./account-comparison";
 import { GoogleAdsSection, type GoogleSectionView } from "@/modules/google-ads/google-section";
 import { sortActionsByImportance } from "./action-priority";
@@ -200,6 +201,8 @@ export function ClientAnalyticsDashboard({
   // Abas internas (portal do cliente): estado local. Com `sectioned`, a secao e o endereco, e o menu do cliente a troca.
   const [legacyTab, setLegacyTab] = useState<Exclude<ClientSection, "summary">>(query.get("aba") === "reports" ? "reports" : "overview");
   const tab: ClientSection = sectioned ? (parseClientPath(pathname)?.section ?? "summary") : legacyTab;
+  // Visao geral (menu do cliente): saldo, contas e resumo, independente da selecao de plataformas e sem dados de campanha.
+  const summaryView = sectioned && tab === "summary";
   const [campaignQuery, setCampaignQuery] = useState("");
   const [hierarchyEntities, setHierarchyEntities] = useState<AnalyticsEntity[]>(() => relevantCampaignHierarchy(entities));
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
@@ -781,7 +784,7 @@ export function ClientAnalyticsDashboard({
         <div><h1>{clientName}</h1></div>
       </div>
       <div className="analytics-command-actions">
-        <PlatformPicker value={platforms} onChange={changePlatforms} />
+        {(!sectioned || tab === "overview") && <PlatformPicker value={platforms} onChange={changePlatforms} />}
         {tab === "overview" && analyticsReady && <button type="button" className="analytics-button" onClick={async () => {
           try {
             if (document.fullscreenElement === dashboardRef.current) await document.exitFullscreen();
@@ -866,7 +869,8 @@ export function ClientAnalyticsDashboard({
         {pending ? "Atualizando…" : "Tentar atualizar novamente"} <ArrowUpRight size={14} />
       </button>}
     </div>}
-    {metaVisible ? <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
+    {summaryView && <ClientSummary clientId={clientId} data={data} googleAccounts={googleSections.map(section => ({ id: section.id, name: section.name }))} latest={latest} dailySpend={dailySpend} demoBilling={demo ? demoBilling ?? [] : undefined} />}
+    {metaVisible && !summaryView ? <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
     <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
       {!!data.warnings.length && <details className="analytics-quality-menu">
         <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
@@ -887,15 +891,7 @@ export function ClientAnalyticsDashboard({
               onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); if (accounts.length) navigate(period); }}>Aplicar contas</button>
           </div>
         </details>}</div></div>
-    {(!sectioned || tab === "summary") && <BillingSummary clientId={clientId} dailySpend={dailySpend} accountIds={data.selectedAccountIds} demoAccounts={demo ? demoBilling ?? [] : undefined} />}
-    {sectioned && tab === "summary" && <section className="client-summary" aria-label="Contas de anúncios">
-      <h3>Contas de anúncios</h3>
-      <ul>{data.accounts.map(account => {
-        const inPeriod = data.selectedAccountIds.includes(account.id);
-        return <li key={account.id}><strong>{account.name}</strong><span>{account.externalId} · {account.currency} · {account.timezoneName}</span>
-          <em className={inPeriod ? "is-selected" : undefined}>{inPeriod ? "No período" : "Fora da seleção"}</em></li>;
-      })}</ul>
-    </section>}
+    {!sectioned && <BillingSummary clientId={clientId} dailySpend={dailySpend} accountIds={data.selectedAccountIds} demoAccounts={demo ? demoBilling ?? [] : undefined} />}
     {(!sectioned || tab === "overview") && <div className="analytics-section-toolbar">
       {!sectioned && <div className="analytics-tabs" role="tablist" aria-label="Seções do painel">
         {[
@@ -1200,8 +1196,8 @@ export function ClientAnalyticsDashboard({
       </div>}
     </div>
     </section> : null}
-    {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} />}
-    {!metaVisible && !googleVisible && <section className="analytics-card platform-empty" style={{ order: 10 }}><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
+    {googleVisible && (!sectioned || tab === "overview") && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} />}
+    {!summaryView && !metaVisible && !googleVisible && <section className="analytics-card platform-empty" style={{ order: 10 }}><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
 
     {tab !== "reports" && <footer className="analytics-data-footer" style={{ order: 100 }}><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
       <span>Sem estimativas para datas não coletadas</span></footer>}
