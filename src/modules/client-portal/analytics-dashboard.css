@@ -204,6 +204,7 @@
 
 /* Cards */
 .analytics-primary-grid { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr); gap: 12px; }
+.analytics-primary-grid.is-single { grid-template-columns: minmax(0, 1fr); }
 .analytics-insights-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; }
 .analytics-card { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .analytics-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }

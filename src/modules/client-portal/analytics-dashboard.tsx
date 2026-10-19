@@ -452,6 +452,8 @@ export function ClientAnalyticsDashboard({
     .map((key) => scopedData.metrics.find((metric) => metric.key === key))
     .filter((metric): metric is AnalyticsMetric => !!metric);
   const spendMetric = scopedData.metrics.find((metric) => metric.key === "spend");
+  // Divisao do investimento so faz sentido com mais de uma conta (da mesma plataforma) com valor usado no periodo.
+  const showAccountSpend = data.accountTotals.filter(account => data.selectedAccountIds.includes(account.id) && account.values.spend != null).length > 1;
   const actions = scopedData.metrics.filter((metric) => metric.key.startsWith("action:"));
   // Metrics that can be drawn next to the spend line: only those with daily values in the period.
   const hasDaily = (key: string) => scopedData.daily.some(day => day.values[key] != null && day.values[key] !== 0);
@@ -1007,7 +1009,7 @@ export function ClientAnalyticsDashboard({
             </article>;
           })}
         </div>
-        <div className="analytics-primary-grid">
+        <div className={`analytics-primary-grid${showAccountSpend ? "" : " is-single"}`}>
           <article className="analytics-card analytics-evolution-card">
             <div className="analytics-chart-head">
               <div className="analytics-chart-head-top">
@@ -1046,11 +1048,11 @@ export function ClientAnalyticsDashboard({
             <AnalyticsTrendChart data={chartData} metrics={mainMetrics} comparison={comparison} chartType={chartType} height={300}
               legend={<div className="analytics-chart-legend">{mainMetrics.map((metric, index) => <span key={metric.key}><i style={{ background: ANALYTICS_COLORS[index] }} />{metric.label}</span>)}{comparison && scopedData.coverage.previousStatus === "complete" && <span><i className="is-dashed" />Período anterior</span>}</div>} />
           </article>
-          <article className="analytics-card analytics-account-card">
+          {showAccountSpend && <article className="analytics-card analytics-account-card">
             <div className="analytics-card-heading"><div><h3>Investimento por conta</h3></div><WalletCards size={17} /></div>
             {spendMetric && !scopeData ? <AnalyticsAccountChart data={data} metric={spendMetric} /> :
               <p className="analytics-empty-copy">A distribuição por conta usa o escopo completo. Remova o filtro de campanhas para visualizá-la.</p>}
-          </article>
+          </article>}
         </div>
         {!scopeData && <AudienceBreakdowns clientId={clientId} dateFrom={data.dateFrom} dateTo={data.dateTo} accountIds={accounts} demoData={demo ? demoAudience : undefined} />}
         <div className="analytics-insights-grid">
