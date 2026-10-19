@@ -1021,11 +1021,11 @@ export function ClientAnalyticsDashboard({
               </div>
               <div className="analytics-chart-head-series">
                 {chartOptions.length > 0 && <>
-                  <label className="analytics-series-pick"><i style={{ background: ANALYTICS_COLORS[0] }} /><span>Principal</span>
+                  <label className="analytics-series-pick"><span>Principal</span>
                     <select className="input" value={primaryMetric?.key ?? ""} onChange={event => setPrimaryKey(event.target.value)} aria-label="Indicador principal do gráfico">
                       {chartOptionGroups(compareMetric?.key)}
                     </select></label>
-                  <label className="analytics-series-pick"><i style={{ background: ANALYTICS_COLORS[1] }} /><span>Comparar com</span>
+                  <label className="analytics-series-pick"><span>Comparar com</span>
                     <select className="input" value={compareMetric?.key ?? ""} onChange={event => setCompareKey(event.target.value)} aria-label="Indicador comparado com o principal">
                       {chartOptionGroups(primaryMetric?.key)}
                     </select></label>
@@ -1033,8 +1033,7 @@ export function ClientAnalyticsDashboard({
                 <div className="analytics-comparison-controls">
                   <label className="analytics-compare-toggle"><input type="checkbox" checked={comparison}
                     onChange={(event) => setComparison(event.target.checked)}
-                    disabled={scopedData.coverage.previousStatus !== "complete"} /><span>Comparar período</span>
-                    {comparison && scopedData.coverage.previousStatus === "complete" && <i className="is-dashed" aria-hidden="true" />}</label>
+                    disabled={scopedData.coverage.previousStatus !== "complete"} /><span>Comparar período</span></label>
                   {canCollect && scopedData.coverage.previousStatus !== "complete" && <button type="button"
                     className="analytics-collect-comparison" onClick={() => collect("previous")} disabled={pending}>
                     <RefreshCw size={11} /> Atualizar comparação
@@ -1042,7 +1041,8 @@ export function ClientAnalyticsDashboard({
                 </div>
               </div>
             </div>
-            <AnalyticsTrendChart data={chartData} metrics={mainMetrics} comparison={comparison} chartType={chartType} height={300} />
+            <AnalyticsTrendChart data={chartData} metrics={mainMetrics} comparison={comparison} chartType={chartType} height={300}
+              legend={<div className="analytics-chart-legend">{mainMetrics.map((metric, index) => <span key={metric.key}><i style={{ background: ANALYTICS_COLORS[index] }} />{metric.label}</span>)}{comparison && scopedData.coverage.previousStatus === "complete" && <span><i className="is-dashed" />Período anterior</span>}</div>} />
           </article>
           <article className="analytics-card analytics-account-card">
             <div className="analytics-card-heading"><div><h3>Investimento por conta</h3></div><WalletCards size={17} /></div>

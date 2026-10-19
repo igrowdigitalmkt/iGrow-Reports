@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import type { AnalyticsDashboardData, AnalyticsValues } from "./analytics-types";
 import { resultBreakdown } from "./analytics-results";
@@ -82,7 +82,7 @@ function ChartCanvas({ option, label, height = 280 }: { option: EChartsCoreOptio
 
 const tooltip = { trigger: "axis", backgroundColor: "#171b23", borderColor: "#2c3340", textStyle: { color: "#e9ecf2", fontSize: 12 }, confine: true, renderMode: "richText" };
 
-export function AnalyticsTrendChart({ data, metrics, comparison = true, height = 280, chartType = "line" }: { data: AnalyticsDashboardData; metrics: AnalyticsMetric[]; comparison?: boolean; height?: number; chartType?: "line" | "bar" }) {
+export function AnalyticsTrendChart({ data, metrics, comparison = true, height = 280, chartType = "line", legend }: { data: AnalyticsDashboardData; metrics: AnalyticsMetric[]; comparison?: boolean; height?: number; chartType?: "line" | "bar"; legend?: ReactNode }) {
   const previousAvailable = comparison && data.coverage.previousStatus === "complete";
   const series = metrics.flatMap((metric, index) => {
     const color = ANALYTICS_COLORS[index % ANALYTICS_COLORS.length];
@@ -113,6 +113,7 @@ export function AnalyticsTrendChart({ data, metrics, comparison = true, height =
   const label = `Gráfico de ${chartType === "bar" ? "barras" : "linhas"}. Evolução diária de ${metrics.map((metric) => metric.label).join(" e ")}, de ${data.dateFrom} a ${data.dateTo}. Valores e datas estão disponíveis na tabela.`;
   return <>
     <ChartCanvas option={option} label={label} height={height} />
+    {legend}
     <details className="analytics-chart-data">
       <summary>Consultar dados do gráfico</summary>
       <div className="analytics-table-scroll"><table className="analytics-table">
