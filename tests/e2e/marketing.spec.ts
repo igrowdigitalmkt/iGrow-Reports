@@ -37,7 +37,7 @@ test("galeria usa capturas reais, alterna por clique e teclado e amplia com foco
 test("planos preservam valores e explicitam a cobrança anual integral", async ({ page }) => {
   await page.goto("/#planos");
   await expect(page.locator("#planos")).toContainText("79,90");
-  await page.getByRole("button", { name: "Anual", exact: true }).click();
+  await page.getByRole("button", { name: /^Anual/ }).click();
   for (const value of ["799,00", "1.499,00", "2.799,00"]) await expect(page.locator("#planos")).toContainText(value);
   await expect(page.getByText("Cobrança anual em pagamento integral.")).toHaveCount(3);
   await expect(page.locator("#planos")).toContainText("O investimento em anúncios é separado da assinatura");
@@ -83,16 +83,20 @@ test("falha de carregamento do vídeo oferece descrição e nova tentativa", asy
   await expect(page.getByRole("button", { name: "Tentar reproduzir demonstração novamente" })).toBeVisible();
 });
 
-test("movimento decorativo pode ser pausado e respeita movimento reduzido", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
+test("movimento decorativo é contínuo, sem botão de pausa, e respeita movimento reduzido", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Pausar animações decorativas" }).click();
-  const resume = page.getByRole("button", { name: "Ativar animações decorativas" });
-  await expect(resume).toHaveAttribute("aria-pressed", "true");
-  await resume.click();
+  await expect(page.getByRole("button", { name: /animações decorativas/ })).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const phone = page.getByRole("img", { name: /Versão móvel real/ });
   expect(await phone.evaluate(element => getComputedStyle(element.parentElement!).animationName)).toBe("none");
+});
+
+test("planos explicam cada limite e listam o que está incluído em todos", async ({ page }) => {
+  await page.goto("/#planos");
+  await expect(page.locator("#planos")).toContainText("5 agendamentos de relatório");
+  await expect(page.locator("#planos")).toContainText("Envios automáticos que se repetem");
+  await expect(page.locator("#planos")).not.toContainText("automações ativas");
+  await expect(page.locator("#incluso")).toContainText("Modo apresentação em tela cheia");
 });
 
 for (const width of [390, 768]) test(`telas, navegação e ampliação funcionam em ${width}px`, async ({ page }) => {

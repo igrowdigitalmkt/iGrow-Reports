@@ -87,7 +87,9 @@
 
 /* Base */
 * { box-sizing: border-box; }
-html { min-width: 320px; }
+html { min-width: 320px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: manipulation; }
+/* Comportamento de aplicativo: em telas de toque, campos com 16px não disparam o zoom automático do navegador. */
+@media (pointer: coarse) { input, select, textarea { font-size: 16px !important; } }
 body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "cv11", "ss01"; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button, a, select, summary { -webkit-tap-highlight-color: transparent; }
