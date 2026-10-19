@@ -1,6 +1,6 @@
 "use client";
 
-import { resultBreakdown, resultCostBreakdown } from "./analytics-results";
+import { RESULT_GROUPS, resultBreakdown, resultCostBreakdown, resultFamilyValue, withResultSeries } from "./analytics-results";
 import { hasConfirmedAnalytics } from "./analytics-readiness";
 import { changeDescription } from "./analytics-comparison";
 import { reconcileHierarchySelection } from "./analytics-selection";
@@ -455,9 +455,20 @@ export function ClientAnalyticsDashboard({
   const actions = scopedData.metrics.filter((metric) => metric.key.startsWith("action:"));
   // Metrics that can be drawn next to the spend line: only those with daily values in the period.
   const hasDaily = (key: string) => scopedData.daily.some(day => day.values[key] != null && day.values[key] !== 0);
-  const chartActions = sortActionsByImportance(actions.filter(metric => hasDaily(metric.key)), key => scopedData.summary[key] ?? 0);
+  // Cada tipo de resultado com algum valor no periodo (mensagens, leads, visitas...) vira uma opcao, com serie diaria propria.
+  const chartResultMetrics: AnalyticsMetric[] = resultRows
+    .filter(result => scopedData.daily.some(day => (resultFamilyValue(day.values, result.key) ?? 0) > 0))
+    .map(result => ({ key: `chart:result:${result.key}`, label: result.label, unit: "integer", precision: 0, desirable: "up" }));
+  const coveredByResults = new Set(RESULT_GROUPS.filter(group => resultRows.some(result => result.key === group.key)).flatMap(group => group.fields as readonly string[]));
+  const chartData = chartResultMetrics.length === 0 ? scopedData : {
+    ...scopedData,
+    daily: withResultSeries(scopedData.daily, resultRows),
+    previousDaily: withResultSeries(scopedData.previousDaily, resultRows),
+  };
+  const chartActions = sortActionsByImportance(actions.filter(metric => hasDaily(metric.key) && !coveredByResults.has(metric.key)), key => scopedData.summary[key] ?? 0);
   const chartOthers = scopedData.metrics.filter(metric => metric.key !== "spend" && !metric.key.startsWith("action:") && hasDaily(metric.key));
-  const chartOptions = [...chartOthers.filter(metric => metric.key === "primary_results"), ...chartActions, ...chartOthers.filter(metric => metric.key !== "primary_results")];
+  const chartResults = [...chartOthers.filter(metric => metric.key === "primary_results"), ...chartResultMetrics];
+  const chartOptions = [...chartResults, ...chartActions, ...chartOthers.filter(metric => metric.key !== "primary_results")];
   // Dois indicadores livres no grafico; o padrao e valor usado (principal) x resultados (comparado).
   const chartChoices = [...(spendMetric ? [spendMetric] : []), ...chartOptions];
   const primaryMetric = chartChoices.find(metric => metric.key === primaryKey && metric.key !== compareKey)
@@ -469,7 +480,7 @@ export function ClientAnalyticsDashboard({
     const available = (list: AnalyticsMetric[]) => list.filter(metric => metric.key !== excludeKey);
     const groups = [
       { label: "Investimento", metrics: available(spendMetric ? [spendMetric] : []) },
-      { label: "Resultados e ações", metrics: available([...chartOthers.filter(metric => metric.key === "primary_results"), ...chartActions]) },
+      { label: "Resultados e ações", metrics: available([...chartResults, ...chartActions]) },
       { label: "Entrega e cliques", metrics: available(chartOthers.filter(metric => metric.key !== "primary_results")) },
     ].filter(group => group.metrics.length > 0);
     return groups.map(group => <optgroup key={group.label} label={group.label}>{group.metrics.map(metric => <option key={metric.key} value={metric.key}>{metric.label}</option>)}</optgroup>);
@@ -1025,7 +1036,7 @@ export function ClientAnalyticsDashboard({
               </div></div>
             </div>
             <div className="analytics-chart-legend">{mainMetrics.map((metric, index) => <span key={metric.key}><i style={{ background: ANALYTICS_COLORS[index] }} />{metric.label}</span>)}{comparison && scopedData.coverage.previousStatus === "complete" && <span><i className="is-dashed" />Período anterior</span>}</div>
-            <AnalyticsTrendChart data={scopedData} metrics={mainMetrics} comparison={comparison} chartType={chartType} height={300} />
+            <AnalyticsTrendChart data={chartData} metrics={mainMetrics} comparison={comparison} chartType={chartType} height={300} />
           </article>
           <article className="analytics-card analytics-account-card">
             <div className="analytics-card-heading"><div><h3>Investimento por conta</h3></div><WalletCards size={17} /></div>

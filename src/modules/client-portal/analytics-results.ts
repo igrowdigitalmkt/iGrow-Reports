@@ -57,6 +57,21 @@ function providerResultEntries(values: AnalyticsValues) {
   return [...totals].map(([key, value]) => ({ key, label: resultFamilyLabel(key), value }));
 }
 
+/** Valor de um tipo de resultado em um dia: soma do agregado da Meta; sem ele, usa o grupo conhecido. */
+export function resultFamilyValue(values: AnalyticsValues, familyKey: string): number | null {
+  const entries = providerResultEntries(values);
+  if (entries) return entries.find(entry => entry.key === familyKey)?.value ?? 0;
+  return values[`result:${familyKey}`] ?? null;
+}
+
+/** Acrescenta a cada dia a serie `chart:result:<tipo>` usada pelo grafico de desempenho. */
+export function withResultSeries<T extends { values: AnalyticsValues }>(days: T[], families: Array<{ key: string }>): T[] {
+  return days.map(day => ({
+    ...day,
+    values: { ...day.values, ...Object.fromEntries(families.map(family => [`chart:result:${family.key}`, resultFamilyValue(day.values, family.key)])) },
+  }));
+}
+
 export function resultBreakdown(values: AnalyticsValues) {
   return providerResultEntries(values)?.filter(result => result.value > 0) ?? [];
 }

@@ -37,6 +37,16 @@ const day = (start: string, offset: number) => {
   return date.toISOString().slice(0, 10);
 };
 
+// Resultados do periodo (um por objetivo de campanha) para o cliente ficticio; os diarios acompanham o ritmo do gasto.
+const DEMO_RESULTS: Record<string, number> = {
+  "action:onsite_conversion.messaging_conversation_started_7d": 188, "action:omni_complete_registration": 42,
+  "action:lead": 31, "action:instagram_profile_visit": 967,
+};
+const demoResults = (scale: number) => ({
+  "result:provider_known": 1,
+  ...Object.fromEntries(Object.entries(DEMO_RESULTS).map(([key, amount]) => [`result:provider:${key}`, Math.round(amount * scale)])),
+});
+
 function values(spend: number, impressions: number, reach: number, clicks: number, extra: Record<string, number> = {}) {
   const linkClicks = Math.round(clicks * .62);
   return {
@@ -58,13 +68,13 @@ export function getDemoClientAnalytics(): AnalyticsDashboardData {
     }),
   }));
   const total = (key: "spend" | "impressions" | "reach" | "clicks") => CAMPAIGNS.reduce((sum, campaign) => sum + campaign[key], 0);
-  const summary = values(total("spend"), total("impressions"), Math.round(total("reach") * .7), total("clicks"));
-  const previousSummary = values(total("spend") * .84, total("impressions") * .8, Math.round(total("reach") * .62), total("clicks") * .77);
+  const summary = values(total("spend"), total("impressions"), Math.round(total("reach") * .7), total("clicks"), demoResults(1));
+  const previousSummary = values(total("spend") * .84, total("impressions") * .8, Math.round(total("reach") * .62), total("clicks") * .77, demoResults(.8));
   const daily = Array.from({ length: 30 }, (_, index) => {
     const factor = (0.6 + 0.5 * Math.sin(index / 3.2) ** 2 + (index > 15 ? .35 : 0)) / 30;
-    return { date: day(dateFrom, index), values: values(summary.spend * factor * 1.05, Math.round(summary.impressions * factor), Math.round(summary.reach * factor), Math.round(summary.clicks * factor)) };
+    return { date: day(dateFrom, index), values: values(summary.spend * factor * 1.05, Math.round(summary.impressions * factor), Math.round(summary.reach * factor), Math.round(summary.clicks * factor), demoResults(factor)) };
   });
-  const previousDaily = daily.map((entry, index) => ({ date: day(previousDateFrom, index), values: values(entry.values.spend * .84, Math.round(entry.values.impressions * .8), Math.round(entry.values.reach * .62), Math.round(entry.values.clicks * .77)) }));
+  const previousDaily = daily.map((entry, index) => ({ date: day(previousDateFrom, index), values: values(entry.values.spend * .84, Math.round(entry.values.impressions * .8), Math.round(entry.values.reach * .62), Math.round(entry.values.clicks * .77), demoResults(.8 * (entry.values.spend ?? 0) / 4000)) }));
   const accountTotals = ["a1", "a2"].map(id => {
     const list = CAMPAIGNS.filter(campaign => campaign.account === id);
     const sum = (key: "spend" | "impressions" | "reach" | "clicks") => list.reduce((value, campaign) => value + campaign[key], 0);

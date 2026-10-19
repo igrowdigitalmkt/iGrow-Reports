@@ -39,6 +39,12 @@ function shortDate(date: string) {
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
 }
 
+/** Indicadores que nao se somam (razoes, percentuais e custos unitarios): a escala deve acompanhar a variacao. */
+export function isRateMetric(metric: AnalyticsMetric) {
+  if (metric.unit === "percent" || metric.unit === "ratio") return true;
+  return metric.unit === "currency" && metric.key !== "spend" && metric.key !== "attributed_revenue" && !metric.key.startsWith("value:");
+}
+
 function axisValue(value: number) {
   return new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
@@ -100,7 +106,8 @@ export function AnalyticsTrendChart({ data, metrics, comparison = true, height =
     backgroundColor: "transparent", tooltip,
     grid: { left: 52, right: metrics.length > 1 ? 55 : 20, top: 32, bottom: 32 },
     xAxis: { type: "category", boundaryGap: chartType === "bar", data: data.daily.map((day) => shortDate(day.date)), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: AXIS_TEXT, fontSize: 11, hideOverlap: true } },
-    yAxis: metrics.map((metric, index) => ({ type: "value", name: metric.unit === "currency" ? data.currency ?? "" : metric.unit === "percent" ? "%" : "", nameTextStyle: { color: AXIS_TEXT, fontSize: 11 }, position: index === 0 ? "left" : "right", axisLabel: { color: AXIS_TEXT, fontSize: 11, formatter: axisValue }, splitLine: { show: index === 0, lineStyle: { color: GRID_LINE } } })),
+    // Taxas e custos (CPM, CPC, CTR...) variam pouco em torno de um valor: com o zero na escala viram uma linha reta no topo.
+    yAxis: metrics.map((metric, index) => ({ type: "value", scale: chartType === "line" && isRateMetric(metric), name: metric.unit === "currency" ? data.currency ?? "" : metric.unit === "percent" ? "%" : "", nameTextStyle: { color: AXIS_TEXT, fontSize: 11 }, position: index === 0 ? "left" : "right", axisLabel: { color: AXIS_TEXT, fontSize: 11, formatter: axisValue }, splitLine: { show: index === 0, lineStyle: { color: GRID_LINE } } })),
     series,
   };
   const label = `Gráfico de ${chartType === "bar" ? "barras" : "linhas"}. Evolução diária de ${metrics.map((metric) => metric.label).join(" e ")}, de ${data.dateFrom} a ${data.dateTo}. Valores e datas estão disponíveis na tabela.`;
