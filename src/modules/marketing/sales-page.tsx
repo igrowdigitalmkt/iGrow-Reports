@@ -4,11 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, ArrowUpRight, Check, Clock3, Menu, Pause, Play, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
-import { DeviceShowcase, ProductShowcase, ProductTour } from "./sales-media";
+import { ProductShowcase, ProductTour } from "./sales-media";
 import styles from "./sales-page.module.css";
 import { EXECUTION_LIVE as live } from "./sales-flags";
 import { CoreMotion, Motion, MotionDefs, type MotionKind } from "./sales-motion";
-import { salesPhotos } from "./sales-photos";
+import { photos, type SalesPhoto } from "./sales-photos";
 
 // Display snapshot of the published catalog (18/10/2026). Checkout is unchanged.
 const plans = [
@@ -65,6 +65,10 @@ const questions = [
   ["Serve para quem cuida dos próprios anúncios?", "Sim. Gestores independentes, agências e equipes internas podem usar a Groow Ads, acompanhando um negócio ou uma carteira de clientes, com acessos e limites definidos pelo plano."],
 ];
 
+function Pic({ photo, className, sizes, priority }: { photo: SalesPhoto; className: string; sizes: string; priority?: boolean }) {
+  return <Image src={photo.src} alt={photo.alt} width={photo.width} height={photo.height} className={className} sizes={sizes} priority={priority} />;
+}
+
 function Brand() {
   return <Image src="/brand/groow-ads-color.png" alt="Groow Ads" width={1179} height={212} className={styles.logo} />;
 }
@@ -104,7 +108,10 @@ export function SalesPage() {
           </div>
           <div className={styles.heroVisual}>
             <button className={styles.motionToggle} onClick={() => setPaused(!paused)} aria-pressed={paused} aria-label={paused ? "Ativar animações decorativas" : "Pausar animações decorativas"}>{paused ? <Play size={13} /> : <Pause size={13} />}{paused ? "Ativar movimento" : "Pausar movimento"}</button>
-            <DeviceShowcase />
+            <div className={styles.heroFrame}>
+              <Pic photo={photos.hero} className={styles.heroImg} sizes="(max-width: 1100px) 94vw, 600px" priority />
+              <div className={styles.heroPhone}><span className={styles.heroPhoneCam} aria-hidden="true" /><Image src="/product/mobile.webp" alt="Versão móvel real da visão geral da Groow Ads, com indicadores demonstrativos" width={390} height={844} sizes="140px" /></div>
+            </div>
           </div>
         </div>
         <div className={styles.wrap}>
@@ -121,6 +128,7 @@ export function SalesPage() {
             <span className={styles.kicker}>O custo de fazer tudo na mão</span>
             <h2 className={styles.h2}>Seu tempo está sendo gasto <span className={styles.accent}>onde menos rende.</span></h2>
             <p className={styles.lead}>Gestão de anúncios não deveria ser sinônimo de planilha, cópia de números e lembrete de envio. É trabalho necessário, mas repetível. E o que é repetível pode ser delegado.</p>
+            <figure className={styles.storyPhoto}><Pic photo={photos.problem} className={styles.storyImg} sizes="(max-width: 1100px) 94vw, 520px" /><figcaption>O trabalho acompanha você até no café.</figcaption></figure>
           </div>
           <div>
             <ul className={styles.costList}>{chores.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}</ul>
@@ -143,7 +151,7 @@ export function SalesPage() {
 
       <section className={`${styles.contrast} ${styles.light}`} aria-labelledby="contrast-title">
         <div className={styles.wrap}>
-          <div className={styles.contrastHead}><span className={styles.kicker}>O que muda na prática</span><h2 className={styles.h2} id="contrast-title">Você comanda. <span className={styles.accent}>A Groow executa.</span></h2></div>
+          <div className={styles.contrastHead}><div><span className={styles.kicker}>O que muda na prática</span><h2 className={styles.h2} id="contrast-title">Você comanda. <span className={styles.accent}>A Groow executa.</span></h2><p className={styles.lead}>Você define o objetivo e os limites. O trabalho repetitivo deixa de passar pelas suas mãos.</p></div><figure className={styles.commandPhoto}><Pic photo={photos.command} className={styles.commandImg} sizes="(max-width: 1100px) 94vw, 560px" /></figure></div>
           <div className={styles.contrastTable} role="table" aria-label="Rotina até aqui comparada à rotina com a Groow Ads">
             <div className={styles.contrastRow} role="row"><span role="columnheader">Rotina até aqui</span><span role="columnheader" className={styles.contrastNew}>Com a Groow Ads</span></div>
             {contrast.map(([before, after]) => <div className={styles.contrastRow} role="row" key={before}><p role="cell"><X size={18} aria-hidden="true" />{before}</p><p role="cell" className={styles.contrastNew}><Check size={18} aria-hidden="true" />{after}</p></div>)}
@@ -175,7 +183,7 @@ export function SalesPage() {
             <div className={`${styles.boardCol} ${styles.boardNow}`}><span className={styles.tag}><Check size={13} /> {live ? "Analisa e entrega" : "Disponível hoje"}</span><h3>Trabalho que já sai da sua lista</h3><p>{live ? "Do dado ao relatório, sem trabalho manual." : "Incluído nos planos e no teste de 7 dias."}</p><ul>{available.map(item => <li key={item}><Check size={18} />{item}</li>)}</ul></div>
             <div className={`${styles.boardCol} ${styles.boardSoon}`}><span className={`${styles.tag} ${live ? "" : styles.tagSoon}`}>{live ? <Check size={13} /> : <Clock3 size={13} />} {live ? "Executa nas campanhas" : "Em desenvolvimento"}</span><h3>A execução nas campanhas</h3><p>{live ? "Tudo dentro dos limites que você define." : "Direção do produto. Não está incluída na oferta atual."}</p><ul>{upcoming.map(item => <li key={item}>{live ? <Check size={18} /> : <Clock3 size={18} />}{item}</li>)}</ul></div>
           </div>
-          {live && <div className={styles.control}><h3>Você no controle</h3><ul>{control.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}</ul></div>}
+          {live && <div className={styles.control}><div><h3>Você no controle</h3><ul>{control.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}</ul></div><figure className={styles.controlPhoto}><Pic photo={photos.control} className={styles.controlImg} sizes="(max-width: 1100px) 94vw, 480px" /></figure></div>}
           <p className={styles.boardFoot}><ShieldCheck size={18} /> {live ? "Cada ação é registrada e respeita as permissões e os limites que você configurou." : "Uma capacidade só passa para “disponível” depois de implementada e validada com as plataformas de anúncios."}</p>
         </div>
       </section>
@@ -184,10 +192,12 @@ export function SalesPage() {
         <div className={styles.wrap}>
           <div className={styles.featuresHead}><h2 className={styles.h2}>Tudo o que sustenta o trabalho. <span className={styles.accent}>Pronto para usar.</span></h2><p className={styles.lead}>Dashboards, relatórios, mensagens e apresentação: a base que mantém você e o seu cliente sempre bem informados.</p></div>
           <div className={styles.featureGrid}>{features.map(([kind, title, text]) => <article className={styles.feature} key={kind}><Motion kind={kind} /><h3>{title}</h3><p>{text}</p></article>)}</div>
+          <div className={styles.spotlight}>
+            <figure className={styles.spotPhoto}><Pic photo={photos.meeting} className={styles.spotImg} sizes="(max-width: 1100px) 94vw, 640px" /></figure>
+            <div><span className={styles.kicker}>Da tela para a reunião</span><h3>Apresente os resultados sem montar uma apresentação.</h3><p>O modo apresentação abre o painel em tela cheia, e o relatório horizontal em 1920 × 1080 já está pronto para a conversa com o cliente. Quem não estava na sala recebe o PDF, a mensagem no WhatsApp ou o e-mail.</p><ul className={styles.chips}>{["Tela cheia", "Relatório horizontal", "PDF", "WhatsApp", "E-mail"].map(chip => <li key={chip}>{chip}</li>)}</ul></div>
+          </div>
         </div>
       </section>
-      {salesPhotos.some(photo => photo.src) && <section className={styles.photoBand} aria-label="A Groow Ads no dia a dia"><div className={styles.wrap}><div className={styles.photoGrid}>{salesPhotos.filter(photo => photo.src).map(photo => <figure className={`${styles.photo} ${photo.wide ? styles.photoWide : ""}`} key={photo.src}><Image src={photo.src!} alt={photo.alt} width={photo.width} height={photo.height} sizes={photo.wide ? "(max-width: 1240px) 100vw, 1176px" : "(max-width: 1100px) 100vw, 580px"} className={styles.photoImage} /><figcaption>{photo.caption}</figcaption></figure>)}</div><p className={styles.photoNote}>Imagens ilustrativas geradas com inteligência artificial. As interfaces exibidas são da Groow Ads, com dados demonstrativos.</p></div></section>}
-
       <section id="planos" className={styles.pricing}>
         <div className={styles.wrap}>
           <div className={styles.pricingHead}><span className={styles.kicker}>Planos</span><h2 className={styles.h2}>{live ? "Comece hoje. " : "Comece pelo que já funciona. "}<span className={styles.accent}>Sem cartão.</span></h2><p className={styles.lead}>{live ? "Sete dias para ver a Groow trabalhando na sua própria rotina." : "Sete dias para experimentar os recursos disponíveis na sua própria rotina."}</p></div>
@@ -205,7 +215,8 @@ export function SalesPage() {
       </section>
 
       <section className={styles.finalCta}>
-        <div className={styles.wrap}>
+        <Pic photo={photos.cta} className={styles.ctaBg} sizes="100vw" /><div className={styles.ctaShade} aria-hidden="true" />
+        <div className={`${styles.wrap} ${styles.ctaContent}`}>
           <h2 className={styles.h2}>Menos operação. <span className={styles.accent}>Mais estratégia.</span></h2>
           <p className={styles.lead}>{live ? "Conte o seu negócio, defina os limites e veja a Groow Ads trabalhando na sua rotina." : "Comece com as análises por IA e as entregas agendadas. Veja a Groow Ads trabalhando na sua rotina."}</p>
           <Link href="/criar-conta" className={`${styles.btn} ${styles.btnPrimary}`}>Começar meus 7 dias grátis <ArrowRight size={18} /></Link>
@@ -217,6 +228,7 @@ export function SalesPage() {
     <footer className={styles.footer}>
       <div className={styles.wrap}>
         <div className={styles.footerTop}><div><Link href="/" aria-label="Groow Ads, início"><Brand /></Link><p>Inteligência para conhecer o negócio.<br />Tecnologia para assumir o trabalho.</p></div><nav aria-label="Links do rodapé"><a href="#problema">O problema</a><a href="#como-funciona">Como funciona</a><a href="#planos">Planos</a><Link href="/entrar">Entrar</Link></nav></div>
+        <p className={styles.imageNote}>Imagens ilustrativas geradas com inteligência artificial. As interfaces exibidas são da Groow Ads, com dados demonstrativos.</p>
         <div className={styles.footerBottom}><span>© {new Date().getFullYear()} Groow Ads · Uma plataforma da iGrow Digital.</span><div><Link href="/privacidade">Privacidade</Link><Link href="/exclusao-de-dados">Exclusão de dados</Link></div></div>
       </div>
     </footer>

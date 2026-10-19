@@ -10,7 +10,7 @@ test("site comunica contexto e trabalho realizado, com metadados e recursos atua
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://groowads.com");
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "index, follow");
   await expect(page.getByText("Criar, ajustar e corrigir campanhas por IA, dentro dos limites que você define.")).toBeVisible();
-  await expect(page.getByRole("img", { name: /Interface real da Groow Ads no computador/ })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Gestor de tráfego trabalhando no notebook/ })).toBeVisible();
 });
 
 test("galeria usa capturas reais, alterna por clique e teclado e amplia com foco contido", async ({ page }) => {
