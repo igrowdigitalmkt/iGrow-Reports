@@ -16,6 +16,18 @@ const STATUS_LABELS: Record<string, string> = {
   ARCHIVED: "Arquivado", DELETED: "Excluido", IN_PROCESS: "Em processamento", WITH_ISSUES: "Com problemas",
 };
 
+const RESULTS: Record<string, { tone: "good" | "warn"; text: string }> = {
+  ok_verified: { tone: "good", text: "Alteracao executada e confirmada na Meta." },
+  ok_needs_verification: { tone: "warn", text: "A Meta nao confirmou ainda; a conta fica bloqueada ate a conciliacao. Veja Atividade recente." },
+  ok_failed: { tone: "warn", text: "A alteracao foi bloqueada antes de enviar (verificacao de seguranca). Nada foi alterado." },
+  ok_gate_closed: { tone: "warn", text: "Execucao nao habilitada para esta organizacao. Nada foi alterado." },
+  ok_unavailable: { tone: "warn", text: "Servico indisponivel; consulte a Atividade recente." },
+  executor_disabled: { tone: "warn", text: "A execucao esta desabilitada neste ambiente (AGENT_SCHEDULER_ENABLED). Nada foi alterado na Meta." },
+  gate_closed: { tone: "warn", text: "Execucao nao habilitada para esta organizacao. Nada foi alterado." },
+  account_busy: { tone: "warn", text: "Ja existe uma alteracao em andamento nesta conta. Aguarde a conclusao." },
+  duplicate: { tone: "warn", text: "Esta solicitacao ja tinha sido registrada." },
+};
+
 type Row = { entity: AnalyticsEntity; live: LiveEntityState; accountName: string; accountOk: boolean };
 
 /**
@@ -23,9 +35,9 @@ type Row = { entity: AnalyticsEntity; live: LiveEntityState; accountName: string
  * Status e titularidade vem AO VIVO da Meta: so aparece o que a Meta confirma pertencer a conta vinculada
  * a ESTE cliente. O cache de metricas nao e fonte de status de veiculacao.
  */
-export default async function ManualChangesPage({ searchParams }: { searchParams: Promise<{ cliente?: string }> }) {
+export default async function ManualChangesPage({ searchParams }: { searchParams: Promise<{ cliente?: string; resultado?: string }> }) {
   const ctx = await requireAgencyContext();
-  const { cliente } = await searchParams;
+  const { cliente, resultado } = await searchParams;
   const canEdit = ctx.role === "owner" || ctx.role === "admin";
   const { data: clients } = await ctx.supabase.from("clients").select("id,name")
     .eq("agency_id", ctx.agency.id).is("archived_at", null).order("name").limit(200);
@@ -83,6 +95,7 @@ export default async function ManualChangesPage({ searchParams }: { searchParams
         <a key={client.id} href={`?cliente=${client.id}`}
           className={`rounded-full border px-3 py-1 text-sm ${client.id === selected?.id ? "border-foreground font-medium" : "border-border text-muted"}`}>{client.name}</a>)}
       </nav>
+      {resultado && RESULTS[resultado] && <p className={`rounded-xl border p-4 text-sm ${RESULTS[resultado].tone === "good" ? "border-[var(--good)] bg-[var(--good-bg)]" : "border-[var(--warn)] bg-[var(--warn-bg)]"}`}>{RESULTS[resultado].text}</p>}
       {!selected && <p className="text-sm text-muted">Escolha um cliente para ver as campanhas confirmadas na Meta.</p>}
       {selected && liveFailed && <p className="rounded-2xl border border-[var(--warn)] bg-[var(--warn-bg)] p-4 text-sm">
         Nao foi possivel confirmar o estado atual na Meta para alguma conta. Nada e exibido sem essa confirmacao.</p>}
