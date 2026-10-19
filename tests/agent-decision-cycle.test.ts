@@ -132,6 +132,24 @@ describe("leitura ao vivo da Meta", () => {
     expect(map?.get("901")?.dailyBudgetMinor).toBeNull();
     expect(fetchImpl.mock.calls.every(c => ((c as unknown[])[1] as RequestInit | undefined)?.method !== "POST")).toBe(true);
   });
+  it("divide a leitura em lotes de ate 40 ids e informa a conta dona da entidade", async () => {
+    const tables: Record<string, Table> = {
+      meta_ad_accounts: { data: { meta_connection_id: "mc" } },
+      meta_connections: { data: { id: "mc", integration_id: "in", connected_at: "2026-10-01T00:00:00Z" } },
+      integrations: { data: { id: "in", connection_status: "connected", health_status: "ok" } },
+    };
+    const { service } = fakeService(tables, {});
+    const fetchImpl = vi.fn(async (url: URL | string) => {
+      const ids = (new URL(String(url)).searchParams.get("ids") ?? "").split(",");
+      return new Response(JSON.stringify(Object.fromEntries(ids.map(id => [id, { id, account_id: "910", status: "PAUSED", effective_status: "PAUSED" }]))), { status: 200 });
+    });
+    const many = Array.from({ length: 90 }, (_, i) => String(1000 + i));
+    const map = await readLiveEntityState(service, { agencyId: "ag", clientId: "cl", adAccountId: ACCOUNT }, many,
+      { tokenLoader: async () => "tok", apiVersion: "v23.0", fetchImpl: fetchImpl as never });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(map?.size).toBe(90);
+    expect(map?.get("1000")).toMatchObject({ configuredStatus: "PAUSED", accountExternalId: "act_910" });
+  });
   it("integracao offline ou erro de token => null", async () => {
     const off = fakeService({
       meta_ad_accounts: { data: { meta_connection_id: "mc" } },

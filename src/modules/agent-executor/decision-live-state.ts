@@ -13,6 +13,7 @@ export type LiveEntityState = {
   /** Conta de anuncios dona da entidade segundo a Meta (`act_...`), para conferir titularidade. */
   accountExternalId: string | null;
 };
+type LiveObject = { id?: string; account_id?: string; status?: string; effective_status?: string; daily_budget?: string };
 export type LiveStateDeps = {
   tokenLoader?: typeof loadAccessToken;
   apiVersion?: string;
@@ -44,8 +45,12 @@ export async function readLiveEntityState(
   try {
     const token = await (deps.tokenLoader ?? loadAccessToken)(service, scope.agencyId, integration.id, connection.id);
     const client = new MetaClient({ accessToken: token, apiVersion, fetchImpl: deps.fetchImpl, timeoutMs: 25_000, retryDelayMs: 1_000 });
-    const objects = await client.getObjects<{ id?: string; account_id?: string; status?: string; effective_status?: string; daily_budget?: string }>(
-      metaIds, "id,account_id,status,effective_status,daily_budget");
+    // A Graph API limita `ids` a 50 objetos por chamada.
+    const objects: Awaited<ReturnType<typeof client.getObjects<LiveObject>>> = [];
+    for (let i = 0; i < metaIds.length; i += 40) {
+      objects.push(...await client.getObjects<LiveObject>(
+        metaIds.slice(i, i + 40), "id,account_id,status,effective_status,daily_budget"));
+    }
     return new Map(objects.map(o => {
       const budget = o.daily_budget !== undefined && /^\d{1,15}$/.test(o.daily_budget) ? Number(o.daily_budget) : null;
       const account = typeof o.account_id === "string" && /^(?:act_)?[1-9]\d*$/.test(o.account_id)
