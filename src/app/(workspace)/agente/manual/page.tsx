@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { submitManualMetaChange } from "@/modules/agent-executor/manual-actions";
+import { agentSchedulerEnabled } from "@/modules/agent-executor/scheduler";
 import { readLiveEntityStateDetailed, type LiveEntityState } from "@/modules/agent-executor/decision-live-state";
 import { normalizeHierarchy, type AnalyticsEntity } from "@/modules/client-portal/analytics-hierarchy";
 
@@ -95,6 +96,10 @@ export default async function ManualChangesPage({ searchParams }: { searchParams
         <a key={client.id} href={`?cliente=${client.id}`}
           className={`rounded-full border px-3 py-1 text-sm ${client.id === selected?.id ? "border-foreground font-medium" : "border-border text-muted"}`}>{client.name}</a>)}
       </nav>
+      <p className="text-xs text-muted">
+        Executor neste deploy: <strong>{agentSchedulerEnabled() ? "ligado" : "desligado"}</strong>
+        {process.env.VERCEL_GIT_COMMIT_SHA ? ` · commit ${process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)}` : ""}
+      </p>
       {resultado && RESULTS[resultado] && <p className={`rounded-xl border p-4 text-sm ${RESULTS[resultado].tone === "good" ? "border-[var(--good)] bg-[var(--good-bg)]" : "border-[var(--warn)] bg-[var(--warn-bg)]"}`}>{RESULTS[resultado].text}</p>}
       {!selected && <p className="text-sm text-muted">Escolha um cliente para ver as campanhas confirmadas na Meta.</p>}
       {selected && liveFailed && <p className="rounded-2xl border border-[var(--warn)] bg-[var(--warn-bg)] p-4 text-sm">
