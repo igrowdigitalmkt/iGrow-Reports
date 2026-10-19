@@ -124,6 +124,15 @@ describe("motor", () => {
 
 describe("provedor Anthropic", () => {
   const call = (resp: object) => createAnthropicDecisionModel({ messages: { create: vi.fn(async () => resp as never) } });
+  it("nao forca tool_choice (Sonnet 5.5 rejeita com 400) e instrui o uso da ferramenta no prompt", async () => {
+    const create = vi.fn(async () => ({ stop_reason: "tool_use", usage: { input_tokens: 1, output_tokens: 1 },
+      content: [{ type: "tool_use", name: "submit_decision", input: {} }] }) as never);
+    await createAnthropicDecisionModel({ messages: { create } }).decide({ system: "base", factsText: "{}" });
+    const params = (create.mock.calls[0] as unknown as [{ tool_choice: { type: string }; system: string; model: string }])[0];
+    expect(params.tool_choice).toEqual({ type: "auto" });
+    expect(params.system).toContain("submit_decision");
+    expect(JSON.stringify(params)).not.toMatch(/"type":"(tool|any)"/);
+  });
   it("exige tool use estruturado", async () => {
     const ok = await call({ stop_reason: "tool_use", usage: { input_tokens: 3, output_tokens: 4 },
       content: [{ type: "tool_use", name: "submit_decision", input: { a: 1 } }] }).decide({ system: "s", factsText: "{}" });

@@ -16,8 +16,12 @@ export function createAnthropicDecisionModel(client?: { messages: Messages }): D
       let response: Anthropic.Message;
       try {
         response = await anthropic.messages.create({
-          model: AI_MODEL, max_tokens: 2500, system,
-          tools: [DECISION_TOOL], tool_choice: { type: "tool", name: DECISION_TOOL.name },
+          // Claude Sonnet 5.5 rejeita tool_choice forcado (400): usa `auto` e a instrucao no prompt.
+          // A saida continua nao confiavel: o validador do servidor confere tudo.
+          model: AI_MODEL, max_tokens: 8000, system: `${system}
+Responda SEMPRE chamando a ferramenta ${DECISION_TOOL.name}, sem texto livre.`,
+          output_config: { effort: "medium" },
+          tools: [DECISION_TOOL], tool_choice: { type: "auto" },
           messages: [{ role: "user", content: `Fatos confirmados (JSON):\n${factsText}` }],
         });
       } catch (error) {
