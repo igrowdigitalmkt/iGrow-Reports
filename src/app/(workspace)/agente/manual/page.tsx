@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { randomUUID } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAgencyContext } from "@/modules/agencies/context";
@@ -70,50 +71,48 @@ export default async function ManualChangesPage({ searchParams }: { searchParams
 
   return <main className="mx-auto w-full max-w-5xl space-y-6 px-5 py-8">
     <header className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Groow Ads · Agente IA</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted">Groow Ads · Agente IA</p>
       <h1 className="text-3xl font-semibold tracking-tight">Alterar campanhas manualmente</h1>
-      <p className="max-w-3xl text-sm text-muted-foreground">
+      <p className="max-w-3xl text-sm text-muted">
         Voce decide e a plataforma executa na Meta, com a mesma verificacao de seguranca e historico da IA.
         Esta acao e sua, nao uma aprovacao de proposta da IA. O clique executa imediatamente. Exige proprietario ou administrador.
       </p>
     </header>
-    {!canEdit ? <p className="rounded-2xl border border-border bg-card p-6 text-sm">Somente proprietario ou administrador pode alterar campanhas.</p> : <>
+    {!canEdit ? <p className="rounded-xl border border-border bg-[var(--surface)] p-6 text-sm">Somente proprietario ou administrador pode alterar campanhas.</p> : <>
       <nav className="flex flex-wrap gap-2">{(clients ?? []).map(client =>
         <a key={client.id} href={`?cliente=${client.id}`}
-          className={`rounded-full border px-3 py-1 text-sm ${client.id === selected?.id ? "border-foreground font-medium" : "border-border text-muted-foreground"}`}>{client.name}</a>)}
+          className={`rounded-full border px-3 py-1 text-sm ${client.id === selected?.id ? "border-foreground font-medium" : "border-border text-muted"}`}>{client.name}</a>)}
       </nav>
-      {!selected && <p className="text-sm text-muted-foreground">Escolha um cliente para ver as campanhas confirmadas na Meta.</p>}
-      {selected && liveFailed && <p className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
+      {!selected && <p className="text-sm text-muted">Escolha um cliente para ver as campanhas confirmadas na Meta.</p>}
+      {selected && liveFailed && <p className="rounded-2xl border border-[var(--warn)] bg-[var(--warn-bg)] p-4 text-sm">
         Nao foi possivel confirmar o estado atual na Meta para alguma conta. Nada e exibido sem essa confirmacao.</p>}
-      {selected && notes.length > 0 && <ul className="space-y-1 text-xs text-muted-foreground">{notes.map(note => <li key={note}>{note}</li>)}</ul>}
-      {selected && !liveFailed && rows.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma campanha ou conjunto confirmado na Meta para este cliente.</p>}
+      {selected && notes.length > 0 && <ul className="space-y-1 text-xs text-muted">{notes.map(note => <li key={note}>{note}</li>)}</ul>}
+      {selected && !liveFailed && rows.length === 0 && <p className="text-sm text-muted">Nenhuma campanha ou conjunto confirmado na Meta para este cliente.</p>}
       <div className="space-y-3">{rows.map(({ entity, live, accountName, accountOk }) => {
         const status = (live.configuredStatus ?? "").toUpperCase();
         const prefix = entity.level === "campaign" ? "campaign" : "adset";
         const canAct = accountOk && (status === "ACTIVE" || status === "PAUSED");
         const delivery = live.effectiveStatus ? (STATUS_LABELS[live.effectiveStatus.toUpperCase()] ?? live.effectiveStatus) : "Indisponivel";
-        return <article key={entity.key} className="space-y-3 rounded-2xl border border-border bg-card p-5">
+        return <article key={entity.key} className="space-y-3 rounded-xl border border-border bg-[var(--surface)] p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-medium">{entity.name} <span className="text-xs text-muted-foreground">· {entity.level === "campaign" ? "Campanha" : "Conjunto"} · {accountName}</span></h2>
-            <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+            <h2 className="font-medium">{entity.name} <span className="text-xs text-muted">· {entity.level === "campaign" ? "Campanha" : "Conjunto"} · {accountName}</span></h2>
+            <span className="rounded-full border border-border px-3 py-1 text-xs text-muted">
               Configurado: {STATUS_LABELS[status] ?? (status || "?")} · Entrega: {delivery}
             </span>
           </div>
-          {!canAct ? <p className="text-xs text-muted-foreground">
+          {!canAct ? <p className="text-xs text-muted">
             {accountOk ? "Estado atual nao permite pausar ou reativar por aqui." : "Conta de anuncios indisponivel na Meta."}</p> :
           <form action={submitManualMetaChange} className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="requestId" value={randomUUID()} />
             <input type="hidden" name="clientId" value={selected!.id} />
             <input type="hidden" name="adAccountId" value={entity.accountId} />
             <input type="hidden" name="targetId" value={entity.id} />
-            <button name="action" value={status === "ACTIVE" ? `pause_${prefix}` : `resume_${prefix}`} type="submit"
-              className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background">{status === "ACTIVE" ? "Pausar" : "Reativar"}</button>
+            <Button name="action" value={status === "ACTIVE" ? `pause_${prefix}` : `resume_${prefix}`} type="submit">{status === "ACTIVE" ? "Pausar" : "Reativar"}</Button>
             {status === "ACTIVE" && live.dailyBudgetMinor !== null && <>
-              <label className="text-xs text-muted-foreground">Novo orcamento diario (unidade minima; atual {live.dailyBudgetMinor}; ex.: 5000 = R$ 50,00)
+              <label className="text-xs text-muted">Novo orcamento diario (unidade minima; atual {live.dailyBudgetMinor}; ex.: 5000 = R$ 50,00)
                 <input name="dailyBudgetMinor" inputMode="numeric" pattern="[0-9]*" className="mt-1 block w-48 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
               </label>
-              <button name="action" value={`set_${prefix}_daily_budget`} type="submit"
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium">Alterar orcamento</button>
+              <Button variant="secondary" name="action" value={`set_${prefix}_daily_budget`} type="submit">Alterar orcamento</Button>
             </>}
           </form>}
         </article>;
