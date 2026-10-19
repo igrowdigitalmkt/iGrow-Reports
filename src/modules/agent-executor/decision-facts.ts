@@ -17,6 +17,8 @@ export type FactTarget = {
   dailyBudgetMinor: number | null;
   /** Metricas confirmadas desta entidade: fonte dos marcadores {ref.metrica} citados pela IA. */
   metrics: Readonly<Record<string, number>>;
+  /** Metricas do periodo anterior, citaveis como {ref.previousMetrics.chave}. */
+  previousMetrics: Readonly<Record<string, number>>;
 };
 
 export type DecisionFacts = {
@@ -67,8 +69,10 @@ export function buildDecisionFacts(input: FactsInput): DecisionFacts {
     targets.set(ref, {
       ref, level: entity.level as "campaign" | "adset", metaId: entity.id, name: entity.name.slice(0, 80),
       adAccountId: entity.accountId, status, dailyBudgetMinor: budget, metrics: cleanValues(entity.values),
+      previousMetrics: {},
     });
     const before = previous.get(`${entity.accountId}:${entity.level}:${entity.id}`);
+    if (before) targets.get(ref)!.previousMetrics = cleanValues(before.values);
     return {
       ref, level: entity.level, name: entity.name.slice(0, 80), status,
       metrics: cleanValues(entity.values),

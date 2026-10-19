@@ -102,6 +102,15 @@ describe("validacao deterministica", () => {
     const computed = validateModelDecision(out([rec({ rationale: "Custo por resultado de 15713 acima do esperado." })]), f, NOW);
     expect(computed.ok && computed.decision.rejected.map(r => r.reason)).toEqual(["unverified_numbers"]);
   });
+  it("resolve chaves com dois-pontos e o periodo anterior", () => {
+    const f = buildDecisionFacts({
+      entities: [entity({ id: "111", values: { spend: 100, "result:registrations": 7, "action:landing_page_view": 3 } })],
+      previousEntities: [entity({ id: "111", values: { "result:registrations": 5 } })],
+      currency: "BRL", periodFrom: "2026-10-01", periodTo: "2026-10-17", collectedAt: "2026-10-18T11:30:00Z",
+    });
+    const r = validateModelDecision(out([rec({ rationale: "Gerou {c1.result:registrations} cadastros contra {c1.previousMetrics.result:registrations} antes, com {c1.action:landing_page_view} visitas." })]), f, NOW);
+    expect(r.ok && r.decision.accepted[0]?.rationale).toBe("Gerou 7 cadastros contra 5 antes, com 3 visitas.");
+  });
   it("calcula orcamento no servidor e exige orcamento confirmado", () => {
     const rb = rec({ action: "set_campaign_daily_budget", budgetChangePercent: 20, rationale: "Aumentar 20 porcento pois c1 gastou 500." });
     const known = validateModelDecision(out([rb]), facts(new Map([["act_9:111", 10_000]])), NOW);

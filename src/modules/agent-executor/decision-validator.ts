@@ -35,7 +35,8 @@ export type ValidationResult =
 
 const MAX_FACTS_AGE_MS = 60 * 60_000;
 
-const PLACEHOLDER = /\{([ca]\d{1,3})\.([a-zA-Z_]{1,40})\}/g;
+// Chaves reais incluem ":" e "." (ex.: result:registrations, action:landing_page_view, previousMetrics.spend).
+const PLACEHOLDER = /\{([ca]\d{1,3})\.([a-zA-Z0-9_:.]{1,80})\}/g;
 const BRL_NUMBER = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
 
 /**
@@ -45,7 +46,8 @@ const BRL_NUMBER = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
 export const UNAVAILABLE_METRIC = "[dado indisponivel]";
 export function renderMetricPlaceholders(text: string, facts: DecisionFacts): string {
   return text.replace(PLACEHOLDER, (_all, ref: string, key: string) => {
-    const value = facts.targets.get(ref)?.metrics[key];
+    const target = facts.targets.get(ref);
+    const value = key.startsWith("previousMetrics.") ? target?.previousMetrics[key.slice("previousMetrics.".length)] : target?.metrics[key];
     return typeof value === "number" && Number.isFinite(value) ? BRL_NUMBER.format(value) : UNAVAILABLE_METRIC;
   });
 }
