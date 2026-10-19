@@ -40,16 +40,14 @@ const BRL_NUMBER = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
 
 /**
  * Marcadores {ref.metrica} viram o valor REAL confirmado (formatado no servidor): a IA cita metricas
- * sem digitar numeros. Marcador desconhecido => null (a recomendacao e descartada).
+ * sem digitar numeros. Marcador desconhecido nunca vira numero: vira "[dado indisponivel]".
  */
-export function renderMetricPlaceholders(text: string, facts: DecisionFacts): string | null {
-  let invalid = false;
-  const rendered = text.replace(PLACEHOLDER, (_all, ref: string, key: string) => {
+export const UNAVAILABLE_METRIC = "[dado indisponivel]";
+export function renderMetricPlaceholders(text: string, facts: DecisionFacts): string {
+  return text.replace(PLACEHOLDER, (_all, ref: string, key: string) => {
     const value = facts.targets.get(ref)?.metrics[key];
-    if (typeof value !== "number" || !Number.isFinite(value)) { invalid = true; return ""; }
-    return BRL_NUMBER.format(value);
+    return typeof value === "number" && Number.isFinite(value) ? BRL_NUMBER.format(value) : UNAVAILABLE_METRIC;
   });
-  return invalid ? null : rendered;
 }
 
 /**
@@ -77,9 +75,9 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
   // que sao conferidas uma a uma, seguem valendo.
   const allowed = allowedNumberSources(facts.factsText);
   const renderedSummary = renderMetricPlaceholders(parsed.data.summary, facts);
-  const summaryCheck = renderedSummary === null ? { ok: false } : verifyNumbers(renderedSummary, allowed);
+  const summaryCheck = verifyNumbers(renderedSummary, allowed);
   const out: ValidatedDecision = {
-    summary: summaryCheck.ok && renderedSummary !== null ? renderedSummary : SUMMARY_OMITTED,
+    summary: summaryCheck.ok ? renderedSummary : SUMMARY_OMITTED,
     accepted: [], observations: [], rejected: [],
   };
   const claimed = new Set<string>();
@@ -90,7 +88,6 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
     if (!target) return reject("unknown_target");
     if (!rec.evidenceRefs.includes(rec.targetRef) || rec.evidenceRefs.some(r => !facts.targets.has(r))) return reject("invalid_evidence");
     const rationale = renderMetricPlaceholders(rec.rationale, facts);
-    if (rationale === null) return reject("invalid_placeholder");
     const numbers = verifyNumbers(rationale, [...allowed, rec.budgetChangePercent ?? ""]);
     if (!numbers.ok) return reject("unverified_numbers", numbers.unverified.slice(0, 6).join(","));
 

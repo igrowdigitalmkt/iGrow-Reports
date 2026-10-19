@@ -88,7 +88,7 @@ describe("validacao deterministica", () => {
     const bad = validateModelDecision(out([rec({ rationale: "Gasto de R$ 435,39 com 2 conversoes no periodo." })]), f, NOW);
     expect(bad.ok && bad.decision.rejected.map(r => r.reason)).toEqual(["unverified_numbers"]);
   });
-  it("troca marcadores {ref.metrica} pelo valor real; marcador desconhecido e numero calculado sao barrados", () => {
+  it("troca marcadores {ref.metrica} pelo valor real; marcador desconhecido vira dado indisponivel e numero calculado e barrado", () => {
     const f = buildDecisionFacts({
       entities: [entity({ id: "111", values: { spend: 31426.5, conversions: 2 } })],
       currency: "BRL", periodFrom: "2026-10-01", periodTo: "2026-10-17", collectedAt: "2026-10-18T11:30:00Z",
@@ -97,7 +97,8 @@ describe("validacao deterministica", () => {
     expect(ok.ok && ok.decision.accepted[0]?.rationale).toBe("Gasto de 31.426,5 com apenas 2 conversoes.");
     expect(ok.ok && ok.decision.summary).toBe("Campanha c1 gastou 31.426,5.");
     const unknown = validateModelDecision(out([rec({ rationale: "Gasto de {c1.invented} no periodo analisado." })]), f, NOW);
-    expect(unknown.ok && unknown.decision.rejected.map(r => r.reason)).toEqual(["invalid_placeholder"]);
+    expect(unknown.ok && unknown.decision.accepted[0]?.rationale).toBe("Gasto de [dado indisponivel] no periodo analisado.");
+    expect(f.factsText).toContain('"availableMetrics":["conversions","spend"]');
     const computed = validateModelDecision(out([rec({ rationale: "Custo por resultado de 15713 acima do esperado." })]), f, NOW);
     expect(computed.ok && computed.decision.rejected.map(r => r.reason)).toEqual(["unverified_numbers"]);
   });

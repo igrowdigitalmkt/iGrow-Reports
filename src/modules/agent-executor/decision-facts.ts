@@ -75,8 +75,11 @@ export function buildDecisionFacts(input: FactsInput): DecisionFacts {
     };
   });
 
+  const availableMetrics = [...new Set(rows.flatMap(row => Object.keys(row.metrics)))].sort();
   const facts = {
     period: { from: input.periodFrom, to: input.periodTo }, currency: input.currency,
+    // Chaves validas para os marcadores {ref.metrica}; qualquer outra e "indisponivel".
+    availableMetrics,
     goals: (input.goals ?? []).slice(0, 8).map(goal => goal.slice(0, 200)), entities: rows,
   };
   const factsText = JSON.stringify(facts);
