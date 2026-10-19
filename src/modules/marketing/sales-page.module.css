@@ -327,10 +327,10 @@
 .computerStand { width: 20%; height: 50px; margin: auto; background: linear-gradient(#202734, #586374); clip-path: polygon(30% 0, 70% 0, 76% 83%, 100% 92%, 100% 100%, 0 100%, 0 92%, 24% 83%); }
 .tablet { position: absolute; width: 27%; bottom: 8%; left: -8%; padding: 9px 7px; background: linear-gradient(135deg, #606a7a, #141a25 40%, #333b4b); border: 1px solid #939bad70; border-radius: 16px; box-shadow: 0 20px 60px #000a; transform: rotate(-6deg); animation: tabletFloat 7s ease-in-out infinite; }
 .tablet img { display: block; width: 100%; height: auto; border-radius: 7px; }
-.phone { position: absolute; width: 16%; bottom: 3%; right: -3%; padding: 5px; border: 1px solid #a5aec170; border-radius: 24px; background: linear-gradient(110deg, #515968, #101521 70%); box-shadow: 0 22px 70px #000b; transform: rotate(5deg); animation: phoneFloat 7s ease-in-out infinite; }
-.phone img { display: block; width: 100%; height: auto; border-radius: 19px; }
-.phoneCamera { position: absolute; top: 10px; left: calc(50% - 15px); background: #05070b; border-radius: 15px; width: 30px; height: 7px; z-index: 1; }
-.phoneBar { position: absolute; width: 35%; height: 3px; border-radius: 3px; background: #8a91a1; bottom: 9px; left: 32.5%; }
+.phone { position: absolute; width: 16%; bottom: 3%; right: -3%; padding: 3%; border: 1px solid #a5aec170; border-radius: 16% / 7.4%; background: linear-gradient(110deg, #515968, #101521 70%); box-shadow: 0 22px 70px #000b; transform: rotate(5deg); animation: phoneFloat 7s ease-in-out infinite; }
+.phone img { display: block; width: 100%; height: auto; border-radius: 13% / 6%; }
+.phoneCamera { position: absolute; top: 2.4%; left: 36%; background: #05070b; border-radius: 99px; width: 28%; height: 1.6%; z-index: 1; }
+.phoneBar { position: absolute; width: 35%; height: 0.8%; min-height: 2px; border-radius: 3px; background: #8a91a1; bottom: 2.4%; left: 32.5%; }
 .deviceAnnotation { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 13px; color: var(--mute-d); }
 .deviceAnnotation > span { background: var(--blue-hi); width: 6px; height: 6px; border-radius: 50%; display: inline-block; box-shadow: 0 0 14px var(--blue); }
 
