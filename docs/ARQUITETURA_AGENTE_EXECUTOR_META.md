@@ -264,3 +264,12 @@ Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer u
 **Evidencia:** 109 testes do agente (9 novos), tsc, ESLint e SQL/RLS/pgTAP (PGlite, com as duas migrations novas) passaram. Suite completa: 1403 passaram; `whatsapp-native-label-sync-provider` falha tambem na base sem estas alteracoes (WhatsApp, fora do escopo) e `whatsapp-labels-browser` e intermitente.
 
 **Para homologar:** aplicar migrations 001-003 do agente + 20261019 0001/0002 (autorizacao especifica), definir `AGENT_SCHEDULER_ENABLED`, `AGENT_DECISION_ENGINE_ENABLED`, `CRON_SECRET`, abrir o gate `agent_executor_meta` somente para a organizacao de teste, delegar uma conta de teste do proprietario com teto baixo, e acompanhar a primeira pausa real ponta a ponta.
+
+
+## 18. Migrations aplicadas na HOMOLOGACAO (19/10/2026)
+
+Por autorizacao expressa do proprietario ("Autorizo", 19/10/2026) para base de teste, as cinco migrations do agente foram aplicadas **somente** no projeto Supabase `igrow-homologacao` (`xvjvfvinnnrgnhskglvd`), em ordem: `202610180001`, `202610180002`, `202610180003`, `202610190001`, `202610190002` (registradas pelo MCP com nomes `agent_*_18_000x` / `agent_*_19_000x`; versoes de timestamp proprias da ferramenta). **Producao (`qlopniyghvpbgwxuwxrl`) NAO foi tocada.** Nao reaplicar.
+
+Conferencia pos-aplicacao (somente leitura): 3 tabelas com RLS ativo; `agent_executor_meta` com `globally_enabled = false`; zero jobs e delegacoes; `delegation_id` anulavel (so origem manual); `ai_usage` aceita `agent_decision`. Advisor de seguranca: unico achado novo e a RPC `agent_decide_financial_action` executavel por `authenticated`, que e intencional (verifica owner/admin e fingerprint internamente). O restante dos avisos ja existia na base.
+
+Ainda NAO feito: dados de teste, conta Meta de homologacao, abertura do gate, deploy com `AGENT_SCHEDULER_ENABLED`, nenhuma escrita real na Meta.
