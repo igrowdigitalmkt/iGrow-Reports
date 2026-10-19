@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bell, CalendarClock, Moon, Sun, SunMoon, ChevronRight, ChevronsUpDown, MessageCircleQuestion, MessagesSquare, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
+import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import type { LucideProps } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarClock, Moon, Sun, SunMoon, ChevronRight, ChevronsUpDown, CircleHelp, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
 import { useTheme } from "next-themes";
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { Brand } from "./brand";
 import { NavigationProgress } from "./navigation-progress";
 import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type NavItem = { key: string; label: string; icon: typeof Users; planned?: boolean };
+type NavItem = { key: string; label: string; icon: ComponentType<LucideProps>; planned?: boolean };
 
 export const navigationGroups: { title: string; items: NavItem[] }[] = [
   { title: "Operação", items: [
@@ -26,7 +28,7 @@ export const navigationGroups: { title: string; items: NavItem[] }[] = [
     { key: "configuracoes", label: "Configurações", icon: Settings2 },
   ] },
   { title: "Comunicação", items: [
-    { key: "whatsapp", label: "WhatsApp", icon: MessagesSquare },
+    { key: "whatsapp", label: "WhatsApp", icon: WhatsAppIcon },
   ] },
 ];
 export const navigation = navigationGroups.flatMap(group => group.items);
@@ -141,7 +143,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
           {navigationGroups.map(group => <div className="nav-group" key={group.title}>
             <span className="nav-title" aria-hidden={collapsed}>{group.title}</span>
             {group.items.filter(item => !hiddenKeys.includes(item.key)).map(({ key, label, icon: Icon, planned }) => <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
-              <Icon size={17} strokeWidth={1.75} />
+              <Icon size={19} strokeWidth={1.9} />
               <span className="collapse-hide">{label}</span>
               {planned && <span className="nav-soon collapse-hide">Em breve</span>}
               {key === "clientes" && !!clientCount && <span className="nav-count collapse-hide">{clientCount}</span>}
@@ -151,7 +153,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         </nav>
         <div className="sidebar-footer">
           <button type="button" className="help-card" data-tip="Central de ajuda" aria-label="Central de ajuda" onClick={() => setHelpOpen(true)}>
-            <MessageCircleQuestion size={22} strokeWidth={1.75} />
+            <CircleHelp size={24} strokeWidth={1.75} />
             <span className="collapse-hide"><strong>Precisa de ajuda?</strong><small>Falar com o suporte</small></span>
           </button>
           <Link className="user-profile" href={href("configuracoes")} data-tip={`${identity.userName} · ${identity.roleLabel}`} aria-label={`Perfil de ${identity.userName}`}>
@@ -189,7 +191,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
       </div>
 
       <Dialog open={noticeOpen} onOpenChange={setNoticeOpen} title="Notificações" description={demo ? "Exemplos fictícios de pendências." : "Avisos do seu espaço de trabalho."}>{demo ? <div className="space-y-3"><div className="notice-item"><span className="status-dot amber" /><div><strong>Um relatório aguarda aprovação</strong><p className="muted text-sm mt-1">Verde & Grão · revisão demonstrativa</p></div></div><div className="notice-item"><span className="status-dot cyan" /><div><strong>Primeiros passos da plataforma</strong><p className="muted text-sm mt-1">Conecte a Meta e cadastre seus clientes.</p></div></div><Link href={`${base}/relatorios/pdfs`} onClick={() => setNoticeOpen(false)} className="button button-secondary w-full">Ver relatórios</Link></div> : <p className="muted text-sm">Nenhum aviso no momento.</p>}</Dialog>
-      <Dialog open={helpOpen} onOpenChange={setHelpOpen} title="Central de ajuda" description="Fale com o suporte ou siga o caminho para o primeiro relatório."><a className="button button-primary w-full" href={SUPPORT_URL} target="_blank" rel="noreferrer"><MessageCircleQuestion size={16} />Falar com o suporte no WhatsApp</a><ol className="onboarding-list mt-5"><li><span>1</span><div><strong>Conecte a Meta</strong><p>Em Integrações, entre com o Facebook e autorize as contas de anúncio.</p></div></li><li><span>2</span><div><strong>Cadastre os clientes</strong><p>Em Clientes, crie cada cliente e associe as contas de anúncio dele.</p></div></li><li><span>3</span><div><strong>Abra o painel</strong><p>O painel do cliente mostra os números do período e gera o relatório em PDF.</p></div></li></ol></Dialog>
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen} title="Central de ajuda" description="Fale com o suporte ou siga o caminho para o primeiro relatório."><a className="button button-primary w-full" href={SUPPORT_URL} target="_blank" rel="noreferrer"><WhatsAppIcon size={16} />Falar com o suporte no WhatsApp</a><ol className="onboarding-list mt-5"><li><span>1</span><div><strong>Conecte a Meta</strong><p>Em Integrações, entre com o Facebook e autorize as contas de anúncio.</p></div></li><li><span>2</span><div><strong>Cadastre os clientes</strong><p>Em Clientes, crie cada cliente e associe as contas de anúncio dele.</p></div></li><li><span>3</span><div><strong>Abra o painel</strong><p>O painel do cliente mostra os números do período e gera o relatório em PDF.</p></div></li></ol></Dialog>
     </div>
   </SearchContext.Provider>;
 }

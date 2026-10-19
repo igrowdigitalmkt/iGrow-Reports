@@ -187,9 +187,13 @@ textarea.input { padding-top: 9px; padding-bottom: 9px; line-height: 1.5; }
 .agency-switch strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 500; }
 .agency-switch > svg { color: var(--muted); }
 .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 8px 10px; overflow-x: hidden; overflow-y: auto; }
+/* Rolagem discreta quando a janela e baixa: sem setas nativas. */
+.sidebar-nav { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 .nav-group { display: flex; flex-direction: column; gap: 2px; }
 .nav-title { height: 20px; padding: 0 10px 4px; color: var(--muted); font-size: 12px; font-weight: 500; white-space: nowrap; transition: opacity .15s; }
-.nav-item { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 10px; border-radius: 6px; color: var(--secondary); font-size: 14px; white-space: nowrap; text-align: left; }
+.nav-item { position: relative; display: flex; align-items: center; gap: 11px; width: 100%; height: 36px; padding: 0 10px; border-radius: 6px; color: var(--secondary); font-size: 14px; white-space: nowrap; text-align: left; }
+.sidebar svg { shape-rendering: geometricPrecision; }
+.nav-item > svg { flex-shrink: 0; }
 .nav-item:hover { background: var(--surface-hover); color: var(--text); }
 .nav-item[aria-current="page"] { background: var(--accent-bg); color: var(--text); font-weight: 500; }
 .nav-item[aria-current="page"] svg { color: var(--accent-text); }
@@ -204,6 +208,7 @@ textarea.input { padding-top: 9px; padding-bottom: 9px; line-height: 1.5; }
 .user-profile .user-meta { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
 .user-profile strong { overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 500; }
 .user-profile small { color: var(--muted); font-size: 12px; }
+.app-shell.is-collapsed .nav-count.is-unread { position: absolute; top: -1px; right: 3px; min-width: 17px; height: 17px; margin: 0; padding: 0 4px; font-size: 10px; line-height: 17px; text-align: center; box-shadow: 0 0 0 2px var(--sidebar); }
 .app-shell.is-collapsed .nav-title { opacity: 0; }
 .app-shell.is-collapsed .collapse-hide, .app-shell.is-collapsed .sidebar-head .brand-wordmark { display: none; }
 .app-shell.is-collapsed .sidebar-head .brand-icon { display: block; }
@@ -629,6 +634,7 @@ a.attention-item:hover { background: var(--surface-hover); }
   .app-shell.is-drawer-open .sidebar-scrim { display: block; position: fixed; inset: 0; z-index: 35; background: var(--overlay); animation: fade-in .15s ease-out; }
   .app-shell.is-collapsed .nav-title { opacity: 1; }
   .app-shell.is-collapsed .collapse-hide { display: revert; }
+  .app-shell.is-collapsed .nav-count.is-unread { position: static; min-width: 0; height: auto; margin-left: auto; padding: 0 7px; font-size: 12px; line-height: 18px; box-shadow: none; }
   .app-shell.is-collapsed .sidebar-head .brand-icon { display: none; }
   .app-shell.is-collapsed .sidebar-head .brand-on-dark { display: block; }
   .app-shell.is-collapsed .sidebar-head { justify-content: flex-start; padding: 0 18px; }
