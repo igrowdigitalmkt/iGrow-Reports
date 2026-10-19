@@ -215,7 +215,9 @@
 .analytics-chart-metrics .analytics-chart-metric select { width: 100%; max-width: none; }
 .analytics-chart-metric { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
 .analytics-chart-metric select { width: auto; max-width: 260px; min-height: 32px; padding: 4px 10px; font-size: 13px; background: var(--surface); }
-.analytics-evolution-card .analytics-card-heading { flex-wrap: wrap; }
+.analytics-evolution-card .analytics-card-heading { flex-wrap: wrap; align-items: flex-start; row-gap: 12px; }
+.analytics-evolution-card .analytics-card-heading > div:first-child { padding-top: 5px; }
+.analytics-evolution-card .analytics-chart-view-controls { flex-basis: 100%; }
 .analytics-chart-view-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .analytics-chart-switcher { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 .analytics-chart-switcher > button { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; }
