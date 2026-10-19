@@ -273,3 +273,16 @@ Por autorizacao expressa do proprietario ("Autorizo", 19/10/2026) para base de t
 Conferencia pos-aplicacao (somente leitura): 3 tabelas com RLS ativo; `agent_executor_meta` com `globally_enabled = false`; zero jobs e delegacoes; `delegation_id` anulavel (so origem manual); `ai_usage` aceita `agent_decision`. Advisor de seguranca: unico achado novo e a RPC `agent_decide_financial_action` executavel por `authenticated`, que e intencional (verifica owner/admin e fingerprint internamente). O restante dos avisos ja existia na base.
 
 Ainda NAO feito: dados de teste, conta Meta de homologacao, abertura do gate, deploy com `AGENT_SCHEDULER_ENABLED`, nenhuma escrita real na Meta.
+
+
+## 19. Producao: migrations, deploy do codigo inerte e delegacao (19/10/2026)
+
+Por autorizacao expressa do proprietario ("EU autorizo", 19/10/2026) para o cliente Colégio Crescer, teto diario R$ 100,00:
+
+- **Migrations aplicadas em PRODUCAO** (`qlopniyghvpbgwxuwxrl`), ordem: `202610180001`, `…0002`, `…0003`, `202610190001`, `…0002`. Nao reaplicar. Gate `agent_executor_meta` continua `globally_enabled = false`.
+- **Codigo publicado em `master`** (fast-forward `3240c40 -> 473a5a9`): executor, motor de decisao, fila, reconciliador, fluxo manual, telas `/agente/aprovacoes` e `/agente/manual` (fora do menu) e `GET /api/cron/agent`. **Inerte por padrao:** exige `AGENT_SCHEDULER_ENABLED=true` (execucao e cron) e, para a IA propor, `AGENT_DECISION_ENGINE_ENABLED=true`, alem do gate comercial.
+- **Cron diario** (`0 10 * * *`) so para faxina (expirar, reconciliar, analisar). A conta Vercel e pessoal/Hobby: cron mais frequente que 1x/dia derrubaria o deploy. A execucao ocorre **na hora do clique** (`executeQueuedJobNow`), porque a aprovacao vale 15 min.
+- **Delegacao criada** (id `4a89c02a-ec77-46ea-8cd5-7e8fc22443b7`): conta `act_910504401812356` (Colégio Crescer, BRL, ativa), acoes `pause_campaign` e `resume_campaign`, teto de conta/entidade R$ 100,00/dia, aumento por acao R$ 10,00/10%, validade 7 dias, concedida pelo proprietario. A conta "Escola Crescer" (`account_status = 3`) NAO foi delegada.
+- Limite descoberto: o override por organizacao nao abre um recurso desligado globalmente (`resolve_entitlement` retorna antes). Para testar e preciso ligar `globally_enabled` e conceder override so a esta organizacao; as demais com plano ficam em `plan_not_included`. Nao feito ainda.
+
+**Bloqueios fora do codigo:** o MCP da Vercel retorna 403 para o escopo da conta e nao ha CLI; as variaveis de ambiente precisam ser definidas no painel Vercel. Build local usa `next build --webpack` (o Turbopack rejeita o symlink de `node_modules` dos worktrees).
