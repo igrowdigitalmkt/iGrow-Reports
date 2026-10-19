@@ -295,3 +295,19 @@ Por autorizacao expressa do proprietario ("EU autorizo", 19/10/2026) para o clie
 **Ainda NAO homologado:** caminho da IA (proposta -> aprovacao individual -> execucao), retomar campanha, alteracao de orcamento (inventario financeiro real), reconciliacao com resultado incerto real, cron diario e motor de decisao (`AGENT_DECISION_ENGINE_ENABLED` continua desligado). A delegacao da IA (id `4a89c02a-ec77-46ea-8cd5-7e8fc22443b7`, pausar/reativar, teto R$ 100,00/dia) existe, mas nenhuma acao da IA foi executada.
 
 **Incidentes e correcoes durante a homologacao (todos corrigidos e publicados):** (1) tela usava status do cache (tudo "Desativado") -> leitura ao vivo pela conta; (2) erro Meta 100 por id inexistente e por campo `end_time` invalido em campanhas -> leitura por edges da conta e campos corretos no inventario; (3) botoes invisiveis por tokens de tema inexistentes -> componente `Button` do app; (4) variavel de ambiente inicialmente ineficaz: pedido manual era rejeitado com `executor_disabled` sem tocar na Meta (trava funcionou); (5) resultado do pedido exibido na propria pagina. Diagnostico "Executor neste deploy: ligado/desligado · commit" permanece na tela.
+
+
+## 21. Motor de decisao da IA homologado em producao ate a decisao validada (19/10/2026)
+
+**Homologado com API real (Anthropic + Meta, Colégio Crescer):** `Analisar Colégio Crescer` em `/agente/aprovacoes` percorreu delegacao vigente -> cota de IA -> metricas -> leitura ao vivo na Meta -> modelo `claude-sonnet-5-5` -> validacao deterministica, e terminou com **0 propostas, 3 observacoes sem acao, 0 descartadas** (a IA, corretamente, nao propos alterar nada). Nenhuma campanha tocada. `AGENT_DECISION_ENGINE_ENABLED=true` e `AGENT_SCHEDULER_ENABLED=true` (somente Production).
+
+**Ainda NAO homologado:** uma proposta da IA real indo ate `awaiting_approval`, aprovacao individual, execucao e verificacao pelo caminho da IA; retomar e orcamento em producao; reconciliacao com resultado incerto real. (O caminho manual foi homologado na secao 20.)
+
+**Licoes e decisoes tecnicas desta rodada**
+- `claude-sonnet-5-5` rejeita `tool_choice` forcado (`any`/`tool`) com HTTP 400: o motor usa `auto` + instrucao no prompt; a saida e sempre revalidada no servidor. `fallbacks` de recusa (recomendados pela referencia oficial para este modelo) ainda nao foram habilitados.
+- Numeros: a IA **nao digita numeros**. Ela cita `{ref.metrica}` e o servidor troca pelo valor real (lista `availableMetrics` nos fatos; chave desconhecida vira "[dado indisponivel]"). Numero "solto" so passa se for literal dos fatos ou arredondamento (0-2 casas) de valor confirmado; resumo com numero nao confirmado e omitido sem derrubar recomendacoes. Isso resolveu o bloqueio observado (numeros calculados como 148, 220, 169, 22862 eram barrados).
+- Resultado da analise mostra apenas codigos fixos traduzidos (motivos, numeros barrados) — nunca texto livre vindo da URL, para impedir "conclusoes da IA" forjadas por link. O texto das observacoes/resumo ainda nao e exibido (exigiria persistir a analise).
+- Operacao: o MCP da Vercel nao acessa o escopo da conta; variaveis e redeploy foram feitos pelo navegador do app, ja autenticado. O monitor de deploy deve filtrar `environment=Production`; o "failure" visto antes era do deploy de **Preview** da branch do agente (que falha em ~10 s por falta de variaveis de Preview, ruido preexistente).
+- **ALERTA FORA DO CODIGO:** o painel da Vercel mostra "Payment failed — pay any open invoices before your account is shut down" (conta iGrow Digital marcada Overdue). Precisa ser resolvido pelo proprietario; pode derrubar a producao inteira.
+
+**Proximos passos:** quando a IA propuser uma acao real, aprovar/recusar em `/agente/aprovacoes` e conferir o ledger; persistir a ultima analise (resumo e observacoes) para exibir; habilitar `fallbacks`; reconciliacao e retomar/orcamento em producao; cron diario (`0 10 * * *`) so apos a analise manual estar estavel.
