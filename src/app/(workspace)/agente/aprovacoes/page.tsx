@@ -25,6 +25,7 @@ const REJECTION_LABELS: Record<string, string> = {
   not_paused: "propos reativar algo que nao esta pausado",
   budget_unknown: "propos mudar orcamento sem orcamento confirmado",
   budget_invalid: "propos um orcamento invalido",
+  invalid_placeholder: "citou um marcador de metrica que nao existe",
   conflicting_action: "propos duas acoes para a mesma campanha",
   unclassified_action: "propos uma acao nao classificada",
 };

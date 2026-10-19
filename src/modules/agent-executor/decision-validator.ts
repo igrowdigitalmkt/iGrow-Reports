@@ -35,6 +35,23 @@ export type ValidationResult =
 
 const MAX_FACTS_AGE_MS = 60 * 60_000;
 
+const PLACEHOLDER = /\{([ca]\d{1,3})\.([a-zA-Z_]{1,40})\}/g;
+const BRL_NUMBER = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+
+/**
+ * Marcadores {ref.metrica} viram o valor REAL confirmado (formatado no servidor): a IA cita metricas
+ * sem digitar numeros. Marcador desconhecido => null (a recomendacao e descartada).
+ */
+export function renderMetricPlaceholders(text: string, facts: DecisionFacts): string | null {
+  let invalid = false;
+  const rendered = text.replace(PLACEHOLDER, (_all, ref: string, key: string) => {
+    const value = facts.targets.get(ref)?.metrics[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) { invalid = true; return ""; }
+    return BRL_NUMBER.format(value);
+  });
+  return invalid ? null : rendered;
+}
+
 /**
  * Numeros que a IA pode citar: os literais dos fatos e seus ARREDONDAMENTOS (0 a 2 casas). Arredondar um valor
  * confirmado nao e inventar; qualquer numero que nao derive de um valor real continua bloqueado.
@@ -59,9 +76,10 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
   // O resumo e fala livre: com numero fora dos fatos ele e OMITIDO (nunca exibido), mas as recomendacoes,
   // que sao conferidas uma a uma, seguem valendo.
   const allowed = allowedNumberSources(facts.factsText);
-  const summaryCheck = verifyNumbers(parsed.data.summary, allowed);
+  const renderedSummary = renderMetricPlaceholders(parsed.data.summary, facts);
+  const summaryCheck = renderedSummary === null ? { ok: false } : verifyNumbers(renderedSummary, allowed);
   const out: ValidatedDecision = {
-    summary: summaryCheck.ok ? parsed.data.summary : SUMMARY_OMITTED,
+    summary: summaryCheck.ok && renderedSummary !== null ? renderedSummary : SUMMARY_OMITTED,
     accepted: [], observations: [], rejected: [],
   };
   const claimed = new Set<string>();
@@ -71,12 +89,14 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
     const target = facts.targets.get(rec.targetRef);
     if (!target) return reject("unknown_target");
     if (!rec.evidenceRefs.includes(rec.targetRef) || rec.evidenceRefs.some(r => !facts.targets.has(r))) return reject("invalid_evidence");
-    const numbers = verifyNumbers(rec.rationale, [...allowed, rec.budgetChangePercent ?? ""]);
+    const rationale = renderMetricPlaceholders(rec.rationale, facts);
+    if (rationale === null) return reject("invalid_placeholder");
+    const numbers = verifyNumbers(rationale, [...allowed, rec.budgetChangePercent ?? ""]);
     if (!numbers.ok) return reject("unverified_numbers", numbers.unverified.slice(0, 6).join(","));
 
     if (rec.action === "no_action") {
       if (rec.budgetChangePercent !== undefined) return reject("unexpected_budget");
-      out.observations.push({ targetRef: rec.targetRef, rationale: rec.rationale });
+      out.observations.push({ targetRef: rec.targetRef, rationale });
       return;
     }
     if ((rec.action.includes("campaign") ? "campaign" : "adset") !== target.level) return reject("level_mismatch");
@@ -100,7 +120,7 @@ export function validateModelDecision(raw: unknown, facts: DecisionFacts, now: D
     // Fail-closed: o roteamento nao e escolha do modelo.
     if (!aiChangeRequiresHumanApproval(rec.action)) return reject("unclassified_action");
     out.accepted.push({
-      action: rec.action, target, rationale: rec.rationale, confidence: rec.confidence,
+      action: rec.action, target, rationale, confidence: rec.confidence,
       routing: "needs_human_approval", dailyBudgetMinor,
     });
   });
