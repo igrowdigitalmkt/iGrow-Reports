@@ -14,6 +14,21 @@ const names: Record<string, string> = {
   set_adset_daily_budget: "Alterar orcamento diario de conjunto",
 };
 
+/** Somente codigos conhecidos viram texto; nada livre vindo da URL e exibido. */
+const REJECTION_LABELS: Record<string, string> = {
+  unknown_target: "apontou para uma campanha que nao existe nos dados",
+  invalid_evidence: "nao apresentou evidencia valida",
+  unverified_numbers: "citou numeros que nao constam nos dados",
+  level_mismatch: "misturou campanha com conjunto",
+  budget_mismatch: "informou orcamento incompativel com a acao",
+  not_active: "propos pausar algo que ja nao esta ativo",
+  not_paused: "propos reativar algo que nao esta pausado",
+  budget_unknown: "propos mudar orcamento sem orcamento confirmado",
+  budget_invalid: "propos um orcamento invalido",
+  conflicting_action: "propos duas acoes para a mesma campanha",
+  unclassified_action: "propos uma acao nao classificada",
+};
+
 const statusLabels: Record<string, string> = {
   queued: "Na fila", executing: "Executando", verifying: "Verificando", verified: "Concluida e confirmada na Meta",
   failed: "Nao executada", rejected: "Recusada", expired: "Expirada", needs_verification: "Aguardando conciliacao",
@@ -32,7 +47,7 @@ export default async function AgentApprovalsPage({ searchParams }: { searchParam
   const analysisText = (() => {
     switch (sp.analise) {
       case undefined: return null;
-      case "ok": return `Analise concluida: ${sp.p ?? 0} proposta(s) aguardando sua aprovacao, ${sp.b ?? 0} bloqueada(s) pelas travas, ${sp.o ?? 0} observacao(oes) sem acao, ${sp.r ?? 0} descartada(s) pela validacao${Number(sp.s) > 0 ? `; ${sp.s} conta(s) nao analisada(s)${sp.motivo ? ` (${sp.motivo})` : ""}` : ""}.`;
+      case "ok": return `Analise concluida: ${sp.p ?? 0} proposta(s) aguardando sua aprovacao, ${sp.b ?? 0} bloqueada(s) pelas travas, ${sp.o ?? 0} observacao(oes) sem acao, ${sp.r ?? 0} descartada(s) pela validacao${sp.rm ? ` (motivos: ${sp.rm.split(",").map(code => REJECTION_LABELS[code]).filter(Boolean).join("; ") || "nao detalhados"})` : ""}${Number(sp.s) > 0 ? `; ${sp.s} conta(s) nao analisada(s)${sp.motivo ? ` (${sp.motivo})` : ""}` : ""}.`;
       case "disabled": return "O motor de decisao esta desligado neste ambiente (AGENT_DECISION_ENGINE_ENABLED).";
       case "no_delegation": return "Este cliente nao tem delegacao vigente; nada foi analisado.";
       case "ai_unavailable": return "A IA nao esta disponivel (plano, configuracao ou erro de verificacao); nada foi analisado.";
