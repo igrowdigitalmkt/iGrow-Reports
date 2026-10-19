@@ -1012,11 +1012,22 @@ export function ClientAnalyticsDashboard({
             <div className="analytics-chart-head">
               <div className="analytics-chart-head-top">
                 <h3>{scopeData ? "Desempenho das campanhas selecionadas" : "Desempenho do período"}</h3>
-                <div className="analytics-chart-switcher" role="group" aria-label="Tipo de gráfico">
-                  <button type="button" aria-pressed={chartType === "line"} className={chartType === "line" ? "is-active" : ""}
-                    onClick={() => setChartType("line")}><TrendingUp size={12} />Linhas</button>
-                  <button type="button" aria-pressed={chartType === "bar"} className={chartType === "bar" ? "is-active" : ""}
-                    onClick={() => setChartType("bar")}><BarChart3 size={12} />Barras</button>
+                <div className="analytics-chart-head-tools">
+                  <div className="analytics-comparison-controls">
+                    <label className="analytics-compare-toggle"><input type="checkbox" checked={comparison}
+                      onChange={(event) => setComparison(event.target.checked)}
+                      disabled={scopedData.coverage.previousStatus !== "complete"} /><span>Comparar período</span></label>
+                    {canCollect && scopedData.coverage.previousStatus !== "complete" && <button type="button"
+                      className="analytics-collect-comparison" onClick={() => collect("previous")} disabled={pending}>
+                      <RefreshCw size={11} /> Atualizar comparação
+                    </button>}
+                  </div>
+                  <div className="analytics-chart-switcher" role="group" aria-label="Tipo de gráfico">
+                    <button type="button" aria-pressed={chartType === "line"} className={chartType === "line" ? "is-active" : ""}
+                      onClick={() => setChartType("line")}><TrendingUp size={12} />Linhas</button>
+                    <button type="button" aria-pressed={chartType === "bar"} className={chartType === "bar" ? "is-active" : ""}
+                      onClick={() => setChartType("bar")}><BarChart3 size={12} />Barras</button>
+                  </div>
                 </div>
               </div>
               <div className="analytics-chart-head-series">
@@ -1030,15 +1041,6 @@ export function ClientAnalyticsDashboard({
                       {chartOptionGroups(primaryMetric?.key)}
                     </select></label>
                 </>}
-                <div className="analytics-comparison-controls">
-                  <label className="analytics-compare-toggle"><input type="checkbox" checked={comparison}
-                    onChange={(event) => setComparison(event.target.checked)}
-                    disabled={scopedData.coverage.previousStatus !== "complete"} /><span>Comparar período</span></label>
-                  {canCollect && scopedData.coverage.previousStatus !== "complete" && <button type="button"
-                    className="analytics-collect-comparison" onClick={() => collect("previous")} disabled={pending}>
-                    <RefreshCw size={11} /> Atualizar comparação
-                  </button>}
-                </div>
               </div>
             </div>
             <AnalyticsTrendChart data={chartData} metrics={mainMetrics} comparison={comparison} chartType={chartType} height={300}
