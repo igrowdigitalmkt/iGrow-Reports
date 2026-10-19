@@ -12,7 +12,7 @@ const METRICS: Array<{ key: Metric; label: string }> = [
   { key: "spend", label: "Investimento" }, { key: "results", label: "Resultados" },
 ];
 // Platform colors close to each brand; other dimensions use the dashboard palette.
-const PLATFORM_COLORS: Record<string, string> = { instagram: "#c45ad6", facebook: "#5b7cfa", messenger: "#3fc2d6", audience_network: "#f0b44c", whatsapp: "#3ccf8e", threads: "#8a93a3" };
+const PLATFORM_COLORS: Record<string, string> = { instagram: "#c45ad6", facebook: "#4162de", messenger: "#3fc2d6", audience_network: "#f0b44c", whatsapp: "#3ccf8e", threads: "#8a93a3" };
 const GENDER_COLORS: Record<string, string> = { female: "#e57fa8", male: "#5b9cf2", unknown: "#8a93a3" };
 
 type State = { status: "loading" } | { status: "ready"; data: ClientAudienceBreakdowns } | { status: "error"; message: string };

@@ -10,7 +10,7 @@ import { formatAnalyticsValue } from "./analytics-format";
 export { formatAnalyticsValue };
 
 export type AnalyticsMetric = AnalyticsDashboardData["metrics"][number];
-export const ANALYTICS_COLORS = ["#5b7cfa", "#3fc2d6", "#a594ff", "#3ccf8e", "#f0b44c", "#e57fa8"];
+export const ANALYTICS_COLORS = ["#4162de", "#3fc2d6", "#a594ff", "#3ccf8e", "#f0b44c", "#e57fa8"];
 // Neutral axis and grid tones that read on both the dark and the light theme.
 const AXIS_TEXT = "#8a93a3";
 const GRID_LINE = "rgba(138, 147, 163, .18)";
@@ -86,7 +86,7 @@ export function AnalyticsTrendChart({ data, metrics, comparison = true, height =
       smooth: .2, connectNulls: false, showSymbol: false, symbolSize: 6,
       lineStyle: { color, width: 2.2 }, itemStyle: { color, ...(chartType === "bar" ? { borderRadius: [3, 3, 0, 0] } : {}) },
       ...(chartType === "bar" ? { barMaxWidth: 18, barGap: "20%" } : {}),
-      ...(index === 0 && chartType === "line" ? { areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#5b7cfa33" }, { offset: 1, color: "#5b7cfa00" }] } } } : {}),
+      ...(index === 0 && chartType === "line" ? { areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#4162de33" }, { offset: 1, color: "#4162de00" }] } } } : {}),
     };
     return previousAvailable ? [current, {
       name: `${metric.label} · período anterior`, type: chartType, yAxisIndex: index,
