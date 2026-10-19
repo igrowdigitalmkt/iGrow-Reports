@@ -1,26 +1,37 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, ChartNoAxesCombined, ShieldCheck, Sparkles } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
+// Moldura das telas de acesso (entrar, criar conta, recuperar senha, convite, espaço de trabalho),
+// com a mesma identidade do site comercial. Apenas visual: os formulários e ações não mudam.
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#0b0f17] px-5 py-10 text-slate-100 sm:px-8">
-      <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-blue-600/10 blur-[120px]" />
-      <div className="relative grid w-full max-w-6xl gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-24">
-        <section className="flex flex-col justify-center">
-          <Link href="/" aria-label="Groow Ads, início" className="mb-12 inline-flex w-fit items-center gap-3 text-2xl font-semibold tracking-tight">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 shadow-lg shadow-blue-500/20"><ChartNoAxesCombined size={23} /></span>
-            <span>Groow<span className="ml-2 font-normal text-slate-400">Ads</span></span>
-          </Link>
-          <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-xs font-medium text-cyan-300"><Sparkles size={13} /> Clareza para cada resultado</div>
-          <h1 className="max-w-lg text-4xl leading-[1.15] font-semibold tracking-tight sm:text-5xl">Os números contam.<br /><span className="text-blue-400">A sua análise transforma.</span></h1>
-          <p className="mt-6 max-w-md text-base leading-7 text-slate-400">Um espaço para acompanhar a operação e transformar performance em conversas melhores com seus clientes.</p>
-          <div className="mt-10 flex items-start gap-3 text-sm text-slate-400"><ShieldCheck className="mt-0.5 shrink-0 text-cyan-400" size={18} /><p>Acesso protegido por conta.<br /><span className="text-slate-500">Cada pessoa visualiza somente os ambientes autorizados.</span></p></div>
+    <main className="auth-shell">
+      <div aria-hidden="true" className="auth-glow" />
+      <div className="auth-layout">
+        <header className="auth-brand">
+          <Link href="/" aria-label="Groow Ads, início"><Image src="/brand/groow-ads-color.png" alt="Groow Ads" width={1179} height={212} priority className="auth-logo" /></Link>
+        </header>
+
+        <section className="auth-story">
+          <span className="auth-kicker">Inteligência de marketing para anúncios</span>
+          <h1 className="auth-headline">Você define onde chegar. <em>A Groow Ads faz o trabalho.</em></h1>
+          <p className="auth-lead">Entre para acompanhar seus clientes, suas campanhas e tudo o que a Groow fez por você.</p>
+          <div className="auth-visual" aria-hidden="true">
+            <div className="auth-screen"><Image src="/product/overview.webp" alt="" width={1440} height={1000} sizes="(max-width: 1024px) 0px, 560px" /></div>
+            <div className="auth-phone"><Image src="/product/mobile.webp" alt="" width={390} height={844} sizes="(max-width: 1024px) 0px, 130px" /></div>
+          </div>
+          <p className="auth-trust"><ShieldCheck size={18} /> Acesso protegido. Cada pessoa vê somente os espaços autorizados para a sua conta.</p>
         </section>
-        <section className="self-center rounded-3xl border border-white/10 bg-[#111723] p-6 shadow-2xl shadow-black/20 sm:p-9">{children}</section>
-        <p className="text-xs text-slate-500 lg:col-span-2">iGrow Digital <span aria-hidden="true">·</span> Inteligência para crescer <ArrowUpRight className="ml-1 inline" size={12} /></p>
+
+        <section className="auth-card">{children}</section>
+
+        <footer className="auth-footer">
+          <span>© {new Date().getFullYear()} Groow Ads · Uma plataforma da iGrow Digital</span>
+          <span><Link href="/privacidade">Privacidade</Link><Link href="/">Conheça a Groow Ads</Link></span>
+        </footer>
       </div>
     </main>
   );
 }
-

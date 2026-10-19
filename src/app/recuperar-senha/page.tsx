@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Recuperar senha", robots: { index: f
 export default function ForgotPasswordPage() {
   return <AuthShell>
     <h2 className="text-2xl font-semibold tracking-tight">Recuperar senha</h2>
-    <p className="mt-2 text-sm leading-6 text-slate-400">Receba um link de recuperação por e-mail.</p>
+    <p className="mt-2 text-sm leading-6 text-[#aab4cb]">Receba um link de recuperação por e-mail.</p>
     <ForgotPasswordForm configured={Boolean(getSupabaseConfig())} />
   </AuthShell>;
 }

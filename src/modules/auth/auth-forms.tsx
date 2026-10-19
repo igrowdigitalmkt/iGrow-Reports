@@ -5,8 +5,8 @@ import Link from "next/link";
 import { ArrowRight, Building2, CircleCheck, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { acceptInvitationAction, createOwnWorkspaceAction, googleSignInAction, loginAction, requestPasswordResetAction, setPasswordAction, signUpAction } from "./actions";
 
-const fieldClass = "mt-2 w-full rounded-xl border border-white/10 bg-[#0c111b] px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50";
-const submitClass = "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-45";
+const fieldClass = "mt-2 w-full rounded-[10px] border border-white/[0.12] bg-[#0e131d] px-4 py-3.5 text-[15px] text-[#eff0f5] outline-none transition placeholder:text-[#6b7590] focus:border-[#6f89ff] focus:ring-4 focus:ring-[#4162de]/25 disabled:opacity-50";
+const submitClass = "mt-6 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[10px] bg-[#4162de] px-4 py-3.5 text-[15px] font-semibold text-white shadow-[0_10px_34px_#4162de45,inset_0_1px_0_#ffffff30] transition hover:-translate-y-px hover:bg-[#5272ea] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6f89ff] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0";
 
 function FormError({ error }: { error: string | null }) {
   return <div aria-live="polite">{error && <p role="alert" className="mt-4 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">{error}</p>}</div>;
@@ -29,7 +29,7 @@ export function GoogleButton({ configured, next = "/", label = "Entrar com Googl
   return <form action={googleSignInAction} className="mt-5">
     <input type="hidden" name="next" value={next} />
     <div className="flex items-center gap-3 text-xs text-slate-500" aria-hidden="true"><span className="h-px flex-1 bg-white/10" />ou<span className="h-px flex-1 bg-white/10" /></div>
-    <button type="submit" disabled={!configured} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-slate-100 transition hover:bg-white/[0.07] disabled:opacity-45"><GoogleIcon />{label}</button>
+    <button type="submit" disabled={!configured} className="mt-5 inline-flex w-full items-center justify-center gap-3 min-h-[52px] rounded-[10px] border border-white/[0.18] bg-white/[0.03] px-4 py-3 text-[15px] font-medium text-[#eff0f5] transition hover:bg-white/[0.07] disabled:opacity-45"><GoogleIcon />{label}</button>
   </form>;
 }
 
@@ -38,9 +38,9 @@ export function LoginForm({ configured, next }: { configured: boolean; next: str
   return (
     <form action={action} className="mt-7">
       <input type="hidden" name="next" value={next} />
-      <label htmlFor="email" className="block text-sm font-medium text-slate-300"><Mail size={14} className="mr-2 inline" />E-mail</label>
+      <label htmlFor="email" className="block text-sm font-medium text-[#cfd6e8]"><Mail size={14} className="mr-2 inline" />E-mail</label>
       <input id="email" name="email" type="email" autoComplete="username" required maxLength={254} placeholder="Seu e-mail" className={fieldClass} disabled={!configured || pending} />
-      <label htmlFor="password" className="mt-5 block text-sm font-medium text-slate-300"><LockKeyhole size={14} className="mr-2 inline" />Senha</label>
+      <label htmlFor="password" className="mt-5 block text-sm font-medium text-[#cfd6e8]"><LockKeyhole size={14} className="mr-2 inline" />Senha</label>
       <PasswordInput id="password" name="password" autoComplete="current-password" placeholder="Sua senha" disabled={!configured || pending} />
       <div className="mt-2 text-right"><Link href="/recuperar-senha" className="auth-link text-xs">Esqueceu a senha?</Link></div>
       <FormError error={state.error} />
@@ -62,7 +62,7 @@ export function ForgotPasswordForm({ configured }: { configured: boolean }) {
     </div>
   </div>;
   return <form action={formData => { setAgain(false); action(formData); }} className="mt-7">
-    <label htmlFor="email" className="block text-sm font-medium text-slate-300"><Mail size={14} className="mr-2 inline" />E-mail</label>
+    <label htmlFor="email" className="block text-sm font-medium text-[#cfd6e8]"><Mail size={14} className="mr-2 inline" />E-mail</label>
     <input id="email" name="email" type="email" autoComplete="username" required maxLength={254} placeholder="Seu e-mail" className={fieldClass} disabled={!configured || pending} />
     <FormError error={state.error} />
     <button type="submit" disabled={!configured || pending} className={submitClass}>{pending ? <LoaderCircle className="animate-spin" size={17} /> : null}{pending ? "Enviando…" : "Enviar link"}</button>
@@ -79,13 +79,13 @@ export function SignUpForm({ configured }: { configured: boolean }) {
     <p className="mt-6 text-center text-sm"><Link href="/entrar" className="auth-muted-link">Voltar ao login</Link></p>
   </div>;
   return <form action={action} className="mt-7">
-    <label htmlFor="name" className="block text-sm font-medium text-slate-300"><UserRound size={14} className="mr-2 inline" />Seu nome</label>
+    <label htmlFor="name" className="block text-sm font-medium text-[#cfd6e8]"><UserRound size={14} className="mr-2 inline" />Seu nome</label>
     <input id="name" name="name" autoComplete="name" required maxLength={120} placeholder="Seu nome" className={fieldClass} disabled={!configured || pending} />
-    <label htmlFor="agency" className="mt-5 block text-sm font-medium text-slate-300"><Building2 size={14} className="mr-2 inline" />Empresa, marca ou seu nome profissional</label>
+    <label htmlFor="agency" className="mt-5 block text-sm font-medium text-[#cfd6e8]"><Building2 size={14} className="mr-2 inline" />Empresa, marca ou seu nome profissional</label>
     <input id="agency" name="agency" autoComplete="organization" required maxLength={120} placeholder="Ex.: Studio Ana Souza ou Equipe de Marketing" className={fieldClass} disabled={!configured || pending} />
-    <label htmlFor="email" className="mt-5 block text-sm font-medium text-slate-300"><Mail size={14} className="mr-2 inline" />E-mail</label>
+    <label htmlFor="email" className="mt-5 block text-sm font-medium text-[#cfd6e8]"><Mail size={14} className="mr-2 inline" />E-mail</label>
     <input id="email" name="email" type="email" autoComplete="email" required maxLength={254} placeholder="Seu e-mail" className={fieldClass} disabled={!configured || pending} />
-    <label htmlFor="password" className="mt-5 block text-sm font-medium text-slate-300"><LockKeyhole size={14} className="mr-2 inline" />Senha</label>
+    <label htmlFor="password" className="mt-5 block text-sm font-medium text-[#cfd6e8]"><LockKeyhole size={14} className="mr-2 inline" />Senha</label>
     <PasswordInput id="password" name="password" autoComplete="new-password" placeholder="Pelo menos 8 caracteres" minLength={8} disabled={!configured || pending} />
     <FormError error={state.error} />
     <button type="submit" disabled={!configured || pending} className={submitClass}>{pending ? <LoaderCircle className="animate-spin" size={17} /> : null}{pending ? "Criando conta…" : "Criar conta"}{!pending && <ArrowRight size={17} />}</button>
@@ -95,7 +95,7 @@ export function SignUpForm({ configured }: { configured: boolean }) {
 export function CreateWorkspaceForm({ suggestion }: { suggestion: string }) {
   const [state, action, pending] = useActionState(createOwnWorkspaceAction, { error: null });
   return <form action={action} className="mt-7">
-    <label htmlFor="agency" className="block text-sm font-medium text-slate-300"><Building2 size={14} className="mr-2 inline" />Nome do espaço de trabalho</label>
+    <label htmlFor="agency" className="block text-sm font-medium text-[#cfd6e8]"><Building2 size={14} className="mr-2 inline" />Nome do espaço de trabalho</label>
     <input id="agency" name="agency" autoComplete="organization" required maxLength={120} defaultValue={suggestion} placeholder="Empresa, marca ou seu nome profissional" className={fieldClass} disabled={pending} />
     <FormError error={state.error} />
     <button type="submit" disabled={pending} className={submitClass}>{pending ? <LoaderCircle className="animate-spin" size={17} /> : null}{pending ? "Criando…" : "Criar espaço de trabalho"}{!pending && <ArrowRight size={17} />}</button>
@@ -106,10 +106,10 @@ export function SetPasswordForm({ next = "/" }: { next?: string }) {
   const [state, action, pending] = useActionState(setPasswordAction, { error: null });
   return <form action={action} className="mt-7">
     <input type="hidden" name="next" value={next} />
-    <label htmlFor="password" className="text-sm font-medium text-slate-300">Nova senha</label>
+    <label htmlFor="password" className="text-sm font-medium text-[#cfd6e8]">Nova senha</label>
     <input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={128} className={fieldClass} disabled={pending} aria-describedby="password-hint" />
     <p id="password-hint" className="mt-2 text-xs text-slate-500">Use pelo menos 8 caracteres.</p>
-    <label htmlFor="confirmation" className="mt-5 block text-sm font-medium text-slate-300">Confirme a senha</label>
+    <label htmlFor="confirmation" className="mt-5 block text-sm font-medium text-[#cfd6e8]">Confirme a senha</label>
     <input id="confirmation" name="confirmation" type="password" autoComplete="new-password" required minLength={8} maxLength={128} className={fieldClass} disabled={pending} />
     <FormError error={state.error} />
     <button type="submit" disabled={pending} className={submitClass}>{pending ? "Salvando…" : "Salvar senha e continuar"}<ArrowRight size={17} /></button>

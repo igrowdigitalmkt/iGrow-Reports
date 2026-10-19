@@ -14,17 +14,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const configured = Boolean(getSupabaseConfig());
   const next = safeRedirect(params.next);
   return <AuthShell>
-    <p className="text-xs font-medium uppercase tracking-[0.16em] text-blue-400">Seu espaço de trabalho</p>
+    <p className="auth-card-kicker">Seu espaço de trabalho</p>
     <h2 className="mt-3 text-2xl font-semibold tracking-tight">Seja bem-vindo(a)!</h2>
-    <p className="mt-2 text-sm leading-6 text-slate-400">Entre para acessar os resultados e ambientes liberados para a sua conta.</p>
-    {!configured && <div role="status" className="mt-6 rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm"><p className="flex items-center gap-2 font-medium text-amber-200"><Settings2 size={16} />Não configurado</p><p className="mt-2 leading-6 text-slate-400">A autenticação ainda precisa ser conectada ao Supabase. O responsável pelo ambiente deve concluir a configuração.</p></div>}
+    <p className="mt-2 text-sm leading-6 text-[#aab4cb]">Entre para acessar os resultados e ambientes liberados para a sua conta.</p>
+    {!configured && <div role="status" className="mt-6 rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm"><p className="flex items-center gap-2 font-medium text-amber-200"><Settings2 size={16} />Não configurado</p><p className="mt-2 leading-6 text-[#aab4cb]">A autenticação ainda precisa ser conectada ao Supabase. O responsável pelo ambiente deve concluir a configuração.</p></div>}
     {params.erro === "link-invalido" && <p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">Este link não é válido ou expirou. Peça um novo link.</p>}
     {params.erro === "acesso" && <p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">Não foi possível concluir o acesso. Tente de novo ou use e-mail e senha.{params.motivo && <span className="mt-1 block text-xs text-rose-300/80">Motivo informado: {params.motivo.slice(0, 160)}</span>}</p>}
     {params.erro === "google" && <p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200">Não foi possível entrar com o Google agora. Tente de novo ou use e-mail e senha.</p>}
     <LinkSessionHandler />
     <LoginForm configured={configured} next={next} />
-    <p className="mt-5 text-center text-sm text-slate-400">Ainda não tem conta? <Link href="/criar-conta" className="auth-link">Criar uma conta</Link></p>
+    <p className="mt-5 text-center text-sm text-[#aab4cb]">Ainda não tem conta? <Link href="/criar-conta" className="auth-link">Criar uma conta</Link></p>
     <GoogleButton configured={configured} next={next} />
-    {isDemoEnabled() && <div className="mt-7 border-t border-white/10 pt-6"><Link href="/demo" className="flex items-center justify-between gap-3 text-sm font-medium text-cyan-300 hover:text-cyan-200">Explorar demonstração<ArrowUpRight size={17} /></Link><p className="mt-2 text-xs leading-5 text-slate-500">Ambiente separado com dados fictícios e sem envios reais.</p></div>}
+    {isDemoEnabled() && <div className="mt-7 border-t border-white/10 pt-6"><Link href="/demo" className="flex items-center justify-between gap-3 text-sm font-medium auth-link">Explorar demonstração<ArrowUpRight size={17} /></Link><p className="mt-2 text-xs leading-5 text-[#8c97b0]">Ambiente separado com dados fictícios e sem envios reais.</p></div>}
   </AuthShell>;
 }
