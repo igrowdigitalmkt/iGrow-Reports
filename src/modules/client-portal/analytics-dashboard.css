@@ -209,6 +209,10 @@
 .analytics-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }
 .analytics-card-heading h3 { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; }
 .analytics-card-heading > svg { color: var(--muted); }
+.analytics-chart-metrics { display: grid; grid-template-columns: auto minmax(0, 220px); gap: 6px 8px; align-items: center; margin-left: auto; }
+.analytics-chart-metrics .analytics-chart-metric { display: contents; }
+.analytics-chart-metrics .analytics-chart-metric span { justify-self: end; }
+.analytics-chart-metrics .analytics-chart-metric select { width: 100%; max-width: none; }
 .analytics-chart-metric { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
 .analytics-chart-metric select { width: auto; max-width: 260px; min-height: 32px; padding: 4px 10px; font-size: 13px; background: var(--surface); }
 .analytics-evolution-card .analytics-card-heading { flex-wrap: wrap; }

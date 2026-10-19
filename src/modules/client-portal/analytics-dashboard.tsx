@@ -261,6 +261,7 @@ export function ClientAnalyticsDashboard({
     finally { setAiBusy(false); }
   }
   const [compareKey, setCompareKey] = useState<string | null>(null);
+  const [primaryKey, setPrimaryKey] = useState<string | null>(null);
   const [platforms, setPlatforms] = useState<PlatformPreference[]>(DEFAULT_PLATFORMS);
   const platformKey = `igrow:platforms:${preferenceKey}`;
   useEffect(() => {
@@ -457,8 +458,22 @@ export function ClientAnalyticsDashboard({
   const chartActions = sortActionsByImportance(actions.filter(metric => hasDaily(metric.key)), key => scopedData.summary[key] ?? 0);
   const chartOthers = scopedData.metrics.filter(metric => metric.key !== "spend" && !metric.key.startsWith("action:") && hasDaily(metric.key));
   const chartOptions = [...chartOthers.filter(metric => metric.key === "primary_results"), ...chartActions, ...chartOthers.filter(metric => metric.key !== "primary_results")];
-  const compareMetric = chartOptions.find(metric => metric.key === compareKey) ?? chartOptions[0];
-  const mainMetrics = [spendMetric, compareMetric].filter((metric): metric is AnalyticsMetric => !!metric);
+  // Dois indicadores livres no grafico; o padrao e valor usado (principal) x resultados (comparado).
+  const chartChoices = [...(spendMetric ? [spendMetric] : []), ...chartOptions];
+  const primaryMetric = chartChoices.find(metric => metric.key === primaryKey && metric.key !== compareKey)
+    ?? chartChoices.find(metric => metric.key === "spend" && metric.key !== compareKey) ?? chartChoices.find(metric => metric.key !== compareKey);
+  const compareMetric = chartChoices.find(metric => metric.key === compareKey && metric.key !== primaryMetric?.key)
+    ?? chartChoices.find(metric => metric.key !== primaryMetric?.key && metric.key !== "spend") ?? chartChoices.find(metric => metric.key !== primaryMetric?.key);
+  const mainMetrics = [primaryMetric, compareMetric].filter((metric): metric is AnalyticsMetric => !!metric);
+  const chartOptionGroups = (excludeKey?: string) => {
+    const available = (list: AnalyticsMetric[]) => list.filter(metric => metric.key !== excludeKey);
+    const groups = [
+      { label: "Investimento", metrics: available(spendMetric ? [spendMetric] : []) },
+      { label: "Resultados e ações", metrics: available([...chartOthers.filter(metric => metric.key === "primary_results"), ...chartActions]) },
+      { label: "Entrega e cliques", metrics: available(chartOthers.filter(metric => metric.key !== "primary_results")) },
+    ].filter(group => group.metrics.length > 0);
+    return groups.map(group => <optgroup key={group.label} label={group.label}>{group.metrics.map(metric => <option key={metric.key} value={metric.key}>{metric.label}</option>)}</optgroup>);
+  };
   // Most important outcomes first (conversions, then traffic, then engagement).
   const rankedActions = sortActionsByImportance(actions.filter(metric => (scopedData.summary[metric.key] ?? 0) > 0),
     key => scopedData.summary[key] ?? 0);
@@ -984,11 +999,16 @@ export function ClientAnalyticsDashboard({
         <div className="analytics-primary-grid">
           <article className="analytics-card analytics-evolution-card">
             <div className="analytics-card-heading"><div><h3>{scopeData ? "Desempenho das campanhas selecionadas" : "Desempenho do período"}</h3></div>
-              {chartOptions.length > 0 && <label className="analytics-chart-metric"><span>Comparar com</span>
-                <select className="input" value={compareMetric?.key ?? ""} onChange={event => setCompareKey(event.target.value)} aria-label="Métrica comparada com o valor usado">
-                  {(chartActions.length > 0 || chartOthers.some(metric => metric.key === "primary_results")) && <optgroup label="Resultados e ações">{[...chartOthers.filter(metric => metric.key === "primary_results"), ...chartActions].map(metric => <option key={metric.key} value={metric.key}>{metric.label}</option>)}</optgroup>}
-                  <optgroup label="Entrega e cliques">{chartOthers.filter(metric => metric.key !== "primary_results").map(metric => <option key={metric.key} value={metric.key}>{metric.label}</option>)}</optgroup>
-                </select></label>}
+              {chartOptions.length > 0 && <div className="analytics-chart-metrics">
+                <label className="analytics-chart-metric"><span>Indicador principal</span>
+                  <select className="input" value={primaryMetric?.key ?? ""} onChange={event => setPrimaryKey(event.target.value)} aria-label="Indicador principal do gráfico">
+                    {chartOptionGroups(compareMetric?.key)}
+                  </select></label>
+                <label className="analytics-chart-metric"><span>Comparar com</span>
+                  <select className="input" value={compareMetric?.key ?? ""} onChange={event => setCompareKey(event.target.value)} aria-label="Indicador comparado com o principal">
+                    {chartOptionGroups(primaryMetric?.key)}
+                  </select></label>
+              </div>}
               <div className="analytics-chart-view-controls"><div className="analytics-chart-switcher" role="group" aria-label="Tipo de gráfico">
                 <button type="button" aria-pressed={chartType === "line"} className={chartType === "line" ? "is-active" : ""}
                   onClick={() => setChartType("line")}><TrendingUp size={12} />Linhas</button>
