@@ -113,3 +113,25 @@ export async function runAgentScheduler(service: Service, deps: SchedulerDeps = 
     needsAttention: (stuck ?? []).map(j => j.id),
   };
 }
+
+/**
+ * Execucao IMEDIATA de um job recem-enfileirado (aprovado ou solicitado manualmente), sem esperar o cron:
+ * a aprovacao vale 15 min e o cron e diario. Mesmas travas do passe: interruptor mestre, gate comercial
+ * por organizacao antes do claim, origem lida do banco. Nunca lanca; falha vira estado do ledger.
+ */
+export async function executeQueuedJobNow(
+  service: Service, identity: { agencyId: string; jobId: string }, deps: Pick<SchedulerDeps, "runJob"> = {},
+): Promise<"disabled" | "gate_closed" | "not_queued" | WorkerResult["status"]> {
+  if (!agentSchedulerEnabled()) return "disabled";
+  try {
+    const { data: job } = await service.from("agent_action_jobs").select("execution_origin")
+      .eq("agency_id", identity.agencyId).eq("id", identity.jobId).eq("status", "queued").maybeSingle();
+    if (!job) return "not_queued";
+    const { data: allowed } = await service.rpc("agent_meta_execution_allowed", { p_agency_id: identity.agencyId });
+    if (allowed !== true) return "gate_closed";
+    const result = await (deps.runJob ?? runQueuedAgentJob)(identity, {
+      service, runtimeDeps: { origin: job.execution_origin === "manual" ? "manual" : "ai" },
+    });
+    return result.status;
+  } catch { return "unavailable"; }
+}

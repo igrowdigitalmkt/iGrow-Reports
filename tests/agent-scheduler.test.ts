@@ -7,7 +7,7 @@ vi.mock("@/modules/agent-executor/reconciler", () => ({ reconcileUncertainJobs: 
 const cycle = vi.hoisted(() => vi.fn(async () => ({ ok: true, accounts: [] })));
 vi.mock("@/modules/agent-executor/decision-cycle", () => ({ runDecisionCycle: cycle }));
 
-import { agentSchedulerEnabled, runAgentScheduler } from "@/modules/agent-executor/scheduler";
+import { agentSchedulerEnabled, executeQueuedJobNow, runAgentScheduler } from "@/modules/agent-executor/scheduler";
 
 const NOW = new Date("2026-10-19T12:00:00Z");
 function fake(tables: Record<string, unknown[]>, gate: Record<string, boolean> = {}) {
@@ -23,6 +23,7 @@ function fake(tables: Record<string, unknown[]>, gate: Record<string, boolean> =
         q.update = (p: Record<string, unknown>) => { update = true; updates.push(p); return q; };
         const rows = () => Promise.resolve({ data: update ? [] : (tables[table] ?? []), error: null });
         q.limit = rows;
+        q.maybeSingle = () => rows().then(r => ({ data: (r.data as unknown[])[0] ?? null, error: null }));
         q.then = (r: (v: unknown) => void) => rows().then(r);
         return q;
       },
@@ -30,6 +31,33 @@ function fake(tables: Record<string, unknown[]>, gate: Record<string, boolean> =
   };
 }
 afterEach(() => { vi.unstubAllEnvs(); recon.mockClear(); cycle.mockClear(); });
+
+describe("execucao imediata", () => {
+  const id = { agencyId: "A", jobId: "j1" };
+  const run = (tables: Record<string, unknown[]>, gate: Record<string, boolean>, runJob = vi.fn(async () => ({ status: "verified" as const, jobId: "j1" }))) =>
+    executeQueuedJobNow(fake(tables, gate).service, id, { runJob }).then(result => ({ result, runJob }));
+  it("interruptor mestre desligado: nada roda", async () => {
+    const { result, runJob } = await run({ agent_action_jobs: [{ execution_origin: "ai" }] }, { A: true });
+    expect(result).toBe("disabled");
+    expect(runJob).not.toHaveBeenCalled();
+  });
+  it("respeita job nao enfileirado e gate comercial fechado, sem reivindicar o job", async () => {
+    vi.stubEnv("AGENT_SCHEDULER_ENABLED", "true");
+    const none = await run({}, { A: true });
+    expect(none.result).toBe("not_queued");
+    const closed = await run({ agent_action_jobs: [{ execution_origin: "ai" }] }, { A: false });
+    expect(closed.result).toBe("gate_closed");
+    expect(closed.runJob).not.toHaveBeenCalled();
+  });
+  it("executa na origem lida do banco e nunca lanca", async () => {
+    vi.stubEnv("AGENT_SCHEDULER_ENABLED", "true");
+    const ok = await run({ agent_action_jobs: [{ execution_origin: "manual" }] }, { A: true });
+    expect(ok.result).toBe("verified");
+    expect(ok.runJob).toHaveBeenCalledWith(id, expect.objectContaining({ runtimeDeps: { origin: "manual" } }));
+    const boom = await run({ agent_action_jobs: [{ execution_origin: "ai" }] }, { A: true }, vi.fn(async () => { throw new Error("x"); }) as never);
+    expect(boom.result).toBe("unavailable");
+  });
+});
 
 describe("agendador do agente", () => {
   it("desligado por padrao: nao toca banco, Meta nem IA", async () => {

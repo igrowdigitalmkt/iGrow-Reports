@@ -32,6 +32,9 @@ vi.mock("@/lib/supabase/service", () => ({
   }),
 }));
 
+const exec = vi.hoisted(() => vi.fn(async () => "verified"));
+vi.mock("@/modules/agent-executor/scheduler", () => ({ executeQueuedJobNow: exec }));
+
 import { requestManualMetaChange } from "@/modules/agent-executor/manual-actions";
 
 const input = (over: Record<string, unknown> = {}) => ({
@@ -39,6 +42,7 @@ const input = (over: Record<string, unknown> = {}) => ({
   adAccountId: "30000000-0000-4000-8000-000000000003", action: "pause_campaign", targetId: "555", ...over,
 });
 beforeEach(() => {
+  exec.mockClear();
   Object.assign(state, { gate: true, busy: false, duplicate: false, rows: [], moves: [] });
   ctx.role = "owner";
 });
@@ -50,6 +54,7 @@ describe("alteracao manual", () => {
     expect(state.rows[0]).toMatchObject({ execution_origin: "manual", requested_by: "u1", delegation_id: null, action_type: "pause_campaign", agency_id: "ag" });
     expect(state.rows[0]).not.toHaveProperty("approved_by");
     expect(state.moves).toEqual(["authorized", "queued"]);
+    expect(exec).toHaveBeenCalledWith(expect.anything(), { agencyId: "ag", jobId: expect.any(String) });
   });
   it("somente proprietario ou administrador", async () => {
     ctx.role = "editor";
@@ -69,6 +74,7 @@ describe("alteracao manual", () => {
     state.busy = true;
     expect(await requestManualMetaChange(input())).toMatchObject({ ok: false });
     expect(state.moves).toEqual(["authorized", "rejected"]);
+    expect(exec).not.toHaveBeenCalled();
     state.busy = false;
     state.duplicate = true;
     expect(await requestManualMetaChange(input())).toMatchObject({ ok: false, message: "Esta solicitacao ja foi registrada." });

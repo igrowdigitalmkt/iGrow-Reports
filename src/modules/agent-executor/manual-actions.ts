@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { ACTIONS } from "./policy";
+import { executeQueuedJobNow } from "./scheduler";
 
 /**
  * Operacao MANUAL de campanha: o clique do usuario autenticado e o ato explicito. Ledger
@@ -74,6 +75,8 @@ export async function requestManualMetaChange(input: unknown): Promise<ManualCha
     await move("authorized", "rejected", { failure_code: "account_busy" });
     return fail("Ja existe uma alteracao em andamento nesta conta. Aguarde a conclusao.");
   }
+  // O clique e o ato explicito: executa agora, com as mesmas travas do worker (gate, runtime, politica).
+  await executeQueuedJobNow(service, { agencyId, jobId: id });
   return { ok: true, jobId: id };
 }
 

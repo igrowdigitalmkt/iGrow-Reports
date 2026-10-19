@@ -2,7 +2,9 @@
 
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { approvalFingerprint } from "./financial-approval";
+import { executeQueuedJobNow } from "./scheduler";
 
 function verifyApprover(role: string) {
   if (role !== "owner" && role !== "admin")
@@ -39,11 +41,17 @@ export async function submitAgentFinancialApproval(formData: FormData) {
   const decision = String(formData.get("decision") ?? "");
   if (decision !== "approve" && decision !== "reject")
     throw new Error("Decisao de aprovacao invalida.");
-  await decideAgentFinancialAction({
+  const decided = await decideAgentFinancialAction({
     jobId: String(formData.get("jobId") ?? ""),
     approvalFingerprint: String(formData.get("approvalFingerprint") ?? ""),
     approve: decision === "approve",
   });
+  // Aprovado => executa agora (a aprovacao vale 15 min). O ledger registra o resultado; erros nunca vazam.
+  if (decided.status === "queued") {
+    const service = createSupabaseServiceClient();
+    const ctx = await requireAgencyContext();
+    if (service) await executeQueuedJobNow(service, { agencyId: ctx.agency.id, jobId: decided.jobId });
+  }
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/agente/aprovacoes");
 }

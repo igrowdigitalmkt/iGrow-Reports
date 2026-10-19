@@ -1,6 +1,8 @@
 import { listPendingAgentFinancialApprovals, listRecentAgentActivity, submitAgentFinancialApproval } from "@/modules/agent-executor/approval-actions";
 
 export const dynamic = "force-dynamic";
+// A acao de aprovar/solicitar executa a alteracao na hora (GET + POST + GET de confirmacao na Meta).
+export const maxDuration = 60;
 const names: Record<string, string> = {
   pause_campaign: "Pausar campanha", resume_campaign: "Reativar campanha",
   pause_adset: "Pausar conjunto", resume_adset: "Reativar conjunto",

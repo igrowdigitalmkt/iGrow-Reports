@@ -4,6 +4,8 @@ import { submitManualMetaChange } from "@/modules/agent-executor/manual-actions"
 import { entityDeliveryActive, normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
 
 export const dynamic = "force-dynamic";
+// A acao de aprovar/solicitar executa a alteracao na hora (GET + POST + GET de confirmacao na Meta).
+export const maxDuration = 60;
 
 const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
