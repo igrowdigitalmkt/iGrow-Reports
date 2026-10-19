@@ -13,7 +13,12 @@ import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type NavItem = { key: string; label: string; icon: ComponentType<LucideProps>; planned?: boolean };
+/** iconSize deve ser multiplo de 4: em telas com escala de 125% (comum no Windows) so assim o icone fecha em pixel inteiro e fica nitido. */
+type NavItem = { key: string; label: string; icon: ComponentType<LucideProps>; planned?: boolean; iconSize?: number };
+
+const NAV_ICON_SIZE = 20;
+/** Traco de ~1,6 px na tela, qualquer que seja o tamanho do icone (a grade dos icones e 24). */
+const navStrokeWidth = (size: number) => +(1.6 * 24 / size).toFixed(2);
 
 export const navigationGroups: { title: string; items: NavItem[] }[] = [
   { title: "Operação", items: [
@@ -28,7 +33,7 @@ export const navigationGroups: { title: string; items: NavItem[] }[] = [
     { key: "configuracoes", label: "Configurações", icon: Settings2 },
   ] },
   { title: "Comunicação", items: [
-    { key: "whatsapp", label: "WhatsApp", icon: WhatsAppIcon },
+    { key: "whatsapp", label: "WhatsApp", icon: WhatsAppIcon, iconSize: 24 },
   ] },
 ];
 export const navigation = navigationGroups.flatMap(group => group.items);
@@ -142,8 +147,8 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         <nav className="sidebar-nav" aria-label="Navegação principal">
           {navigationGroups.map(group => <div className="nav-group" key={group.title}>
             <span className="nav-title" aria-hidden={collapsed}>{group.title}</span>
-            {group.items.filter(item => !hiddenKeys.includes(item.key)).map(({ key, label, icon: Icon, planned }) => <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
-              <Icon size={19} strokeWidth={1.9} />
+            {group.items.filter(item => !hiddenKeys.includes(item.key)).map(({ key, label, icon: Icon, planned, iconSize = NAV_ICON_SIZE }) => <Link key={key} href={href(key)} aria-current={key === activeKey ? "page" : undefined} data-tip={planned ? `${label} · Em breve` : label} aria-label={collapsed ? label : undefined} className={cn("nav-item", planned && "is-planned")}>
+              <Icon size={iconSize} strokeWidth={navStrokeWidth(iconSize)} style={iconSize !== NAV_ICON_SIZE ? { marginInline: (NAV_ICON_SIZE - iconSize) / 2 } : undefined} />
               <span className="collapse-hide">{label}</span>
               {planned && <span className="nav-soon collapse-hide">Em breve</span>}
               {key === "clientes" && !!clientCount && <span className="nav-count collapse-hide">{clientCount}</span>}
@@ -153,7 +158,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
         </nav>
         <div className="sidebar-footer">
           <button type="button" className="help-card" data-tip="Central de ajuda" aria-label="Central de ajuda" onClick={() => setHelpOpen(true)}>
-            <CircleHelp size={24} strokeWidth={1.75} />
+            <CircleHelp size={24} strokeWidth={navStrokeWidth(24)} />
             <span className="collapse-hide"><strong>Precisa de ajuda?</strong><small>Falar com o suporte</small></span>
           </button>
           <Link className="user-profile" href={href("configuracoes")} data-tip={`${identity.userName} · ${identity.roleLabel}`} aria-label={`Perfil de ${identity.userName}`}>
