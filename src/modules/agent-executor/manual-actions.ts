@@ -76,7 +76,12 @@ export async function requestManualMetaChange(input: unknown): Promise<ManualCha
     return fail("Ja existe uma alteracao em andamento nesta conta. Aguarde a conclusao.");
   }
   // O clique e o ato explicito: executa agora, com as mesmas travas do worker (gate, runtime, politica).
-  await executeQueuedJobNow(service, { agencyId, jobId: id });
+  const outcome = await executeQueuedJobNow(service, { agencyId, jobId: id });
+  // Executor desligado neste ambiente: nao deixar o pedido na fila para executar de surpresa no cron.
+  if (outcome === "disabled" || outcome === "gate_closed") {
+    await move("queued", "rejected", { failure_code: "executor_disabled" });
+    return fail("A execucao de alteracoes nao esta habilitada neste ambiente. Nada foi alterado na Meta.");
+  }
   return { ok: true, jobId: id };
 }
 

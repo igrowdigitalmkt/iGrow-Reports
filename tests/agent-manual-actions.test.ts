@@ -56,6 +56,12 @@ describe("alteracao manual", () => {
     expect(state.moves).toEqual(["authorized", "queued"]);
     expect(exec).toHaveBeenCalledWith(expect.anything(), { agencyId: "ag", jobId: expect.any(String) });
   });
+  it("executor desligado: rejeita o pedido na fila e nada fica pendente", async () => {
+    exec.mockResolvedValueOnce("disabled");
+    const r = await requestManualMetaChange(input());
+    expect(r).toMatchObject({ ok: false });
+    expect(state.moves).toEqual(["authorized", "queued", "rejected"]);
+  });
   it("somente proprietario ou administrador", async () => {
     ctx.role = "editor";
     expect(await requestManualMetaChange(input())).toMatchObject({ ok: false });

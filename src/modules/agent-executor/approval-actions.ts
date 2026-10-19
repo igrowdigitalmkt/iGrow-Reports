@@ -83,6 +83,7 @@ const FAILURE_LABELS: Record<string, string> = {
   reconciled_not_sent: "Conferido: a alteracao nunca foi enviada.",
   user_rejected: "Recusada por voce.",
   account_busy: "Havia outra alteracao em andamento na conta.",
+  executor_disabled: "Execucao desabilitada no ambiente; nada foi alterado na Meta.",
 };
 
 /** Historico recente do agente para a organizacao (RLS: owner/admin/editor). Sem tokens nem dados de outras organizacoes. */
