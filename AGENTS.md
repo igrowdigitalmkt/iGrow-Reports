@@ -1,3 +1,7 @@
+# Groow Ads — diretriz estratégica para agentes
+
+Regra obrigatória para Claude, Codex e demais assistentes de desenvolvimento: antes de propor, priorizar ou implementar funcionalidades de produto, ler docs/VISAO_ESTRATEGICA_GROOW_ADS.md. A Groow Ads é uma IA executora de marketing: conhece o negócio, recebe delegação de escopo e realiza ações reais em campanhas; dashboards, relatórios e WhatsApp são infraestrutura de apoio. O primeiro lançamento comercial divulgado deve demonstrar execução real por IA, não apenas análises ou recomendações. Preservar isolamento, permissões, limites, auditoria e autorizações de produção. Não declarar essas ações implementadas sem confirmação no código e com as APIs reais.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

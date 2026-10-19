@@ -348,7 +348,7 @@ async function storeAccessToken(
   if (error) throw new MetaSetupError("Não foi possível armazenar a credencial Meta com segurança.");
 }
 
-async function loadAccessToken(
+export async function loadAccessToken(
   service: SupabaseClient<Database>,
   agencyId: string,
   integrationId: string,
