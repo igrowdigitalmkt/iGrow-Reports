@@ -41,7 +41,7 @@ describe("fatos do motor de decisao", () => {
     const f = facts();
     expect(f.factsText).not.toContain("111");
     expect(f.factsText).not.toContain("act_9");
-    expect(f.targets.get("c1")).toMatchObject({ metaId: "111", adAccountExternalId: "act_9", status: "ACTIVE" });
+    expect(f.targets.get("c1")).toMatchObject({ metaId: "111", adAccountId: "act_9", status: "ACTIVE" });
     expect(f.targets.get("a2")?.level).toBe("adset");
     expect(f.targets.get("c3")?.status).toBe("PAUSED");
   });
@@ -128,7 +128,7 @@ describe("provedor Anthropic", () => {
 });
 
 describe("ponte para a fila", () => {
-  const scope = { agencyId: "a", clientId: "c", adAccountId: "d", observationId: "o", factsCollectedAt: "2026-10-18T11:30:00Z" };
+  const scope = { agencyId: "a", clientId: "c", observationId: "o", factsCollectedAt: "2026-10-18T11:30:00Z" };
   it("somente pausas viram job aguardando aprovacao; orcamento permanece recomendacao", async () => {
     stage.mockReset().mockResolvedValue({ id: "job1", deduplicated: false });
     const f = facts(new Map([["act_9:111", 10_000], ["act_9:222", 5_000]]));

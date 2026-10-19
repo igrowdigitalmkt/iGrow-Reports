@@ -15,7 +15,7 @@ export type StageOutcome =
  */
 export async function stageValidatedDecisions(
   service: SupabaseClient<Database>,
-  scope: { agencyId: string; clientId: string; adAccountId: string; observationId: string; factsCollectedAt: string },
+  scope: { agencyId: string; clientId: string; observationId: string; factsCollectedAt: string },
   decision: ValidatedDecision,
   now: Date = new Date(),
 ): Promise<StageOutcome[]> {
@@ -27,7 +27,7 @@ export async function stageValidatedDecisions(
       continue;
     }
     try {
-      const job = await stageMetaDecision(service, scope, {
+      const job = await stageMetaDecision(service, { ...scope, adAccountId: item.target.adAccountId }, {
         action: item.action, targetId: item.target.metaId, rationale: item.rationale,
       }, now);
       outcomes.push({ ref, status: "awaiting_approval", jobId: job.id, deduplicated: job.deduplicated });

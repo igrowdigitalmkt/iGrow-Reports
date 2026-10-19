@@ -198,3 +198,20 @@ Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer u
 **Evidencia:** 14 testes novos; 73 testes do agente, `tsc --noEmit` e ESLint direcionado passaram. Nenhuma migration, chamada Meta/Anthropic real ou dado de producao usado.
 
 **Pendente:** (1) leitor server-side que monta `FactsInput` (hierarquia, orcamentos confirmados na Meta, perfil/objetivos) com o escopo confiavel; (2) cota/custo de IA e registro em `ai_usage`; (3) reconciliacao de `needs_verification`/`unknown_outcome`; (4) inventario financeiro Meta para liberar resume/orcamento; (5) chamada orquestrada (cron) e UI de recomendacoes.
+
+
+## 14. Sexta entrega - ciclo de decisao com dados ao vivo e custo contabilizado (19/10/2026)
+
+**Implementado (motor continua OFF por padrao; sem rota, cron ou UI; migration NAO aplicada):**
+
+- `decision-live-state.ts`: leitura somente GET do status e do `daily_budget` atuais na Meta (token via `loadAccessToken`, nunca exposto). Orcamento ausente no nivel => `null`, nunca presumido. Falha/integracao offline => `null`.
+- `decision-cycle.ts`: orquestra por cliente. Ordem fail-closed: flag do motor -> delegacao vigente (sem ela, nao ha gasto de IA) -> cota/plano/liga-desliga de IA -> hierarquia de metricas via `service_client_hierarchy` (14 dias + 14 anteriores) -> leitura AO VIVO da Meta (sem ela a conta e pulada) -> motor -> registro em `ai_usage` (inclusive saidas rejeitadas, pois os tokens foram gastos) -> fila. O status vivo substitui o do cache; entidade sem confirmacao viva e descartada.
+- `observationId` derivado do hash dos fatos: mesmos fatos geram a mesma chave de idempotencia (sem jobs duplicados).
+- Migration `202610190001_agent_decision_ai_usage.sql` inclui `agent_decision` no check de `ai_usage`; tipo em `database.ts` atualizado.
+- Correcao: o alvo carrega o UUID interno da conta (a hierarquia nao traz `act_...`); a ponte usa a conta do fato resolvido no servidor.
+
+**Decisao tecnica:** a verificacao de cota duplica a de `runGuardedGeneration` (marcada com TODO) para nao alterar o caminho de IA de texto em producao.
+
+**Evidencia:** 82 testes do agente, tsc, ESLint e suite SQL/RLS/pgTAP (PGlite, com a migration nova) passaram. Nenhuma chamada real a Meta/Anthropic, nenhum dado de producao.
+
+**Pendente:** reconciliacao de `needs_verification`/`unknown_outcome`; inventario financeiro Meta (liberar retomar/orcamento); disparo agendado e tela de recomendacoes; homologacao com conta de teste; `ai_usage` real exige aplicar a migration com autorizacao.
