@@ -45,6 +45,14 @@ export default async function AgentApprovalsPage({ searchParams }: { searchParam
     ctx.supabase.from("clients").select("id,name").eq("agency_id", ctx.agency.id).is("archived_at", null).order("name").limit(100),
   ]);
   const clients = clientsResult.data ?? [];
+  const { data: runs } = await ctx.supabase.from("agent_analysis_runs")
+    .select("id,client_id,origin,summary,observations,proposals,blocked,rejected,created_at")
+    .eq("agency_id", ctx.agency.id).order("created_at", { ascending: false }).limit(5);
+  const clientName = new Map(clients.map(client => [client.id, client.name]));
+  const observationsOf = (value: unknown) => (Array.isArray(value) ? value : []).flatMap(item => {
+    const o = item as { name?: unknown; level?: unknown; rationale?: unknown };
+    return typeof o.rationale === "string" ? [{ name: typeof o.name === "string" ? o.name : "", level: o.level === "adset" ? "Conjunto" : "Campanha", rationale: o.rationale }] : [];
+  });
   const analysisText = (() => {
     switch (sp.analise) {
       case undefined: return null;
@@ -80,6 +88,19 @@ export default async function AgentApprovalsPage({ searchParams }: { searchParam
         <Button variant="secondary" type="submit">Analisar {client.name}</Button>
       </form>)}</div>
     </section>
+    {(runs?.length ?? 0) > 0 && <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Ultimas analises da IA</h2>
+      {runs!.map(run => <article key={run.id} className="space-y-2 rounded-xl border border-border bg-[var(--surface)] p-5 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <strong>{clientName.get(run.client_id) ?? "Cliente"}</strong>
+          <span className="text-xs text-muted">{run.origin === "manual" ? "Pedida por voce" : "Agendada"} · {new Date(run.created_at).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}</span>
+        </div>
+        <p>{run.summary}</p>
+        <p className="text-xs text-muted">{run.proposals} proposta(s) · {run.blocked} bloqueada(s) · {run.rejected} descartada(s) pela validacao</p>
+        {observationsOf(run.observations).length > 0 && <ul className="space-y-1">{observationsOf(run.observations).map((o, i) =>
+          <li key={i} className="rounded-lg bg-[var(--surface-raised)] p-3"><span className="font-medium">{o.level}{o.name ? ` · ${o.name}` : ""}:</span> {o.rationale}</li>)}</ul>}
+      </article>)}
+    </section>}
     {pending.length === 0 ? <section className="rounded-xl border border-border bg-[var(--surface)] p-7">
       <h2 className="text-lg font-medium">Nenhuma solicitacao pendente</h2>
       <p className="mt-2 text-sm text-muted">As propostas elegiveis da IA aparecerao aqui para sua decisao.</p>

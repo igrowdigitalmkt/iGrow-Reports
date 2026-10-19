@@ -10,6 +10,7 @@ export type FactTarget = {
   ref: string;
   level: "campaign" | "adset";
   metaId: string;
+  name: string;
   adAccountId: string;
   status: "ACTIVE" | "PAUSED";
   /** Orcamento diario atual em unidade menor, quando conhecido; nao vem de metricas de gasto. */
@@ -64,7 +65,7 @@ export function buildDecisionFacts(input: FactsInput): DecisionFacts {
     const status = entityDeliveryActive(entity) ? "ACTIVE" : "PAUSED";
     const budget = input.budgetsMinor?.get(`${entity.accountId}:${entity.id}`) ?? null;
     targets.set(ref, {
-      ref, level: entity.level as "campaign" | "adset", metaId: entity.id,
+      ref, level: entity.level as "campaign" | "adset", metaId: entity.id, name: entity.name.slice(0, 80),
       adAccountId: entity.accountId, status, dailyBudgetMinor: budget, metrics: cleanValues(entity.values),
     });
     const before = previous.get(`${entity.accountId}:${entity.level}:${entity.id}`);

@@ -286,6 +286,12 @@ type AgentActionJobRow = {
   failure_code: string | null; created_at: string; updated_at: string;
   queued_at: string | null; started_at: string | null; verified_at: string | null; finished_at: string | null;
 };
+type AgentAnalysisRunRow = {
+  id: string; agency_id: string; client_id: string; ad_account_id: string;
+  origin: "manual" | "scheduled"; requested_by: string | null; summary: string;
+  observations: Json; proposals: number; blocked: number; rejected: number;
+  rejected_reasons: string[]; facts_hash: string | null; created_at: string;
+};
 type AgentActionEventRow = {
   id: number; agency_id: string; job_id: string; previous_status: string | null;
   next_status: string; occurred_at: string; metadata: Json;
@@ -319,6 +325,7 @@ export type Database = {
       agent_delegations: Table<AgentDelegationRow, Pick<AgentDelegationRow, "agency_id" | "client_id" | "ad_account_id" | "currency" | "allowed_actions" | "max_account_daily_budget_minor" | "max_entity_daily_budget_minor" | "max_increase_minor_per_action" | "max_increase_percent_per_action" | "expires_at"> & Partial<AgentDelegationRow>, Partial<AgentDelegationRow>>;
       agent_action_jobs: Table<AgentActionJobRow, Pick<AgentActionJobRow, "agency_id" | "client_id" | "ad_account_id" | "idempotency_key" | "action_type" | "meta_entity_id" | "facts_collected_at" | "rationale"> & Partial<AgentActionJobRow>, Partial<AgentActionJobRow>>;
       agent_action_events: Table<AgentActionEventRow, never, never>;
+      agent_analysis_runs: Table<AgentAnalysisRunRow, Pick<AgentAnalysisRunRow, "agency_id" | "client_id" | "ad_account_id" | "origin" | "summary"> & Partial<AgentAnalysisRunRow>, never>;
       meta_daily_insights: Table<MetaDailyInsightRow, Pick<MetaDailyInsightRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "spend" | "impressions" | "api_version"> & Partial<MetaDailyInsightRow>, Partial<MetaDailyInsightRow>>;
       meta_daily_actions: Table<MetaDailyActionRow, Pick<MetaDailyActionRow, "agency_id" | "ad_account_id" | "insight_date" | "level" | "external_entity_id" | "action_type"> & Partial<MetaDailyActionRow>, Partial<MetaDailyActionRow>>;
       meta_collection_runs: Table<MetaCollectionRunRow, Pick<MetaCollectionRunRow, "agency_id" | "client_id" | "ad_account_id" | "date_from" | "date_to" | "status"> & Partial<MetaCollectionRunRow>, Partial<MetaCollectionRunRow>>;

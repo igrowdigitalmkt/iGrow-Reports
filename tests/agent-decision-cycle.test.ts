@@ -89,6 +89,10 @@ describe("ciclo de decisao", () => {
     expect(r.ok && r.accounts[0]).toMatchObject({ status: "done", stages: [{ ref: "c1", status: "awaiting_approval", jobId: "job9" }] });
     expect(inserts[0]).toMatchObject({ table: "ai_usage", row: { feature: "agent_decision", status: "ok", input_tokens: 1000, output_tokens: 200 } });
     expect(inserts[0]!.row.cost_usd).toBeGreaterThan(0);
+    // Historico: analise gravada com nome da campanha (nunca o id Meta), contagens e texto validado.
+    const history = inserts.find(i => i.table === "agent_analysis_runs");
+    expect(history?.row).toMatchObject({ agency_id: "ag", client_id: "cl", ad_account_id: ACCOUNT, origin: "scheduled", proposals: 1, blocked: 0, rejected: 0 });
+    expect(String(history?.row.summary)).toContain("800");
     expect(stage.mock.calls[0]![1]).toMatchObject({ agencyId: "ag", clientId: "cl", adAccountId: ACCOUNT });
     expect(stage.mock.calls[0]![1].observationId).toMatch(/^[0-9a-f-]{36}$/);
     // O status AO VIVO da Meta e o que vai ao modelo: entidade ja pausada nao pode ser pausada.

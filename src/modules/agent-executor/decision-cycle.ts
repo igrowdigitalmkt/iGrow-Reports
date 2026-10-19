@@ -15,6 +15,9 @@ export type CycleDeps = {
   model: DecisionModel;
   now?: () => Date;
   enabled?: boolean;
+  /** Quem pediu a analise (manual) ou o agendador; so para o historico. */
+  origin?: "manual" | "scheduled";
+  requestedBy?: string | null;
   liveState?: (scope: { agencyId: string; clientId: string; adAccountId: string }, ids: string[]) => Promise<Map<string, LiveEntityState> | null>;
 };
 export type AccountCycleResult =
@@ -124,6 +127,21 @@ export async function runDecisionCycle(
     const stages = await stageValidatedDecisions(service, {
       ...scope, observationId: observationIdFrom(facts.factsHash), factsCollectedAt: collectedAt,
     }, result.decision, now);
+    // Historico da analise (texto ja validado: numeros vem dos fatos). Falha ao gravar nao derruba o ciclo.
+    const { error: historyError } = await service.from("agent_analysis_runs").insert({
+      agency_id: scope.agencyId, client_id: scope.clientId, ad_account_id: adAccountId,
+      origin: deps.origin ?? "scheduled", requested_by: deps.requestedBy ?? null,
+      summary: result.decision.summary.slice(0, 2000),
+      observations: result.decision.observations.map(o => {
+        const target = facts.targets.get(o.targetRef);
+        return { name: target?.name ?? "", level: target?.level ?? "campaign", rationale: o.rationale.slice(0, 600) };
+      }),
+      proposals: stages.filter(st => st.status === "awaiting_approval").length,
+      blocked: stages.filter(st => st.status === "blocked").length,
+      rejected: result.decision.rejected.length, rejected_reasons: result.decision.rejected.map(r => r.reason),
+      facts_hash: facts.factsHash.slice(0, 64),
+    });
+    if (historyError) console.error("agent_analysis_runs insert failed", historyError.code);
     accounts.push({
       adAccountId, status: "done", summary: result.decision.summary, stages,
       observations: result.decision.observations.length, rejected: result.decision.rejected.length,

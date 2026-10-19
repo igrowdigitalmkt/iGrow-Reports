@@ -31,7 +31,7 @@ export async function analyzeClientNow(formData: FormData) {
 
   let result: Awaited<ReturnType<typeof runDecisionCycle>>;
   try {
-    result = await runDecisionCycle(service, { agencyId: ctx.agency.id, clientId: client.id }, { model: createAnthropicDecisionModel() });
+    result = await runDecisionCycle(service, { agencyId: ctx.agency.id, clientId: client.id }, { model: createAnthropicDecisionModel(), origin: "manual", requestedBy: ctx.user.id });
   } catch { return done("error"); }
   if (!result.ok) return done(result.reason);
 
