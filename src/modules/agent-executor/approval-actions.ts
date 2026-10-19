@@ -23,7 +23,15 @@ export async function listPendingAgentFinancialApprovals() {
     .eq("agency_id", ctx.agency.id).eq("execution_origin", "ai")
     .eq("status", "awaiting_approval").order("created_at", { ascending: false }).limit(100);
   if (error) throw new Error("Nao foi possivel consultar as solicitacoes de aprovacao.");
+  // Nome da campanha/conjunto (do cache de metricas) so para o usuario saber O QUE esta aprovando.
+  const ids = [...new Set((data ?? []).map(row => row.meta_entity_id))];
+  const { data: named } = ids.length ? await ctx.supabase.from("meta_daily_insights")
+    .select("external_entity_id,entity_name,insight_date").in("external_entity_id", ids)
+    .order("insight_date", { ascending: false }).limit(500) : { data: [] };
+  const names = new Map<string, string>();
+  for (const row of named ?? []) if (row.entity_name && !names.has(row.external_entity_id)) names.set(row.external_entity_id, row.entity_name);
   return (data ?? []).map((row) => ({
+    entityName: names.get(row.meta_entity_id) ?? null,
     id: row.id, clientId: row.client_id, accountId: row.ad_account_id,
     action: row.action_type, metaEntityId: row.meta_entity_id,
     dailyBudgetMinor: row.daily_budget_minor, rationale: row.rationale,

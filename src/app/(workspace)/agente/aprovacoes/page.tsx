@@ -1,4 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { requireAgencyContext } from "@/modules/agencies/context";
+import { analyzeClientNow } from "@/modules/agent-executor/decision-actions";
+import { decisionEngineEnabled } from "@/modules/agent-executor/decision-engine";
 import { listPendingAgentFinancialApprovals, listRecentAgentActivity, submitAgentFinancialApproval } from "@/modules/agent-executor/approval-actions";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +21,26 @@ const statusLabels: Record<string, string> = {
 };
 
 /** Tela interna, nao incluida no menu ate a homologacao. */
-export default async function AgentApprovalsPage() {
-  const [pending, activity] = await Promise.all([listPendingAgentFinancialApprovals(), listRecentAgentActivity()]);
+export default async function AgentApprovalsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const sp = await searchParams;
+  const ctx = await requireAgencyContext();
+  const [pending, activity, clientsResult] = await Promise.all([
+    listPendingAgentFinancialApprovals(), listRecentAgentActivity(),
+    ctx.supabase.from("clients").select("id,name").eq("agency_id", ctx.agency.id).is("archived_at", null).order("name").limit(100),
+  ]);
+  const clients = clientsResult.data ?? [];
+  const analysisText = (() => {
+    switch (sp.analise) {
+      case undefined: return null;
+      case "ok": return `Analise concluida: ${sp.p ?? 0} proposta(s) aguardando sua aprovacao, ${sp.b ?? 0} bloqueada(s) pelas travas, ${sp.o ?? 0} observacao(oes) sem acao, ${sp.r ?? 0} descartada(s) pela validacao${Number(sp.s) > 0 ? `; ${sp.s} conta(s) nao analisada(s)${sp.motivo ? ` (${sp.motivo})` : ""}` : ""}.`;
+      case "disabled": return "O motor de decisao esta desligado neste ambiente (AGENT_DECISION_ENGINE_ENABLED).";
+      case "no_delegation": return "Este cliente nao tem delegacao vigente; nada foi analisado.";
+      case "ai_unavailable": return "A IA nao esta disponivel (plano, configuracao ou erro de verificacao); nada foi analisado.";
+      case "ai_budget": return "O orcamento mensal de IA da organizacao foi atingido; nada foi analisado.";
+      case "forbidden": return "Somente proprietario ou administrador pode pedir a analise.";
+      default: return "Nao foi possivel concluir a analise agora; nada foi alterado.";
+    }
+  })();
   const attention = activity.filter(item => item.needsAttention);
   return <main className="mx-auto w-full max-w-5xl space-y-6 px-5 py-8">
     <header className="space-y-2">
@@ -31,6 +52,18 @@ export default async function AgentApprovalsPage() {
         autoriza modificacoes futuras.
       </p>
     </header>
+    <section className="space-y-3 rounded-xl border border-border bg-[var(--surface)] p-6">
+      <h2 className="text-lg font-semibold">Analisar com a IA</h2>
+      <p className="text-sm text-muted">
+        A IA le os dados confirmados e propoe acoes, mas <strong>nada executa sem a sua aprovacao</strong>.
+        Motor de decisao neste deploy: <strong>{decisionEngineEnabled() ? "ligado" : "desligado"}</strong>.
+      </p>
+      {analysisText && <p className="rounded-xl border border-border bg-[var(--surface-raised)] p-4 text-sm">{analysisText}</p>}
+      <div className="flex flex-wrap gap-2">{clients.map(client => <form key={client.id} action={analyzeClientNow}>
+        <input type="hidden" name="clientId" value={client.id} />
+        <Button variant="secondary" type="submit">Analisar {client.name}</Button>
+      </form>)}</div>
+    </section>
     {pending.length === 0 ? <section className="rounded-xl border border-border bg-[var(--surface)] p-7">
       <h2 className="text-lg font-medium">Nenhuma solicitacao pendente</h2>
       <p className="mt-2 text-sm text-muted">As propostas elegiveis da IA aparecerao aqui para sua decisao.</p>
@@ -44,7 +77,7 @@ export default async function AgentApprovalsPage() {
           </span>
         </div>
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <div><dt className="font-semibold">Entidade Meta</dt><dd>{job.metaEntityId}</dd></div>
+          <div><dt className="font-semibold">Campanha / conjunto</dt><dd>{job.entityName ?? "Nome indisponivel"} <span className="text-xs text-muted">({job.metaEntityId})</span></dd></div>
           <div><dt className="font-semibold">Conta vinculada</dt><dd>{job.accountId}</dd></div>
           {job.dailyBudgetMinor !== null && <div>
             <dt className="font-semibold">Orcamento proposto</dt>
