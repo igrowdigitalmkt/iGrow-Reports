@@ -436,7 +436,21 @@ export class MetaClient {
   /** Campos de orcamento para o inventario financeiro do agente. Paginacao incompleta lanca erro. */
   async listBudgetInventory(adAccountId: string): Promise<{ campaigns: MetaBudgetEntity[]; adsets: MetaBudgetEntity[] }> {
     validateAccountId(adAccountId);
-    const fields = "id,status,effective_status,daily_budget,lifetime_budget,campaign_id,end_time";
+    // `end_time` so existe em conjuntos (campanhas usam `stop_time`); pedir campo inexistente => erro 100.
+    const [campaigns, adsets] = await Promise.all([
+      this.getAll<MetaBudgetEntity>(`${adAccountId}/campaigns`, { fields: "id,status,effective_status,daily_budget,lifetime_budget", limit: "500" }),
+      this.getAll<MetaBudgetEntity>(`${adAccountId}/adsets`, { fields: "id,status,effective_status,daily_budget,lifetime_budget,campaign_id,end_time", limit: "500" }),
+    ]);
+    return { campaigns, adsets };
+  }
+
+  /**
+   * Estado atual de campanhas e conjuntos lidos PELA CONTA (edges), nao por lista de ids: um id
+   * inexistente ou sem acesso nao derruba a leitura e a titularidade vem da propria conta.
+   */
+  async listEntityStates(adAccountId: string): Promise<{ campaigns: MetaBudgetEntity[]; adsets: MetaBudgetEntity[] }> {
+    validateAccountId(adAccountId);
+    const fields = "id,status,effective_status,daily_budget";
     const [campaigns, adsets] = await Promise.all([
       this.getAll<MetaBudgetEntity>(`${adAccountId}/campaigns`, { fields, limit: "500" }),
       this.getAll<MetaBudgetEntity>(`${adAccountId}/adsets`, { fields, limit: "500" }),

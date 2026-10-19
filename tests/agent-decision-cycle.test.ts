@@ -115,44 +115,41 @@ describe("ciclo de decisao", () => {
 });
 
 describe("leitura ao vivo da Meta", () => {
-  it("le status e orcamento diario por GET, sem presumir orcamento ausente", async () => {
-    const tables: Record<string, Table> = {
-      meta_ad_accounts: { data: { meta_connection_id: "mc" } },
-      meta_connections: { data: { id: "mc", integration_id: "in", connected_at: "2026-10-01T00:00:00Z" } },
-      integrations: { data: { id: "in", connection_status: "connected", health_status: "ok" } },
-    };
-    const { service } = fakeService(tables, {});
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
-      "900": { id: "900", status: "ACTIVE", effective_status: "ACTIVE", daily_budget: "12000" },
-      "901": { id: "901", status: "ACTIVE", effective_status: "ACTIVE" },
-    }), { status: 200 }));
-    const map = await readLiveEntityState(service, { agencyId: "ag", clientId: "cl", adAccountId: ACCOUNT }, ["900", "901"],
-      { tokenLoader: async () => "tok", apiVersion: "v23.0", fetchImpl: fetchImpl as never });
-    expect(map?.get("900")?.dailyBudgetMinor).toBe(12_000);
-    expect(map?.get("901")?.dailyBudgetMinor).toBeNull();
-    expect(fetchImpl.mock.calls.every(c => ((c as unknown[])[1] as RequestInit | undefined)?.method !== "POST")).toBe(true);
+  const liveTables = (): Record<string, Table> => ({
+    meta_ad_accounts: { data: { meta_connection_id: "mc", external_id: "act_910" } },
+    meta_connections: { data: { id: "mc", integration_id: "in", connected_at: "2026-10-01T00:00:00Z" } },
+    integrations: { data: { id: "in", connection_status: "connected", health_status: "ok" } },
   });
-  it("divide a leitura em lotes de ate 40 ids e informa a conta dona da entidade", async () => {
-    const tables: Record<string, Table> = {
-      meta_ad_accounts: { data: { meta_connection_id: "mc" } },
-      meta_connections: { data: { id: "mc", integration_id: "in", connected_at: "2026-10-01T00:00:00Z" } },
-      integrations: { data: { id: "in", connection_status: "connected", health_status: "ok" } },
-    };
-    const { service } = fakeService(tables, {});
-    const fetchImpl = vi.fn(async (url: URL | string) => {
-      const ids = (new URL(String(url)).searchParams.get("ids") ?? "").split(",");
-      return new Response(JSON.stringify(Object.fromEntries(ids.map(id => [id, { id, account_id: "910", status: "PAUSED", effective_status: "PAUSED" }]))), { status: 200 });
-    });
-    const many = Array.from({ length: 90 }, (_, i) => String(1000 + i));
-    const map = await readLiveEntityState(service, { agencyId: "ag", clientId: "cl", adAccountId: ACCOUNT }, many,
+  const edgeFetch = (campaigns: object[], adsets: object[]) => vi.fn(async (url: URL | string) =>
+    new Response(JSON.stringify({ data: String(url).includes("/campaigns") ? campaigns : adsets }), { status: 200 }));
+
+  it("le pela conta (edges) com GET, sem presumir orcamento ausente e ignorando ids que a Meta nao devolve", async () => {
+    const { service } = fakeService(liveTables(), {});
+    const fetchImpl = edgeFetch(
+      [{ id: "900", status: "ACTIVE", effective_status: "ACTIVE", daily_budget: "12000" }],
+      [{ id: "901", status: "PAUSED", effective_status: "ADSET_PAUSED" }, { id: "555", status: "ACTIVE", effective_status: "ACTIVE" }]);
+    const map = await readLiveEntityState(service, { agencyId: "ag", clientId: "cl", adAccountId: ACCOUNT }, ["900", "901", "999"],
       { tokenLoader: async () => "tok", apiVersion: "v23.0", fetchImpl: fetchImpl as never });
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(map?.size).toBe(90);
-    expect(map?.get("1000")).toMatchObject({ configuredStatus: "PAUSED", accountExternalId: "act_910" });
+    expect(map?.get("900")).toMatchObject({ dailyBudgetMinor: 12_000, configuredStatus: "ACTIVE", accountExternalId: "act_910" });
+    expect(map?.get("901")).toMatchObject({ dailyBudgetMinor: null, configuredStatus: "PAUSED" });
+    expect(map?.has("999")).toBe(false); // id inexistente nao derruba a leitura
+    expect(map?.has("555")).toBe(false); // so o que foi pedido
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl.mock.calls.every(c => ((c as unknown[])[1] as RequestInit | undefined)?.method !== "POST")).toBe(true);
+    expect(fetchImpl.mock.calls.map(c => String(c[0])).join(" ")).not.toContain("end_time");
+  });
+  it("erro da Meta vira motivo curto, sem expor mensagem ou token", async () => {
+    const { service } = fakeService(liveTables(), {});
+    const bad = vi.fn(async () => new Response(JSON.stringify({ error: { code: 100, message: "token secreto abc" } }), { status: 400 }));
+    const { readLiveEntityStateDetailed } = await import("@/modules/agent-executor/decision-live-state");
+    const r = await readLiveEntityStateDetailed(service, { agencyId: "ag", clientId: "cl", adAccountId: ACCOUNT }, ["900"],
+      { tokenLoader: async () => "tok-secreto", apiVersion: "v23.0", fetchImpl: bad as never });
+    expect(r).toMatchObject({ ok: false, reason: "meta_error", detail: "http 400 code 100" });
+    expect(JSON.stringify(r)).not.toMatch(/secret/);
   });
   it("integracao offline ou erro de token => null", async () => {
     const off = fakeService({
-      meta_ad_accounts: { data: { meta_connection_id: "mc" } },
+      meta_ad_accounts: { data: { meta_connection_id: "mc", external_id: "act_910" } },
       meta_connections: { data: { id: "mc", integration_id: "in", connected_at: "2026-10-01T00:00:00Z" } },
       integrations: { data: { id: "in", connection_status: "disconnected", health_status: "ok" } },
     }, {});
