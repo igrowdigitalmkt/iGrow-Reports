@@ -181,3 +181,20 @@ Antes da primeira escrita na Meta, o responsável deverá escolher ou fornecer u
 - Migracoes permanecem NAO aplicadas em producao, gate global OFF e nenhuma chamada Meta real executada. Nao existe ainda decisor LLM autonomo nem interface manual completa.
 
 **Proxima implementacao:** homologar a interface curta de aprovacao com dados controlados, construir um caminho de modificacao MANUAL explicitamente iniciado por usuario autenticado, o decisor estruturado com fatos comprovados e, depois, a reconciliacao segura e homologacao. Para permitir acoes nao financeiras autonomas, sera necessario classificacao explicita e testes; acoes desconhecidas continuam bloqueadas sem aprovacao.
+
+
+## 13. Quinta entrega - motor de analise e decisao (18/10/2026)
+
+**Implementado em codigo (desligado por padrao: `AGENT_DECISION_ENGINE_ENABLED=true` e necessario; nenhuma rota, cron ou UI o chama):**
+
+- `decision-facts.ts`: fatos deterministicos a partir da hierarquia de metricas ja confirmadas. O modelo recebe so referencias opacas (`c1`, `a2`) e metricas; IDs Meta, conta e organizacao ficam num mapa server-side.
+- `decision-contract.ts`: schema estrito da saida do modelo (tool use forcado). Nao ha campo para ids, permissao, delegacao, aprovacao ou prazo; campos extras sao rejeitados. Orcamento so como `budgetChangePercent`; o valor absoluto e calculado no servidor a partir do orcamento confirmado.
+- `decision-validator.ts`: validacao pura. Confere alvo existente, evidencia, nivel x acao, estado atual, numeros citados (reusa `verifyNumbers`), conflito de acoes na mesma entidade, frescor dos fatos. Roteamento nunca e escolha do modelo: `aiChangeRequiresHumanApproval` (fail-closed) => `needs_human_approval`.
+- `decision-engine.ts` e `anthropic-decision-model.ts`: provedor injetavel (testes usam dublê, sem chamada real). Saida que nao seja tool use estruturado vira erro.
+- `decision-bridge.ts`: leva decisoes validadas a `stageMetaDecision`. Apenas pausas entram, sempre como `awaiting_approval`; retomar/orcamento ficam como `recommendation_only` ate o inventario financeiro Meta (mesma trava de `queue.ts`).
+
+**Decisoes:** nenhuma acao automatica nao financeira existe ainda (a classificacao atual trata tudo como financeiro). Nao foi criada feature `ai_usage` nova (exigiria migration); tokens/requestId voltam no resultado do motor, mas **o custo ainda nao e contabilizado em `ai_usage` nem sujeito a cota mensal** - pendencia obrigatoria antes de ligar o motor.
+
+**Evidencia:** 14 testes novos; 73 testes do agente, `tsc --noEmit` e ESLint direcionado passaram. Nenhuma migration, chamada Meta/Anthropic real ou dado de producao usado.
+
+**Pendente:** (1) leitor server-side que monta `FactsInput` (hierarquia, orcamentos confirmados na Meta, perfil/objetivos) com o escopo confiavel; (2) cota/custo de IA e registro em `ai_usage`; (3) reconciliacao de `needs_verification`/`unknown_outcome`; (4) inventario financeiro Meta para liberar resume/orcamento; (5) chamada orquestrada (cron) e UI de recomendacoes.
