@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { confirmedEmptyPeriodValues } from "@/modules/meta/insight-values";
 import { getMetaEntityStatuses, type LiveCampaignIdentity, type LiveReadReport } from "@/modules/meta/server";
 import type { LiveDeliveryState } from "@/modules/meta/delivery";
 import { getFreshClientAnalytics } from "./analytics-live";
@@ -90,9 +89,9 @@ export async function loadClientHierarchy(input: {
       if (!account || entities.some(e => e.accountId === campaign.accountId && e.level === "campaign" && e.id === campaign.id)) continue;
       entities.push({ key: `campaign:${campaign.id}`, id: campaign.id, name: campaign.name, level: "campaign",
         accountId: account.id, accountName: account.name, currency: account.currency, parentId: null,
-        campaignId: campaign.id, values: !input.catalogOnly && analytics.metaAggregate?.confirmed
-          ? confirmedEmptyPeriodValues(analytics.metrics.filter(m => m.key.startsWith("action:")).map(m => m.key.slice(7)))
-          : {}, effectiveStatus: null });
+        campaignId: campaign.id,
+        // Campanha do catálogo ao vivo sem linha de métricas: o agregado da CONTA não prova entrega zero para ela. Fica desconhecida (sem valores).
+        values: {}, effectiveStatus: null });
     }
     if ((input.fullCatalog || input.catalogOnly) && input.report) {
       const known = new Set(entities.map(entity => `${entity.accountId}:${entity.key}`));

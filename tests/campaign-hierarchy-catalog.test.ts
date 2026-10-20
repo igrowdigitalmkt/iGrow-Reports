@@ -38,6 +38,18 @@ it("com catálogo completo traz conjuntos e anúncios sem movimentação, sem ze
   expect(byId["adset:10"]!.values.spend).toBe(100);
 });
 
+it("campanha do catálogo ao vivo sem linha NUNCA vira zero a partir do agregado confirmado da conta", async () => {
+  mocks.statuses.mockImplementation(async (_input, _thumbs, live: Array<{ accountId: string; id: string; name: string }>) => {
+    live.push({ accountId, id: "9", name: "Só no catálogo" }); return { [`${accountId}:campaign:9`]: "INACTIVE" };
+  });
+  const result = await loadClientHierarchy({ ...base, fullCatalog: true, analytics: { ...analytics, metrics: [] } as never });
+  const entities = "entities" in result ? result.entities ?? [] : [];
+  const orphan = entities.find(entity => entity.id === "9");
+  expect(orphan).toBeDefined();
+  expect(orphan!.values).toEqual({});
+  expect(orphan!.values.spend).toBeUndefined();
+});
+
 it("sem catálogo completo mantém o comportamento do painel (apenas campanhas com gasto ou ativas)", async () => {
   const report: LiveReadReport = { entities: [], accountsRead: [], accountsFailed: [] };
   const result = await loadClientHierarchy({ ...base, report });

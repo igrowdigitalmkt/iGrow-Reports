@@ -147,3 +147,12 @@ describe("canonical Meta period metrics", () => {
     expect(hasOverlappingMetaSelection(ads, ["campaign:1", "ad:6"])).toBe(false);
   });
 });
+
+describe("soma de contas sem deriva de centavos", () => {
+  it("soma os agregados da Meta por conta com decimais exatos e não recompõe a partir de dias", () => {
+    const sum = sumPeriodInsightValues([{ spend: 2860.48 }, { spend: 1597.64 }], true);
+    expect(sum.spend).toBe(4458.12);
+    // 0,1 + 0,2 não pode virar 0,30000000000000004.
+    expect(sumPeriodInsightValues([{ spend: 0.1 }, { spend: 0.2 }], true).spend).toBe(0.3);
+  });
+});
