@@ -4,7 +4,7 @@ import type { Database } from "@/types/database";
 import { aiAllowance, runDecisionCycle, type CycleDeps, type CycleResult } from "@/modules/agent-executor/decision-cycle";
 import { decisionEngineEnabled, type DecisionModel } from "@/modules/agent-executor/decision-engine";
 import {
-  skipMessage, type AnalyzeResult, type OpportunityAvailability, type OpportunityJob, type OpportunityObservation, type OpportunityRun, type OpportunityState,
+  ANALYSIS_SCOPE, skipMessage, type AnalyzeResult, type OpportunityAvailability, type OpportunityJob, type OpportunityObservation, type OpportunityRun, type OpportunityState,
 } from "./contracts";
 
 type Service = SupabaseClient<Database>;
@@ -18,12 +18,6 @@ export type OpportunityDeps = {
   cycle?: (service: Service, scope: { agencyId: string; clientId: string }, deps: CycleDeps) => Promise<CycleResult>;
   allowance?: typeof aiAllowance;
   now?: () => Date;
-};
-
-/** Escopo REAL do ciclo de decisão (decision-cycle.ts/decision-validator): é o que a tela declara ao usuário, sem prometer mais. */
-export const ANALYSIS_SCOPE: OpportunityState["scope"] = {
-  windowDays: 14, levels: ["campanha", "conjunto de anúncios"],
-  actions: ["pausar", "retomar", "alterar o orçamento diário"], requiresApproval: true,
 };
 
 const unavailable = (state: Exclude<OpportunityAvailability, { state: "available" }>["state"], message: string): OpportunityAvailability => ({ state, message });

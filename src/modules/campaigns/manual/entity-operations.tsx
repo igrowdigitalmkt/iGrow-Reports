@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { History, Loader2, Pause, Play, ShieldAlert, Wallet } from "lucide-react";
 import {
@@ -15,6 +15,9 @@ export type OperationsRunner = (input: {
   ref: ManualRef; op: ManualOp; requestId: string;
   expected: { configuredStatus: "ACTIVE" | "PAUSED"; dailyBudgetMinor: number | null }; dailyBudgetMinor?: number;
 }) => Promise<ManualRunResult & { history?: ManualHistoryItem[] | null }>;
+
+/** Permite trocar as chamadas ao servidor (testes e capturas locais). Em produção ninguém fornece este contexto: valem as ações do servidor. */
+export const OperationsServicesContext = createContext<{ loader?: OperationsLoader; runner?: OperationsRunner }>({});
 
 const LEVEL_LABEL: Record<ManualLevel, string> = { campaign: "campanha", adset: "conjunto de anúncios" };
 const OP_LABEL: Record<ManualOp, string> = { pause: "Pausar", resume: "Retomar", budget: "Alterar orçamento diário" };
@@ -63,11 +66,14 @@ type Banner = { tone: "good" | "warn" | "bad"; text: string };
  * Operações MANUAIS de uma campanha ou conjunto: estado atual lido AGORA na Meta, ações oferecidas conforme o servidor decide e
  * confirmação explícita antes de qualquer envio. O servidor revalida tudo de novo; a tela nunca é a fonte de permissão ou de estado.
  */
-export function EntityOperations({ clientId, accountId, level, entityId, entityName, accountName, currency, loader = loadManualControlAction, runner = runManualOperationAction, refresh }: {
+export function EntityOperations({ clientId, accountId, level, entityId, entityName, accountName, currency, loader: loaderProp, runner: runnerProp, refresh }: {
   clientId: string; accountId: string; level: ManualLevel; entityId: string; entityName: string; accountName: string; currency: string;
   loader?: OperationsLoader; runner?: OperationsRunner; refresh?: () => void;
 }) {
   const router = useRouter();
+  const services = useContext(OperationsServicesContext);
+  const loader = loaderProp ?? services.loader ?? loadManualControlAction;
+  const runner = runnerProp ?? services.runner ?? runManualOperationAction;
   const ref: ManualRef = { clientId, accountId, level, entityId };
   const [control, setControl] = useState<ManualControl | null>(null);
   const [history, setHistory] = useState<ManualHistoryItem[] | null>(null);

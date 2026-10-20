@@ -122,3 +122,8 @@ Ver `docs/LANCAMENTO_V1.md` (checklist de produção) e `docs/SUSPENSAO_E_MONITO
 - Contabilização: reserva US$ 0,062 a 0,067, custo real US$ 0,023 a 0,026, todas liquidadas, nenhuma pendência; gasto da organização no mês US$ 0,63 de US$ 2,00. Trocar de cliente por navegação normal descartou a conversa (6 mensagens para 0).
 - Taxa de bloqueio do verificador observada: 1 de 7 respostas reais em produção (as outras 6 entregues); acompanhar pelo log `campaign_chat unverified_numbers` (só números, sem texto).
 
+
+## Gestão operacional de Campanhas (20/10/2026)
+- Detalhes, causas e decisões em `docs/GESTAO_OPERACIONAL_CAMPANHAS.md`: zeros por ausência de linha corrigidos em Campanhas; divergência de R$ 0,31 explicada (duas coletas da Meta em horários diferentes), sem forçar números; reservas atômicas em todos os consumidores de IA (relatório, carteira, WhatsApp, decisão do agente, assistente); operações manuais (pausar/retomar/orçamento) em campanha e conjunto pelo executor existente; "Analisar oportunidades" com cinco estados e aprovação humana específica.
+- Execução real de anúncios continua DESLIGADA (interruptor da organização); nenhuma campanha real foi alterada.
+- Capturas: `docs/capturas-campanhas/6.0-*` (fixtures locais, removidas).

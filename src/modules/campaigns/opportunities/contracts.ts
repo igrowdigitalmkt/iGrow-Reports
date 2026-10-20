@@ -58,3 +58,9 @@ export const SKIP_MESSAGES: Record<string, string> = {
   model_error: "O serviço de IA não respondeu; nada foi proposto.",
 };
 export const skipMessage = (reason: string) => SKIP_MESSAGES[reason.split(":")[0] ?? ""] ?? "Esta conta não pôde ser analisada agora.";
+
+/** Escopo REAL do ciclo de decisão (decision-cycle.ts/decision-validator): é o que a tela declara ao usuário, sem prometer mais. */
+export const ANALYSIS_SCOPE: OpportunityState["scope"] = {
+  windowDays: 14, levels: ["campanha", "conjunto de anúncios"],
+  actions: ["pausar", "retomar", "alterar o orçamento diário"], requiresApproval: true,
+};

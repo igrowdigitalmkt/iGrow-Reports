@@ -35,7 +35,7 @@
 @keyframes ops-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .ops-spin { animation: none; } }
 
-.ops-dialog { width: min(480px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+.ops-dialog { position: fixed; inset: 0; margin: auto; max-height: calc(100dvh - 32px); overflow: auto; width: min(480px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
 .ops-dialog::backdrop { background: rgba(0, 0, 0, .55); }
 .ops-dialog form { display: grid; gap: 12px; padding: 18px; }
 .ops-dialog h3 { margin: 0; font-size: 16px; }
