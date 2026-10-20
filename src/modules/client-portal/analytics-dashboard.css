@@ -535,3 +535,8 @@
 /* Filtro de contas: lista, opção de consolidar e, por último, o botão preenchido na largura toda. */
 .analytics-accounts-apply { width: 100%; justify-content: center; margin-top: 10px; }
 .analytics-consolidate { margin-top: 10px; }
+
+.section-toggle { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.section-toggle:hover { background: var(--surface-hover); color: var(--text); }
+.section-toggle svg { transition: transform .15s; }
+.section-toggle svg.is-collapsed { transform: rotate(-90deg); }

@@ -26,6 +26,7 @@ import { clearSelection, entityKey, scopeDescription, scopeRows, selectionStorag
 import { useStoredSelection } from "./navigation/use-selection";
 import { structureOf } from "./platforms/registry";
 import { OperationsServicesContext, loadManualCapabilitiesAction } from "./manual/entity-operations";
+import { SectionToggle } from "@/modules/client-portal/section-toggle";
 import { GoogleAdsSection, type GoogleSectionView } from "@/modules/google-ads/google-section";
 import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "@/modules/client-portal/platform-picker";
 import "./navigation/navigation.css";
@@ -79,6 +80,9 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
     setPlatforms(next);
     if (platformKey) try { window.localStorage.setItem(platformKey, JSON.stringify(next)); } catch { /* Preferências são opcionais. */ }
   };
+  // Seções recolhíveis: todas abertas por padrão; o estado vale só nesta visita.
+  const [collapsed, setCollapsed] = useState<string[]>([]);
+  const toggleSection = (key: string) => setCollapsed(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key]);
   const platformOrder = (key: string) => 10 + platforms.findIndex(item => item.key === key);
   const metaVisible = platforms.some(item => item.key === "meta" && item.enabled);
   const googleVisible = platforms.some(item => item.key === "google" && item.enabled) && (googleSections.length > 0 || googleFailures.length > 0);
@@ -216,7 +220,7 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
     </header>
     {intro}
     {metaVisible && <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
-      <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
+      <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><SectionToggle collapsed={collapsed.includes("meta")} label="Meta Ads" onToggle={() => toggleSection("meta")} /><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
         {data.state === "ready" && data.warnings.length > 0 && <details className="analytics-quality-menu">
           <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
           <div>{data.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>
@@ -233,6 +237,7 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
           </div>
         </details></div>}
       </div>
+    {!collapsed.includes("meta") && <>
     <div className="campaigns-toolbar">
       <label className="campaigns-field"><span>Veiculação (estado efetivo)</span>
         <Select className="compact-select campaigns-select" value={ui.group} aria-label="Filtrar por estado efetivo" onChange={event => patchUi({ group: event.target.value as LevelUi["group"] })}>
@@ -307,8 +312,9 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
         </div>
       </article>}
 
+    </>}
     </section>}
-    {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} />}
+    {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsed.includes("google")} onToggle={() => toggleSection("google")} />}
     {!metaVisible && !googleVisible && <div className="campaigns-empty"><strong>Nenhuma plataforma selecionada</strong><p>Escolha ao menos uma em Plataformas.</p></div>}
     {batch && <BatchDialog op={batch} rows={pickedRows} clientId={clientId} onClose={() => setBatch(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}
     {editing && <EditPanel row={editing} clientId={clientId} detailSearch={detailSearch} onClose={() => setEditing(null)} onChanged={() => router.refresh()}

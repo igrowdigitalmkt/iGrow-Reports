@@ -1,4 +1,5 @@
 import { resultCostBreakdown } from "@/modules/client-portal/analytics-results";
+import { SectionToggle } from "@/modules/client-portal/section-toggle";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
 
 const whole = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
@@ -33,11 +34,12 @@ export function googleAccountSummary(section: GoogleSectionView) {
 }
 
 // Seção do Google Ads no painel do cliente: uma conta por bloco, com resultados e custos próprios.
-export function GoogleAdsSection({ sections, failures, order }: { sections: GoogleSectionView[]; failures: Array<{ name: string; message: string }>; order?: number }) {
+export function GoogleAdsSection({ sections, failures, order, collapsed = false, onToggle }: { sections: GoogleSectionView[]; failures: Array<{ name: string; message: string }>; order?: number; /** Recolher/expandir (só nas telas que passam `onToggle`). */ collapsed?: boolean; onToggle?: () => void }) {
   if (!sections.length && !failures.length) return null;
   return <section className="platform-section" aria-label="Google Ads" style={order === undefined ? undefined : { order }}>
-    <div className="platform-heading"><span className="platform-mark is-google" aria-hidden="true">G</span><h2>Google Ads</h2>
+    <div className="platform-heading"><span className="platform-mark is-google" aria-hidden="true">G</span><h2>Google Ads</h2>{onToggle && <SectionToggle collapsed={collapsed} label="Google Ads" onToggle={onToggle} />}
       <span className="platform-heading-meta">{sections.length} {sections.length === 1 ? "conta" : "contas"}</span></div>
+    {!collapsed && <>
     {failures.map(failure => <p key={failure.name} role="alert" className="analytics-footnote" style={{ padding: "0 4px" }}>Não foi possível ler a conta {failure.name} agora. {failure.message}</p>)}
     <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
       {sections.map(section => {
@@ -57,5 +59,6 @@ export function GoogleAdsSection({ sections, failures, order }: { sections: Goog
         </article>;
       })}
     </div>
+    </>}
   </section>;
 }
