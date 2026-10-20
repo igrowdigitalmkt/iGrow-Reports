@@ -1,4 +1,4 @@
-import { Breadcrumb, ChildrenSection, ContextCard, IdentityCard, PerformanceGrid, ResultsSection, StateBadge, StateCard, type DetailProps } from "./parts";
+import { Breadcrumb, ChildrenSection, ContextCard, IdentityCard, OperationsCard, PerformanceGrid, ResultsSection, StateBadge, StateCard, type DetailProps } from "./parts";
 
 /** Detalhes da CAMPANHA: identificação, veiculação, desempenho, resultados por tipo e os conjuntos de anúncios que a compõem. */
 export function CampaignDetail(props: DetailProps) {
@@ -15,6 +15,7 @@ export function CampaignDetail(props: DetailProps) {
         <ChildrenSection {...props} title="Conjuntos de anúncios" emptyText="Nenhum conjunto de anúncios encontrado para esta campanha nas contas e no período selecionados." />
       </div>
       <aside className="cdetail-aside" aria-label="Informações da campanha">
+        <OperationsCard clientId={props.clientId} entity={entity} />
         <IdentityCard entity={entity} parents={[]} />
         <StateCard entity={entity} data={props.data} />
         <ContextCard data={props.data} />

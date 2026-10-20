@@ -1,3 +1,4 @@
+import { EntityOperations } from "../manual/entity-operations";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, ImageOff, TriangleAlert } from "lucide-react";
@@ -10,6 +11,12 @@ import { ancestorsOf } from "../detail";
 import type { CampaignsData } from "../load";
 import { campaignsPath, entityPath } from "../routes";
 import { childrenOf, sortRows, type CampaignRow } from "../tree";
+
+/** Operações manuais (pausar, retomar, orçamento) de campanhas e conjuntos; anúncios não têm operações. O servidor decide o que é oferecido. */
+export function OperationsCard({ clientId, entity }: { clientId: string; entity: CampaignRow }) {
+  if (entity.level === "ad") return null;
+  return <EntityOperations clientId={clientId} accountId={entity.accountId} level={entity.level} entityId={entity.id} entityName={entity.name} accountName={entity.accountName} currency={entity.currency} />;
+}
 
 export type DetailProps = { clientId: string; data: CampaignsData; entity: CampaignRow; catalog: ColumnDef[]; index: CostIndex; search: string };
 

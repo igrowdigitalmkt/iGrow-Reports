@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ancestorsOf } from "../detail";
 import { entityPath } from "../routes";
-import { Breadcrumb, ChildrenSection, ContextCard, IdentityCard, PerformanceGrid, ResultsSection, StateBadge, StateCard, type DetailProps } from "./parts";
+import { Breadcrumb, ChildrenSection, ContextCard, IdentityCard, OperationsCard, PerformanceGrid, ResultsSection, StateBadge, StateCard, type DetailProps } from "./parts";
 
 /** Detalhes do CONJUNTO DE ANÚNCIOS: pertence a uma campanha (com retorno a ela) e reúne os anúncios do conjunto. */
 export function AdSetDetail(props: DetailProps) {
@@ -22,6 +22,7 @@ export function AdSetDetail(props: DetailProps) {
         <ChildrenSection {...props} title="Anúncios do conjunto" emptyText="Nenhum anúncio encontrado para este conjunto nas contas e no período selecionados." />
       </div>
       <aside className="cdetail-aside" aria-label="Informações do conjunto">
+        <OperationsCard clientId={props.clientId} entity={entity} />
         <IdentityCard entity={entity} parents={parents} />
         <StateCard entity={entity} data={data} />
         <ContextCard data={data} />
