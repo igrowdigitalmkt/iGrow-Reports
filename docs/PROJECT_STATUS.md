@@ -89,3 +89,12 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 
 ## Fechamento da V1 (15/10/2026)
 Ver `docs/LANCAMENTO_V1.md` (checklist de produção) e `docs/SUSPENSAO_E_MONITORAMENTO.md`. Código local pronto e homologado; produção NÃO tocada (migrations 0001–0008, variáveis, webhook, cron e chaves do Asaas de produção dependem de autorização). Teste gratuito no cadastro, seleção de plano sem pré-seleção, Google ao vivo sob a restrição e suporte a produção do Asaas (travado por padrão) entraram nesta rodada.
+
+## Gestão de Campanhas no menu do cliente (20/10/2026): implementada no worktree `feat/campaign-management`, local, sem commit
+
+- **Navegação:** Campanhas saiu da barra principal e vive no menu do cliente (`/clientes/ID/campanhas`, rota estática que vence o catch-all). Entrar ou sair dela usa a navegação do Next (`ROUTED_SECTIONS` em `client-sections.ts`); entre Dashboard, Métricas e Relatórios continua o `history.pushState`. `/campanhas` (global) só redireciona. O layout do cliente responde 404 para cliente inexistente ou de outra organização.
+- **Dashboard preserva a seleção de campanhas** que antes era a aba Campanhas (alimenta o Dashboard): agora é o painel "Selecionar campanhas" do próprio Dashboard. Na demonstração a aba antiga continua.
+- **Detalhes:** `/clientes/ID/campanhas/meta/CONTA/(campanha|conjunto|anuncio)/ID-EXTERNO`; cliente da organização, conta vinculada, nível e identificador validados no servidor; sem dados confirmados aparece "—" (não zero); orçamento, públicos, posicionamentos e programação não são coletados e não aparecem. O assistente é o mesmo da lista (`assistant/session.tsx`: conversas por contexto compartilhadas no layout de Campanhas; contexto inicial = entidade aberta).
+- **Colunas:** preferência local (só chaves, ordem escolhida, por organização + usuário). Índice de filhos em memória na tabela.
+- **Validação:** `tests/campaign-navigation.test.ts` e demais `tests/campaign*`; navegação, segurança de URL e capturas (`docs/capturas-campanhas/4.0-*`) verificadas com fixtures locais temporárias (removidas). Não há commit, deploy, migration aplicada nem chamada paga. O assistente segue desligado (`CAMPAIGN_CHAT_ENABLED` não definido); migrations `202610200001/2` continuam NÃO aplicadas (ver `docs/HOMOLOGACAO_CHAT_CAMPANHAS.md`).
+
