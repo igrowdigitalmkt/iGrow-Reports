@@ -74,10 +74,7 @@ tr:hover .campaigns-open, .campaigns-open:focus-visible { color: var(--accent-te
 .campaigns-toolbar .campaigns-field .ui-select-trigger { width: 100%; }
 
 /* Tabela: o nome fica fixo à esquerda na rolagem horizontal; textos de resultado aparecem inteiros. */
-.campaigns-card .analytics-table-scroll { scrollbar-width: auto; scrollbar-color: var(--border-strong) transparent;
-  background:
-    linear-gradient(to left, var(--surface) 30%, rgba(0, 0, 0, 0)) right center / 40px 100% no-repeat local,
-    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, .55), rgba(0, 0, 0, 0)) right center / 18px 100% no-repeat scroll; }
+.campaigns-card .analytics-table-scroll { scrollbar-width: auto; scrollbar-color: var(--border-strong) transparent; }
 .campaigns-card .analytics-table tbody th, .campaigns-card .analytics-table thead th:first-child { min-width: 300px; max-width: 360px; white-space: normal; }
 .campaigns-card .analytics-campaign-name strong { display: -webkit-box; max-width: none; overflow: hidden; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .campaigns-card .analytics-campaign-name > div { min-width: 0; }

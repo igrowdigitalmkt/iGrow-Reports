@@ -65,6 +65,8 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
   const [accountDraft, setAccountDraft] = useState<string[] | null>(null);
   const [batch, setBatch] = useState<"pause" | "resume" | null>(null);
   const [editing, setEditing] = useState<CampaignRow | null>(null);
+  // Interruptor da linha: abre a mesma confirmação da pausa/retomada em lote, com uma única entidade.
+  const [statusChange, setStatusChange] = useState<{ row: CampaignRow; op: "pause" | "resume" } | null>(null);
   // Operações novas (renomear e anúncios) só aparecem quando o servidor confirma que o banco as aceita (null enquanto consulta).
   const services = useContext(OperationsServicesContext);
   // Seleção e ordem das plataformas: a mesma preferência do painel do cliente (mesma chave), restaurada após a hidratação.
@@ -143,7 +145,7 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
   const costIndex = useMemo(() => buildCostIndex(data.rows), [data.rows]);
   const catalog = useMemo(() => buildColumns(data.metrics, resultFamilies(data.rows)), [data.metrics, data.rows]);
   const columns = useMemo(() => applyColumnPreference(catalog, columnKeys), [catalog, columnKeys]);
-  const valueOf = useCallback((row: CampaignRow, key: string) => key === "priority" ? priorityValue(row.state) : key === "state" ? STATE_ORDER.indexOf(row.state.group) : sortValue(row, key, costIndex), [costIndex]);
+  const valueOf = useCallback((row: CampaignRow, key: string) => key === "priority" ? priorityValue(row.state) : key === "configured" ? ({ ACTIVE: 0, PAUSED: 1 } as Record<string, number>)[row.state.configured?.code ?? ""] ?? 2 : key === "state" ? STATE_ORDER.indexOf(row.state.group) : sortValue(row, key, costIndex), [costIndex]);
 
   // Linhas do nível ativo: escopo da seleção › busca (nome, conjunto e campanha) › estados › ordem.
   const scoped = useMemo(() => scopeRows(level, data.rows, selection), [level, data.rows, selection]);
@@ -301,7 +303,9 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
 
         <div role="tabpanel" id={`level-panel-${level}`} aria-labelledby={`level-tab-${level}`}>
           <LevelTable level={level} rows={pageRows} columns={columns} index={costIndex} selected={selectedKeys} onToggle={toggleRow} onTogglePage={togglePage}
-            clientId={clientId} detailSearch={detailSearch} analyzing={selected} onAnalyze={onSelectEntity} campaignName={campaignName} adsetName={adsetName} sort={ui.sort} onSort={sortBy} />
+            clientId={clientId} detailSearch={detailSearch} analyzing={selected} onAnalyze={onSelectEntity} campaignName={campaignName} adsetName={adsetName} sort={ui.sort} onSort={sortBy}
+            onToggleStatus={(row, turnOn) => setStatusChange({ row, op: turnOn ? "resume" : "pause" })}
+            statusBlocked={row => row.level === "ad" && extended !== true ? "Operações em anúncios aguardam a atualização do banco neste ambiente." : null} />
         </div>
         {!sorted.length && <p className="analytics-empty-copy">{emptyText}</p>}
         {sorted.length > PAGE_SIZE && <div className="level-pager"><span>{page * PAGE_SIZE + 1}–{Math.min(sorted.length, (page + 1) * PAGE_SIZE)} de {sorted.length}{filtering ? " (filtrados)" : ""}</span>
@@ -319,6 +323,7 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
     </section>}
     {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsed.includes("google")} onToggle={() => toggleSection("google")} />}
     {!metaVisible && !googleVisible && <div className="campaigns-empty"><strong>Nenhuma plataforma selecionada</strong><p>Escolha ao menos uma em Plataformas.</p></div>}
+    {statusChange && <BatchDialog op={statusChange.op} rows={[statusChange.row]} clientId={clientId} onClose={() => setStatusChange(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}
     {batch && <BatchDialog op={batch} rows={pickedRows} clientId={clientId} onClose={() => setBatch(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}
     {editing && <EditPanel row={editing} clientId={clientId} detailSearch={detailSearch} onClose={() => setEditing(null)} onChanged={() => router.refresh()}
       onViewChildren={editing.level === "campaign" ? () => { setEditing(null); goTo("adset"); } : undefined} />}

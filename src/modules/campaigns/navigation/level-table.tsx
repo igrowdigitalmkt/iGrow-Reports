@@ -19,7 +19,9 @@ const NAME_HEADER: Record<CampaignRow["level"], string> = { campaign: "Campanha"
  * 2) nome = abre a página de detalhes;
  * 3) ícone de brilho = define a entidade como contexto do Assistente Groow (uma por vez).
  */
-export function LevelTable({ level, rows, columns, index, selected, onToggle, onTogglePage, clientId, detailSearch, analyzing, onAnalyze, campaignName, adsetName, sort, onSort }: {
+export function LevelTable({ level, rows, columns, index, selected, onToggle, onTogglePage, clientId, detailSearch, analyzing, onAnalyze, campaignName, adsetName, sort, onSort, onToggleStatus, statusBlocked }: {
+  /** Interruptor Ativado/Desativado: só PEDE a mudança (abre a confirmação); nada é enviado sem a confirmação explícita. */
+  onToggleStatus?: (row: CampaignRow, turnOn: boolean) => void; statusBlocked?: (row: CampaignRow) => string | null;
   level: CampaignRow["level"]; rows: CampaignRow[]; columns: ColumnDef[]; index: CostIndex;
   selected: Set<string>; onToggle: (row: CampaignRow, on: boolean) => void; onTogglePage: (on: boolean) => void;
   clientId: string; detailSearch: string; analyzing: { accountId: string; level: CampaignRow["level"]; id: string } | null; onAnalyze?: (row: CampaignRow) => void;
@@ -32,11 +34,12 @@ export function LevelTable({ level, rows, columns, index, selected, onToggle, on
   useEffect(() => { if (head.current) head.current.indeterminate = someSelected; }, [someSelected]);
   const aria = (key: string) => ariaSort(sort.key === key, sort.direction);
   const header = (key: string, label: string) => <SortHeader label={label} active={sort.key === key} direction={sort.direction} onSort={() => onSort(key)} />;
-  const span = columns.length + 3 + (level === "campaign" ? 0 : level === "adset" ? 1 : 2);
+  const span = columns.length + 4 + (level === "campaign" ? 0 : level === "adset" ? 1 : 2);
 
   return <div className="analytics-table-scroll is-capped"><table className="analytics-table analytics-campaign-table level-table" aria-label={`Tabela de ${NAME_HEADER[level].toLocaleLowerCase("pt-BR")}`}>
     <thead><tr>
       <th scope="col" className="level-check"><input ref={head} type="checkbox" checked={allSelected} aria-label="Selecionar esta página" disabled={!rows.length} onChange={event => onTogglePage(event.target.checked)} /></th>
+      {onToggleStatus && <th scope="col" className="level-status-head" aria-sort={aria("configured")}>{header("configured", "Status")}</th>}
       <th scope="col" className="analytics-campaign-main-header" aria-sort={aria("name")}>{header("name", NAME_HEADER[level])}</th>
       {level === "ad" && <th scope="col" className="level-parent">Conjunto</th>}
       {level !== "campaign" && <th scope="col" className="level-parent">Campanha</th>}
@@ -50,6 +53,7 @@ export function LevelTable({ level, rows, columns, index, selected, onToggle, on
       const isAnalyzing = !!analyzing && analyzing.accountId === row.accountId && analyzing.level === row.level && analyzing.id === row.id;
       return <tr key={key} className={`${isSelected ? "is-selected" : ""}${isAnalyzing ? " is-context" : ""}`}>
         <td className="level-check"><input type="checkbox" checked={isSelected} aria-label={`Selecionar ${row.name}`} onChange={event => onToggle(row, event.target.checked)} /></td>
+        {onToggleStatus && <td className="level-status"><StatusSwitch row={row} blocked={statusBlocked?.(row) ?? null} onToggle={onToggleStatus} /></td>}
         <th scope="row"><div className="analytics-campaign-name">
           {level === "ad" && (row.thumbnailUrl
             ? <Image className="analytics-ad-thumbnail" src={row.thumbnailUrl} alt="" width={44} height={44} unoptimized referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = "none"; }} />
@@ -72,4 +76,15 @@ export function LevelTable({ level, rows, columns, index, selected, onToggle, on
     })}
     {!rows.length && <tr><td colSpan={span} className="analytics-tree-empty">Nenhum item neste escopo.</td></tr>}</tbody>
   </table></div>;
+}
+
+/** Estado configurado: ACTIVE = ligado, PAUSED = desligado. Qualquer outro estado (arquivado, excluído...) não é alterável aqui. */
+function StatusSwitch({ row, blocked, onToggle }: { row: CampaignRow; blocked: string | null; onToggle: (row: CampaignRow, turnOn: boolean) => void }) {
+  const code = row.state.configured?.code ?? null;
+  const known = code === "ACTIVE" || code === "PAUSED";
+  const on = code === "ACTIVE";
+  const reason = !known ? `Estado ${row.state.configured?.label ?? "indisponível"}: não pode ser alterado por aqui.` : blocked;
+  return <button type="button" role="switch" aria-checked={known ? on : undefined} className={`status-switch${on ? " is-on" : ""}`} disabled={!!reason}
+    aria-label={`${on ? "Desativar" : "Ativar"} ${row.name}`} title={reason ?? (on ? "Ativo. Clique para pausar (pede confirmação)." : "Pausado. Clique para ativar (pede confirmação).")}
+    onClick={() => onToggle(row, !on)}><i aria-hidden="true" /></button>;
 }
