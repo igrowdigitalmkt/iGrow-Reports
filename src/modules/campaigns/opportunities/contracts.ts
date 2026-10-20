@@ -33,6 +33,8 @@ export type OpportunityRun = {
 export type OpportunityJob = {
   id: string; accountId: string; action: string; entityId: string; dailyBudgetMinor: number | null;
   status: string; createdAt: string; expiresAt: string | null; expired: boolean; approved: boolean; failure: string | null;
+  /** Justificativa da IA já validada pelo motor (números vindos dos fatos). Só propostas da IA chegam aqui. */
+  reason: string;
 };
 export type OpportunityState = {
   availability: OpportunityAvailability; runs: OpportunityRun[]; jobs: OpportunityJob[];

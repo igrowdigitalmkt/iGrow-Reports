@@ -52,3 +52,5 @@
 .ops-check input { margin-top: 3px; }
 .ops-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 @media (max-width: 480px) { .ops-summary > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } .ops-dialog-actions .ops-btn { flex: 1 1 100%; } }
+.ops-state-title { font-size: 13px; font-weight: 600; }
+a.ops-btn { text-decoration: none; }

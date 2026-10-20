@@ -84,3 +84,8 @@
 .campaigns-pick small { display: block; margin-top: 1px; color: var(--muted); font-size: 12px; }
 .campaigns-card .analytics-table tbody tr.is-context > td { background: var(--accent-bg); }
 .campaigns-card .analytics-table tbody tr.is-context > th { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); box-shadow: inset 3px 0 0 var(--accent), inset -1px 0 0 var(--border); }
+
+.assistant-next { display: grid; gap: 4px; margin-top: 8px; padding: 8px 10px; border: 1px dashed var(--border-strong); border-radius: 10px; }
+.assistant-next-link { display: inline-flex; align-items: center; gap: 6px; width: fit-content; color: var(--accent-text); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+.assistant-next-link:hover { text-decoration: underline; }
+.assistant-next small { color: var(--muted); font-size: 11.5px; line-height: 1.4; }

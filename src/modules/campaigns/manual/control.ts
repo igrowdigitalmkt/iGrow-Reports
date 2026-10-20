@@ -6,8 +6,9 @@ import { MetaClient } from "@/modules/meta/client";
 import { loadAccessToken } from "@/modules/meta/server";
 import { requestManualMetaChange, type ManualChangeResult } from "@/modules/agent-executor/manual-actions";
 import { agentSchedulerEnabled } from "@/modules/agent-executor/scheduler";
+import { WRITE_PERMISSION_MESSAGES, checkWritePermission, type WritePermission } from "./permissions";
 import {
-  MANUAL_ACTION_NAMES, currencyExponent, validateBudgetChange,
+  MANUAL_ACTION_NAMES, currencyExponent, metaAccountStatusLabel, validateBudgetChange,
   type ManualControl, type ManualHistoryItem, type ManualLevel, type ManualOp, type ManualRef, type ManualRunFailureCode, type ManualRunResult, type OpAvailability,
 } from "./contracts";
 
@@ -24,13 +25,15 @@ export type ControlDeps = {
   executorEnabled?: () => boolean;
   readEntity?: EntityReader;
   request?: (input: unknown) => Promise<ManualChangeResult>;
+  /** Leitura ao vivo da permissão de gerenciamento (padrão: /me/permissions). */
+  probeWrite?: (service: Service, scope: { agencyId: string; integrationId: string; connectionId: string }) => Promise<WritePermission>;
   now?: () => Date;
 };
 
 const message = {
   unauthorized: "Somente proprietários e administradores podem alterar campanhas.",
   executor: "A execução de alterações não está habilitada para esta organização ou ambiente. Nenhuma alteração será enviada à Meta.",
-  disconnected: "A conta de anúncios ou a conexão com a Meta está indisponível ou sem permissão de gerenciamento de anúncios.",
+  disconnected: "A conexão com a Meta está desconectada ou com erro. Reconecte a conta em Integrações para consultar e gerenciar os anúncios.",
   incompatible: "Esta entidade não pertence à conta/cliente informados ou não é uma campanha ou conjunto.",
   unknown: "Não foi possível confirmar o estado atual na Meta agora. Nenhuma ação é oferecida sem essa confirmação.",
 } as const;
@@ -54,10 +57,11 @@ export function validRef(ref: ManualRef): boolean {
 }
 
 type Blocked = Extract<ManualControl, { kind: Exclude<ManualControl["kind"], "ready"> }>;
+type Plain = Exclude<Blocked, { kind: "write_permission_missing" }>["kind"];
 type Resolved =
   | { ok: true; account: { id: string; externalId: string; name: string; currency: string }; connection: { integrationId: string; connectionId: string } }
   | { ok: false; control: Blocked };
-const stop = (kind: Blocked["kind"], text: string): Resolved => ({ ok: false, control: { kind, message: text } });
+const stop = (kind: Plain, text: string): Resolved => ({ ok: false, control: { kind, message: text } });
 
 /** Autorização e escopo no BANCO: papel, cliente da organização, vínculo ativo, conta, conexão com escopo de gerenciamento. Nada vem do navegador. */
 async function resolveScope(actor: Actor, ref: ManualRef, deps: ControlDeps): Promise<Resolved> {
@@ -70,14 +74,17 @@ async function resolveScope(actor: Actor, ref: ManualRef, deps: ControlDeps): Pr
     service.from("meta_ad_accounts").select("id,external_id,name,currency,account_status,meta_connection_id").eq("agency_id", actor.agencyId).eq("id", ref.accountId).is("archived_at", null).maybeSingle(),
   ]);
   if (!client || !link?.active || !account) return stop("incompatible", message.incompatible);
-  const usable = account.account_status === "1" || account.account_status === "ACTIVE";
+  // Causas distintas, mensagens distintas: conta restrita na Meta, conexão ausente/offline e permissão de gerenciamento NÃO são a mesma coisa.
+  if (account.account_status !== "1" && account.account_status !== "ACTIVE") {
+    return stop("account_restricted", `A conta de anúncios está ${metaAccountStatusLabel(account.account_status)} na Meta. A leitura de dados continua, mas pausar, retomar e alterar orçamento só são possíveis em conta ativa. Regularize a conta no Gerenciador de Anúncios.`);
+  }
   const { data: connection } = await service.from("meta_connections").select("id,integration_id,scopes,connected_at")
     .eq("agency_id", actor.agencyId).eq("client_id", ref.clientId).eq("id", account.meta_connection_id).maybeSingle();
   const { data: integration } = connection ? await service.from("integrations").select("id,connection_status,health_status")
     .eq("agency_id", actor.agencyId).eq("id", connection.integration_id).eq("provider", "meta").maybeSingle() : { data: null };
-  if (!usable || !connection?.connected_at || !connection.scopes.includes("ads_management") || integration?.connection_status !== "connected" || integration.health_status === "error") {
-    return stop("account_disconnected", message.disconnected);
-  }
+  if (!connection?.connected_at || integration?.connection_status !== "connected" || integration.health_status === "error") return stop("account_disconnected", message.disconnected);
+  // Concedida na conexão? (instantâneo guardado). Se não, nem consulta a Meta; se sim, a leitura ao vivo confirma depois.
+  if (!connection.scopes.includes("ads_management")) return { ok: false, control: { kind: "write_permission_missing", reason: "not_granted", message: WRITE_PERMISSION_MESSAGES.not_granted } };
   return { ok: true, account: { id: account.id, externalId: account.external_id, name: account.name, currency: account.currency }, connection: { integrationId: integration.id, connectionId: connection.id } };
 }
 
@@ -89,10 +96,15 @@ export async function resolveManualControl(actor: Actor, ref: ManualRef, deps: C
   const { data: allowed } = await service.rpc("agent_meta_execution_allowed", { p_agency_id: actor.agencyId });
   if (!(deps.executorEnabled ?? agentSchedulerEnabled)() || allowed !== true) return { kind: "executor_disabled", message: message.executor };
 
-  let raw: RawEntity | null;
-  try {
-    raw = await (deps.readEntity ?? defaultReadEntity)(service, { agencyId: actor.agencyId, ...scope.connection }, ref.entityId, ref.level);
-  } catch { return { kind: "unknown_state", message: message.unknown }; }
+  // Leitura ao vivo da permissão e da entidade, em paralelo. A permissão guardada na conexão não basta: precisa continuar válida AGORA.
+  const connectionScope = { agencyId: actor.agencyId, ...scope.connection };
+  const [permission, read] = await Promise.all([
+    (deps.probeWrite ?? checkWritePermission)(service, connectionScope).catch((): WritePermission => ({ state: "invalid", reason: "unverified" })),
+    (deps.readEntity ?? defaultReadEntity)(service, connectionScope, ref.entityId, ref.level).then(value => ({ ok: true as const, value }), () => ({ ok: false as const })),
+  ]);
+  if (permission.state !== "valid") return { kind: "write_permission_missing", reason: permission.reason, message: WRITE_PERMISSION_MESSAGES[permission.reason] };
+  if (!read.ok) return { kind: "unknown_state", message: message.unknown };
+  const raw: RawEntity | null = read.value;
   if (!raw) return { kind: "incompatible", message: message.incompatible };
   // Titularidade e tipo vêm do próprio provedor: a conta da Meta precisa ser a vinculada e o campo característico do nível precisa existir.
   if (raw.id !== ref.entityId || normalizeAccount(raw.account_id) !== scope.account.externalId

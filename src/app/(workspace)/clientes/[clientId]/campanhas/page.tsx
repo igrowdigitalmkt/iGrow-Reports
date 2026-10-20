@@ -34,7 +34,7 @@ export default async function ClientCampaignsPage({ params, searchParams }: { pa
     <div className="page-heading"><div><h1>Campanhas</h1>
       <p>Estrutura e veiculação no Meta Ads, da campanha ao anúncio. Abra uma entidade para ver seus detalhes.</p></div></div>
     {client.archived_at && <p className="campaigns-alert">Cliente arquivado. Histórico preservado para consulta.</p>}
-    <OpportunitiesPanel clientId={client.id} entities={entities} accountCurrencies={accountCurrencies} currency={data.accounts[0]?.currency ?? "BRL"} />
+    <OpportunitiesPanel clientId={client.id} entities={entities} accountCurrencies={accountCurrencies} accountNames={Object.fromEntries(data.accounts.map(account => [account.id, account.name]))} currency={data.accounts[0]?.currency ?? "BRL"} />
     <CampaignsWorkspace key={client.id} organizationId={context.agency.id} clientId={client.id} clientName={client.name} data={data}
       onlyActive={query.ativas === "1"} availability={availability} preferenceKey={preferenceKey} />
   </>;

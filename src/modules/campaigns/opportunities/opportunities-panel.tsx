@@ -26,8 +26,8 @@ function Impact({ job, hint, currency }: { job: OpportunityJob; hint: EntityHint
     {spend !== null && spend !== undefined ? <>Gasto confirmado no período selecionado: <strong>{money(spend, hint?.currency ?? currency)}</strong>.</> : "Impacto financeiro não calculado: gasto do período indisponível."}</small>;
 }
 
-export function OpportunitiesPanel({ clientId, entities, currency, accountCurrencies = {}, loader = loadOpportunitiesAction, analyzer = analyzeOpportunitiesAction, initial = null, approvalsHref = "/agente/aprovacoes" }: {
-  clientId: string; entities: Record<string, EntityHint>; currency: string; accountCurrencies?: Record<string, string>; loader?: OpportunitiesLoader; analyzer?: OpportunitiesAnalyzer;
+export function OpportunitiesPanel({ clientId, entities, currency, accountCurrencies = {}, accountNames = {}, loader = loadOpportunitiesAction, analyzer = analyzeOpportunitiesAction, initial = null, approvalsHref = "/agente/aprovacoes" }: {
+  clientId: string; entities: Record<string, EntityHint>; currency: string; accountCurrencies?: Record<string, string>; accountNames?: Record<string, string>; loader?: OpportunitiesLoader; analyzer?: OpportunitiesAnalyzer;
   initial?: OpportunityState | null; approvalsHref?: string;
 }) {
   const [state, setState] = useState<OpportunityState | null>(initial);
@@ -35,6 +35,13 @@ export function OpportunitiesPanel({ clientId, entities, currency, accountCurren
   const [running, setRunning] = useState(false);
   const [notice, setNotice] = useState<{ tone: "good" | "warn" | "bad"; text: string } | null>(null);
 
+  // Aberta pelo atalho do Assistente (evento na mesma página ou endereço com âncora). Só abre e rola; NUNCA inicia a análise.
+  useEffect(() => {
+    const reveal = () => { setOpen(true); window.setTimeout(() => { const root = document.getElementById("analise-operacional"); root?.scrollIntoView({ block: "start" }); root?.querySelector<HTMLButtonElement>(".opps-btn")?.focus({ preventScroll: true }); }, 60); };
+    if (window.location.hash === "#analise-operacional") reveal();
+    window.addEventListener("groow:open-opportunities", reveal);
+    return () => window.removeEventListener("groow:open-opportunities", reveal);
+  }, []);
   useEffect(() => {
     let alive = true;
     loader({ clientId }).then(next => { if (alive && next) setState(next); }).catch(() => { /* sem estado: a seção não aparece */ });
@@ -71,12 +78,13 @@ export function OpportunitiesPanel({ clientId, entities, currency, accountCurren
       groups[stage].push({ key: `j${job.id}`, node: <>
         <strong>{ACTION_LABELS[job.action] ?? job.action}: {hint?.name ?? `entidade ${job.entityId}`}</strong>
         <Impact job={job} hint={hint} currency={accountCurrencies[job.accountId] ?? currency} />
-        <small>{when(job.createdAt)} · proposta da IA{stage === "awaiting_approval" && job.expiresAt ? ` · válida até ${when(job.expiresAt)}` : ""}{stage === "executed" ? " · aprovada por uma pessoa e confirmada na Meta" : ""}{stage === "proposal" && status ? ` · ${status.label}` : ""}</small>
+        {job.reason && <small className="opps-reason-text">Motivo: {job.reason}</small>}
+        <small>{accountNames[job.accountId] ? `${accountNames[job.accountId]} · ` : ""}{when(job.createdAt)} · proposta da IA{stage === "awaiting_approval" && job.expiresAt ? ` · válida até ${when(job.expiresAt)}` : ""}{stage === "executed" ? " · aprovada por uma pessoa e confirmada na Meta" : ""}{stage === "proposal" && status ? ` · ${status.label}` : ""}</small>
         {stage === "awaiting_approval" && <Link className="opps-link" href={approvalsHref}>Revisar e aprovar <ChevronRight size={13} /></Link>}
       </> });
     }
     return groups;
-  }, [state, entities, currency, accountCurrencies, approvalsHref]);
+  }, [state, entities, currency, accountCurrencies, accountNames, approvalsHref]);
 
   const pending = grouped.awaiting_approval.length;
   const availability = state?.availability;
@@ -84,7 +92,7 @@ export function OpportunitiesPanel({ clientId, entities, currency, accountCurren
   if (!state) return null; // enquanto não houver estado (carregando ou indisponível) a seção não aparece
   if (state?.availability.state === "unauthorized") return null; // quem não pode analisar nem aprovar não vê a seção
 
-  return <section className="opps" aria-label="Análise operacional com IA">
+  return <section className="opps" id="analise-operacional" aria-label="Análise operacional com IA">
     <button type="button" className="opps-head" aria-expanded={open} onClick={() => setOpen(value => !value)}>
       <span className="opps-title"><Sparkles size={15} /> Análise operacional com IA <em className="opps-badge">IA</em></span>
       <span className="opps-chips">
@@ -94,7 +102,7 @@ export function OpportunitiesPanel({ clientId, entities, currency, accountCurren
       {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
     </button>
     {open && <div className="opps-body">
-      <p className="opps-scope"><ShieldCheck size={14} /> <span>Escopo real: a IA lê campanhas e conjuntos de anúncios de contas com delegação vigente, compara os últimos {state?.scope.windowDays ?? 14} dias com os {state?.scope.windowDays ?? 14} anteriores e pode propor {state?.scope.actions.join(", ") ?? "ações"}. <strong>Nada é executado sem a aprovação específica de um proprietário ou administrador.</strong> Anúncios, criação de campanhas, públicos e criativos não são analisados nem alterados por aqui.</span></p>
+      <p className="opps-scope"><ShieldCheck size={14} /> <span>Escopo real: a IA lê campanhas e conjuntos de anúncios {availability?.state === "available" ? `de ${availability.accounts} ${availability.accounts === 1 ? "conta com delegação vigente" : "contas com delegação vigente"}` : "de contas com delegação vigente"}, compara os últimos {state?.scope.windowDays ?? 14} dias com os {state?.scope.windowDays ?? 14} anteriores e pode propor {state?.scope.actions.join(", ") ?? "ações"}. <strong>Nada é executado sem a aprovação específica de um proprietário ou administrador.</strong> Anúncios, criação de campanhas, públicos e criativos não são analisados nem alterados por aqui.</span></p>
       <div className="opps-run">
         <button type="button" className="opps-btn" disabled={!canAnalyze} onClick={() => void analyze()}>{running ? <><Loader2 size={14} className="opps-spin" /> Analisando… pode levar alguns instantes</> : <><Sparkles size={14} /> Analisar oportunidades</>}</button>
         {availability && availability.state !== "available" && <small className="opps-reason" role="status"><TriangleAlert size={13} /> {availability.message}</small>}

@@ -7,6 +7,7 @@ import { useAssistantSession } from "./assistant/session";
 import type { AssistantTransport } from "./assistant/transport";
 import { CampaignsView, type SelectedEntity } from "./campaigns-view";
 import type { CampaignsData } from "./load";
+import { campaignsPath } from "./routes";
 import "./assistant/assistant.css";
 
 /**
@@ -38,7 +39,8 @@ export function CampaignsWorkspace({ organizationId, clientId, clientName, data,
       {open
         ? <AssistantPanel context={context} clientName={clientName} accounts={data.accounts.filter(account => data.selectedAccountIds.includes(account.id))}
           conversation={session.conversation} availability={session.availability} onCollapse={() => session.toggle(false)} onClearContext={() => session.setSelection(null)}
-          onSelectAccount={accountId => session.setSelection(accountId ? { scope, kind: "account", accountId } : session.general)} onSend={session.send} />
+          onSelectAccount={accountId => session.setSelection(accountId ? { scope, kind: "account", accountId } : session.general)} onSend={session.send}
+          operational={{ href: `${campaignsPath(clientId)}#analise-operacional`, onOpen: () => window.dispatchEvent(new Event("groow:open-opportunities")) }} />
         : <AssistantRail contextActive={context.level !== "client"} onOpen={() => session.toggle(true)} />}
     </div>
   </div>;

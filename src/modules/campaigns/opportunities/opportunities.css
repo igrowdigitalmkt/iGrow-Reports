@@ -36,3 +36,4 @@
 @keyframes opps-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .opps-spin { animation: none; } }
 @media (max-width: 480px) { .opps-head { flex-wrap: wrap; } .opps-body { padding: 0 10px 12px; } }
+.opps-stage li .opps-reason-text { color: var(--text); font-size: 12px; }

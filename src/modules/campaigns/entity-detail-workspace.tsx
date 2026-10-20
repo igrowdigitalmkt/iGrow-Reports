@@ -13,7 +13,7 @@ import { AdDetail } from "./detail/ad-detail";
 import { AdSetDetail } from "./detail/adset-detail";
 import { CampaignDetail } from "./detail/campaign-detail";
 import type { CampaignsData } from "./load";
-import { periodSearch } from "./routes";
+import { campaignsPath, periodSearch } from "./routes";
 import type { CampaignRow } from "./tree";
 import "./campaigns.css";
 import "./detail/detail.css";
@@ -55,7 +55,8 @@ export function EntityDetailWorkspace({ organizationId, clientId, clientName, en
       {open
         ? <AssistantPanel context={context} clientName={clientName} accounts={data.accounts.filter(account => data.selectedAccountIds.includes(account.id))}
           conversation={session.conversation} availability={session.availability} onCollapse={() => session.toggle(false)} onClearContext={() => session.setSelection(null)}
-          onSelectAccount={accountId => session.setSelection(accountId ? { scope, kind: "account", accountId } : session.general)} onSend={session.send} />
+          onSelectAccount={accountId => session.setSelection(accountId ? { scope, kind: "account", accountId } : session.general)} onSend={session.send}
+          operational={{ href: `${campaignsPath(clientId)}#analise-operacional` }} />
         : <AssistantRail contextActive={context.level !== "client"} onOpen={() => session.toggle(true)} />}
     </div>
   </div>;

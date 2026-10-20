@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { PanelRightClose, PanelRightOpen, Send, Sparkles, TriangleAlert, X } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import type { AssistantAvailability, AssistantContext, AssistantLevel, ConversationState } from "./contracts";
@@ -28,9 +29,11 @@ export function AssistantRail({ contextActive, onOpen }: { contextActive: boolea
   </button>;
 }
 
-export function AssistantPanel({ context, clientName, accounts, conversation, availability, onSelectAccount, onClearContext, onCollapse, onSend }: {
+export function AssistantPanel({ context, clientName, accounts, conversation, availability, onSelectAccount, onClearContext, onCollapse, onSend, operational }: {
   context: AssistantContext; clientName: string; accounts: { id: string; name: string }[]; conversation: ConversationState; availability: AssistantAvailability;
   onSelectAccount: (accountId: string | null) => void; onClearContext: () => void; onCollapse: () => void; onSend?: (text: string) => void;
+  /** Atalho para a análise operacional. Só NAVEGA até "Analisar oportunidades"; quem inicia a análise é o clique do usuário ali. Nunca cria operações. */
+  operational?: { href: string; onOpen?: () => void };
 }) {
   const [draft, setDraft] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
@@ -89,6 +92,10 @@ export function AssistantPanel({ context, clientName, accounts, conversation, av
         {message.role === "assistant" && <span className="assistant-message-who"><Sparkles size={11} />Assistente Groow</span>}
         <div className="assistant-message-text">{message.content}</div>
       </article>)}
+      {operational && conversation.status !== "sending" && conversation.messages.at(-1)?.role === "assistant" && conversation.messages.at(-1)?.status !== "error" && <div className="assistant-next">
+        <Link className="assistant-next-link" href={operational.href} onClick={event => { if (operational.onOpen) { event.preventDefault(); operational.onOpen(); } }}><Sparkles size={13} />Analisar oportunidades operacionais</Link>
+        <small>Abre a análise operacional. Nada é proposto ou alterado até você iniciá-la.</small>
+      </div>}
       {conversation.status === "sending" && <div className="assistant-typing" role="status"><span /><span /><span /><em className="sr-only">O assistente está respondendo</em></div>}
       {conversation.status === "error" && <p className="assistant-error" role="alert"><TriangleAlert size={14} />{conversation.error ?? "Não foi possível obter a resposta do assistente."}</p>}
     </div>

@@ -6,7 +6,8 @@ vi.mock("@/modules/agent-executor/scheduler", () => ({ agentSchedulerEnabled: ()
 vi.mock("@/modules/meta/server", () => ({ loadAccessToken: vi.fn() }));
 
 import { loadManualHistory, resolveManualControl, runManualOperation, type ControlDeps, type RawEntity } from "@/modules/campaigns/manual/control";
-import { currencyExponent, formatMinor, parseBudgetInput, validateBudgetChange, type ManualRef } from "@/modules/campaigns/manual/contracts";
+import { probeWritePermission } from "@/modules/campaigns/manual/permissions";
+import { currencyExponent, formatMinor, metaAccountStatusLabel, parseBudgetInput, validateBudgetChange, type ManualRef } from "@/modules/campaigns/manual/contracts";
 
 const AGENCY = "00000000-0000-4000-8000-0000000000a1";
 const CLIENT = "00000000-0000-4000-8000-0000000000c1";
@@ -46,7 +47,8 @@ function deps(over: Partial<ControlDeps> & { entity?: RawEntity | null | "throw"
   const { service } = fakeService(over.tables, { allowed: over.allowed });
   const readEntity = vi.fn(async () => { if (over.entity === "throw") throw new Error("meta down"); return over.entity === undefined ? campaign() : over.entity; });
   const request = vi.fn(async () => ({ ok: true as const, jobId: "j1", execution: "verified" }));
-  return { service, readEntity, request, executorEnabled: () => true, ...over, entity: undefined, tables: undefined, allowed: undefined } as unknown as ControlDeps & { readEntity: typeof readEntity; request: ReturnType<typeof vi.fn> };
+  const probeWrite = vi.fn<NonNullable<ControlDeps["probeWrite"]>>(async () => ({ state: "valid" }));
+  return { service, readEntity, request, probeWrite, executorEnabled: () => true, ...over, entity: undefined, tables: undefined, allowed: undefined } as unknown as ControlDeps & { readEntity: typeof readEntity; request: ReturnType<typeof vi.fn>; probeWrite: ReturnType<typeof vi.fn<NonNullable<ControlDeps["probeWrite"]>>> };
 }
 const expected = { configuredStatus: "ACTIVE" as const, dailyBudgetMinor: 10000 as number | null };
 
@@ -95,19 +97,38 @@ describe("estado e permissões do controle manual", () => {
     expect(env.readEntity).not.toHaveBeenCalled();
     expect(gate.readEntity).not.toHaveBeenCalled();
   });
-  it("conta desconectada, sem permissão de gerenciamento ou indisponível", async () => {
-    const cases: Tables[] = [
-      { meta_connections: { id: "mc", integration_id: "in", scopes: ["ads_read"], connected_at: "2026-10-01T00:00:00Z" } },
-      { meta_connections: null },
-      { integrations: { id: "in", connection_status: "disconnected", health_status: "ok" } },
-      { integrations: { id: "in", connection_status: "connected", health_status: "error" } },
-      { meta_ad_accounts: { id: ACCOUNT, external_id: "act_1", name: "C", currency: "BRL", account_status: "2", meta_connection_id: "mc" } },
-    ];
-    for (const tables of cases) {
+  it("causas distintas: conexão offline, conta restrita na Meta e permissão de gerenciamento ausente", async () => {
+    const disconnected: Tables[] = [{ meta_connections: null }, { integrations: { id: "in", connection_status: "disconnected", health_status: "ok" } }, { integrations: { id: "in", connection_status: "connected", health_status: "error" } }];
+    for (const tables of disconnected) {
       const d = deps({ tables });
       expect(await resolveManualControl(owner, ref, d)).toMatchObject({ kind: "account_disconnected" });
       expect(d.readEntity).not.toHaveBeenCalled();
     }
+    for (const account_status of ["2", "3", "7", "9", "101", ""]) {
+      const d = deps({ tables: { meta_ad_accounts: { id: ACCOUNT, external_id: "act_1", name: "C", currency: "BRL", account_status, meta_connection_id: "mc" } } });
+      const control = await resolveManualControl(owner, ref, d);
+      expect(control).toMatchObject({ kind: "account_restricted" });
+      expect("message" in control && control.message).toMatch(/leitura de dados continua/);
+      expect(d.readEntity).not.toHaveBeenCalled();
+    }
+    const noScope = deps({ tables: { meta_connections: { id: "mc", integration_id: "in", scopes: ["ads_read"], connected_at: "2026-10-01T00:00:00Z" } } });
+    expect(await resolveManualControl(owner, ref, noScope)).toMatchObject({ kind: "write_permission_missing", reason: "not_granted" });
+    expect(noScope.readEntity).not.toHaveBeenCalled();
+    expect(noScope.probeWrite).not.toHaveBeenCalled();
+  });
+  it("a permissão guardada não basta: a leitura ao vivo precisa confirmá-la (revogada, expirada, token inválido, não confirmada)", async () => {
+    for (const reason of ["not_granted", "declined", "expired", "token_invalid", "unverified"] as const) {
+      const d = deps();
+      d.probeWrite.mockResolvedValueOnce({ state: "invalid", reason });
+      expect(await resolveManualControl(owner, ref, d)).toMatchObject({ kind: "write_permission_missing", reason });
+      const run = deps();
+      run.probeWrite.mockResolvedValueOnce({ state: "invalid", reason });
+      expect(await runManualOperation(owner, { ref, op: "pause", requestId: REQUEST, expected }, run)).toMatchObject({ ok: false, code: "write_permission_missing" });
+      expect(run.request).not.toHaveBeenCalled();
+    }
+    const boom = deps();
+    boom.probeWrite.mockRejectedValueOnce(new Error("rede"));
+    expect(await resolveManualControl(owner, ref, boom)).toMatchObject({ kind: "write_permission_missing", reason: "unverified" });
   });
   it("estado atual desconhecido (falha da Meta) não oferece ação; status arquivado não é operável", async () => {
     expect(await resolveManualControl(owner, ref, deps({ entity: "throw" }))).toMatchObject({ kind: "unknown_state" });
@@ -202,7 +223,7 @@ describe("execução manual pelo executor existente", () => {
     const d = deps();
     expect(await runManualOperation(owner, { ref, op: "budget", requestId: REQUEST, expected, dailyBudgetMinor: 12000 }, d)).toMatchObject({ ok: true });
     expect(d.request.mock.calls[0]![0]).toMatchObject({ action: "set_campaign_daily_budget", dailyBudgetMinor: 12000 });
-    for (const dailyBudgetMinor of [undefined, 10000, 100001]) {
+    for (const dailyBudgetMinor of [undefined, 10000, 110001]) {
       const x = deps();
       expect(await runManualOperation(owner, { ref, op: "budget", requestId: REQUEST, expected, ...(dailyBudgetMinor ? { dailyBudgetMinor } : {}) }, x)).toMatchObject({ ok: false, code: "invalid" });
       expect(x.request).not.toHaveBeenCalled();
@@ -260,9 +281,72 @@ describe("valores financeiros", () => {
   });
   it("limites: sem alteração, aumento acima de 1000% e valor atual desconhecido", () => {
     expect(validateBudgetChange(10000, 10000).ok).toBe(false);
-    expect(validateBudgetChange(10000, 100001).ok).toBe(false);
+    expect(validateBudgetChange(10000, 110001).ok).toBe(false);
+    expect(validateBudgetChange(10000, 110000).ok).toBe(true); // aumento de exatamente 1000% = 11x o atual
     expect(validateBudgetChange(10000, 100000).ok).toBe(true);
+    expect(validateBudgetChange(10000, 10001).ok).toBe(true);
+    expect(validateBudgetChange(10000, 0).ok).toBe(false);
+    expect(validateBudgetChange(10000, -5).ok).toBe(false);
+    expect(validateBudgetChange(10000, 5000.5).ok).toBe(false);
     expect(validateBudgetChange(10000, 1).ok).toBe(true);
     expect(validateBudgetChange(null, 5000).ok).toBe(false);
+  });
+});
+
+describe("paridade da validação de orçamento com a política do executor", () => {
+  it("interface e executor decidem igual em toda a fronteira (inclusive valores altos)", async () => {
+    const { evaluateDelegatedAction } = await import("@/modules/agent-executor/policy");
+    const now = new Date("2026-10-20T12:00:00Z");
+    const decide = (current: number, next: number) => evaluateDelegatedAction({
+      now,
+      proposal: { actionId: REQUEST, action: "set_campaign_daily_budget", targetId: "900", adAccountId: "act_1", dailyBudgetMinor: next, factsCollectedAt: now.toISOString(), rationale: "Alteracao manual teste" },
+      delegation: { agencyId: AGENCY, clientId: CLIENT, adAccountId: "act_1", enabled: true, revokedAt: null, expiresAt: new Date(now.getTime() + 300000).toISOString(), allowedActions: ["set_campaign_daily_budget"],
+        maxAccountDailyBudgetMinor: 1e12, maxEntityDailyBudgetMinor: 1e12, maxIncreaseMinorPerAction: 1e12, maxIncreasePercentPerAction: 1000 },
+      context: { agencyId: AGENCY, clientId: CLIENT, adAccountId: "act_1", currency: "BRL", hasWritePermission: true, userMayDelegate: true, commercialAccessActive: true, metaConnectionActive: true, confirmedActiveDailyBudgetMinor: current, budgetCoverageComplete: true },
+      entity: { id: "900", adAccountId: "act_1", level: "campaign", configuredStatus: "ACTIVE", dailyBudgetMinor: current, fetchedAt: now.toISOString() },
+    });
+    for (const current of [1, 3, 100, 10000, 123457, 99_999_999_999]) {
+      const limit = current + Math.floor(current * 1000 / 100);
+      for (const next of [1, Math.max(1, current - 1), current + 1, limit - 1, limit, limit + 1, limit + 1000].filter(value => value >= 1 && value <= 1e12 && value !== current)) {
+        const ui = validateBudgetChange(current, next).ok;
+        const executor = decide(current, next).ok;
+        expect({ current, next, ui }).toEqual({ current, next, ui: executor });
+      }
+    }
+  });
+});
+
+describe("leitura ao vivo da permissão de gerenciamento", () => {
+  const reply = (status: number, body: unknown) => vi.fn(async () => ({ ok: status < 300, status, json: async () => body })) as unknown as typeof fetch;
+  const perms = (...items: Array<[string, string]>) => ({ data: items.map(([permission, status]) => ({ permission, status })) });
+  it("válida somente quando ads_management está granted", async () => {
+    expect(await probeWritePermission("tok", "v25.0", reply(200, perms(["ads_read", "granted"], ["ads_management", "granted"])))).toEqual({ state: "valid" });
+  });
+  it("distingue ausente, recusada e expirada", async () => {
+    expect(await probeWritePermission("tok", "v25.0", reply(200, perms(["ads_read", "granted"])))).toEqual({ state: "invalid", reason: "not_granted" });
+    expect(await probeWritePermission("tok", "v25.0", reply(200, perms(["ads_management", "declined"])))).toEqual({ state: "invalid", reason: "declined" });
+    expect(await probeWritePermission("tok", "v25.0", reply(200, perms(["ads_management", "expired"])))).toEqual({ state: "invalid", reason: "expired" });
+  });
+  it("token revogado (190) vira token_invalid; outras falhas e respostas inválidas ficam não confirmadas", async () => {
+    expect(await probeWritePermission("tok", "v25.0", reply(400, { error: { code: 190 } }))).toEqual({ state: "invalid", reason: "token_invalid" });
+    expect(await probeWritePermission("tok", "v25.0", reply(500, { error: { code: 2 } }))).toEqual({ state: "invalid", reason: "unverified" });
+    expect(await probeWritePermission("tok", "v25.0", reply(200, { lixo: true }))).toEqual({ state: "invalid", reason: "unverified" });
+    expect(await probeWritePermission("tok", "v25.0", reply(200, null))).toEqual({ state: "invalid", reason: "unverified" });
+    expect(await probeWritePermission("tok", "v25.0", vi.fn(async () => { throw new Error("rede"); }) as unknown as typeof fetch)).toEqual({ state: "invalid", reason: "unverified" });
+    expect(await probeWritePermission("", "v25.0", reply(200, perms(["ads_management", "granted"])))).toEqual({ state: "invalid", reason: "unverified" });
+    expect(await probeWritePermission("tok", "x", reply(200, perms(["ads_management", "granted"])))).toEqual({ state: "invalid", reason: "unverified" });
+  });
+  it("faz só GET e nunca devolve o token", async () => {
+    const fetchImpl = reply(200, perms(["ads_management", "granted"]));
+    const result = await probeWritePermission("SEGREDO-TOKEN", "v25.0", fetchImpl);
+    const call = (fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]!;
+    expect(call[1].method).toBe("GET");
+    expect(JSON.stringify(result)).not.toContain("SEGREDO");
+    expect(call[0]).not.toContain("SEGREDO");
+  });
+  it("rótulos de status da conta", () => {
+    expect(metaAccountStatusLabel("1")).toBe("ativa");
+    expect(metaAccountStatusLabel("3")).toMatch(/pagamento/);
+    expect(metaAccountStatusLabel(null)).toMatch(/sem status/);
   });
 });

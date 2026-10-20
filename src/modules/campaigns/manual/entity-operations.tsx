@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { History, Loader2, Pause, Play, ShieldAlert, Wallet } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, History, Loader2, Pause, Play, ShieldAlert, ShieldCheck, Wallet } from "lucide-react";
 import {
   currencyExponent, formatMinor, parseBudgetInput, validateBudgetChange,
   type ManualControl, type ManualHistoryItem, type ManualLevel, type ManualOp, type ManualRef, type ManualRunResult,
@@ -113,11 +114,22 @@ export function EntityOperations({ clientId, accountId, level, entityId, entityN
   const header = <header className="ops-head"><h2>Operações</h2><span className="ops-badge" title="Alterações reais na Meta, feitas por você">Manual</span></header>;
   if (!control) return <section className="analytics-card cdetail-card ops" aria-label="Operações da entidade" aria-busy="true">{header}<p className="ops-note" role="status"><Loader2 size={14} className="ops-spin" /> Consultando o estado atual na Meta…</p></section>;
   if (control.kind !== "ready") {
-    const hidden = control.kind === "unauthorized" || control.kind === "incompatible";
     if (control.kind === "unauthorized") return <section className="analytics-card cdetail-card ops" aria-label="Operações da entidade">{header}<p className="ops-note is-info" role="status"><ShieldAlert size={14} /> {control.message}</p></section>;
+    const reconnect = control.kind === "write_permission_missing" || control.kind === "account_disconnected";
+    const retry = control.kind === "unknown_state" || control.kind === "account_disconnected" || (control.kind === "write_permission_missing" && (control.reason === "unverified" || control.reason === "token_invalid"));
+    const title = control.kind === "write_permission_missing" ? "Gerenciamento de anúncios não autorizado"
+      : control.kind === "account_restricted" ? "Conta de anúncios com restrição na Meta"
+      : control.kind === "account_disconnected" ? "Conexão com a Meta indisponível"
+      : control.kind === "executor_disabled" ? "Alterações ainda não habilitadas"
+      : control.kind === "unknown_state" ? "Estado atual não confirmado" : null;
     return <section className="analytics-card cdetail-card ops" aria-label="Operações da entidade">{header}
-      <p className={`ops-note ${hidden ? "" : "is-warn"}`} role="status">{control.message}</p>
-      {(control.kind === "unknown_state" || control.kind === "account_disconnected") && <button type="button" className="ops-btn" onClick={() => { setControl(null); void load(); }}>Consultar novamente</button>}
+      {title && <strong className="ops-state-title">{title}</strong>}
+      {(control.kind === "write_permission_missing" || control.kind === "account_restricted") && <p className="ops-note is-info" role="status"><ShieldCheck size={14} /> A leitura de dados desta conta continua funcionando; só as alterações (pausar, retomar e orçamento) estão indisponíveis.</p>}
+      <p className={`ops-note ${control.kind === "incompatible" ? "" : "is-warn"}`} role="status">{control.message}</p>
+      <div className="ops-actions">
+        {reconnect && <Link className="ops-btn is-primary" href="/integracoes">Abrir Integrações para autorizar<ExternalLink size={13} /></Link>}
+        {retry && <button type="button" className="ops-btn" onClick={() => { setControl(null); void load(); }}>Consultar novamente</button>}
+      </div>
       {history && history.length > 0 && <HistoryToggle show={showHistory} onToggle={setShowHistory} items={history} currency={currency} />}
     </section>;
   }

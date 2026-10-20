@@ -56,7 +56,7 @@ export async function loadOpportunityState(actor: Actor, clientId: string, deps:
   const [runsResult, jobsResult] = await Promise.all([
     service.from("agent_analysis_runs").select("id,created_at,origin,ad_account_id,summary,observations,proposals,blocked,rejected")
       .eq("agency_id", actor.agencyId).eq("client_id", clientId).order("created_at", { ascending: false }).limit(4),
-    service.from("agent_action_jobs").select("id,ad_account_id,action_type,meta_entity_id,daily_budget_minor,status,created_at,approval_expires_at,approved_by,failure_code")
+    service.from("agent_action_jobs").select("id,ad_account_id,action_type,meta_entity_id,daily_budget_minor,status,created_at,approval_expires_at,approved_by,failure_code,rationale")
       .eq("agency_id", actor.agencyId).eq("client_id", clientId).eq("execution_origin", "ai").order("created_at", { ascending: false }).limit(20),
   ]);
   const now = (deps.now?.() ?? new Date()).getTime();
@@ -73,7 +73,7 @@ export async function loadOpportunityState(actor: Actor, clientId: string, deps:
     id: job.id, accountId: job.ad_account_id, action: job.action_type, entityId: job.meta_entity_id,
     dailyBudgetMinor: job.daily_budget_minor === null ? null : Number(job.daily_budget_minor), status: job.status, createdAt: job.created_at,
     expiresAt: job.approval_expires_at ?? null, expired: job.status === "awaiting_approval" && (!job.approval_expires_at || Date.parse(job.approval_expires_at) <= now),
-    approved: !!job.approved_by, failure: job.failure_code ?? null,
+    approved: !!job.approved_by, failure: job.failure_code ?? null, reason: (job.rationale ?? "").slice(0, 600),
   }));
   return { availability, runs: runsResult.error ? [] : runs, jobs: jobsResult.error ? [] : jobs, scope: ANALYSIS_SCOPE };
 }

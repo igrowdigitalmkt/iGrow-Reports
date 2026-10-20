@@ -1,3 +1,4 @@
+import { MANUAL_MAX_INCREASE_PERCENT } from "@/modules/agent-executor/policy";
 /** Contratos compartilhados (servidor e cliente) das operações manuais de campanha. Sem segredos nem identificadores internos além dos da rota. */
 
 export type ManualLevel = "campaign" | "adset";
@@ -18,10 +19,14 @@ export type ManualControl =
     ops: Record<ManualOp, OpAvailability>;
     checkedAt: string;
   }
-  | { kind: "unauthorized" | "executor_disabled" | "account_disconnected" | "incompatible" | "unknown_state" | "unsupported_status"; message: string };
+  | { kind: "unauthorized" | "executor_disabled" | "account_disconnected" | "incompatible" | "unknown_state" | "unsupported_status" | "account_restricted"; message: string }
+  /** A conexão lê dados, mas o gerenciamento de anúncios não está válido. `reason` distingue o que a tela deve explicar. */
+  | { kind: "write_permission_missing"; reason: WritePermissionReason; message: string };
+
+export type WritePermissionReason = "not_granted" | "declined" | "expired" | "token_invalid" | "unverified";
 
 export type ManualRunFailureCode =
-  | "invalid" | "unauthorized" | "executor_disabled" | "account_disconnected" | "incompatible" | "unknown_state" | "unsupported_status"
+  | "invalid" | "unauthorized" | "executor_disabled" | "account_disconnected" | "account_restricted" | "write_permission_missing" | "incompatible" | "unknown_state" | "unsupported_status"
   | "busy" | "unavailable" | "stale" | "duplicate" | "blocked" | "failed";
 
 export type ManualRunResult =
@@ -42,8 +47,8 @@ export const MANUAL_ACTION_NAMES = {
   budget: { campaign: "set_campaign_daily_budget", adset: "set_adset_daily_budget" },
 } as const;
 
-/** Aumento máximo aceito pelo executor no clique humano (em %). Mantido igual ao `MANUAL_MAX_INCREASE_PERCENT` da política. */
-export const MANUAL_BUDGET_MAX_INCREASE_PERCENT = 1000;
+/** Aumento máximo aceito pelo executor no clique humano (em %): fonte ÚNICA, a própria política do executor. */
+export const MANUAL_BUDGET_MAX_INCREASE_PERCENT = MANUAL_MAX_INCREASE_PERCENT;
 export const MANUAL_BUDGET_MAX_MINOR = 1_000_000_000_000;
 
 /** Casas decimais da moeda (a Meta guarda orçamentos na menor unidade da moeda). Moeda desconhecida => null (não permite editar). */
@@ -75,10 +80,32 @@ export function formatMinor(minor: number, currency: string, exponent: number): 
   } catch { return `${(minor / 10 ** exponent).toFixed(exponent)} ${currency}`; }
 }
 
-/** Validação do orçamento novo contra o atual confirmado (mesmas regras que o executor aplicará de novo no servidor). */
+/**
+ * Validação do orçamento novo contra o atual confirmado. Mesma regra do executor (`evaluateDelegatedAction`): o AUMENTO (novo menos atual)
+ * não pode passar de `MANUAL_BUDGET_MAX_INCREASE_PERCENT`% do orçamento atual, isto é, `aumento * 100 <= atual * percentual`. Um aumento de
+ * 1000% leva o orçamento a 11 vezes o atual; reduções não têm limite percentual. BigInt evita perda de precisão em valores altos.
+ */
 export function validateBudgetChange(current: number | null, next: number): { ok: true } | { ok: false; message: string } {
   if (current === null) return { ok: false, message: "O orçamento atual não está confirmado; não é possível alterar." };
+  if (!Number.isSafeInteger(next) || next <= 0) return { ok: false, message: "O orçamento deve ser maior que zero." };
   if (next === current) return { ok: false, message: "O novo orçamento é igual ao atual." };
-  if (next > current && next * 100 > current * MANUAL_BUDGET_MAX_INCREASE_PERCENT) return { ok: false, message: "O aumento ultrapassa o limite de 1000% do orçamento atual." };
+  if (next > current && (BigInt(next) - BigInt(current)) * 100n > BigInt(current) * BigInt(MANUAL_BUDGET_MAX_INCREASE_PERCENT)) {
+    return { ok: false, message: `O aumento ultrapassa o limite de ${MANUAL_BUDGET_MAX_INCREASE_PERCENT}% sobre o orçamento atual.` };
+  }
   return { ok: true };
+}
+
+/** Status da conta de anúncios na Meta (campo account_status) em português. Só `1` (ativa) permite gerenciar anúncios. */
+export function metaAccountStatusLabel(status: string | null): string {
+  switch (status) {
+    case "1": case "ACTIVE": return "ativa";
+    case "2": return "desativada";
+    case "3": return "com pendência de pagamento";
+    case "7": return "em análise de risco";
+    case "8": return "com pendência de liquidação";
+    case "9": return "em período de carência";
+    case "100": return "com análise pendente";
+    case "101": case "201": return "encerrada";
+    default: return status ? `restrita (status ${status})` : "sem status confirmado";
+  }
 }
