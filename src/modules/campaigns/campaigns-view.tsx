@@ -198,6 +198,7 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
         <Select className="compact-select campaigns-select" value={ui.configured} aria-label="Filtrar por estado configurado" onChange={event => patchUi({ configured: event.target.value as ConfiguredFilter })}>
           <option value="all">Todos</option><option value="ACTIVE">Ativo</option><option value="PAUSED">Pausado</option><option value="other">Outros</option>
         </Select></label>
+      <label className="campaigns-check campaigns-only-active"><input type="checkbox" checked={onlyActive} disabled={pending} onChange={event => navigate({ ativas: event.target.checked ? "1" : null })} />Somente com gasto ou em veiculação</label>
       <label className="campaigns-field campaigns-search"><span>Busca</span>
         <div className="campaigns-search-box"><Search size={14} />
           <input type="search" value={ui.query} onChange={event => patchUi({ query: event.target.value })} placeholder={level === "campaign" ? "Buscar por nome" : level === "adset" ? "Buscar por nome ou campanha" : "Buscar por nome, conjunto ou campanha"} aria-label="Buscar" />
@@ -224,7 +225,6 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
           <span className="level-actionbar-spacer" />
           <span className="level-selection-summary">{(["campaign", "adset", "ad"] as const).filter(key => picked[key] > 0).map(key => <button key={key} type="button" className="level-chip" onClick={() => goTo(key)} title="Ir para esta aba">{picked[key]} {key === "campaign" ? (picked[key] === 1 ? "campanha" : "campanhas") : key === "adset" ? (picked[key] === 1 ? "conjunto" : "conjuntos") : (picked[key] === 1 ? "anúncio" : "anúncios")}</button>)}
             {picked.campaign + picked.adset + picked.ad > 0 && <button type="button" className="level-chip" onClick={() => change(clearSelection())}><X size={11} />Limpar seleções</button>}</span>
-          <label className="campaigns-check"><input type="checkbox" checked={onlyActive} disabled={pending} onChange={event => navigate({ ativas: event.target.checked ? "1" : null })} />Somente com gasto ou em veiculação</label>
           <details className="campaigns-columns">
             <summary><Columns3 size={14} />Colunas <span className="analytics-count">{columns.length}</span></summary>
             <div className="campaigns-columns-list">

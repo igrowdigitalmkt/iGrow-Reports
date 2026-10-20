@@ -6,6 +6,7 @@ import { ArrowUpRight, X } from "lucide-react";
 import { EntityOperations } from "../manual/entity-operations";
 import { entityPath } from "../routes";
 import type { CampaignRow } from "../tree";
+import "../detail/detail.css";
 import "../manual/operations.css";
 import "./navigation.css";
 

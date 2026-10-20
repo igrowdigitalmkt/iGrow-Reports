@@ -64,3 +64,22 @@ tr:hover .level-analyze, .level-analyze:focus-visible, .level-analyze.is-on { op
 .edit-sheet-body { display: grid; gap: 12px; padding: 16px 18px; overflow: auto; max-height: calc(100dvh - 90px); }
 .edit-sheet-note { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 @media (max-width: 640px) { .level-actionbar { padding: 10px 12px; } .level-scope, .level-select-banner, .level-pager { padding-left: 12px; padding-right: 12px; } .level-table .level-parent { max-width: 140px; } }
+
+/* Tabela por nível: caixa de seleção e nome fixos à esquerda, sem sobreposição; cabeçalhos de texto alinhados à esquerda. */
+.campaigns-card .analytics-table.level-table thead th.level-check { min-width: 44px; max-width: 44px; width: 44px; text-align: center; }
+.level-table td.level-check, .level-table thead th.level-check { position: sticky; left: 0; z-index: 2; background: var(--surface); }
+.level-table thead th.level-check { z-index: 4; }
+.analytics-table-scroll.is-capped .level-table tbody th, .analytics-table-scroll.is-capped .level-table thead th.analytics-campaign-main-header { left: 44px; }
+.analytics-table-scroll.is-capped .level-table thead th.analytics-campaign-main-header { z-index: 3; }
+.level-table thead th.analytics-campaign-main-header, .level-table thead th.level-parent, .level-table thead th.campaign-state-head { text-align: left; }
+.campaigns-card .level-table tbody tr.is-selected > th, .campaigns-card .level-table tbody tr.is-selected > td { background: var(--surface-hover); }
+.campaigns-only-active { align-self: flex-end; min-height: 36px; }
+.level-actionbar { row-gap: 6px; }
+
+/* Telas estreitas: nada fica fixo à esquerda (a coluna do nome sozinha ocuparia a tela e esconderia as demais). */
+@media (max-width: 640px) {
+  .level-table td.level-check, .level-table thead th.level-check, .level-table tbody th, .level-table thead th.analytics-campaign-main-header { position: static !important; }
+  .campaigns-card .analytics-table.level-table tbody th, .campaigns-card .analytics-table.level-table thead th.analytics-campaign-main-header { min-width: 210px; max-width: 240px; }
+}
+.batch-results li > div { display: grid; gap: 1px; min-width: 0; }
+.batch-list li { display: grid; gap: 1px; }
