@@ -2,7 +2,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpRight, ChevronDown, ChevronUp, Columns3, Download, Pause, Pencil, Play, Search, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Info, ChevronUp, Columns3, Download, Pause, Pencil, Play, Search, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { Select } from "@/components/ui/select";
 import { PeriodPicker } from "@/modules/client-portal/period-picker";
@@ -183,6 +183,11 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
     : `Nenhum item encontrado para as contas selecionadas.`;
 
   return <div className={`campaigns-page${pending ? " is-pending" : ""}`} aria-busy={pending}>
+    {data.state === "ready" && data.warnings.length > 0 && <div className="campaigns-quality">
+      <details className="analytics-quality-menu">
+        <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
+        <div>{data.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>
+      </details></div>}
     <div className="campaigns-toolbar">
       {data.accounts.length > 1 && <div className="campaigns-field"><span>Contas de anúncios</span>
         <details className="campaigns-accounts" onToggle={event => { if (!event.currentTarget.open) setAccountDraft(null); }}>
@@ -217,7 +222,6 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
 
     {data.message && <p className="campaigns-alert" role="alert">{data.message}</p>}
     {data.state === "ready" && data.metricsState === "pending" && <p className="campaigns-alert is-info" role="status">Campanhas carregadas. As métricas deste período ainda estão sendo atualizadas; por enquanto os valores aparecem como indisponíveis (—), não como zero.</p>}
-    {data.state === "ready" && data.warnings.slice(0, 3).map(warning => <p key={warning} className="campaigns-alert">{warning}</p>)}
 
     {data.state !== "ready" ? <div className="campaigns-empty"><strong>{data.state === "no-accounts" ? "Nenhuma conta vinculada" : data.state === "blocked" ? "Campanhas ainda indisponíveis" : "Campanhas indisponíveis"}</strong></div>
       : <article className="analytics-card campaigns-card">
