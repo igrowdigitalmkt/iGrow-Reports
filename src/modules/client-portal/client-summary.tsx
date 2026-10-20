@@ -25,9 +25,11 @@ const integer = (value: number | null) => (value == null ? "—" : Math.round(va
 const money = (value: number | null, currency: string | null) => (value == null || !currency ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(value));
 const change = (current: number | null, previous: number | null) => (current == null || previous == null || previous === 0 ? null : (current - previous) / previous * 100);
 
-function Delta({ value }: { value: number | null }) {
+/** Variação em %: a cor depende de a métrica ser boa ao subir ("up"), ao cair ("down") ou indiferente (padrão, como o investimento). */
+function Delta({ value, desirable = "neutral" }: { value: number | null; desirable?: "up" | "down" | "neutral" }) {
   if (value == null || !Number.isFinite(value)) return <span className="delta">—</span>;
-  return <span className={`delta ${Math.abs(value) < .05 ? "" : value > 0 ? "is-good" : "is-bad"}`}>
+  const tone = desirable === "neutral" || Math.abs(value) < .05 ? "" : (value > 0) === (desirable === "up") ? "is-good" : "is-bad";
+  return <span className={`delta ${tone}`}>
     {value > 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{Math.abs(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>;
 }
 

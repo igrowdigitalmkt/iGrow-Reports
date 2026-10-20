@@ -1,6 +1,18 @@
 import { resultTypes } from "./analytics-results";
 import type { AnalyticsDashboardData, AnalyticsMetric } from "./analytics-types";
 
+/**
+ * Sentido desejável de uma métrica: "up" = subir é bom; "down" = subir é ruim (custos, CPM, CPC, frequência); "neutral" = nem bom nem
+ * ruim (investimento). As regras por nome valem mesmo quando o dado guardado veio com outro sentido; fora delas vale o da própria métrica.
+ */
+export function desirableDirection(metric: Pick<AnalyticsMetric, "key" | "label" | "desirable">): "up" | "down" | "neutral" {
+  const key = metric.key.toLowerCase();
+  if (["spend", "social_spend"].includes(key)) return "neutral";
+  if (/^(cost[:_]|cost$|cpc|cpp|cpm|cpa|cpl|cpv|frequency)/.test(key) || /(^|_)cost(_|$)/.test(key)) return "down";
+  if (/^(custo|cpc|cpm|cpp|frequência)/i.test(metric.label.trim())) return "down";
+  return metric.desirable;
+}
+
 export function changeDescription(data: AnalyticsDashboardData, metric: AnalyticsMetric) {
   if (data.coverage.status !== "complete" || data.coverage.previousStatus !== "complete") {
     return { text: "Comparação sem cobertura completa", direction: "neutral" };
@@ -19,8 +31,10 @@ export function changeDescription(data: AnalyticsDashboardData, metric: Analytic
   if (previous === 0) return { text: current === 0 ? "Sem variação no período" : "Anterior igual a zero", direction: "neutral" };
   const change = (current - previous) / Math.abs(previous) * 100;
   if (Math.abs(change) < .05) return { text: "Sem variação no período", direction: "neutral" };
+  // A seta mostra para onde o número foi; a cor diz se isso é bom (verde), ruim (vermelho) ou indiferente (cinza) para ESTA métrica.
+  const desirable = desirableDirection(metric);
   return {
     text: `${change > 0 ? "+" : ""}${change.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs. anterior`,
-    direction: change > 0 ? "positive" : "negative", up: change > 0,
+    direction: desirable === "neutral" ? "neutral" : (change > 0) === (desirable === "up") ? "positive" : "negative", up: change > 0,
   };
 }

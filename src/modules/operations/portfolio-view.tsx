@@ -49,10 +49,11 @@ function change(current: number | null, previous: number | null) {
   return (current - previous) / previous * 100;
 }
 
-function Delta({ value, invert = false }: { value: number | null; invert?: boolean }) {
+/** A cor depende de a métrica ser boa ao subir ("up"), ao cair ("down") ou indiferente (padrão, como o investimento). */
+function Delta({ value, desirable = "neutral" }: { value: number | null; desirable?: "up" | "down" | "neutral" }) {
   if (value == null || !Number.isFinite(value)) return <span className="delta">—</span>;
-  const good = invert ? value < 0 : value > 0;
-  return <span className={`delta ${Math.abs(value) < .05 ? "" : good ? "is-good" : "is-bad"}`}>
+  const tone = desirable === "neutral" || Math.abs(value) < .05 ? "" : (value > 0) === (desirable === "up") ? "is-good" : "is-bad";
+  return <span className={`delta ${tone}`}>
     {value > 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{Math.abs(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
   </span>;
 }

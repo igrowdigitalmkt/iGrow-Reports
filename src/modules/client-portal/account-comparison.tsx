@@ -33,7 +33,7 @@ export function AccountComparison({ data, views, onOpen }: { data: AnalyticsDash
   const accounts = accountSummaries(data, views);
   return <section className="analytics-card" aria-label="Contas lado a lado">
     <div className="analytics-card-heading"><div><h3>Resultados por conta</h3>
-      <p className="analytics-report-help">Cada conta de anúncios aparece separada, com os próprios resultados. Marque “Consolidar resultados” no filtro de contas para somar tudo como uma conta só.</p></div></div>
+      <p className="analytics-report-help">Cada conta de anúncios aparece separada, com os próprios resultados. Ative “Consolidar resultados” no filtro de contas para somar tudo como uma conta só.</p></div></div>
     <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
       {accounts.map(account => <article key={account.id} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 14, display: "grid", gap: 8 }}>
         <h4 style={{ margin: 0 }}>{account.name}</h4>

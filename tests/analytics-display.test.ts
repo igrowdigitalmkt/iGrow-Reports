@@ -13,9 +13,9 @@ describe("comparação e seleção do dashboard", () => {
   const comparison = (current: number | null, previous: number | null) => normalizeClientAnalytics({
     summary: { cpc: current }, previousSummary: { cpc: previous }, coverage: { status: "complete", previousStatus: "complete" },
   });
-  it("usa verde para aumento e vermelho para redução inclusive em custos", () => {
-    expect(changeDescription(comparison(20, 10), cost)).toMatchObject({ direction: "positive", up: true, text: "+100% vs. anterior" });
-    expect(changeDescription(comparison(5, 10), cost)).toMatchObject({ direction: "negative", up: false, text: "-50% vs. anterior" });
+  it("a cor segue o sentido desejável: em custos, aumento é ruim (vermelho) e redução é boa (verde); a seta segue o número", () => {
+    expect(changeDescription(comparison(20, 10), cost)).toMatchObject({ direction: "negative", up: true, text: "+100% vs. anterior" });
+    expect(changeDescription(comparison(5, 10), cost)).toMatchObject({ direction: "positive", up: false, text: "-50% vs. anterior" });
   });
   it("mantém comparação sem base, desconhecida e arredondada como neutra", () => {
     expect(changeDescription(comparison(0, 0), cost).direction).toBe("neutral");
