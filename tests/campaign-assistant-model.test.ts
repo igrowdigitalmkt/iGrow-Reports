@@ -394,3 +394,13 @@ describe("migrations locais (somente para revisão)", () => {
     expect(ready).toMatch(/exception when others then\s+return sqlerrm = 'ai_reservations_probe_rollback'/); // qualquer outro erro => falso
   });
 });
+
+describe("prompt do assistente", () => {
+  it("manda escrever contagens por extenso e nunca digitar valores (reduz bloqueios do verificador numérico)", async () => {
+    const { SYSTEM_PROMPT } = await import("@/modules/campaigns/assistant/server/handler");
+    expect(SYSTEM_PROMPT).toContain("POR EXTENSO");
+    expect(SYSTEM_PROMPT).toContain("NUNCA digite um valor de desempenho");
+    expect(SYSTEM_PROMPT).toContain("CONCISO");
+  });
+});
+
