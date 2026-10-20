@@ -110,7 +110,12 @@ function AccountInsights({ section, clientId, optional, setOptional }: { section
   };
 
   // Campanhas da conta inteira (a lista da seleção) e as do escopo atual (a tabela).
-  const allCampaigns = useMemo(() => rankCampaigns(base.campaigns.map(campaign => ({ ...campaign, active: campaign.status === "ENABLED", spend: campaign.values.spend ?? null }))), [base.campaigns]);
+  const allCampaigns = useMemo(() => {
+    const list = base.campaigns.map(campaign => ({ ...campaign, active: campaign.status === "ENABLED", spend: campaign.values.spend ?? null }));
+    const ranked = rankCampaigns(list);
+    // A seleção lista TODAS as campanhas da conta: primeiro as ativas e as que investiram, depois as demais.
+    return [...ranked, ...list.filter(campaign => !ranked.includes(campaign))];
+  }, [base.campaigns]);
   const campaigns = useMemo(() => rankCampaigns(data.campaigns.map(campaign => ({
     ...campaign, state: googleCampaignState(campaign.status), active: campaign.status === "ENABLED", spend: campaign.values.spend ?? null,
     result: resultBreakdown(campaign.values).sort((a, b) => b.value - a.value)[0] ?? null,
