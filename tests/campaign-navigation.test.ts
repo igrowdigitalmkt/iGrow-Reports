@@ -137,3 +137,11 @@ describe("índice de filhos da tabela", () => {
     expect(indexedChildren(accB, index)).toEqual([]);
   });
 });
+
+describe("preferência de colunas herdada do padrão anterior", () => {
+  it("o padrão antigo salvo vira 'sem preferência'; personalizações continuam valendo", async () => {
+    const { parseColumnPreference } = await import("@/modules/campaigns/column-preferences");
+    expect(parseColumnPreference(JSON.stringify(["spend", "results", "cost_result", "impressions", "link_clicks"]))).toBeNull();
+    expect(parseColumnPreference(JSON.stringify(["spend", "impressions"]))).toEqual(["spend", "impressions"]);
+  });
+});

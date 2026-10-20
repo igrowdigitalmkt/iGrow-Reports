@@ -9,6 +9,10 @@ const VERSION = 1;
 const MAX_KEYS = 80;
 const KEY_PATTERN = /^[A-Za-z0-9_:.-]{1,100}$/;
 
+/** Padrão anterior (antes de Alcance entrar e Cliques sair): quem apenas o herdou, sem personalizar, passa a ver o padrão novo. */
+const PREVIOUS_DEFAULTS = [["spend", "results", "cost_result", "impressions", "link_clicks"]];
+const sameKeys = (a: string[], b: string[]) => a.length === b.length && a.every((key, index) => key === b[index]);
+
 export const columnPreferenceKey = (preferenceKey: string) => `groow.campaigns.columns.v${VERSION}:${preferenceKey}`;
 
 /** Lê e valida o texto salvo; qualquer formato inesperado devolve `null` (usa-se o padrão). */
@@ -18,7 +22,8 @@ export function parseColumnPreference(raw: string | null): string[] | null {
     const value: unknown = JSON.parse(raw);
     if (!Array.isArray(value) || !value.length || value.length > MAX_KEYS) return null;
     if (!value.every((item): item is string => typeof item === "string" && KEY_PATTERN.test(item))) return null;
-    return [...new Set(value)];
+    const keys = [...new Set(value)];
+    return PREVIOUS_DEFAULTS.some(previous => sameKeys(keys, previous)) ? null : keys;
   } catch { return null; }
 }
 
