@@ -110,7 +110,7 @@
 .analytics-filter-popover > strong, .analytics-metric-picker-heading > strong { font-size: 14px; font-weight: 600; }
 .analytics-filter-popover > label { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); color: var(--text); font-size: 14px; line-height: 1.45; cursor: pointer; }
 .analytics-filter-popover > label:last-child { padding-bottom: 0; border: 0; }
-.analytics-filter-popover input[type="checkbox"], .analytics-compare-toggle input, .analytics-campaign-table input[type="checkbox"] { width: 15px; height: 15px; flex-shrink: 0; accent-color: var(--accent); }
+.analytics-filter-popover input[type="checkbox"], .analytics-compare-toggle input, .analytics-campaign-table input[type="checkbox"] { flex-shrink: 0; }
 .analytics-filter-popover label small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
 .analytics-metric-picker-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .analytics-metric-picker-heading button { padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 500; }
@@ -329,7 +329,7 @@
 .platform-popover li[draggable="true"] { cursor: grab; }
 .platform-popover li.is-dragging { opacity: .45; }
 .platform-popover label { display: flex; flex: 1; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
-.platform-popover input { width: 15px; height: 15px; accent-color: var(--accent); }
+.platform-popover input { flex-shrink: 0; }
 .platform-grip { color: var(--subtle); }
 .platform-check { color: var(--accent); }
 .platform-mark { display: inline-grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; border-radius: 6px; background: var(--surface-raised); color: var(--secondary); font-size: 14px; font-weight: 700; }

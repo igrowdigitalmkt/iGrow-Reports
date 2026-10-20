@@ -649,7 +649,7 @@ a.attention-item:hover { background: var(--surface-hover); }
 .send-recipient-list { display: grid; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; }
 .send-recipient-list label, .send-result { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
 .send-recipient-list label.is-disabled { opacity: .55; cursor: not-allowed; }
-.send-recipient-list input { width: 16px; height: 16px; accent-color: var(--accent); }
+.send-recipient-list input { flex-shrink: 0; }
 .send-recipient-list span { display: flex; flex-direction: column; min-width: 0; }
 .send-recipient-list strong { font-size: 14px; font-weight: 500; }
 .send-recipient-list small { color: var(--muted); font-size: 12px; }

@@ -23,7 +23,7 @@
 .campaigns-card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 18px; color: var(--muted); font-size: 13px; }
 .campaigns-card-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .campaigns-check { display: inline-flex; align-items: center; gap: 8px; color: var(--secondary); cursor: pointer; }
-.campaigns-check input { width: 15px; height: 15px; accent-color: var(--accent); }
+.campaigns-check input { flex-shrink: 0; }
 .campaigns-link { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: var(--accent-text); font: inherit; cursor: pointer; }
 .campaigns-link:disabled { color: var(--subtle); cursor: not-allowed; }
 .campaigns-card .analytics-table-scroll.is-capped { max-height: max(420px, calc(100vh - 250px)); border-radius: 0 0 12px 12px; }
