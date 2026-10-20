@@ -10,6 +10,8 @@ export function desirableDirection(metric: Pick<AnalyticsMetric, "key" | "label"
   if (["spend", "social_spend"].includes(key)) return "neutral";
   if (/^(cost[:_]|cost$|cpc|cpp|cpm|cpa|cpl|cpv|frequency)/.test(key) || /(^|_)cost(_|$)/.test(key)) return "down";
   if (/^(custo|cpc|cpm|cpp|frequência)/i.test(metric.label.trim())) return "down";
+  // Volume, entrega e retorno: subir é bom, mesmo que o dado guardado os tenha marcado como indiferentes.
+  if (/^(impressions|reach|clicks|link_clicks|inline_link_clicks|outbound_clicks|unique_|primary_results|results?$|result:|action:|video_|inline_post_engagement|ctr|unique_ctr|roas|attributed_revenue|value:)/.test(key)) return "up";
   return metric.desirable;
 }
 

@@ -21,6 +21,11 @@ describe("cor da variação: depende de a métrica ser boa ao subir ou ao cair",
       expect(changeDescription(data(70, 100, key), metric(key, label)).direction).toBe("negative");
     }
   });
+  it("impressões, cliques e ações contam como bons ao subir mesmo se o dado guardado os marcou como indiferentes", () => {
+    for (const [key, label] of [["impressions", "Impressões"], ["reach", "Alcance"], ["link_clicks", "Cliques no link"], ["action:landing_page_view", "Visualizações da página"], ["inline_post_engagement", "Engajamento"], ["video_views", "Visualizações de vídeo"]] as const) {
+      expect(changeDescription(data(150, 100, key), metric(key, label, "neutral")).direction, key).toBe("positive");
+    }
+  });
   it("investimento é indiferente: nunca verde nem vermelho, mas a seta segue o sentido do número", () => {
     const up = changeDescription(data(695, 100, "spend"), metric("spend", "Valor usado", "neutral"));
     expect(up).toMatchObject({ direction: "neutral", up: true });
