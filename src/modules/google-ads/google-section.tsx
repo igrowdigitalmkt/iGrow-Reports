@@ -1,4 +1,5 @@
 import { resultCostBreakdown } from "@/modules/client-portal/analytics-results";
+import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { SectionToggle } from "@/modules/client-portal/section-toggle";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
 
@@ -37,7 +38,7 @@ export function googleAccountSummary(section: GoogleSectionView) {
 export function GoogleAdsSection({ sections, failures, order, collapsed = false, onToggle }: { sections: GoogleSectionView[]; failures: Array<{ name: string; message: string }>; order?: number; /** Recolher/expandir (só nas telas que passam `onToggle`). */ collapsed?: boolean; onToggle?: () => void }) {
   if (!sections.length && !failures.length) return null;
   return <section className="platform-section" aria-label="Google Ads" style={order === undefined ? undefined : { order }}>
-    <div className="platform-heading"><span className="platform-mark is-google" aria-hidden="true">G</span><h2>Google Ads</h2>{onToggle && <SectionToggle collapsed={collapsed} label="Google Ads" onToggle={onToggle} />}
+    <div className="platform-heading">{onToggle && <SectionToggle collapsed={collapsed} label="Google Ads" onToggle={onToggle} />}<PlatformLogo platform="google" /><h2>Google Ads</h2>
       <span className="platform-heading-meta">{sections.length} {sections.length === 1 ? "conta" : "contas"}</span></div>
     {!collapsed && <>
     {failures.map(failure => <p key={failure.name} role="alert" className="analytics-footnote" style={{ padding: "0 4px" }}>Não foi possível ler a conta {failure.name} agora. {failure.message}</p>)}

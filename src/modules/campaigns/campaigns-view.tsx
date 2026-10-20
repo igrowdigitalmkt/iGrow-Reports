@@ -26,6 +26,7 @@ import { clearSelection, entityKey, scopeDescription, scopeRows, selectionStorag
 import { useStoredSelection } from "./navigation/use-selection";
 import { structureOf } from "./platforms/registry";
 import { OperationsServicesContext, loadManualCapabilitiesAction } from "./manual/entity-operations";
+import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { SectionToggle } from "@/modules/client-portal/section-toggle";
 import { GoogleAdsSection, type GoogleSectionView } from "@/modules/google-ads/google-section";
 import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "@/modules/client-portal/platform-picker";
@@ -220,7 +221,7 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
     </header>
     {intro}
     {metaVisible && <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
-      <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><SectionToggle collapsed={collapsed.includes("meta")} label="Meta Ads" onToggle={() => toggleSection("meta")} /><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
+      <div className="platform-heading"><SectionToggle collapsed={collapsed.includes("meta")} label="Meta Ads" onToggle={() => toggleSection("meta")} /><PlatformLogo platform="meta" /><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
         {data.state === "ready" && data.warnings.length > 0 && <details className="analytics-quality-menu">
           <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
           <div>{data.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>

@@ -540,3 +540,5 @@
 .section-toggle:hover { background: var(--surface-hover); color: var(--text); }
 .section-toggle svg { transition: transform .15s; }
 .section-toggle svg.is-collapsed { transform: rotate(-90deg); }
+.platform-heading .platform-logo { flex-shrink: 0; }
+.platform-heading { gap: 8px; }
