@@ -2,7 +2,6 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMetaApiConfig } from "@/lib/env";
 import type { Database } from "@/types/database";
-import { MetaClient } from "@/modules/meta/client";
 import { loadAccessToken } from "@/modules/meta/server";
 import { requestManualMetaChange, type ManualChangeResult } from "@/modules/agent-executor/manual-actions";
 import { agentSchedulerEnabled } from "@/modules/agent-executor/scheduler";
@@ -19,7 +18,7 @@ const UNSETTLED = ["queued", "executing", "verifying", "needs_verification"] as 
 export type Actor = { agencyId: string; userId: string; role: string };
 /** Leitura crua de UMA entidade na Meta (somente GET). `null` = a Meta não devolveu a entidade. Lança em falha de comunicação. */
 export type RawEntity = { id?: string; account_id?: string; status?: string; effective_status?: string; daily_budget?: string | number; lifetime_budget?: string | number; objective?: string; campaign_id?: string };
-export type EntityReader = (service: Service, scope: { agencyId: string; integrationId: string; connectionId: string }, entityId: string, level: ManualLevel) => Promise<RawEntity | null>;
+export type EntityReader = (service: Service, scope: { agencyId: string; integrationId: string; connectionId: string }, entityId: string, level: ManualLevel, fetchImpl?: typeof fetch) => Promise<RawEntity | null>;
 export type ControlDeps = {
   service: Service;
   executorEnabled?: () => boolean;
@@ -38,14 +37,24 @@ const message = {
   unknown: "Não foi possível confirmar o estado atual na Meta agora. Nenhuma ação é oferecida sem essa confirmação.",
 } as const;
 
-const defaultReadEntity: EntityReader = async (service, scope, entityId, level) => {
+/**
+ * Leitura de UMA entidade pelo mesmo GET direto do executor (`/{id}?fields=...`, já homologado). Falha de comunicação ou resposta de erro
+ * lança; entidade que a Meta não devolve é `null`. Só um código curto vai ao log (nunca URL, token ou mensagem da Meta).
+ */
+export const defaultReadEntity: EntityReader = async (service, scope, entityId, level, fetchImpl: typeof fetch = fetch) => {
   const apiVersion = getMetaApiConfig()?.apiVersion;
   if (!apiVersion) throw new Error("no_api_version");
   const token = await loadAccessToken(service, scope.agencyId, scope.integrationId, scope.connectionId);
-  const client = new MetaClient({ accessToken: token, apiVersion, timeoutMs: 15_000, retryDelayMs: 500 });
   const fields = `id,account_id,status,effective_status,daily_budget,lifetime_budget,${level === "campaign" ? "objective" : "campaign_id"}`;
-  const [entity] = await client.getObjects<RawEntity>([entityId], fields);
-  return entity ?? null;
+  const response = await fetchImpl(`https://graph.facebook.com/${apiVersion}/${entityId}?fields=${fields}`, {
+    method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15_000),
+  });
+  const body = await response.json().catch(() => null) as (RawEntity & { error?: { code?: unknown } }) | null;
+  if (!response.ok || !body || body.error) {
+    console.warn(`manual_control entity read failed http ${response.status} code ${typeof body?.error?.code === "number" ? body.error.code : "?"}`);
+    throw new Error("entity_read_failed");
+  }
+  return body.id ? body : null;
 };
 
 const digits = (value: unknown) => typeof value === "string" && /^\d{1,15}$/.test(value) ? Number(value)

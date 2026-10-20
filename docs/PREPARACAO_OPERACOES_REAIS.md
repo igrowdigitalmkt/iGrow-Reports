@@ -36,7 +36,7 @@ Pré-requisito: uma campanha **criada só para teste**, com orçamento baixo, em
 1. Proprietário informa: cliente, conta, campanha (nome e ID) e o orçamento de teste.
 2. Conferir em **Integrações** que a conexão está ativa e que a página da campanha mostra o cartão "Operações" sem avisos (leitura ao vivo de `ads_management` válida).
 3. Registrar o estado anterior (status e orçamento) pela própria tela (o cartão mostra o estado lido agora na Meta).
-4. Habilitar o executor **somente para a organização de teste e só durante a janela do teste** (`AGENT_SCHEDULER_ENABLED=true` no ambiente e `agent_meta_execution_allowed` verdadeiro para a organização); reverter ao final.
+4. **Estado real do executor (conferido em 21/10):** `AGENT_SCHEDULER_ENABLED` está ligado em produção e o direito `agent_executor_meta` está ligado globalmente, com override da organização iGrow Digital até **26/10/2026 13:07 UTC** (homologação controlada, Colégio Crescer, teto R$ 100,00/dia). Ou seja, os botões **já executam de verdade** para proprietário/administrador dessa organização. Antes do teste, o proprietário deve decidir: manter, renovar ou revogar o override (`private.entitlement_overrides`, linha `agent_executor_meta`); após o teste, revogar ou deixar expirar.
 5. **A) Pausar:** botão Pausar › caixa de confirmação › Confirmar pausa. Esperado: "confirmada na Meta"; histórico com estado anterior ATIVA e confirmado PAUSADA; conferir no Gerenciador de Anúncios.
 6. **B) Retomar:** Retomar › confirmar (marca o reconhecimento financeiro). Esperado: Ativa, orçamento inalterado.
 7. **C) Orçamento:** alterar para um valor pequeno dentro do limite (p. ex. +10%), conferir "anterior → novo", confirmar. Esperado: orçamento novo confirmado na Meta e no histórico.

@@ -135,4 +135,5 @@ Ver `docs/LANCAMENTO_V1.md` (checklist de produção) e `docs/SUSPENSAO_E_MONITO
 - Análise operacional: estágios vazios recolhidos, motivo e conta nas propostas, atalho do Assistente (só navega; nunca cria operações).
 - Painel de IA (Configurações): consumo liquidado, reservado, desconhecido e disponível separados; tipos do banco atualizados.
 - WhatsApp: `whatsapp-native-label-sync-provider` falhava de forma determinística no Windows (checkout CRLF fazia o teste capturar o arquivo inteiro); corrigido no teste. `whatsapp-labels-browser` é um teste de navegador que oscila sob carga da suíte completa (passa isolado repetidas vezes).
-- Execução real continua desligada; nenhuma campanha alterada; nenhuma migration nova.
+- **Executor:** conferido que NÃO está desligado em produção (direito global ligado e override da iGrow Digital até 26/10/2026 13:07 UTC, escopo de homologação do Colégio Crescer); os botões manuais executam de verdade nesse escopo. Nenhuma campanha foi alterada neste ciclo e nenhuma migration nova.
+- Correção da leitura da entidade na tela de operações: o `getObjects` (nunca usado antes) falhou em produção; agora usa o mesmo GET direto do executor.

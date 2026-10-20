@@ -3,9 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/agent-executor/manual-actions", () => ({ requestManualMetaChange: vi.fn() }));
 vi.mock("@/modules/agent-executor/scheduler", () => ({ agentSchedulerEnabled: () => true }));
-vi.mock("@/modules/meta/server", () => ({ loadAccessToken: vi.fn() }));
+vi.mock("@/modules/meta/server", () => ({ loadAccessToken: vi.fn(async () => "SEGREDO-TOKEN") }));
+vi.mock("@/lib/env", async importOriginal => ({ ...(await importOriginal<typeof import("@/lib/env")>()), getMetaApiConfig: () => ({ apiVersion: "v25.0" }) }));
 
-import { loadManualHistory, resolveManualControl, runManualOperation, type ControlDeps, type RawEntity } from "@/modules/campaigns/manual/control";
+import { defaultReadEntity, loadManualHistory, resolveManualControl, runManualOperation, type ControlDeps, type RawEntity } from "@/modules/campaigns/manual/control";
 import { probeWritePermission } from "@/modules/campaigns/manual/permissions";
 import { currencyExponent, formatMinor, metaAccountStatusLabel, parseBudgetInput, validateBudgetChange, type ManualRef } from "@/modules/campaigns/manual/contracts";
 
@@ -348,5 +349,32 @@ describe("leitura ao vivo da permissão de gerenciamento", () => {
     expect(metaAccountStatusLabel("1")).toBe("ativa");
     expect(metaAccountStatusLabel("3")).toMatch(/pagamento/);
     expect(metaAccountStatusLabel(null)).toMatch(/sem status/);
+  });
+});
+
+describe("leitura direta da entidade (mesmo GET do executor)", () => {
+  const scope = { agencyId: AGENCY, integrationId: "in", connectionId: "mc" };
+  const reply = (status: number, body: unknown) => vi.fn(async () => ({ ok: status < 300, status, json: async () => body })) as unknown as typeof fetch;
+  it("faz GET em /{id} com Bearer, sem token na URL, e devolve a entidade", async () => {
+    const fetchImpl = reply(200, campaign());
+    const entity = await defaultReadEntity({} as never, scope, "900", "campaign", fetchImpl);
+    expect(entity).toMatchObject({ id: "900", status: "ACTIVE" });
+    const [url, init] = (fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]!;
+    expect(url).toMatch(/^https:\/\/graph\.facebook\.com\/v25\.0\/900\?fields=/);
+    expect(url).not.toContain("SEGREDO");
+    expect(init.method).toBe("GET");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer SEGREDO-TOKEN");
+    expect(url).toContain("objective");
+    await defaultReadEntity({} as never, scope, "910", "adset", fetchImpl);
+    expect((fetchImpl as unknown as { mock: { calls: [string][] } }).mock.calls[1]![0]).toContain("campaign_id");
+  });
+  it("erro da Meta lança e só registra um código curto (sem token, URL ou mensagem)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(defaultReadEntity({} as never, scope, "900", "campaign", reply(400, { error: { code: 100, message: "token SEGREDO-TOKEN inválido" } }))).rejects.toThrow("entity_read_failed");
+    expect(String(warn.mock.calls[0]?.[0])).toBe("manual_control entity read failed http 400 code 100");
+    warn.mockRestore();
+  });
+  it("sem id na resposta a entidade é desconhecida (null)", async () => {
+    expect(await defaultReadEntity({} as never, scope, "900", "campaign", reply(200, {}))).toBeNull();
   });
 });
