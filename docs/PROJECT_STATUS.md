@@ -128,3 +128,11 @@ Ver `docs/LANCAMENTO_V1.md` (checklist de produção) e `docs/SUSPENSAO_E_MONITO
 - Execução real de anúncios continua DESLIGADA (interruptor da organização); nenhuma campanha real foi alterada.
 - Capturas: `docs/capturas-campanhas/6.0-*` (fixtures locais, removidas).
 - **Publicação (20/10/2026):** `master` em `3c86990` (fast-forward de `18ecfc0`), deploy Vercel de produção Ready, `/api/health` ok. Verificação autenticada somente leitura: Campanhas mostra a seção "Análise operacional com IA" (sem clicar em Analisar); a página de campanha mostra o cartão "Operações" no estado "conta sem permissão de gerenciamento de anúncios" (a conexão atual não tem `ads_management`), sem oferecer nenhuma escrita. Nenhuma migration nova; nenhuma campanha alterada. Testes: 1679 aprovados, 1 teste de etiquetas do WhatsApp já falhava antes (`whatsapp-native-label-sync-provider`) e outro oscila sob carga.
+
+## Preparação para operações reais (21/10/2026)
+- Detalhes em `docs/PREPARACAO_OPERACOES_REAIS.md`. **Correção:** as três conexões Meta têm `ads_management` guardado; o "indisponível" visto em produção era da conta Escola Crescer (`account_status` 3). Campanhas agora separa conta restrita, conexão e permissão, com leitura ao vivo de `/me/permissions` antes de oferecer ações.
+- Limite percentual de orçamento: a interface era um passo mais restritiva que o executor (10x contra 11x); agora usa a fórmula e o limite do executor (fonte única `policy.ts`), com teste de paridade.
+- Análise operacional: estágios vazios recolhidos, motivo e conta nas propostas, atalho do Assistente (só navega; nunca cria operações).
+- Painel de IA (Configurações): consumo liquidado, reservado, desconhecido e disponível separados; tipos do banco atualizados.
+- WhatsApp: `whatsapp-native-label-sync-provider` falhava de forma determinística no Windows (checkout CRLF fazia o teste capturar o arquivo inteiro); corrigido no teste. `whatsapp-labels-browser` é um teste de navegador que oscila sob carga da suíte completa (passa isolado repetidas vezes).
+- Execução real continua desligada; nenhuma campanha alterada; nenhuma migration nova.
