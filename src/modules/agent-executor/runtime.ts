@@ -4,7 +4,7 @@ import { getMetaApiConfig } from "@/lib/env";
 import type { Database } from "@/types/database";
 import { loadAccessToken } from "@/modules/meta/server";
 import { readBudgetInventory, type BudgetInventory } from "./financial-inventory";
-import { MANUAL_MAX_INCREASE_PERCENT, delegationSchema, proposalSchema, type AccountContext, type ActionProposal, type Delegation } from "./policy";
+import { MANUAL_MAX_INCREASE_PERCENT, delegationSchema, isBudgetSensitiveAction, isManualOnlyAction, proposalSchema, type AccountContext, type ActionProposal, type Delegation } from "./policy";
 
 /**
  * O worker recebe SOMENTE agencyId + jobId. Todo o restante e resolvido
@@ -84,6 +84,8 @@ export async function resolveAgentRuntime(
   // Cada origem tem seu proprio caminho: uma acao manual nao e delegacao da IA e
   // um job da IA nunca pode ser executado como se fosse clique do usuario.
   if (job.execution_origin !== origin) deny("invalid_execution_origin");
+  // Ações novas (renomear, anúncios) só existem para o clique manual: nunca para um job da IA (o banco também recusa).
+  if (isManualOnlyAction(job.action_type) && origin !== "manual") deny("manual_only_action");
   let delegationRow: Database["public"]["Tables"]["agent_delegations"]["Row"] | null = null;
   if (origin === "ai") {
     if (!job.approved_by || !job.approved_at || !job.approval_expires_at
@@ -139,6 +141,7 @@ export async function resolveAgentRuntime(
     actionId: job.id, action: job.action_type, targetId: job.meta_entity_id,
     adAccountId: account.external_id, factsCollectedAt: job.facts_collected_at,
     rationale: job.rationale,
+    ...(job.new_name != null ? { newName: job.new_name } : {}),
     ...(job.daily_budget_minor !== null ? { dailyBudgetMinor: Number(job.daily_budget_minor) } : {}),
   });
   // Manual: envelope sintetico em memoria, derivado da propria solicitacao do usuario. Os tetos
@@ -177,7 +180,7 @@ export async function resolveAgentRuntime(
 
   // Retomar e orcamento dependem de inventario financeiro INTEGRAL lido agora na Meta.
   // Pausar nao aumenta gasto: dispensa a leitura. Falha/cobertura incompleta => politica nega.
-  const needsInventory = !proposal.data.action.startsWith("pause_");
+  const needsInventory = isBudgetSensitiveAction(proposal.data.action);
   const inventory: BudgetInventory = needsInventory
     ? await (deps.inventoryReader ?? ((t, a, v) => readBudgetInventory(t, a, { apiVersion: v })))(token, account.external_id, apiVersion)
     : { confirmedActiveDailyBudgetMinor: null, coverageComplete: false, gaps: [] };

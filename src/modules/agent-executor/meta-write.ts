@@ -1,5 +1,5 @@
 import "server-only";
-import { evaluateDelegatedAction, type PolicyInput, type AuthorizedOperation } from "./policy";
+import { actionLevel, evaluateDelegatedAction, isRenameAction, type ManualActionKind, type PolicyInput, type AuthorizedOperation } from "./policy";
 
 /**
  * Adaptador de escrita ISOLADO. Não conectado a nenhuma rota, job ou usuário.
@@ -10,9 +10,9 @@ export type MetaWriteDeps = {
   fetchImpl?: typeof fetch;
   now?: () => Date;
   /** Persistir preflight ANTES do POST, falhando fechado em caso de erro. */
-  beforePost?: (op: AuthorizedOperation, state: { status: string; dailyBudgetMinor: number | null }) => Promise<void>;
+  beforePost?: (op: AuthorizedOperation, state: { status: string; dailyBudgetMinor: number | null; name?: string | null }) => Promise<void>;
   /** Persistir comprovacao no ledger antes de declarar 'verified'. */
-  afterVerified?: (op: AuthorizedOperation, state: { status: string; dailyBudgetMinor: number | null }) => Promise<void>;
+  afterVerified?: (op: AuthorizedOperation, state: { status: string; dailyBudgetMinor: number | null; name?: string | null }) => Promise<void>;
 };
 type ExecuteInput = Omit<PolicyInput, "now" | "entity"> & {
   token: string;
@@ -21,7 +21,7 @@ type ExecuteInput = Omit<PolicyInput, "now" | "entity"> & {
   targetId: string;
 };
 
-type EntityRead = { id?: unknown; account_id?: unknown; status?: unknown; daily_budget?: unknown; objective?: unknown; campaign_id?: unknown; error?: unknown };
+type EntityRead = { id?: unknown; account_id?: unknown; name?: unknown; status?: unknown; daily_budget?: unknown; objective?: unknown; campaign_id?: unknown; adset_id?: unknown; error?: unknown };
 export type MetaWriteResult =
   | { status: "blocked"; reason: string }
   | { status: "verified"; actionId: string; metaEntityId: string }
@@ -31,11 +31,13 @@ function normalizeAccountId(value: unknown): string | null {
   if (typeof value !== "string" || !/^(?:act_)?[1-9]\d*$/.test(value)) return null;
   return value.startsWith("act_") ? value : `act_${value}`;
 }
-function readEntity(raw: EntityRead, targetId: string, accountId: string, level: "campaign" | "adset", now: Date) {
+function readEntity(raw: EntityRead, targetId: string, accountId: string, level: "campaign" | "adset" | "ad", now: Date) {
   if (raw.id !== targetId || normalizeAccountId(raw.account_id) !== accountId) return null;
   // Validar o tipo pelo campo real do provedor; jamais deduzir o tipo somente do pedido da IA.
   if (level === "campaign" && (typeof raw.objective !== "string" || !raw.objective)) return null;
   if (level === "adset" && (typeof raw.campaign_id !== "string" || !/^[1-9]\d*$/.test(raw.campaign_id))) return null;
+  // Anúncio: o campo característico é o conjunto pai (adset_id), lido do próprio provedor.
+  if (level === "ad" && (typeof raw.adset_id !== "string" || !/^[1-9]\d*$/.test(raw.adset_id))) return null;
   const status = raw.status;
   if (typeof status !== "string") return null;
   const daily = raw.daily_budget;
@@ -43,7 +45,7 @@ function readEntity(raw: EntityRead, targetId: string, accountId: string, level:
   const minor = typeof daily === "string" && /^\d+$/.test(daily) ? Number(daily)
     : typeof daily === "number" ? daily : null;
   if (minor !== null && (!Number.isSafeInteger(minor) || minor < 0)) return null;
-  return { id: targetId, adAccountId: accountId, configuredStatus: status,
+  return { id: targetId, adAccountId: accountId, configuredStatus: status, name: typeof raw.name === "string" ? raw.name : null,
     dailyBudgetMinor: minor, fetchedAt: now.toISOString() };
 }
 function expectedStatus(op: AuthorizedOperation) {
@@ -51,6 +53,8 @@ function expectedStatus(op: AuthorizedOperation) {
 }
 function verified(op: AuthorizedOperation, raw: EntityRead) {
   if (raw.status !== expectedStatus(op)) return false;
+  // Renomear: a prova é a leitura posterior com o NOME pedido (HTTP 200 do POST não basta).
+  if (op.requestedName != null && raw.name !== op.requestedName) return false;
   if (op.requestedDailyBudgetMinor !== null) {
     const value = raw.daily_budget;
     const parsed = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
@@ -79,10 +83,10 @@ export async function executeMetaWrite(input: ExecuteInput, deps: MetaWriteDeps 
 
   const base = `https://graph.facebook.com/${input.apiVersion}/${input.targetId}`;
   const query = new URL(base);
-  const expectedLevel = String(proposal.action).includes("campaign") ? "campaign" : "adset";
+  const expectedLevel = actionLevel(proposal.action as ManualActionKind);
   query.searchParams.set("fields", expectedLevel === "campaign"
-    ? "id,account_id,status,daily_budget,objective"
-    : "id,account_id,status,daily_budget,campaign_id");
+    ? "id,account_id,name,status,daily_budget,objective"
+    : expectedLevel === "adset" ? "id,account_id,name,status,daily_budget,campaign_id" : "id,account_id,name,status,adset_id");
   const headers = { Authorization: `Bearer ${input.token}`, Accept: "application/json" };
 
   async function get(): Promise<EntityRead> {
@@ -105,12 +109,13 @@ export async function executeMetaWrite(input: ExecuteInput, deps: MetaWriteDeps 
   const form = new URLSearchParams();
   if (op.action.startsWith("pause_")) form.set("status", "PAUSED");
   else if (op.action.startsWith("resume_")) form.set("status", "ACTIVE");
+  else if (isRenameAction(op.action) && op.requestedName) form.set("name", op.requestedName);
   else if (op.requestedDailyBudgetMinor !== null) form.set("daily_budget", String(op.requestedDailyBudgetMinor));
   else return { status: "blocked", reason: "Operação não suportada." };
 
   // Nunca existe uma escrita Meta sem antes-state durable.
   try {
-    await deps.beforePost?.(op, { status: entity.configuredStatus, dailyBudgetMinor: entity.dailyBudgetMinor });
+    await deps.beforePost?.(op, { status: entity.configuredStatus, dailyBudgetMinor: entity.dailyBudgetMinor, name: entity.name ?? null });
   } catch {
     return { status: "blocked", reason: "Falha ao registrar preflight; nada enviado." };
   }
@@ -137,6 +142,7 @@ export async function executeMetaWrite(input: ExecuteInput, deps: MetaWriteDeps 
       await deps.afterVerified?.(op, {
         status: String(after.status),
         dailyBudgetMinor: typeof amount === "number" && Number.isSafeInteger(amount) ? amount : null,
+        name: typeof after.name === "string" ? after.name : null,
       });
       return { status: "verified", actionId: op.actionId, metaEntityId: op.targetId };
     }

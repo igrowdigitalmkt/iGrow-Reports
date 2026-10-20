@@ -7,6 +7,36 @@ export const ACTIONS = [
 ] as const;
 export type ActionKind = (typeof ACTIONS)[number];
 
+/**
+ * Ações SOMENTE MANUAIS (clique do usuário autenticado). Ficam FORA de `ACTIONS` de propósito: a lista da IA (contrato de decisão, fila e
+ * aprovação) continua com as seis ações anteriores, e o banco rejeita estas cinco para `execution_origin = 'ai'`.
+ */
+export const MANUAL_ONLY_ACTIONS = ["rename_campaign", "rename_adset", "rename_ad", "pause_ad", "resume_ad"] as const;
+export const MANUAL_ACTIONS = [...ACTIONS, ...MANUAL_ONLY_ACTIONS] as const;
+export type ManualActionKind = (typeof MANUAL_ACTIONS)[number];
+export const isManualOnlyAction = (action: string): boolean => (MANUAL_ONLY_ACTIONS as readonly string[]).includes(action);
+export type EntityLevel = "campaign" | "adset" | "ad";
+/** Nível da entidade-alvo de cada ação (adset contém "ad": a ordem importa). */
+export function actionLevel(action: ManualActionKind): EntityLevel {
+  return action.endsWith("_campaign") ? "campaign" : action.endsWith("_adset") ? "adset" : action.startsWith("set_campaign") ? "campaign" : action.startsWith("set_adset") ? "adset" : "ad";
+}
+/** Ações que podem aumentar ou alterar o gasto: exigem orçamento confirmado e inventário (retomar campanha/conjunto e alterar orçamento). */
+export const isBudgetSensitiveAction = (action: ManualActionKind): boolean =>
+  action === "resume_campaign" || action === "resume_adset" || action.startsWith("set_");
+export const isRenameAction = (action: string) => action.startsWith("rename_");
+
+/** Limite conservador da Groow para nomes (o banco aceita até 400); sem espaços nas pontas, sem caracteres de controle. */
+export const MAX_ENTITY_NAME_LENGTH = 200;
+export function validateEntityName(name: unknown, current?: string | null): { ok: true; name: string } | { ok: false; message: string } {
+  if (typeof name !== "string") return { ok: false, message: "Informe o novo nome." };
+  const trimmed = name.trim();
+  if (!trimmed) return { ok: false, message: "O nome não pode ficar vazio." };
+  if (trimmed.length > MAX_ENTITY_NAME_LENGTH) return { ok: false, message: `O nome pode ter no máximo ${MAX_ENTITY_NAME_LENGTH} caracteres.` };
+  if (/[\u0000-\u001f\u007f\u2028\u2029]/.test(trimmed)) return { ok: false, message: "O nome contém caracteres não permitidos." };
+  if (current != null && trimmed === current) return { ok: false, message: "O novo nome é igual ao atual." };
+  return { ok: true, name: trimmed };
+}
+
 /** Delegacoes da IA continuam limitadas a 100% por coluna no banco; o manual pode ir ate este valor. */
 export const MANUAL_MAX_INCREASE_PERCENT = 1000;
 const money = z.number().int().nonnegative().max(1_000_000_000_000);
@@ -16,22 +46,29 @@ const timestamp = z.iso.datetime({ offset: true });
 
 export const proposalSchema = z.object({
   actionId: z.uuid(),
-  action: z.enum(ACTIONS),
+  action: z.enum(MANUAL_ACTIONS),
   targetId: metaId,
   adAccountId: accountId,
   dailyBudgetMinor: money.positive().optional(),
+  /** Novo nome (somente ações rename_*). */
+  newName: z.string().max(400).optional(),
   factsCollectedAt: timestamp,
   rationale: z.string().trim().min(10).max(2000),
 }).strict().superRefine((p, ctx) => {
   if (p.action.startsWith("set_") !== (p.dailyBudgetMinor !== undefined)) {
     ctx.addIssue({ code: "custom", path: ["dailyBudgetMinor"], message: "Orçamento incompatível com ação." });
   }
+  if (isRenameAction(p.action) !== (p.newName !== undefined)) {
+    ctx.addIssue({ code: "custom", path: ["newName"], message: "Nome incompatível com ação." });
+  } else if (p.newName !== undefined && !validateEntityName(p.newName).ok) {
+    ctx.addIssue({ code: "custom", path: ["newName"], message: "Nome inválido." });
+  }
 });
 
 export const delegationSchema = z.object({
   agencyId: z.uuid(), clientId: z.uuid(), adAccountId: accountId,
   enabled: z.boolean(), revokedAt: timestamp.nullable(), expiresAt: timestamp,
-  allowedActions: z.array(z.enum(ACTIONS)).max(ACTIONS.length),
+  allowedActions: z.array(z.enum(MANUAL_ACTIONS)).max(MANUAL_ACTIONS.length),
   maxAccountDailyBudgetMinor: money.positive(),
   maxEntityDailyBudgetMinor: money.positive(),
   maxIncreaseMinorPerAction: money.positive(),
@@ -50,7 +87,9 @@ export const accountContextSchema = z.object({
 }).strict();
 
 export const entitySnapshotSchema = z.object({
-  id: metaId, adAccountId: accountId, level: z.enum(["campaign", "adset"]),
+  id: metaId, adAccountId: accountId, level: z.enum(["campaign", "adset", "ad"]),
+  /** Nome atual lido na Meta (usado para recusar renomeação sem mudança). */
+  name: z.string().max(1000).nullable().optional(),
   configuredStatus: z.enum(["ACTIVE", "PAUSED", "ARCHIVED", "DELETED", "IN_PROCESS", "WITH_ISSUES"]),
   dailyBudgetMinor: money.nullable(),
   fetchedAt: timestamp,
@@ -63,12 +102,15 @@ export type EntitySnapshot = z.infer<typeof entitySnapshotSchema>;
 
 export type AuthorizedOperation = {
   actionId: string;
-  action: ActionKind;
+  action: ManualActionKind;
   targetId: string;
   adAccountId: string;
   previousStatus: "ACTIVE" | "PAUSED";
   previousDailyBudgetMinor: number | null;
   requestedDailyBudgetMinor: number | null;
+  /** Nome atual lido na Meta e nome pedido (renomear). */
+  previousName?: string | null;
+  requestedName?: string | null;
   rationale: string;
 };
 export type PolicyResult = { ok: true; operation: AuthorizedOperation } | { ok: false; reason: string };
@@ -96,16 +138,23 @@ export function evaluateDelegatedAction(input: PolicyInput): PolicyResult {
   const factsAge = now - Date.parse(proposal.factsCollectedAt);
   const entityAge = now - Date.parse(entity.fetchedAt);
   if (factsAge < 0 || entityAge < 0 || factsAge > 60 * 60_000 || entityAge > 5 * 60_000) return no("Fatos ou estado desatualizados.");
-  const level = proposal.action.includes("campaign") ? "campaign" : "adset";
+  const level = actionLevel(proposal.action);
   if (level !== entity.level) return no("Entidade incompatível.");
   if (entity.configuredStatus !== "ACTIVE" && entity.configuredStatus !== "PAUSED") return no("Entidade indisponível.");
   const pause = proposal.action.startsWith("pause_");
   const resume = proposal.action.startsWith("resume_");
+  const rename = isRenameAction(proposal.action);
   if (pause && entity.configuredStatus !== "ACTIVE") return no("Entidade não está ativa.");
   if (resume && entity.configuredStatus !== "PAUSED") return no("Entidade não está pausada.");
-  if (!pause && !resume && entity.configuredStatus !== "ACTIVE") return no("Alteração de orçamento exige entidade ativa.");
+  if (!pause && !resume && !rename && entity.configuredStatus !== "ACTIVE") return no("Alteração de orçamento exige entidade ativa.");
+  if (rename) {
+    const verdict = validateEntityName(proposal.newName, entity.name ?? null);
+    if (!verdict.ok) return no(verdict.message);
+    if (entity.name == null) return no("Nome atual não confirmado.");
+  }
 
-  if (!pause) {
+  // Anúncios e renomeações não têm orçamento: as checagens financeiras valem só para retomar campanha/conjunto e alterar orçamento.
+  if (isBudgetSensitiveAction(proposal.action)) {
     // Para reativar/aumentar orçamento, o usuário delega um teto de conta que DEVE
     // vir de inventário completo. Se não for possível calculá-lo, não há escrita.
     if (entity.dailyBudgetMinor === null || !context.budgetCoverageComplete
@@ -124,6 +173,7 @@ export function evaluateDelegatedAction(input: PolicyInput): PolicyResult {
     adAccountId: proposal.adAccountId, previousStatus: entity.configuredStatus,
     previousDailyBudgetMinor: entity.dailyBudgetMinor,
     requestedDailyBudgetMinor: proposal.action.startsWith("set_") ? proposal.dailyBudgetMinor! : null,
+    previousName: entity.name ?? null, requestedName: rename ? proposal.newName! : null,
     rationale: proposal.rationale,
   } };
 }

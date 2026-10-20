@@ -75,6 +75,7 @@ export async function runQueuedAgentJob(identity: Identity, deps: WorkerDeps = {
         await snapshot(service, identity, "before_state", {
           meta_entity_id: op.targetId, action: op.action,
           previous_status: state.status, previous_daily_budget_minor: state.dailyBudgetMinor,
+          ...(state.name != null ? { previous_name: state.name } : {}),
           checked_at: new Date().toISOString(),
         });
       },
@@ -82,6 +83,7 @@ export async function runQueuedAgentJob(identity: Identity, deps: WorkerDeps = {
         await snapshot(service, identity, "after_state", {
           meta_entity_id: op.targetId, action: op.action,
           confirmed_status: state.status, confirmed_daily_budget_minor: state.dailyBudgetMinor,
+          ...(state.name != null ? { confirmed_name: state.name } : {}),
           checked_at: new Date().toISOString(),
         });
       },

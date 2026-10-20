@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAgencyContext } from "@/modules/agencies/context";
-import { ACTIONS } from "./policy";
+import { MANUAL_ACTIONS, isManualOnlyAction, isRenameAction, validateEntityName } from "./policy";
 import { executeQueuedJobNow } from "./scheduler";
 
 /**
@@ -17,13 +17,17 @@ const inputSchema = z.object({
   requestId: z.uuid(),
   clientId: z.uuid(),
   adAccountId: z.uuid(),
-  action: z.enum(ACTIONS),
+  action: z.enum(MANUAL_ACTIONS),
   targetId: z.string().regex(/^[1-9]\d*$/),
   dailyBudgetMinor: z.number().int().positive().max(1_000_000_000_000).optional(),
+  /** Novo nome (somente rename_*): validado aqui, pelo schema da proposta e pelo banco. */
+  newName: z.string().max(400).optional(),
   note: z.string().trim().max(300).optional(),
 }).strict().superRefine((v, ctx) => {
   if (v.action.startsWith("set_") !== (v.dailyBudgetMinor !== undefined))
     ctx.addIssue({ code: "custom", path: ["dailyBudgetMinor"], message: "Orcamento incompativel com a acao." });
+  if (isRenameAction(v.action) !== (v.newName !== undefined) || (v.newName !== undefined && !validateEntityName(v.newName).ok))
+    ctx.addIssue({ code: "custom", path: ["newName"], message: "Nome incompativel com a acao." });
 });
 
 export type ManualChangeResult =
@@ -50,6 +54,12 @@ export async function requestManualMetaChange(input: unknown): Promise<ManualCha
   ]);
   if (!client || !link?.active || !account) return fail("Cliente ou conta de anuncios indisponivel.");
 
+  // Acoes novas (renomear, anuncios) so sao aceitas quando o banco as suporta DE FATO (migracao aplicada); antes disso ficam desabilitadas.
+  if (isManualOnlyAction(v.action)) {
+    const { data: supported, error: probeError } = await service.rpc("agent_manual_extended_actions_supported");
+    if (probeError || supported !== true) return fail("Esta operacao ainda nao esta habilitada neste ambiente (atualizacao do banco pendente). Nada foi alterado na Meta.", "extended_unsupported");
+  }
+
   const id = randomUUID();
   const note = v.note ? `: ${v.note}` : "";
   const { error } = await service.from("agent_action_jobs").insert({
@@ -58,6 +68,7 @@ export async function requestManualMetaChange(input: unknown): Promise<ManualCha
     // O mesmo envio duplicado (duplo clique) cai na mesma chave e nao cria segunda alteracao.
     idempotency_key: createHash("sha256").update(JSON.stringify([agencyId, ctx.user.id, v.requestId])).digest("hex"),
     action_type: v.action, meta_entity_id: v.targetId, daily_budget_minor: v.dailyBudgetMinor ?? null,
+    new_name: v.newName !== undefined ? validateEntityName(v.newName).ok ? v.newName.trim() : null : null,
     facts_collected_at: new Date().toISOString(),
     rationale: `Alteracao manual solicitada por usuario autenticado${note}`.slice(0, 2000),
   });
