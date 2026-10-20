@@ -8,8 +8,11 @@ import type { Database } from "@/types/database";
 import type { GoogleAdsClient } from "./client";
 import type { ClientAccountBilling } from "@/modules/meta/server";
 import { googleAccountBilling } from "./billing";
-import { buildGoogleAnalytics, previousPeriod } from "./normalize";
-import { accountDailyQuery, campaignListQuery, campaignQuery } from "./queries";
+import type { AnalyticsMetric } from "@/modules/client-portal/analytics-types";
+import type { CampaignRow } from "@/modules/campaigns/tree";
+import { buildGoogleRows } from "./hierarchy";
+import { buildGoogleAnalytics, GOOGLE_METRICS, previousPeriod } from "./normalize";
+import { accountDailyQuery, adGroupListQuery, adGroupQuery, adListQuery, adRowsQuery, campaignListQuery, campaignQuery } from "./queries";
 import { loadGoogleAdsClient } from "./server";
 
 type Service = SupabaseClient<Database>;
@@ -75,4 +78,46 @@ export async function loadGoogleBilling(input: { service: Service; agencyId: str
     }
   }));
   return { accounts: results.flatMap(result => "account" in result && result.account ? [result.account] : []), failures: results.flatMap(result => "failure" in result && result.failure ? [result.failure] : []) };
+}
+
+export type GoogleCampaignsData = {
+  accounts: Array<{ id: string; name: string; currency: string }>;
+  /** Campanhas, grupos de anúncios e anúncios no mesmo formato das linhas da Meta (só leitura). */
+  rows: CampaignRow[];
+  metrics: AnalyticsMetric[];
+  failures: Array<{ name: string; message: string }>;
+  readAt: string;
+};
+
+/**
+ * Hierarquia completa do Google Ads (campanhas › grupos de anúncios › anúncios) das contas vinculadas ao cliente, lida ao vivo no
+ * período informado. Itens sem atividade no período vêm da lista completa, com estado; uma conta que falha vira aviso, não derruba as outras.
+ */
+export async function loadGoogleCampaignRows(input: { service: Service; agencyId: string; clientId: string; dateFrom: string; dateTo: string; client?: GoogleAdsClient }): Promise<GoogleCampaignsData> {
+  await ensurePaidOperation(input.agencyId);
+  const linked = await linkedGoogleAccounts(input.service, input.agencyId, input.clientId);
+  const readAt = new Date().toISOString();
+  if (!linked.length) return { accounts: [], rows: [], metrics: GOOGLE_METRICS as AnalyticsMetric[], failures: [], readAt };
+  const client = input.client ?? (await loadGoogleAdsClient(input.service, input.agencyId)).client;
+  const results = await Promise.all(linked.map(async account => {
+    const options = { loginCustomerId: account.loginCustomerId };
+    const search = (query: string) => client.search(account.customerId, query, options);
+    try {
+      const [campaigns, campaignList, adGroups, adGroupList, ads, adList] = await Promise.all([
+        search(campaignQuery(input.dateFrom, input.dateTo)), search(campaignListQuery()).catch(() => undefined),
+        search(adGroupQuery(input.dateFrom, input.dateTo)), search(adGroupListQuery()).catch(() => undefined),
+        search(adRowsQuery(input.dateFrom, input.dateTo)), search(adListQuery()).catch(() => undefined),
+      ]);
+      const gaccount = { id: account.id, customerId: account.customerId, name: account.name, currency: account.currency, timezone: account.timezone ?? "America/Sao_Paulo" };
+      return { account: { id: account.id, name: account.name, currency: account.currency }, rows: buildGoogleRows(gaccount, { campaigns, campaignList, adGroups, adGroupList, ads, adList }) };
+    } catch (error) {
+      return { failure: { name: account.name, message: error instanceof Error ? error.message : "Falha ao ler o Google Ads." } };
+    }
+  }));
+  return {
+    accounts: results.flatMap(result => "account" in result && result.account ? [result.account] : []),
+    rows: results.flatMap(result => "rows" in result && result.rows ? result.rows : []),
+    metrics: GOOGLE_METRICS as AnalyticsMetric[], readAt,
+    failures: results.flatMap(result => "failure" in result && result.failure ? [result.failure] : []),
+  };
 }

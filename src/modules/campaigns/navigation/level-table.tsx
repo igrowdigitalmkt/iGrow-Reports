@@ -11,7 +11,8 @@ import { entityPath } from "../routes";
 import type { CampaignRow, SortSpec } from "../tree";
 import { entityKey } from "./selection";
 
-const NAME_HEADER: Record<CampaignRow["level"], string> = { campaign: "Campanha", adset: "Conjunto de anúncios", ad: "Anúncio" };
+export type LevelTerms = { name: Record<CampaignRow["level"], string>; adset: string; campaign: string };
+const DEFAULT_TERMS: LevelTerms = { name: { campaign: "Campanha", adset: "Conjunto de anúncios", ad: "Anúncio" }, adset: "Conjunto", campaign: "Campanha" };
 
 /**
  * Tabela de UM nível (campanhas, conjuntos ou anúncios). Três ações distintas por linha, nunca confundidas:
@@ -19,7 +20,9 @@ const NAME_HEADER: Record<CampaignRow["level"], string> = { campaign: "Campanha"
  * 2) nome = abre a página de detalhes;
  * 3) ícone de brilho = define a entidade como contexto do Assistente Groow (uma por vez).
  */
-export function LevelTable({ level, rows, columns, index, selected, onToggle, onTogglePage, clientId, detailSearch, analyzing, onAnalyze, campaignName, adsetName, sort, onSort, onToggleStatus, statusBlocked }: {
+export function LevelTable({ level, rows, columns, index, selected, onToggle, onTogglePage, clientId, detailSearch, analyzing, onAnalyze, campaignName, adsetName, sort, onSort, onToggleStatus, statusBlocked, readOnly = false, terms = DEFAULT_TERMS }: {
+  /** Plataformas sem operações (hoje o Google Ads): sem caixas, interruptor, ícone do assistente nem link para detalhes. */
+  readOnly?: boolean; terms?: LevelTerms;
   /** Interruptor Ativado/Desativado: só PEDE a mudança (abre a confirmação); nada é enviado sem a confirmação explícita. */
   onToggleStatus?: (row: CampaignRow, turnOn: boolean) => void; statusBlocked?: (row: CampaignRow) => string | null;
   level: CampaignRow["level"]; rows: CampaignRow[]; columns: ColumnDef[]; index: CostIndex;
@@ -34,15 +37,16 @@ export function LevelTable({ level, rows, columns, index, selected, onToggle, on
   useEffect(() => { if (head.current) head.current.indeterminate = someSelected; }, [someSelected]);
   const aria = (key: string) => ariaSort(sort.key === key, sort.direction);
   const header = (key: string, label: string) => <SortHeader label={label} active={sort.key === key} direction={sort.direction} onSort={() => onSort(key)} />;
-  const span = columns.length + 4 + (level === "campaign" ? 0 : level === "adset" ? 1 : 2);
+  const NAME_HEADER = terms.name;
+  const span = columns.length + (readOnly ? 2 : 4) + (level === "campaign" ? 0 : level === "adset" ? 1 : 2);
 
-  return <div className="analytics-table-scroll is-capped"><table className="analytics-table analytics-campaign-table level-table" aria-label={`Tabela de ${NAME_HEADER[level].toLocaleLowerCase("pt-BR")}`}>
+  return <div className="analytics-table-scroll is-capped"><table className={`analytics-table analytics-campaign-table level-table${readOnly ? " is-readonly" : ""}`} aria-label={`Tabela de ${NAME_HEADER[level].toLocaleLowerCase("pt-BR")}`}>
     <thead><tr>
-      <th scope="col" className="level-check"><input ref={head} type="checkbox" checked={allSelected} aria-label="Selecionar esta página" disabled={!rows.length} onChange={event => onTogglePage(event.target.checked)} /></th>
-      {onToggleStatus && <th scope="col" className="level-status-head" aria-sort={aria("configured")}>{header("configured", "Status")}</th>}
+      {!readOnly && <th scope="col" className="level-check"><input ref={head} type="checkbox" checked={allSelected} aria-label="Selecionar esta página" disabled={!rows.length} onChange={event => onTogglePage(event.target.checked)} /></th>}
+      {onToggleStatus && !readOnly && <th scope="col" className="level-status-head" aria-sort={aria("configured")}>{header("configured", "Status")}</th>}
       <th scope="col" className="analytics-campaign-main-header" aria-sort={aria("name")}>{header("name", NAME_HEADER[level])}</th>
-      {level === "ad" && <th scope="col" className="level-parent">Conjunto</th>}
-      {level !== "campaign" && <th scope="col" className="level-parent">Campanha</th>}
+      {level === "ad" && <th scope="col" className="level-parent">{terms.adset}</th>}
+      {level !== "campaign" && <th scope="col" className="level-parent">{terms.campaign}</th>}
       <th scope="col" className="campaign-state-head" aria-sort={aria("state")}>{header("state", "Veiculação")}</th>
       {columns.map(column => <th scope="col" key={column.key} data-col={column.key} title={column.hint} aria-sort={column.sortable ? aria(column.key) : undefined}>{column.sortable
         ? header(column.key, column.label) : column.label}</th>)}
@@ -52,13 +56,13 @@ export function LevelTable({ level, rows, columns, index, selected, onToggle, on
       const isSelected = selected.has(key);
       const isAnalyzing = !!analyzing && analyzing.accountId === row.accountId && analyzing.level === row.level && analyzing.id === row.id;
       return <tr key={key} className={`${isSelected ? "is-selected" : ""}${isAnalyzing ? " is-context" : ""}`}>
-        <td className="level-check"><input type="checkbox" checked={isSelected} aria-label={`Selecionar ${row.name}`} onChange={event => onToggle(row, event.target.checked)} /></td>
-        {onToggleStatus && <td className="level-status"><StatusSwitch row={row} blocked={statusBlocked?.(row) ?? null} onToggle={onToggleStatus} /></td>}
+        {!readOnly && <td className="level-check"><input type="checkbox" checked={isSelected} aria-label={`Selecionar ${row.name}`} onChange={event => onToggle(row, event.target.checked)} /></td>}
+        {onToggleStatus && !readOnly && <td className="level-status"><StatusSwitch row={row} blocked={statusBlocked?.(row) ?? null} onToggle={onToggleStatus} /></td>}
         <th scope="row"><div className="analytics-campaign-name">
           {level === "ad" && (row.thumbnailUrl
             ? <Image className="analytics-ad-thumbnail" src={row.thumbnailUrl} alt="" width={44} height={44} unoptimized referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = "none"; }} />
             : <span className="analytics-ad-thumbnail-placeholder" title="Imagem não retornada pela Meta">—</span>)}
-          <div className="level-name"><Link className="level-link" href={`${entityPath(clientId, row)}${detailSearch}`} prefetch={false} title={`Abrir detalhes (${LEVEL_LABELS[row.level].toLocaleLowerCase("pt-BR")})`}><strong>{row.name}</strong></Link>
+          <div className="level-name">{readOnly ? <strong className="level-link is-static" title={row.name}>{row.name}</strong> : <Link className="level-link" href={`${entityPath(clientId, row)}${detailSearch}`} prefetch={false} title={`Abrir detalhes (${LEVEL_LABELS[row.level].toLocaleLowerCase("pt-BR")})`}><strong>{row.name}</strong></Link>}
             <small>{row.accountName}</small></div>
           {onAnalyze && <button type="button" className={`level-analyze${isAnalyzing ? " is-on" : ""}`} aria-pressed={isAnalyzing} onClick={() => onAnalyze(row)}
             aria-label={isAnalyzing ? `Voltar ao contexto geral do assistente (analisando ${row.name})` : `Analisar com o Assistente Groow: ${row.name}`}

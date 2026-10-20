@@ -5,7 +5,7 @@ import { CampaignsWorkspace } from "@/modules/campaigns/campaigns-workspace";
 import { OpportunitiesPanel, type EntityHint } from "@/modules/campaigns/opportunities/opportunities-panel";
 import { billingBlockOf } from "@/modules/billing/guard";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { loadGoogleSections } from "@/modules/google-ads/provider";
+import { loadGoogleCampaignRows } from "@/modules/google-ads/provider";
 import { loadCampaignsData, type CampaignsQuery } from "@/modules/campaigns/load";
 
 export const metadata: Metadata = { title: "Campanhas", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -31,9 +31,9 @@ export default async function ClientCampaignsPage({ params, searchParams }: { pa
   // Google Ads: mesmas contas e período do painel do cliente, lidos ao vivo; falha de uma conta não derruba a página.
   const googleService = createSupabaseServiceClient();
   const google = googleService
-    ? await loadGoogleSections({ service: googleService, agencyId: context.agency.id, clientId: client.id, dateFrom: data.dateFrom, dateTo: data.dateTo })
-      .catch(error => ({ sections: [], failures: [{ name: "Google Ads", message: billingBlockOf(error) ? "Atualização ao vivo indisponível enquanto o acesso da organização estiver restrito. Conexão e contas preservadas; os números do Google voltam após a regularização." : "Tente atualizar a página em instantes." }] }))
-    : { sections: [], failures: [] };
+    ? await loadGoogleCampaignRows({ service: googleService, agencyId: context.agency.id, clientId: client.id, dateFrom: data.dateFrom, dateTo: data.dateTo })
+      .catch(error => ({ accounts: [], rows: [], metrics: [], readAt: new Date().toISOString(), failures: [{ name: "Google Ads", message: billingBlockOf(error) ? "Atualização ao vivo indisponível enquanto o acesso da organização estiver restrito. Conexão e contas preservadas; os números do Google voltam após a regularização." : "Tente atualizar a página em instantes." }] }))
+    : { accounts: [], rows: [], metrics: [], readAt: new Date().toISOString(), failures: [] };
   // Só nome e gasto CONFIRMADO do período (dados desta tela): servem para mostrar o impacto conhecido das propostas, nunca estimado.
   const entities: Record<string, EntityHint> = {};
   for (const row of data.rows) if (row.level !== "ad") entities[row.id] = { name: row.name, level: row.level, currency: row.currency,
@@ -41,7 +41,7 @@ export default async function ClientCampaignsPage({ params, searchParams }: { pa
   const accountCurrencies = Object.fromEntries(data.accounts.map(account => [account.id, account.currency]));
   return <>
     {client.archived_at && <p className="campaigns-alert">Cliente arquivado. Histórico preservado para consulta.</p>}
-    <CampaignsWorkspace key={client.id} googleSections={google.sections} googleFailures={google.failures} platformKey={`igrow:platforms:${context.user.id}:${client.id}`} intro={<OpportunitiesPanel clientId={client.id} entities={entities} accountCurrencies={accountCurrencies} accountNames={Object.fromEntries(data.accounts.map(account => [account.id, account.name]))} currency={data.accounts[0]?.currency ?? "BRL"} />} organizationId={context.agency.id} clientId={client.id} clientName={client.name} data={data}
+    <CampaignsWorkspace key={client.id} googleCampaigns={google} platformKey={`igrow:platforms:${context.user.id}:${client.id}`} intro={<OpportunitiesPanel clientId={client.id} entities={entities} accountCurrencies={accountCurrencies} accountNames={Object.fromEntries(data.accounts.map(account => [account.id, account.name]))} currency={data.accounts[0]?.currency ?? "BRL"} />} organizationId={context.agency.id} clientId={client.id} clientName={client.name} data={data}
       onlyActive={query.ativas === "1"} availability={availability} preferenceKey={preferenceKey} />
   </>;
 }

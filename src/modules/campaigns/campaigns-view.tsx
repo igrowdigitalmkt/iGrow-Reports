@@ -28,7 +28,8 @@ import { structureOf } from "./platforms/registry";
 import { OperationsServicesContext, loadManualCapabilitiesAction } from "./manual/entity-operations";
 import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { SectionToggle } from "@/modules/client-portal/section-toggle";
-import { GoogleAdsSection, type GoogleSectionView } from "@/modules/google-ads/google-section";
+import type { GoogleCampaignsData } from "@/modules/google-ads/provider";
+import { GoogleCampaignsSection } from "./google/google-campaigns-section";
 import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "@/modules/client-portal/platform-picker";
 import "./navigation/navigation.css";
 
@@ -46,9 +47,9 @@ const INITIAL_UI: LevelUi = { query: "", group: "all", configured: "all", sort: 
 const STATE_ORDER: string[] = ["active", "paused", "review", "rejected", "other", "unavailable"];
 const fold = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR");
 
-export function CampaignsView({ clientId, clientName, intro, googleSections = [], googleFailures = [], platformKey, data, onlyActive, selected = null, onSelectEntity, preferenceKey }: {
+export function CampaignsView({ clientId, clientName, intro, googleCampaigns, platformKey, data, onlyActive, selected = null, onSelectEntity, preferenceKey }: {
   /** Cliente da rota: a tela nunca escolhe outro. */
-  clientId: string; clientName?: string; /** Conteúdo exibido logo abaixo do cabeçalho do cliente (ex.: oportunidades). */ intro?: ReactNode; googleSections?: GoogleSectionView[]; googleFailures?: Array<{ name: string; message: string }>; platformKey?: string; data: CampaignsData; onlyActive: boolean;
+  clientId: string; clientName?: string; /** Conteúdo exibido logo abaixo do cabeçalho do cliente (ex.: oportunidades). */ intro?: ReactNode; googleCampaigns?: GoogleCampaignsData; platformKey?: string; data: CampaignsData; onlyActive: boolean;
   /** Entidade em análise pelo assistente (identidade completa: conta + nível + ID). Independe das caixas de seleção. */
   selected?: SelectedEntity | null; onSelectEntity?: (row: CampaignRow) => void;
   /** Chave da preferência local (organização + usuário). Sem ela, colunas e seleção não são salvas. */
@@ -90,7 +91,7 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
   const toggleSection = (key: string) => setCollapsed(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key]);
   const platformOrder = (key: string) => 10 + platforms.findIndex(item => item.key === key);
   const metaVisible = platforms.some(item => item.key === "meta" && item.enabled);
-  const googleVisible = platforms.some(item => item.key === "google" && item.enabled) && (googleSections.length > 0 || googleFailures.length > 0);
+  const googleVisible = platforms.some(item => item.key === "google" && item.enabled) && !!googleCampaigns && (googleCampaigns.accounts.length > 0 || googleCampaigns.failures.length > 0);
   const [extended, setExtended] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
@@ -321,7 +322,7 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
 
     </>}
     </section>}
-    {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsed.includes("google")} onToggle={() => toggleSection("google")} />}
+    {googleVisible && googleCampaigns && <GoogleCampaignsSection data={googleCampaigns} order={platformOrder("google")} collapsed={collapsed.includes("google")} onToggle={() => toggleSection("google")} dateFrom={data.dateFrom} dateTo={data.dateTo} preferenceKey={preferenceKey} />}
     {!metaVisible && !googleVisible && <div className="campaigns-empty"><strong>Nenhuma plataforma selecionada</strong><p>Escolha ao menos uma em Plataformas.</p></div>}
     {statusChange && <BatchDialog op={statusChange.op} rows={[statusChange.row]} clientId={clientId} onClose={() => setStatusChange(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}
     {batch && <BatchDialog op={batch} rows={pickedRows} clientId={clientId} onClose={() => setBatch(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}

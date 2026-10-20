@@ -19,7 +19,8 @@ import { demoAudience } from "./demo-analytics";
 import { BillingSummary } from "./billing-section";
 import { ClientSummary } from "./client-summary";
 import { AccountComparison } from "./account-comparison";
-import { GoogleAdsSection, type GoogleSectionView } from "@/modules/google-ads/google-section";
+import type { GoogleSectionView } from "@/modules/google-ads/google-section";
+import { GoogleDashboardSection } from "@/modules/google-ads/google-insights";
 import { sortActionsByImportance } from "./action-priority";
 import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { SectionToggle } from "./section-toggle";
@@ -1239,7 +1240,7 @@ export function ClientAnalyticsDashboard({
     </div>
     </>}
     </section> : null}
-    {googleVisible && (!sectioned || tab === "overview") && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsedPlatforms.includes("google")} onToggle={sectioned ? () => toggleSection("google") : undefined} />}
+    {googleVisible && (!sectioned || tab === "overview") && <GoogleDashboardSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsedPlatforms.includes("google")} onToggle={() => toggleSection("google")} />}
     {!summaryView && !metaVisible && !googleVisible && <section className="analytics-card platform-empty" style={{ order: 10 }}><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
 
     {tab !== "reports" && <footer className="analytics-data-footer" style={{ order: 100 }}><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>

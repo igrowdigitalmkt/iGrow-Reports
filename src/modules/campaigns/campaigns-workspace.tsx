@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import type { GoogleSectionView } from "@/modules/google-ads/google-section";
+import type { GoogleCampaignsData } from "@/modules/google-ads/provider";
 import { AssistantPanel, AssistantRail } from "./assistant/assistant-panel";
 import type { AssistantAvailability, AssistantScope } from "./assistant/contracts";
 import { useAssistantSession } from "./assistant/session";
@@ -19,8 +19,8 @@ import "./assistant/assistant.css";
  * AssistantSessionProvider do layout (compartilhadas com as telas de detalhes do mesmo cliente).
  * O envio só acontece quando o servidor declara o assistente disponível.
  */
-export function CampaignsWorkspace({ organizationId, clientId, clientName, data, onlyActive, availability, preferenceKey, transport, intro, googleSections, googleFailures, platformKey }: {
-  googleSections?: GoogleSectionView[]; googleFailures?: Array<{ name: string; message: string }>; /** Mesma chave do painel do cliente: seleção e ordem de plataformas valem nas duas telas. */ platformKey?: string;
+export function CampaignsWorkspace({ organizationId, clientId, clientName, data, onlyActive, availability, preferenceKey, transport, intro, googleCampaigns, platformKey }: {
+  googleCampaigns?: GoogleCampaignsData; /** Mesma chave do painel do cliente: seleção e ordem de plataformas valem nas duas telas. */ platformKey?: string;
   /** Conteúdo exibido abaixo do cabeçalho do cliente. */ intro?: ReactNode;
   organizationId: string; clientId: string; clientName: string; data: CampaignsData; onlyActive: boolean;
   availability: AssistantAvailability; /** Chave da preferência local de colunas (organização + usuário). */ preferenceKey: string; transport?: AssistantTransport;
@@ -33,7 +33,7 @@ export function CampaignsWorkspace({ organizationId, clientId, clientName, data,
   return <div className="campaigns-workspace">
     <div className={`campaigns-shell ${open ? "is-open" : "is-closed"}${ready ? "" : " is-unresolved"}`}>
       <div className="campaigns-main">
-        <CampaignsView clientId={clientId} clientName={clientName} intro={intro} googleSections={googleSections} googleFailures={googleFailures} platformKey={platformKey} data={data} onlyActive={onlyActive} selected={selected} preferenceKey={preferenceKey}
+        <CampaignsView clientId={clientId} clientName={clientName} intro={intro} googleCampaigns={googleCampaigns} platformKey={platformKey} data={data} onlyActive={onlyActive} selected={selected} preferenceKey={preferenceKey}
           onSelectEntity={row => {
             const same = !!selected && selected.accountId === row.accountId && selected.level === row.level && selected.id === row.id;
             session.setSelection(same ? null : { scope, kind: "entity", accountId: row.accountId, level: row.level, entityId: row.id });

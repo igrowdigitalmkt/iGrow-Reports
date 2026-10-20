@@ -84,6 +84,10 @@ tr:hover .level-analyze, .level-analyze:focus-visible, .level-analyze.is-on { op
 .batch-results li > div { display: grid; gap: 1px; min-width: 0; }
 .batch-list li { display: grid; gap: 1px; }
 
+/* Tabelas somente leitura (Google Ads): o nome é o primeiro item fixo à esquerda. */
+.analytics-table-scroll.is-capped .level-table.is-readonly tbody th, .analytics-table-scroll.is-capped .level-table.is-readonly thead th.analytics-campaign-main-header { left: 0; }
+.level-link.is-static { color: var(--text); cursor: default; }
+
 /* Interruptor Ativado/Desativado (entre a caixa de seleção e o nome) */
 .level-table .level-status-head, .level-table .level-status { width: 76px; min-width: 76px; max-width: 76px; white-space: nowrap; text-align: left; }
 /* Status também fixo à esquerda, logo depois da caixa de seleção; o nome fica depois dele. */

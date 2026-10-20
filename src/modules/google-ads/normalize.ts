@@ -34,6 +34,11 @@ function values(totals: Totals, video: boolean) {
   return out;
 }
 
+/** Valores de uma entidade (campanha, grupo de anúncios ou anúncio) a partir da linha de métricas da API; sem linha = sem atividade no período. */
+export function googleEntityValues(metrics: Row | undefined, video: boolean) {
+  return values(metrics ? read(metrics) : empty(), video);
+}
+
 export const GOOGLE_METRICS = [
   { key: "spend", label: "Valor usado", unit: "currency", precision: 2, desirable: "neutral" },
   { key: "primary_results", label: "Resultados", unit: "integer", precision: 0, desirable: "up" },
