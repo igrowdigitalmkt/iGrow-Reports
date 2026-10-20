@@ -139,3 +139,15 @@ describe("ordem padrão, colunas padrão e ordenação de resultados", () => {
     expect(columns.find(column => column.key === "cost_result")?.sortable).toBe(true);
   });
 });
+
+describe("subtítulo do custo por resultado", () => {
+  it("usa o tipo no singular, como no Gerenciador de Anúncios", async () => {
+    const { singularLabel } = await import("@/modules/campaigns/cells");
+    expect(singularLabel("visitas ao perfil do instagram")).toBe("visita ao perfil do instagram");
+    expect(singularLabel("conversas por mensagem iniciadas")).toBe("conversa por mensagem iniciada");
+    expect(singularLabel("cliques no link")).toBe("clique no link");
+    expect(singularLabel("visualizações da página de destino")).toBe("visualização da página de destino");
+    expect(singularLabel("cadastros concluídos")).toBe("cadastro concluído");
+    expect(singularLabel("engajamento com a publicação")).toBe("engajamento com a publicação");
+  });
+});
