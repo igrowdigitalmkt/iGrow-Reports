@@ -55,3 +55,6 @@
 .ops-state-title { font-size: 13px; font-weight: 600; }
 a.ops-btn { text-decoration: none; }
 .ops-name { overflow-wrap: anywhere; }
+.ops-config-section { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
+.ops-config-section > strong { font-size: 12.5px; }
+.ops-limits { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; }

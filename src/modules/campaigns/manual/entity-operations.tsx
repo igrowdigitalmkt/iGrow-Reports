@@ -20,7 +20,8 @@ export type OperationsRunner = (input: {
 
 /** Permite trocar as chamadas ao servidor (testes e capturas locais). Em produção ninguém fornece este contexto: valem as ações do servidor. */
 export type OperationsCapabilities = () => Promise<{ extended: boolean }>;
-export const OperationsServicesContext = createContext<{ loader?: OperationsLoader; runner?: OperationsRunner; capabilities?: OperationsCapabilities }>({});
+export const OperationsServicesContext = createContext<{ loader?: OperationsLoader; runner?: OperationsRunner; capabilities?: OperationsCapabilities;
+  config?: (ref: ManualRef) => Promise<{ ok: true; config: import("./config").EntityConfig } | { ok: false; message: string }> }>({});
 export { loadManualCapabilitiesAction };
 
 const LEVEL_LABEL: Record<ManualLevel, string> = { campaign: "campanha", adset: "conjunto de anúncios", ad: "anúncio" };

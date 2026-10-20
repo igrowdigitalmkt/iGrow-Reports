@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAgencyContext } from "@/modules/agencies/context";
-import { loadManualHistory, resolveManualControl, runManualOperation, type Actor } from "./control";
+import { loadEntityConfig, loadManualHistory, resolveManualControl, runManualOperation, type Actor } from "./control";
+import type { EntityConfig } from "./config";
 import type { ManualControl, ManualHistoryItem, ManualRunResult } from "./contracts";
 
 const ref = z.object({ clientId: z.string(), accountId: z.string(), level: z.enum(["campaign", "adset", "ad"]), entityId: z.string() }).strict();
@@ -53,4 +54,14 @@ export async function runManualOperationAction(input: unknown): Promise<ManualRu
   // A tela só atualiza os dados depois de uma confirmação efetiva da Meta.
   if (result.ok && result.outcome === "verified") revalidatePath("/clientes/[clientId]/campanhas", "layout");
   return { ...result, history };
+}
+
+/** Configurações reais da entidade (somente leitura, sob demanda). O servidor decide a autorização; nenhum campo vem do navegador. */
+export async function loadEntityConfigAction(input: unknown): Promise<{ ok: true; config: EntityConfig } | { ok: false; message: string }> {
+  const parsed = ref.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Entidade inválida." };
+  const s = await session();
+  if (!s) return { ok: false, message: "Serviço indisponível neste ambiente." };
+  const result = await loadEntityConfig(s.actor, parsed.data, s.deps).catch(() => null);
+  return result?.ok ? result : { ok: false, message: result?.message ?? "Não foi possível consultar as configurações agora." };
 }

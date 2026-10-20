@@ -1,3 +1,4 @@
+import { EntityConfigView } from "../manual/entity-config-view";
 import { EntityOperations } from "../manual/entity-operations";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,7 +15,10 @@ import { childrenOf, sortRows, type CampaignRow } from "../tree";
 
 /** Operações manuais (renomear, pausar, retomar e, em campanhas e conjuntos, orçamento). O servidor decide o que é oferecido. */
 export function OperationsCard({ clientId, entity }: { clientId: string; entity: CampaignRow }) {
-  return <EntityOperations clientId={clientId} accountId={entity.accountId} level={entity.level} entityId={entity.id} entityName={entity.name} accountName={entity.accountName} currency={entity.currency} />;
+  return <>
+    <EntityOperations clientId={clientId} accountId={entity.accountId} level={entity.level} entityId={entity.id} entityName={entity.name} accountName={entity.accountName} currency={entity.currency} />
+    <EntityConfigView clientId={clientId} accountId={entity.accountId} level={entity.level} entityId={entity.id} />
+  </>;
 }
 
 export type DetailProps = { clientId: string; data: CampaignsData; entity: CampaignRow; catalog: ColumnDef[]; index: CostIndex; search: string };

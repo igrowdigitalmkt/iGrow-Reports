@@ -6,6 +6,7 @@ import { loadAccessToken } from "@/modules/meta/server";
 import { requestManualMetaChange, type ManualChangeResult } from "@/modules/agent-executor/manual-actions";
 import { validateEntityName } from "@/modules/agent-executor/policy";
 import { agentSchedulerEnabled } from "@/modules/agent-executor/scheduler";
+import { CONFIG_FIELDS, buildEntityConfig, type EntityConfig } from "./config";
 import { WRITE_PERMISSION_MESSAGES, checkWritePermission, type WritePermission } from "./permissions";
 import {
   MANUAL_ACTION_NAMES, currencyExponent, metaAccountStatusLabel, validateBudgetChange,
@@ -71,23 +72,24 @@ export function validRef(ref: ManualRef): boolean {
 type Blocked = Extract<ManualControl, { kind: Exclude<ManualControl["kind"], "ready"> }>;
 type Plain = Exclude<Blocked, { kind: "write_permission_missing" }>["kind"];
 type Resolved =
-  | { ok: true; account: { id: string; externalId: string; name: string; currency: string }; connection: { integrationId: string; connectionId: string } }
+  | { ok: true; account: { id: string; externalId: string; name: string; currency: string; timezone: string | null }; connection: { integrationId: string; connectionId: string } }
   | { ok: false; control: Blocked };
 const stop = (kind: Plain, text: string): Resolved => ({ ok: false, control: { kind, message: text } });
 
 /** Autorização e escopo no BANCO: papel, cliente da organização, vínculo ativo, conta, conexão com escopo de gerenciamento. Nada vem do navegador. */
-async function resolveScope(actor: Actor, ref: ManualRef, deps: ControlDeps): Promise<Resolved> {
+async function resolveScope(actor: Actor, ref: ManualRef, deps: ControlDeps, mode: "write" | "read" = "write"): Promise<Resolved> {
   if (actor.role !== "owner" && actor.role !== "admin") return stop("unauthorized", message.unauthorized);
   if (!validRef(ref)) return stop("incompatible", message.incompatible);
   const { service } = deps;
   const [{ data: client }, { data: link }, { data: account }] = await Promise.all([
     service.from("clients").select("id").eq("agency_id", actor.agencyId).eq("id", ref.clientId).is("archived_at", null).maybeSingle(),
     service.from("client_ad_accounts").select("active").eq("agency_id", actor.agencyId).eq("client_id", ref.clientId).eq("ad_account_id", ref.accountId).maybeSingle(),
-    service.from("meta_ad_accounts").select("id,external_id,name,currency,account_status,meta_connection_id").eq("agency_id", actor.agencyId).eq("id", ref.accountId).is("archived_at", null).maybeSingle(),
+    service.from("meta_ad_accounts").select("id,external_id,name,currency,timezone_name,account_status,meta_connection_id").eq("agency_id", actor.agencyId).eq("id", ref.accountId).is("archived_at", null).maybeSingle(),
   ]);
   if (!client || !link?.active || !account) return stop("incompatible", message.incompatible);
   // Causas distintas, mensagens distintas: conta restrita na Meta, conexão ausente/offline e permissão de gerenciamento NÃO são a mesma coisa.
-  if (account.account_status !== "1" && account.account_status !== "ACTIVE") {
+  // Leitura de configurações não depende da conta estar apta a veicular nem da permissão de escrita; só da conexão ativa.
+  if (mode === "write" && account.account_status !== "1" && account.account_status !== "ACTIVE") {
     return stop("account_restricted", `A conta de anúncios está ${metaAccountStatusLabel(account.account_status)} na Meta. A leitura de dados continua, mas pausar, retomar e alterar orçamento só são possíveis em conta ativa. Regularize a conta no Gerenciador de Anúncios.`);
   }
   const { data: connection } = await service.from("meta_connections").select("id,integration_id,scopes,connected_at")
@@ -96,8 +98,8 @@ async function resolveScope(actor: Actor, ref: ManualRef, deps: ControlDeps): Pr
     .eq("agency_id", actor.agencyId).eq("id", connection.integration_id).eq("provider", "meta").maybeSingle() : { data: null };
   if (!connection?.connected_at || integration?.connection_status !== "connected" || integration.health_status === "error") return stop("account_disconnected", message.disconnected);
   // Concedida na conexão? (instantâneo guardado). Se não, nem consulta a Meta; se sim, a leitura ao vivo confirma depois.
-  if (!connection.scopes.includes("ads_management")) return { ok: false, control: { kind: "write_permission_missing", reason: "not_granted", message: WRITE_PERMISSION_MESSAGES.not_granted } };
-  return { ok: true, account: { id: account.id, externalId: account.external_id, name: account.name, currency: account.currency }, connection: { integrationId: integration.id, connectionId: connection.id } };
+  if (mode === "write" && !connection.scopes.includes("ads_management")) return { ok: false, control: { kind: "write_permission_missing", reason: "not_granted", message: WRITE_PERMISSION_MESSAGES.not_granted } };
+  return { ok: true, account: { id: account.id, externalId: account.external_id, name: account.name, currency: account.currency, timezone: account.timezone_name ?? null }, connection: { integrationId: integration.id, connectionId: connection.id } };
 }
 
 export async function resolveManualControl(actor: Actor, ref: ManualRef, deps: ControlDeps): Promise<ManualControl> {
@@ -243,4 +245,43 @@ export async function loadManualHistory(actor: Actor, ref: ManualRef, deps: Cont
       previousName: str(before.previous_name), confirmedName: str(after.confirmed_name), requestedName: job.new_name ?? null,
     } satisfies ManualHistoryItem;
   });
+}
+
+export type ConfigReader = (service: Service, scope: { agencyId: string; integrationId: string; connectionId: string }, entityId: string, fields: string) => Promise<Record<string, unknown> | null>;
+export type ConfigDeps = ControlDeps & { readConfig?: ConfigReader };
+
+const defaultReadConfig: ConfigReader = async (service, scope, entityId, fields) => {
+  const apiVersion = getMetaApiConfig()?.apiVersion;
+  if (!apiVersion) throw new Error("no_api_version");
+  const token = await loadAccessToken(service, scope.agencyId, scope.integrationId, scope.connectionId);
+  const response = await fetch(`https://graph.facebook.com/${apiVersion}/${entityId}?fields=${encodeURIComponent(fields)}`, {
+    method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15_000),
+  });
+  const body = await response.json().catch(() => null) as (Record<string, unknown> & { error?: { code?: unknown } }) | null;
+  if (!response.ok || !body || body.error) {
+    console.warn(`manual_control config read failed http ${response.status} code ${typeof body?.error?.code === "number" ? body.error.code : "?"}`);
+    throw new Error("config_read_failed");
+  }
+  return body.id ? body : null;
+};
+
+/**
+ * Configurações reais da entidade, SOB DEMANDA (painel de edição e detalhes): campos de lista permitida, um GET para o bloco principal e um
+ * GET por grupo opcional (a falha de um grupo vira limitação explícita e não derruba o resto). Somente leitura; mesma autorização das operações.
+ */
+export async function loadEntityConfig(actor: Actor, ref: ManualRef, deps: ConfigDeps): Promise<{ ok: true; config: EntityConfig } | { ok: false; kind: "unauthorized" | "incompatible" | "unknown_state" | "account_disconnected"; message: string }> {
+  const scope = await resolveScope(actor, ref, deps, "read");
+  if (!scope.ok) return { ok: false, kind: scope.control.kind === "unauthorized" ? "unauthorized" : scope.control.kind === "account_disconnected" ? "account_disconnected" : "incompatible", message: scope.control.message };
+  const read = deps.readConfig ?? defaultReadConfig;
+  const connection = { agencyId: actor.agencyId, ...scope.connection };
+  const fields = CONFIG_FIELDS[ref.level];
+  let main: Record<string, unknown> | null;
+  try { main = await read(deps.service, connection, ref.entityId, fields.main); } catch { return { ok: false, kind: "unknown_state", message: message.unknown }; }
+  if (!main || main.id !== ref.entityId || normalizeAccount(main.account_id) !== scope.account.externalId) return { ok: false, kind: "incompatible", message: message.incompatible };
+  const groups: Record<string, Record<string, unknown> | null> = {}, failedGroups: string[] = [];
+  await Promise.all(fields.groups.map(async group => {
+    try { groups[group.key] = await read(deps.service, connection, ref.entityId, group.fields); if (groups[group.key] === null) failedGroups.push(group.key); }
+    catch { groups[group.key] = null; failedGroups.push(group.key); }
+  }));
+  return { ok: true, config: buildEntityConfig(ref.level, { main, groups, currency: scope.account.currency, timezone: scope.account.timezone, failedGroups }, (deps.now?.() ?? new Date()).toISOString()) };
 }
