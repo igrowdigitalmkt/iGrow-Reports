@@ -26,6 +26,8 @@ import { clearSelection, entityKey, scopeDescription, scopeRows, selectionStorag
 import { useStoredSelection } from "./navigation/use-selection";
 import { structureOf } from "./platforms/registry";
 import { OperationsServicesContext, loadManualCapabilitiesAction } from "./manual/entity-operations";
+import { GoogleAdsSection, type GoogleSectionView } from "@/modules/google-ads/google-section";
+import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "@/modules/client-portal/platform-picker";
 import "./navigation/navigation.css";
 
 export type SelectedEntity = { accountId: string; level: CampaignRow["level"]; id: string };
@@ -40,9 +42,9 @@ type LevelUi = { query: string; group: DeliveryGroup | "restricted" | "all"; con
 const INITIAL_UI: LevelUi = { query: "", group: "all", configured: "all", sort: { key: "name", direction: "asc" }, page: 0 };
 const fold = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR");
 
-export function CampaignsView({ clientId, clientName, intro, data, onlyActive, selected = null, onSelectEntity, preferenceKey }: {
+export function CampaignsView({ clientId, clientName, intro, googleSections = [], googleFailures = [], platformKey, data, onlyActive, selected = null, onSelectEntity, preferenceKey }: {
   /** Cliente da rota: a tela nunca escolhe outro. */
-  clientId: string; clientName?: string; /** Conteúdo exibido logo abaixo do cabeçalho do cliente (ex.: oportunidades). */ intro?: ReactNode; data: CampaignsData; onlyActive: boolean;
+  clientId: string; clientName?: string; /** Conteúdo exibido logo abaixo do cabeçalho do cliente (ex.: oportunidades). */ intro?: ReactNode; googleSections?: GoogleSectionView[]; googleFailures?: Array<{ name: string; message: string }>; platformKey?: string; data: CampaignsData; onlyActive: boolean;
   /** Entidade em análise pelo assistente (identidade completa: conta + nível + ID). Independe das caixas de seleção. */
   selected?: SelectedEntity | null; onSelectEntity?: (row: CampaignRow) => void;
   /** Chave da preferência local (organização + usuário). Sem ela, colunas e seleção não são salvas. */
@@ -61,6 +63,25 @@ export function CampaignsView({ clientId, clientName, intro, data, onlyActive, s
   const [editing, setEditing] = useState<CampaignRow | null>(null);
   // Operações novas (renomear e anúncios) só aparecem quando o servidor confirma que o banco as aceita (null enquanto consulta).
   const services = useContext(OperationsServicesContext);
+  // Seleção e ordem das plataformas: a mesma preferência do painel do cliente (mesma chave), restaurada após a hidratação.
+  const [platforms, setPlatforms] = useState<PlatformPreference[]>(DEFAULT_PLATFORMS);
+  useEffect(() => {
+    if (!platformKey) return;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(platformKey) ?? "null") as PlatformPreference[] | null;
+      if (Array.isArray(saved) && saved.every(item => item && item.key in PLATFORMS)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- restores a per-browser preference after hydration
+        setPlatforms([...saved, ...DEFAULT_PLATFORMS.filter(item => !saved.some(entry => entry.key === item.key))]);
+      }
+    } catch { /* Preferências são opcionais. */ }
+  }, [platformKey]);
+  const changePlatforms = (next: PlatformPreference[]) => {
+    setPlatforms(next);
+    if (platformKey) try { window.localStorage.setItem(platformKey, JSON.stringify(next)); } catch { /* Preferências são opcionais. */ }
+  };
+  const platformOrder = (key: string) => 10 + platforms.findIndex(item => item.key === key);
+  const metaVisible = platforms.some(item => item.key === "meta" && item.enabled);
+  const googleVisible = platforms.some(item => item.key === "google" && item.enabled) && (googleSections.length > 0 || googleFailures.length > 0);
   const [extended, setExtended] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
@@ -189,13 +210,14 @@ export function CampaignsView({ clientId, clientName, intro, data, onlyActive, s
         <span className="client-avatar large blue" aria-hidden="true">{(clientName ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
         <div><h1>{clientName ?? "Campanhas"}</h1><p>Campanhas, conjuntos e anúncios · estrutura e veiculação</p></div>
       </div>
+      <div className="analytics-command-actions"><PlatformPicker value={platforms} onChange={changePlatforms} /></div>
     </header>
     <div className="analytics-period-row">
       <PeriodPicker period={data.period} dateFrom={data.dateFrom} dateTo={data.dateTo} today={data.today} disabled={pending}
           onApply={selection => navigate(selection.period === "custom" ? { periodo: "custom", from: selection.from, to: selection.to } : { periodo: selection.period, from: null, to: null })} />
     </div>
     {intro}
-    <section className="platform-section" aria-label="Meta Ads">
+    {metaVisible && <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
       <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
         {data.state === "ready" && data.warnings.length > 0 && <details className="analytics-quality-menu">
           <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
@@ -287,7 +309,9 @@ export function CampaignsView({ clientId, clientName, intro, data, onlyActive, s
         </div>
       </article>}
 
-    </section>
+    </section>}
+    {googleVisible && <GoogleAdsSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} />}
+    {!metaVisible && !googleVisible && <div className="campaigns-empty"><strong>Nenhuma plataforma selecionada</strong><p>Escolha ao menos uma em Plataformas.</p></div>}
     {batch && <BatchDialog op={batch} rows={pickedRows} clientId={clientId} onClose={() => setBatch(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}
     {editing && <EditPanel row={editing} clientId={clientId} detailSearch={detailSearch} onClose={() => setEditing(null)} onChanged={() => router.refresh()}
       onViewChildren={editing.level === "campaign" ? () => { setEditing(null); goTo("adset"); } : undefined} />}
