@@ -1,0 +1,90 @@
+/* Área de Campanhas: usa os tokens globais e as classes de tabela do painel do cliente (analytics-dashboard.css). */
+.campaigns-page { display: flex; flex-direction: column; gap: 14px; min-width: 0; container-type: inline-size; }
+.campaigns-page.is-pending { opacity: .7; transition: opacity .15s; }
+.campaigns-toolbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+.campaigns-field { display: grid; gap: 4px; min-width: 0; }
+.campaigns-field > span { color: var(--muted); font-size: 12px; }
+.campaigns-toolbar .ui-select { min-width: 170px; }
+.campaigns-search { flex: 1 1 200px; }
+.campaigns-search-box { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--muted); }
+.campaigns-search-box:focus-within { border-color: var(--accent); }
+.campaigns-search-box input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; }
+.campaigns-search-box button { display: inline-flex; padding: 2px; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.campaigns-accounts { position: relative; }
+.campaigns-accounts summary { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; list-style: none; }
+.campaigns-accounts summary::-webkit-details-marker { display: none; }
+.campaigns-accounts-list { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; display: grid; gap: 4px; min-width: 240px; max-height: 320px; overflow: auto; padding: 8px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-raised); box-shadow: 0 12px 32px rgba(0, 0, 0, .28); }
+.campaigns-accounts-list label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.campaigns-accounts-list label:hover { background: var(--surface-hover); }
+.campaigns-accounts-list input { accent-color: var(--accent); }
+.campaigns-apply { margin-top: 4px; min-height: 32px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.campaigns-apply:disabled { opacity: .5; cursor: not-allowed; }
+.campaigns-card { overflow: visible; }
+.campaigns-card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 18px; color: var(--muted); font-size: 13px; }
+.campaigns-card-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.campaigns-check { display: inline-flex; align-items: center; gap: 8px; color: var(--secondary); cursor: pointer; }
+.campaigns-check input { width: 15px; height: 15px; accent-color: var(--accent); }
+.campaigns-link { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: var(--accent-text); font: inherit; cursor: pointer; }
+.campaigns-link:disabled { color: var(--subtle); cursor: not-allowed; }
+.campaigns-card .analytics-table-scroll.is-capped { max-height: max(420px, calc(100vh - 250px)); border-radius: 0 0 12px 12px; }
+.campaigns-empty { display: grid; place-items: center; padding: 48px 16px; border: 1px dashed var(--border-strong); border-radius: 12px; color: var(--muted); }
+.campaign-state-head, .campaign-state-cell { text-align: left !important; }
+.campaign-state { display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px; border-radius: 999px; background: var(--surface-raised); color: var(--secondary); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.campaign-state i { width: 7px; height: 7px; border-radius: 50%; background: var(--subtle); }
+.campaign-state.is-good { background: var(--good-bg); color: var(--good); }
+.campaign-state.is-good i { background: var(--good); }
+.campaign-state.is-warn { background: var(--warn-bg); color: var(--warn); }
+.campaign-state.is-warn i { background: var(--warn); }
+.campaign-state.is-bad { background: var(--bad-bg); color: var(--bad); }
+.campaign-state.is-bad i { background: var(--bad); }
+.campaigns-alert { margin: 0; padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--warn-bg); color: var(--text); font-size: 13px; line-height: 1.5; }
+.campaigns-alert.is-info { background: var(--surface-raised); }
+.campaigns-notice { margin: 0; padding: 32px 16px; border: 1px dashed var(--border-strong); border-radius: 12px; color: var(--muted); text-align: center; }
+.campaigns-toolbar .campaigns-select { min-height: 36px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; }
+.campaign-state-stack { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.campaign-restriction { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--warn); border-radius: 999px; color: var(--warn); font-size: 11px; white-space: nowrap; }
+.campaigns-columns { position: relative; }
+.campaigns-columns summary { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-text); cursor: pointer; list-style: none; }
+.campaigns-columns summary::-webkit-details-marker { display: none; }
+.campaigns-columns-list { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; display: grid; gap: 2px; width: 300px; max-height: 360px; overflow: auto; padding: 10px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-raised); box-shadow: 0 12px 32px rgba(0, 0, 0, .28); color: var(--text); text-align: left; }
+.campaigns-columns-list strong { margin-top: 6px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.campaigns-columns-list p { margin: 0 0 4px; color: var(--muted); font-size: 12px; }
+.campaigns-columns-list label { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.campaigns-columns-list label:hover { background: var(--surface-hover); }
+.campaigns-columns-list input { accent-color: var(--accent); }
+.campaigns-columns-list .campaigns-link { margin-top: 8px; }
+.campaigns-freshness { display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 12px 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.campaigns-freshness span { display: inline-flex; align-items: center; gap: 6px; }
+.campaigns-freshness i { width: 6px; height: 6px; border-radius: 50%; background: var(--subtle); }
+.campaigns-freshness i.is-ok { background: var(--good); }
+.campaigns-freshness i.is-warn { background: var(--warn); }
+.campaigns-freshness i.is-bad { background: var(--bad); }
+/* Ação discreta "abrir detalhes" ao lado do nome; só ganha destaque ao passar o mouse ou focar a linha. */
+.campaigns-open { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: auto; border-radius: 6px; color: var(--subtle); opacity: .55; }
+tr:hover .campaigns-open, .campaigns-open:focus-visible { color: var(--accent-text); opacity: 1; }
+.campaigns-open:hover { background: var(--surface-hover); }
+.campaigns-column-order { display: grid; gap: 2px; margin: 0 0 6px; padding: 0; list-style: none; }
+.campaigns-column-order li { display: flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; border-radius: 6px; font-size: 13px; }
+.campaigns-column-order li:hover { background: var(--surface-hover); }
+.campaigns-column-order span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.campaigns-column-order button { display: inline-flex; padding: 3px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
+.campaigns-column-order button:hover:not(:disabled) { background: var(--surface-active, var(--surface-hover)); color: var(--text); }
+.campaigns-column-order button:disabled { opacity: .3; cursor: not-allowed; }
+.campaigns-toolbar .campaigns-field .ui-select { display: flex; width: 100%; }
+.campaigns-toolbar .campaigns-field .ui-select-trigger { width: 100%; }
+
+/* Tabela: o nome fica fixo à esquerda na rolagem horizontal; textos de resultado aparecem inteiros. */
+.campaigns-card .analytics-table-scroll { scrollbar-width: auto; scrollbar-color: var(--border-strong) transparent;
+  background:
+    linear-gradient(to left, var(--surface) 30%, rgba(0, 0, 0, 0)) right center / 40px 100% no-repeat local,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, .55), rgba(0, 0, 0, 0)) right center / 18px 100% no-repeat scroll; }
+.campaigns-card .analytics-table tbody th, .campaigns-card .analytics-table thead th:first-child { min-width: 300px; max-width: 360px; white-space: normal; }
+.campaigns-card .analytics-campaign-name strong { display: -webkit-box; max-width: none; overflow: hidden; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.campaigns-card .analytics-campaign-name > div { min-width: 0; }
+.campaigns-card .analytics-table [data-col="results"], .campaigns-card .analytics-table [data-col="cost_result"] { min-width: 250px; }
+.campaigns-result { display: flex; align-items: baseline; justify-content: flex-end; gap: 5px; line-height: 1.35; white-space: nowrap; }
+.campaigns-result small { color: var(--muted); font-size: 12px; }
+@container (max-width: 720px) {
+  .campaigns-toolbar .campaigns-field, .campaigns-toolbar .campaigns-field:first-child, .campaigns-search { flex: 1 1 100%; width: 100%; }
+  .campaigns-card-head { align-items: flex-start; }
+}

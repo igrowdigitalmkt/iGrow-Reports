@@ -39,3 +39,19 @@ export function liveDeliveryStatuses(campaigns: MetaCampaign[], adsets: MetaAdSe
     ? "ACTIVE" : "INACTIVE";
   return statuses;
 }
+
+/** Estado bruto lido da Meta para exibição: nada é inferido além do que a API devolveu. */
+/** `configured` é o campo status (escolha do anunciante); `status` é o effective_status que a Meta calcula. */
+export type LiveDeliveryState = { configured: string | null; status: string | null; issues: boolean; accountBlocked: boolean };
+
+export function liveRawDeliveryStates(campaigns: MetaCampaign[], adsets: MetaAdSet[], ads: MetaAd[], accountStatus?: number | string | null) {
+  const states: Record<string, LiveDeliveryState> = {};
+  const accountBlocked = !metaAccountDelivers(accountStatus);
+  const put = (key: string, entity: { status?: string | null; effective_status?: string | null; issues_info?: unknown[] | null }) => {
+    states[key] = { configured: entity.status?.trim().toUpperCase() || null, status: metaDeliveryStatus(entity), issues: metaHasDeliveryIssues(entity), accountBlocked };
+  };
+  for (const campaign of campaigns) put(`campaign:${campaign.id}`, campaign);
+  for (const set of adsets) put(`adset:${set.id}`, set);
+  for (const ad of ads) put(`ad:${ad.id}`, ad);
+  return states;
+}

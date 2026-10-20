@@ -27,7 +27,7 @@ import {
 import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, validateCollectionRange } from "./collection";
 
 import { parseFundingAmount } from "./billing";
-import { liveDeliveryStatuses } from "./delivery";
+import { liveDeliveryStatuses, liveRawDeliveryStates, type LiveDeliveryState } from "./delivery";
 import { META_ANALYTICS_MAX_AGE_MS, META_ANALYTICS_VERSION, META_ATTRIBUTION_REFRESH_DAYS, META_DETAIL_RETENTION_DAYS } from "./analytics-contract";
 import { applyProviderResults, hasOverlappingMetaSelection, insightActionTypes, periodInsightValues, selectedPeriodInsightRows, sumPeriodInsightValues } from "./insight-values";
 
@@ -196,9 +196,12 @@ export async function refreshMetaDashboardScope(input: { agencyId: string; clien
 }
 
 export type LiveCampaignIdentity = { accountId: string; id: string; name: string };
+export type LiveEntityIdentity = { accountId: string; level: "campaign" | "adset" | "ad"; id: string; name: string; parentId: string | null; campaignId: string | null };
+/** Catálogo completo lido da Meta e o resultado de cada conta: leitura que falhou nunca conta como atualização. */
+export type LiveReadReport = { entities: LiveEntityIdentity[]; accountsRead: string[]; accountsFailed: string[] };
 
 // Called only after the dashboard has authorized access to this client.
-export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[]; entities?: { accountId: string; key: string }[] }, thumbnails?: Record<string, string>, catalog?: LiveCampaignIdentity[]): Promise<Record<string, string>> {
+export async function getMetaEntityStatuses(input: { agencyId: string; clientId: string; accountIds: string[]; entities?: { accountId: string; key: string }[] }, thumbnails?: Record<string, string>, catalog?: LiveCampaignIdentity[], rawStates?: Record<string, LiveDeliveryState>, report?: LiveReadReport): Promise<Record<string, string>> {
   const statuses: Record<string, string> = {};
   if (!input.accountIds.length) return statuses;
   try { await ensurePaidOperation(input.agencyId); } catch (error) { if (billingBlockOf(error)) return statuses; throw error; }
@@ -227,6 +230,14 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
       const adsets = adsetsResult.status === "fulfilled" ? adsetsResult.value : [];
       const ads = adsResult.status === "fulfilled" ? adsResult.value : [];
       catalog?.push(...campaigns.map(c => ({ accountId: account.id, id: c.id, name: c.name })));
+      if (report) {
+        const complete = campaignsResult.status === "fulfilled" && adsetsResult.status === "fulfilled" && adsResult.status === "fulfilled";
+        (complete ? report.accountsRead : report.accountsFailed).push(account.id);
+        report.entities.push(
+          ...campaigns.map(c => ({ accountId: account.id, level: "campaign" as const, id: c.id, name: c.name, parentId: null, campaignId: c.id })),
+          ...adsets.map(set => ({ accountId: account.id, level: "adset" as const, id: set.id, name: set.name, parentId: set.campaign_id ?? null, campaignId: set.campaign_id ?? null })),
+          ...ads.map(ad => ({ accountId: account.id, level: "ad" as const, id: ad.id, name: ad.name, parentId: ad.adset_id ?? null, campaignId: ad.campaign_id ?? null })));
+      }
       if (thumbnails) for (const ad of ads) {
         const thumbnail = ad.creative?.thumbnail_url;
         if (!thumbnail) continue;
@@ -237,6 +248,7 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
       }
       const live = liveDeliveryStatuses(campaigns, adsets, ads, Date.now(), accountStatus);
       for (const [key, status] of Object.entries(live)) statuses[`${account.id}:${key}`] = status;
+      if (rawStates) for (const [key, state] of Object.entries(liveRawDeliveryStates(campaigns, adsets, ads, accountStatus))) rawStates[`${account.id}:${key}`] = state;
     }));
   } catch { /* A Meta outage must not mislabel entities or block historical analytics. */ }
   return statuses;

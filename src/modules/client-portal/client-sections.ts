@@ -26,5 +26,22 @@ export function clientSectionPath(base: string, section: ClientSection) {
   return slug ? `${base}/${slug}` : base;
 }
 
+/**
+ * Secoes com pagina propria (rota estatica, componentes de servidor proprios): Campanhas. Entrar nelas ou sair delas NAO usa
+ * history.pushState, e sim a navegacao do Next.js, para que o conteudo do servidor seja realmente trocado.
+ */
+export const ROUTED_SECTIONS: readonly ClientSection[] = ["campaigns"];
+
+const CLIENT_BASE = /^((?:\/demo)?\/clientes\/[^/]+)(?:\/([^/]+))?(?:\/.*)?$/;
+
+/** Raiz do cliente e secao ativa, inclusive em paginas internas (ex.: /clientes/ID/campanhas/meta/...). */
+export function activeClientSection(pathname: string): { base: string; section: ClientSection } | null {
+  const match = CLIENT_BASE.exec(pathname);
+  if (!match) return null;
+  const slug = match[2] ?? "";
+  const section = (Object.keys(SECTION_SLUGS) as ClientSection[]).find(key => SECTION_SLUGS[key] === slug);
+  return section ? { base: match[1]!, section } : null;
+}
+
 /** Em qualquer pagina de cliente (inclusive secoes desconhecidas), a barra principal recolhe. */
 export const isClientRoute = (pathname: string) => /^(?:\/demo)?\/clientes\/[^/]+/.test(pathname);

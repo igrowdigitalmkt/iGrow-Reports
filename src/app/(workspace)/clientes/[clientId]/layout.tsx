@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { notFound } from "next/navigation";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { ClientMenu } from "@/modules/client-portal/client-menu";
 
@@ -7,8 +8,10 @@ export default async function ClientLayout({ children, params }: { children: Rea
   const { clientId } = await params;
   const context = await requireAgencyContext();
   const { data } = await context.supabase.from("clients").select("name").eq("id", clientId).eq("agency_id", context.agency.id).maybeSingle();
+  // Cliente inexistente ou de outra organização: 404, sem menu e sem cair em outro cliente.
+  if (!data) notFound();
   return <>
-    <ClientMenu clientName={data?.name ?? "Cliente"} />
+    <ClientMenu clientName={data.name} />
     {children}
   </>;
 }

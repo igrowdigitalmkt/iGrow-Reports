@@ -19,7 +19,7 @@ export const ROLE_HINTS: Record<AgencyRole, string> = {
 
 // Workspace section → module that controls it. Configurações is personal and always open.
 const SECTION_MODULE: Record<string, TeamModule> = {
-  "": "visao_geral", clientes: "clientes", "relatorios-visao": "relatorios", entregas: "relatorios", templates: "relatorios", relatorios: "relatorios",
+  "": "visao_geral", clientes: "clientes", campanhas: "clientes", "relatorios-visao": "relatorios", entregas: "relatorios", templates: "relatorios", relatorios: "relatorios",
   agendamentos: "agendamentos", integracoes: "integracoes", whatsapp: "whatsapp",
 };
 

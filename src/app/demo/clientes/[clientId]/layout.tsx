@@ -3,7 +3,7 @@ import { ClientMenu } from "@/modules/client-portal/client-menu";
 
 export default function DemoClientLayout({ children }: { children: ReactNode }) {
   return <>
-    <ClientMenu demo clientName="Escola Horizonte" />
+    <ClientMenu demo hideCampaigns clientName="Escola Horizonte" />
     {children}
   </>;
 }

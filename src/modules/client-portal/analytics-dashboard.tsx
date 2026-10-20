@@ -203,6 +203,15 @@ export function ClientAnalyticsDashboard({
   // Abas internas (portal do cliente): estado local. Com `sectioned`, a secao e o endereco, e o menu do cliente a troca.
   const [legacyTab, setLegacyTab] = useState<Exclude<ClientSection, "summary">>(query.get("aba") === "reports" ? "reports" : "overview");
   const tab: ClientSection = sectioned ? (parseClientPath(pathname)?.section ?? "summary") : legacyTab;
+  // Seleção de campanhas que alimenta o Dashboard (antiga aba Campanhas). No menu do cliente, Campanhas virou a gestão operacional
+  // (página própria); a seleção analítica passou a ser um painel do próprio Dashboard, aberto por "Selecionar campanhas".
+  // Na demonstração e nas abas antigas do portal, a aba continua a ser a seção "campaigns".
+  const [scopeOpenPath, setScopeOpenPath] = useState<string | null>(null);
+  const inlineScope = sectioned && !demo;
+  // Sair do Dashboard (pelo menu do cliente) fecha o painel: ao voltar, o Dashboard aparece normalmente.
+  if (scopeOpenPath !== null && tab !== "overview") setScopeOpenPath(null);
+  const scopeView = inlineScope ? tab === "overview" && scopeOpenPath === pathname : tab === "campaigns";
+  const overviewShown = tab === "overview" && !scopeView;
   // Visao geral (menu do cliente): saldo, contas e resumo, independente da selecao de plataformas e sem dados de campanha.
   const summaryView = sectioned && tab === "summary";
   // Onde os indicadores e relatorios sao montados: Dashboard (menu do cliente) ou Visao geral (abas antigas do portal).
@@ -713,11 +722,16 @@ export function ClientAnalyticsDashboard({
     setSortKey(key);
   }
 
+  function openScope() { if (inlineScope) setScopeOpenPath(pathname); else selectTab("campaigns"); }
+  function closeScope() { if (inlineScope) setScopeOpenPath(null); else selectTab("overview"); }
+
   function selectTab(nextTab: ClientSection) {
+    if (inlineScope) setScopeOpenPath(null);
     if (!sectioned) { if (nextTab !== "summary") setLegacyTab(nextTab); return; }
     const parsed = parseClientPath(window.location.pathname);
     // So o endereco muda (integrado ao roteador): este componente continua montado e preserva selecao e rascunhos.
-    if (parsed) window.history.pushState(null, "", `${clientSectionPath(parsed.base, nextTab)}${window.location.search}`);
+    // Não empilha o mesmo endereço no histórico (aplicar a seleção ou fechar o painel no próprio Dashboard não cria entrada nova).
+    if (parsed && parsed.section !== nextTab) window.history.pushState(null, "", `${clientSectionPath(parsed.base, nextTab)}${window.location.search}`);
   }
 
   useEffect(() => {
@@ -912,7 +926,7 @@ export function ClientAnalyticsDashboard({
           aria-selected={tab === key} key={key} className={tab === key ? "is-active" : ""}
           onClick={() => selectTab(key as typeof tab)}><Icon size={14} />{label}</button>)}
       </div>}
-      {tab === "overview" && analyticsReady && <div className="analytics-toolbar-actions"><button type="button" className="analytics-button analytics-button-ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal size={15} />Personalizar relatório</button><details className="analytics-filter-menu analytics-metric-menu">
+      {overviewShown && analyticsReady && <div className="analytics-toolbar-actions">{inlineScope && <button type="button" className="analytics-button analytics-button-ghost" onClick={openScope}><BarChart3 size={15} />Selecionar campanhas</button>}<button type="button" className="analytics-button analytics-button-ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal size={15} />Personalizar relatório</button><details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Métricas <span className="analytics-count">{overviewMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
           <div className="analytics-metric-picker-heading"><strong>Métricas {dash.of}</strong>
@@ -927,8 +941,8 @@ export function ClientAnalyticsDashboard({
       </details></div>}
     </div>}
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
-      {tab === "overview" && analyticsReady && separated && <AccountComparison data={scopedData} views={accountViews} onOpen={accountId => navigate(period, [accountId])} />}
-      {tab === "overview" && analyticsReady && !separated && <>
+      {overviewShown && analyticsReady && separated && <AccountComparison data={scopedData} views={accountViews} onOpen={accountId => navigate(period, [accountId])} />}
+      {overviewShown && analyticsReady && !separated && <>
         <div className="analytics-kpi-grid analytics-kpi-grid-fixed">
           {fixedMetrics.map((metric) => {
             const change = changeDescription(scopedData, metric);
@@ -1078,7 +1092,7 @@ export function ClientAnalyticsDashboard({
         </div>
         <article className="analytics-card analytics-campaign-card">
           <div className="analytics-card-heading"><div><h3>Seleção incluída na análise <span className="analytics-count">{selectedEntities.length}</span></h3></div>
-            <button type="button" className="analytics-text-button" onClick={() => selectTab("campaigns")}>Editar seleção <ArrowUpRight size={14} /></button>
+            <button type="button" className="analytics-text-button" onClick={openScope}>Editar seleção <ArrowUpRight size={14} /></button>
           </div>
           <div className="analytics-table-scroll is-capped"><table className="analytics-table analytics-campaign-table">
             <thead><tr><th>Campanha</th>{fixedMetrics.slice(0, 4).map((metric) => <th key={metric.key}>{metric.label}</th>)}</tr></thead>
@@ -1093,7 +1107,8 @@ export function ClientAnalyticsDashboard({
         </article>
       </>}
 
-      {tab === "campaigns" && analyticsReady && <>
+      {scopeView && analyticsReady && <>
+        {inlineScope && <button type="button" className="analytics-text-button" onClick={closeScope}>Voltar ao Dashboard</button>}
         <div className="analytics-campaign-scope-bar">
           <label><span>Plataforma</span><Select className="input" defaultValue="meta">
             <option value="meta">Meta Ads</option>
