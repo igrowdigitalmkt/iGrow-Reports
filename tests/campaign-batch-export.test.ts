@@ -10,11 +10,11 @@ const active = (id: string, account = IDS.accA) => row("campaign", id, `Camp ${i
 const paused = (id: string, account = IDS.accA) => row("campaign", id, `Pausada ${id}`, null, account, vals(10), "PAUSED");
 
 describe("operações em lote: planejamento", () => {
-  it("pausar: ativas são compatíveis; pausadas, anúncios e estado desconhecido são incompatíveis com motivo", () => {
+  it("pausar: ativas (inclusive anúncios) são compatíveis; pausadas, estado desconhecido e arquivadas são incompatíveis com motivo", () => {
     const unknown = row("campaign", "9", "Sem estado", null, IDS.accA, vals(1), null);
-    const plan = planBatch("pause", [active("1"), paused("2"), row("ad", "300", "Vídeo", "200", IDS.accA, vals(1)), unknown, row("campaign", "5", "Arquivada", null, IDS.accA, vals(1), "ARCHIVED")], keyOf);
-    expect(plan.compatible.map(item => item.row.id)).toEqual(["1"]);
-    expect(plan.incompatible.map(item => item.reason)).toEqual(["Já está pausada.", expect.stringMatching(/anúncios ainda não/), expect.stringMatching(/não confirmado/), expect.stringMatching(/não permite/)]);
+    const plan = planBatch("pause", [active("1"), paused("2"), row("ad", "300", "Vídeo", "200", IDS.accA, vals(1)), row("ad", "301", "Vídeo pausado", "200", IDS.accA, vals(1), "PAUSED"), unknown, row("campaign", "5", "Arquivada", null, IDS.accA, vals(1), "ARCHIVED")], keyOf);
+    expect(plan.compatible.map(item => item.row.id)).toEqual(["1", "300"]);
+    expect(plan.incompatible.map(item => item.reason)).toEqual(["Já está pausada.", "Já está pausada.", expect.stringMatching(/não confirmado/), expect.stringMatching(/não permite/)]);
     expect(plan.accounts).toEqual(["Conta A"]);
   });
   it("retomar: só pausadas; mais de 20 compatíveis marca excesso", () => {
@@ -65,12 +65,22 @@ describe("operações em lote: execução", () => {
     expect(runner).toHaveBeenCalledTimes(BATCH_MAX);
     expect(outcomes.filter(item => item.status === "skipped")).toHaveLength(2);
   });
-  it("anúncios nunca são enviados ao executor", async () => {
-    const runner = vi.fn<BatchRunner>(async () => ok());
-    const ad = row("ad", "300", "Vídeo", "200", IDS.accA, vals(1));
-    const outcomes = await runBatch({ clientId: IDS.client, op: "pause", items: [{ key: "k", row: ad, compatible: true }], runner, newRequestId: uid() });
-    expect(runner).not.toHaveBeenCalled();
-    expect(outcomes[0]!.status).toBe("skipped");
+  it("anúncios vão ao MESMO executor, um a um, com o nível do anúncio e estado esperado; sucesso parcial por anúncio", async () => {
+    const runner = vi.fn<BatchRunner>(async input => input.ref.entityId === "302" ? { ok: false, code: "extended_unsupported", message: "ainda não habilitada" } : ok());
+    const ads = [row("ad", "301", "A1", "200", IDS.accA, vals(1)), row("ad", "302", "A2", "200", IDS.accA, vals(1)), row("ad", "303", "A3", "200", IDS.accB, vals(1))];
+    const outcomes = await runBatch({ clientId: IDS.client, op: "pause", items: planBatch("pause", ads, keyOf).items, runner, newRequestId: uid() });
+    expect(runner.mock.calls.map(call => [call[0].ref.level, call[0].ref.entityId, call[0].op, call[0].expected.configuredStatus])).toEqual([["ad", "301", "pause", "ACTIVE"], ["ad", "302", "pause", "ACTIVE"], ["ad", "303", "pause", "ACTIVE"]]);
+    expect(outcomes.map(item => item.status)).toEqual(["verified", "failed", "verified"]);
+  });
+  it("retomar anúncios: só pausados; resultado desconhecido bloqueia o restante da MESMA conta", async () => {
+    const runner = vi.fn<BatchRunner>(async input => input.ref.entityId === "401" ? ok("needs_verification") : ok());
+    const ads = [row("ad", "401", "P1", "200", IDS.accA, vals(1), "PAUSED"), row("ad", "402", "P2", "200", IDS.accA, vals(1), "PAUSED"), row("ad", "403", "P3", "200", IDS.accB, vals(1), "PAUSED"), row("ad", "404", "Ativo", "200", IDS.accB, vals(1))];
+    const plan = planBatch("resume", ads, keyOf);
+    expect(plan.incompatible.map(item => item.row.id)).toEqual(["404"]);
+    const outcomes = await runBatch({ clientId: IDS.client, op: "resume", items: plan.compatible, runner, newRequestId: uid() });
+    expect(outcomes.map(item => item.status)).toEqual(["needs_verification", "skipped", "verified"]);
+    expect(runner.mock.calls.map(call => call[0].ref.entityId)).toEqual(["401", "403"]);
+    expect(runner.mock.calls[0]![0].expected.configuredStatus).toBe("PAUSED");
   });
 });
 

@@ -19,7 +19,6 @@ const wanted = (op: BatchOp) => op === "pause" ? "ACTIVE" : "PAUSED";
 export function planBatch(op: BatchOp, rows: CampaignRow[], keyOf: (row: CampaignRow) => string): BatchPlan {
   const items = rows.map((row): BatchItem => {
     const key = keyOf(row);
-    if (row.level === "ad") return { key, row, compatible: false, reason: "Operações em anúncios ainda não estão disponíveis (exigem uma nova ação do executor)." };
     const configured = row.state.configured?.code ?? null;
     if (!configured) return { key, row, compatible: false, reason: "Estado atual não confirmado na Meta." };
     if (configured !== "ACTIVE" && configured !== "PAUSED") return { key, row, compatible: false, reason: `Estado ${row.state.configured?.label ?? configured} não permite esta operação.` };
@@ -36,7 +35,7 @@ export type BatchOutcome =
   | { key: string; status: "failed"; message: string }
   | { key: string; status: "skipped"; message: string };
 export type BatchRunner = (input: {
-  ref: { clientId: string; accountId: string; level: "campaign" | "adset"; entityId: string }; op: ManualOp; requestId: string;
+  ref: { clientId: string; accountId: string; level: "campaign" | "adset" | "ad"; entityId: string }; op: ManualOp; requestId: string;
   expected: { configuredStatus: "ACTIVE" | "PAUSED"; dailyBudgetMinor: number | null };
 }) => Promise<ManualRunResult>;
 
@@ -49,7 +48,6 @@ export async function runBatch(input: {
   const push = (outcome: BatchOutcome) => { outcomes.push(outcome); input.onProgress?.(outcome); };
   for (const item of input.items.slice(0, BATCH_MAX)) {
     const { row } = item;
-    if (row.level === "ad") { push({ key: item.key, status: "skipped", message: "Anúncios não têm operações disponíveis." }); continue; }
     if (blocked.has(row.accountId)) { push({ key: item.key, status: "skipped", message: "Não enviada: a conta tem uma alteração aguardando verificação ou em andamento." }); continue; }
     try {
       const result = await input.runner({

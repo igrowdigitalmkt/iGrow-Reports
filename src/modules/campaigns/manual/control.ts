@@ -4,6 +4,7 @@ import { getMetaApiConfig } from "@/lib/env";
 import type { Database } from "@/types/database";
 import { loadAccessToken } from "@/modules/meta/server";
 import { requestManualMetaChange, type ManualChangeResult } from "@/modules/agent-executor/manual-actions";
+import { validateEntityName } from "@/modules/agent-executor/policy";
 import { agentSchedulerEnabled } from "@/modules/agent-executor/scheduler";
 import { WRITE_PERMISSION_MESSAGES, checkWritePermission, type WritePermission } from "./permissions";
 import {
@@ -17,7 +18,7 @@ const UNSETTLED = ["queued", "executing", "verifying", "needs_verification"] as 
 
 export type Actor = { agencyId: string; userId: string; role: string };
 /** Leitura crua de UMA entidade na Meta (somente GET). `null` = a Meta não devolveu a entidade. Lança em falha de comunicação. */
-export type RawEntity = { id?: string; account_id?: string; status?: string; effective_status?: string; daily_budget?: string | number; lifetime_budget?: string | number; objective?: string; campaign_id?: string };
+export type RawEntity = { id?: string; account_id?: string; name?: string; status?: string; effective_status?: string; daily_budget?: string | number; lifetime_budget?: string | number; objective?: string; campaign_id?: string; adset_id?: string };
 export type EntityReader = (service: Service, scope: { agencyId: string; integrationId: string; connectionId: string }, entityId: string, level: ManualLevel, fetchImpl?: typeof fetch) => Promise<RawEntity | null>;
 export type ControlDeps = {
   service: Service;
@@ -27,6 +28,8 @@ export type ControlDeps = {
   /** Leitura ao vivo da permissão de gerenciamento (padrão: /me/permissions). */
   probeWrite?: (service: Service, scope: { agencyId: string; integrationId: string; connectionId: string }) => Promise<WritePermission>;
   now?: () => Date;
+  /** Sonda: o banco aceita as ações novas (migração aplicada)? Padrão: RPC no banco. */
+  extendedSupported?: () => Promise<boolean>;
 };
 
 const message = {
@@ -45,7 +48,7 @@ export const defaultReadEntity: EntityReader = async (service, scope, entityId, 
   const apiVersion = getMetaApiConfig()?.apiVersion;
   if (!apiVersion) throw new Error("no_api_version");
   const token = await loadAccessToken(service, scope.agencyId, scope.integrationId, scope.connectionId);
-  const fields = `id,account_id,status,effective_status,daily_budget,lifetime_budget,${level === "campaign" ? "objective" : "campaign_id"}`;
+  const fields = level === "ad" ? "id,account_id,name,status,effective_status,adset_id" : `id,account_id,name,status,effective_status,daily_budget,lifetime_budget,${level === "campaign" ? "objective" : "campaign_id"}`;
   const response = await fetchImpl(`https://graph.facebook.com/${apiVersion}/${entityId}?fields=${fields}`, {
     method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15_000),
   });
@@ -62,7 +65,7 @@ const digits = (value: unknown) => typeof value === "string" && /^\d{1,15}$/.tes
 const normalizeAccount = (value: unknown) => typeof value === "string" && /^(?:act_)?[1-9]\d*$/.test(value) ? (value.startsWith("act_") ? value : `act_${value}`) : null;
 
 export function validRef(ref: ManualRef): boolean {
-  return UUID.test(ref.clientId) && UUID.test(ref.accountId) && /^[1-9]\d*$/.test(ref.entityId) && (ref.level === "campaign" || ref.level === "adset");
+  return UUID.test(ref.clientId) && UUID.test(ref.accountId) && /^[1-9]\d*$/.test(ref.entityId) && (ref.level === "campaign" || ref.level === "adset" || ref.level === "ad");
 }
 
 type Blocked = Extract<ManualControl, { kind: Exclude<ManualControl["kind"], "ready"> }>;
@@ -117,7 +120,9 @@ export async function resolveManualControl(actor: Actor, ref: ManualRef, deps: C
   if (!raw) return { kind: "incompatible", message: message.incompatible };
   // Titularidade e tipo vêm do próprio provedor: a conta da Meta precisa ser a vinculada e o campo característico do nível precisa existir.
   if (raw.id !== ref.entityId || normalizeAccount(raw.account_id) !== scope.account.externalId
-    || (ref.level === "campaign" ? typeof raw.objective !== "string" || !raw.objective : typeof raw.campaign_id !== "string" || !/^[1-9]\d*$/.test(raw.campaign_id))) {
+    || (ref.level === "campaign" ? typeof raw.objective !== "string" || !raw.objective
+      : ref.level === "adset" ? typeof raw.campaign_id !== "string" || !/^[1-9]\d*$/.test(raw.campaign_id)
+      : typeof raw.adset_id !== "string" || !/^[1-9]\d*$/.test(raw.adset_id))) {
     return { kind: "incompatible", message: message.incompatible };
   }
   const status = typeof raw.status === "string" ? raw.status.toUpperCase() : "";
@@ -130,20 +135,27 @@ export async function resolveManualControl(actor: Actor, ref: ManualRef, deps: C
   const { data: open } = await service.from("agent_action_jobs").select("id").eq("agency_id", actor.agencyId).eq("ad_account_id", scope.account.id).in("status", [...UNSETTLED]).limit(1);
   const busy = (open?.length ?? 0) > 0;
 
+  // Ações novas (renomear e anúncios) só são oferecidas quando o banco as aceita de fato (migração aplicada).
+  const extended = await (deps.extendedSupported ?? (async () => { const { data, error } = await service.rpc("agent_manual_extended_actions_supported"); return !error && data === true; }))().catch(() => false);
+  const needsExtended = "Disponível após a atualização do banco de dados desta operação (ainda não aplicada neste ambiente).";
+  const ad = ref.level === "ad";
   const ops: Record<ManualOp, OpAvailability> = {
-    pause: status === "ACTIVE" ? { enabled: true } : { enabled: false, reason: "Já está pausada." },
+    pause: status === "ACTIVE" ? (ad && !extended ? { enabled: false, reason: needsExtended } : { enabled: true }) : { enabled: false, reason: "Já está pausada." },
     resume: status === "PAUSED"
-      ? (daily !== null ? { enabled: true } : { enabled: false, reason: "O orçamento diário não está confirmado neste nível (pode estar no conjunto, compartilhado ou ser vitalício); a retomada por aqui exige orçamento confirmado." })
+      ? (ad ? (extended ? { enabled: true } : { enabled: false, reason: needsExtended })
+        : daily !== null ? { enabled: true } : { enabled: false, reason: "O orçamento diário não está confirmado neste nível (pode estar no conjunto, compartilhado ou ser vitalício); a retomada por aqui exige orçamento confirmado." })
       : { enabled: false, reason: "Já está ativa." },
-    budget: status !== "ACTIVE" ? { enabled: false, reason: "Só é possível alterar o orçamento de uma entidade ativa." }
+    budget: ad ? { enabled: false, reason: "Anúncios não têm orçamento próprio: o orçamento fica na campanha ou no conjunto." }
+      : status !== "ACTIVE" ? { enabled: false, reason: "Só é possível alterar o orçamento de uma entidade ativa." }
       : lifetime && lifetime > 0 ? { enabled: false, reason: "Orçamento vitalício: este controle altera apenas orçamento diário." }
       : daily === null ? { enabled: false, reason: "O orçamento diário não está definido neste nível (pode ser compartilhado ou definido em outro nível)." }
       : exponent === null ? { enabled: false, reason: "Moeda da conta não reconhecida." } : { enabled: true },
+    rename: !extended ? { enabled: false, reason: needsExtended } : typeof raw.name !== "string" || !raw.name ? { enabled: false, reason: "O nome atual não foi confirmado na Meta." } : { enabled: true },
   };
   if (busy) for (const op of Object.keys(ops) as ManualOp[]) ops[op] = { enabled: false, reason: "Há outra operação em andamento ou aguardando verificação nesta conta." };
   return {
     kind: "ready", level: ref.level, entityId: ref.entityId, accountName: scope.account.name, currency: scope.account.currency, exponent: exponent ?? 2,
-    configuredStatus: status, effectiveStatus: typeof raw.effective_status === "string" ? raw.effective_status : null,
+    name: typeof raw.name === "string" ? raw.name : null, configuredStatus: status, effectiveStatus: typeof raw.effective_status === "string" ? raw.effective_status : null,
     dailyBudgetMinor: daily, busy, ops, checkedAt: (deps.now?.() ?? new Date()).toISOString(),
   };
 }
@@ -151,8 +163,10 @@ export async function resolveManualControl(actor: Actor, ref: ManualRef, deps: C
 export type ManualRunInput = {
   ref: ManualRef; op: ManualOp; requestId: string;
   /** Estado que o usuário VIU e confirmou. Se a Meta mudou desde então, nada é enviado. */
-  expected: { configuredStatus: "ACTIVE" | "PAUSED"; dailyBudgetMinor: number | null };
+  expected: { configuredStatus: "ACTIVE" | "PAUSED"; dailyBudgetMinor: number | null; name?: string | null };
   dailyBudgetMinor?: number;
+  /** Novo nome (somente op "rename"). */
+  newName?: string;
 };
 
 const failFromControl = (control: Blocked): ManualRunResult => ({ ok: false, code: control.kind, message: control.message, control });
@@ -165,7 +179,8 @@ export async function runManualOperation(actor: Actor, input: ManualRunInput, de
   if (control.kind !== "ready") return failFromControl(control);
   if (control.busy) return { ok: false, code: "busy", message: "Há outra operação em andamento ou aguardando verificação nesta conta. Aguarde a conclusão.", control };
   if (!control.ops[op].enabled) return { ok: false, code: "unavailable", message: control.ops[op].reason ?? "Operação indisponível.", control };
-  if (input.expected.configuredStatus !== control.configuredStatus || (op === "budget" && input.expected.dailyBudgetMinor !== control.dailyBudgetMinor)) {
+  if (input.expected.configuredStatus !== control.configuredStatus || (op === "budget" && input.expected.dailyBudgetMinor !== control.dailyBudgetMinor)
+    || (op === "rename" && (input.expected.name ?? null) !== control.name)) {
     return { ok: false, code: "stale", message: "O estado na Meta mudou desde que você abriu esta tela. Confira o estado atual e confirme novamente.", control };
   }
   let budget: number | undefined;
@@ -175,14 +190,22 @@ export async function runManualOperation(actor: Actor, input: ManualRunInput, de
     const check = validateBudgetChange(control.dailyBudgetMinor, budget);
     if (!check.ok) return { ok: false, code: "invalid", message: check.message, control };
   } else if (input.dailyBudgetMinor !== undefined) return { ok: false, code: "invalid", message: "Dados da operação inválidos.", control };
+  let newName: string | undefined;
+  if (op === "rename") {
+    const verdict = validateEntityName(input.newName, control.name);
+    if (!verdict.ok) return { ok: false, code: "invalid", message: verdict.message, control };
+    newName = verdict.name;
+  } else if (input.newName !== undefined) return { ok: false, code: "invalid", message: "Dados da operação inválidos.", control };
+  const action = MANUAL_ACTION_NAMES[op][ref.level];
+  if (!action) return { ok: false, code: "unavailable", message: control.ops[op].reason ?? "Operação indisponível.", control };
 
   const result = await (deps.request ?? requestManualMetaChange)({
     requestId: input.requestId, clientId: ref.clientId, adAccountId: ref.accountId,
-    action: MANUAL_ACTION_NAMES[op][ref.level], targetId: ref.entityId, ...(budget !== undefined ? { dailyBudgetMinor: budget } : {}),
+    action, targetId: ref.entityId, ...(budget !== undefined ? { dailyBudgetMinor: budget } : {}), ...(newName !== undefined ? { newName } : {}),
     note: "pela página de detalhes",
   });
   if (!result.ok) {
-    const map: Record<string, ManualRunFailureCode> = { duplicate: "duplicate", account_busy: "busy", gate_closed: "executor_disabled", executor_disabled: "executor_disabled" };
+    const map: Record<string, ManualRunFailureCode> = { duplicate: "duplicate", account_busy: "busy", gate_closed: "executor_disabled", executor_disabled: "executor_disabled", extended_unsupported: "extended_unsupported" };
     return { ok: false, code: map[result.code] ?? "failed", message: result.message };
   }
   if (result.execution === "verified" || result.execution === "needs_verification") {
@@ -199,7 +222,7 @@ export async function loadManualHistory(actor: Actor, ref: ManualRef, deps: Cont
   const scope = await resolveScope(actor, ref, deps);
   if (!scope.ok) return null;
   const { data, error } = await deps.service.from("agent_action_jobs")
-    .select("id,created_at,action_type,execution_origin,requested_by,approved_by,status,failure_code,before_state,after_state,daily_budget_minor")
+    .select("id,created_at,action_type,execution_origin,requested_by,approved_by,status,failure_code,before_state,after_state,daily_budget_minor,new_name")
     .eq("agency_id", actor.agencyId).eq("client_id", ref.clientId).eq("ad_account_id", scope.account.id).eq("meta_entity_id", ref.entityId)
     .order("created_at", { ascending: false }).limit(limit);
   if (error) return null;
@@ -217,6 +240,7 @@ export async function loadManualHistory(actor: Actor, ref: ManualRef, deps: Cont
       previousStatus: str(before.previous_status), confirmedStatus: str(after.confirmed_status),
       previousBudgetMinor: num(before.previous_daily_budget_minor), confirmedBudgetMinor: num(after.confirmed_daily_budget_minor),
       requestedBudgetMinor: job.daily_budget_minor === null ? null : Number(job.daily_budget_minor),
+      previousName: str(before.previous_name), confirmedName: str(after.confirmed_name), requestedName: job.new_name ?? null,
     } satisfies ManualHistoryItem;
   });
 }

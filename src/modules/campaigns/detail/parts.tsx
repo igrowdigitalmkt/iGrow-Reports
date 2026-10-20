@@ -12,9 +12,8 @@ import type { CampaignsData } from "../load";
 import { campaignsPath, entityPath } from "../routes";
 import { childrenOf, sortRows, type CampaignRow } from "../tree";
 
-/** Operações manuais (pausar, retomar, orçamento) de campanhas e conjuntos; anúncios não têm operações. O servidor decide o que é oferecido. */
+/** Operações manuais (renomear, pausar, retomar e, em campanhas e conjuntos, orçamento). O servidor decide o que é oferecido. */
 export function OperationsCard({ clientId, entity }: { clientId: string; entity: CampaignRow }) {
-  if (entity.level === "ad") return null;
   return <EntityOperations clientId={clientId} accountId={entity.accountId} level={entity.level} entityId={entity.id} entityName={entity.name} accountName={entity.accountName} currency={entity.currency} />;
 }
 

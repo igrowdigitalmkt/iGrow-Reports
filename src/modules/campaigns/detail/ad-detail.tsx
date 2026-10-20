@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ancestorsOf } from "../detail";
 import { entityPath } from "../routes";
-import { Breadcrumb, ContextCard, CreativeCard, IdentityCard, PerformanceGrid, ResultsSection, StateBadge, StateCard, type DetailProps } from "./parts";
+import { Breadcrumb, ContextCard, CreativeCard, IdentityCard, OperationsCard, PerformanceGrid, ResultsSection, StateBadge, StateCard, type DetailProps } from "./parts";
 
 /** Detalhes do ANÚNCIO: criativo (quando a Meta o devolve), conjunto e campanha de origem, veiculação e desempenho. */
 export function AdDetail(props: DetailProps) {
@@ -21,6 +21,7 @@ export function AdDetail(props: DetailProps) {
         <ResultsSection {...props} />
       </div>
       <aside className="cdetail-aside" aria-label="Informações do anúncio">
+        <OperationsCard clientId={clientId} entity={entity} />
         <CreativeCard entity={entity} />
         <IdentityCard entity={entity} parents={parents} />
         <StateCard entity={entity} data={data} />

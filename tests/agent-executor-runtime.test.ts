@@ -129,6 +129,27 @@ describe("Agente: contexto exclusivamente server-only", () => {
     noRequester.agent_action_jobs[0]!.requested_by = null;
     await expect(resolveAgentRuntime(fake(noRequester).service, id, { ...deps(), origin: "manual" })).rejects.toMatchObject({ code: "missing_requester" });
   });
+  it("acoes novas (renomear, anuncios) so existem no caminho manual: job da IA e negado antes de qualquer leitura", async () => {
+    for (const action of ["rename_campaign", "rename_adset", "rename_ad", "pause_ad", "resume_ad"]) {
+      const rows = fixtures();
+      Object.assign(rows.agent_action_jobs[0]!, { action_type: action, ...(action.startsWith("rename") ? { new_name: "Nome" } : {}) });
+      const trusted = { ...deps(), inventoryReader: vi.fn() };
+      await expect(resolveAgentRuntime(fake(rows).service, id, trusted)).rejects.toMatchObject({ code: "manual_only_action" });
+      expect(trusted.tokenLoader).not.toHaveBeenCalled();
+      expect(trusted.inventoryReader).not.toHaveBeenCalled();
+    }
+  });
+  it("job manual de renomear/anuncio leva o novo nome ao envelope e NAO le o inventario financeiro", async () => {
+    for (const [action, name] of [["rename_ad", "Anuncio novo"], ["pause_ad", undefined], ["resume_ad", undefined]] as const) {
+      const rows = manualRows();
+      Object.assign(rows.agent_action_jobs[0]!, { action_type: action, new_name: name ?? null });
+      const reader = vi.fn();
+      const runtime = await resolveAgentRuntime(fake(rows).service, id, { ...deps(), origin: "manual", inventoryReader: reader });
+      expect(reader).not.toHaveBeenCalled();
+      expect(runtime.proposal).toMatchObject({ action, ...(name ? { newName: name } : {}) });
+      expect(runtime.delegation.allowedActions).toEqual([action]);
+    }
+  });
   it("bloqueia quando recurso comercial nao esta habilitado", async () => {
     const { service, from } = fake(fixtures(), false);
     const trusted = deps();

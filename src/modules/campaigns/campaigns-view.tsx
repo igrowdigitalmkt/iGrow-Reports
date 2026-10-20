@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpRight, ChevronDown, ChevronUp, Columns3, Download, Pause, Pencil, Play, Search, Sparkles, X } from "lucide-react";
 import Link from "next/link";
@@ -24,6 +24,7 @@ import { LevelTabs } from "./navigation/level-tabs";
 import { clearSelection, entityKey, scopeDescription, scopeRows, selectionStorageKey, setSelected, reconcileSelection, type NavLevel } from "./navigation/selection";
 import { useStoredSelection } from "./navigation/use-selection";
 import { structureOf } from "./platforms/registry";
+import { OperationsServicesContext, loadManualCapabilitiesAction } from "./manual/entity-operations";
 import "./navigation/navigation.css";
 
 export type SelectedEntity = { accountId: string; level: CampaignRow["level"]; id: string };
@@ -57,6 +58,14 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
   const [accountDraft, setAccountDraft] = useState<string[] | null>(null);
   const [batch, setBatch] = useState<"pause" | "resume" | null>(null);
   const [editing, setEditing] = useState<CampaignRow | null>(null);
+  // Operações novas (renomear e anúncios) só aparecem quando o servidor confirma que o banco as aceita (null enquanto consulta).
+  const services = useContext(OperationsServicesContext);
+  const [extended, setExtended] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    (services.capabilities ?? loadManualCapabilitiesAction)().then(result => { if (alive) setExtended(result.extended); }).catch(() => { if (alive) setExtended(false); });
+    return () => { alive = false; };
+  }, [services.capabilities]);
 
   // Seleção (por contexto) e escopo entre abas.
   const [storedSelection, writeSelection] = useStoredSelection(preferenceKey ? selectionStorageKey(preferenceKey, clientId, "meta") : null);
@@ -166,7 +175,8 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
     <span>{column.label}</span></label>;
 
   const one = pickedRows.length === 1 ? pickedRows[0]! : null;
-  const operable = level !== "ad" && pickedRows.length > 0;
+  const operable = (level !== "ad" || extended === true) && pickedRows.length > 0;
+  const adBlocked = level === "ad" && extended !== true;
   const emptyText = filtering ? "Nenhum item corresponde à busca e aos filtros."
     : scopeText ? `${scopeText}: nenhum item encontrado neste escopo.`
     : onlyActive ? "Nenhuma entidade em veiculação ou com gasto neste período. Desmarque o filtro para ver as demais."
@@ -215,7 +225,8 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
         <div className="level-actionbar" role="toolbar" aria-label={`Ações de ${levelLabel.label.toLocaleLowerCase("pt-BR")}`}>
           {pickedRows.length > 0 ? <>
             <span className="level-selection-summary"><strong>{pickedRows.length}</strong> {pickedRows.length === 1 ? "selecionado" : "selecionados"}</span>
-            <button type="button" className="ops-btn" disabled={!one || level === "ad"} title={level === "ad" ? "Anúncios ainda não têm campos editáveis (exigem novas ações do executor). Abra os detalhes para consultar." : !one ? "Selecione uma única entidade para editar. Para vários itens use Pausar ou Retomar." : "Editar"} onClick={() => one && setEditing(one)}><Pencil size={14} />Editar</button>
+            <button type="button" className="ops-btn" disabled={!one || adBlocked} title={adBlocked ? "Edição de anúncios depende da atualização do banco, ainda não aplicada neste ambiente. Abra os detalhes para consultar." : !one ? "Selecione uma única entidade para editar. Para vários itens use Pausar ou Retomar." : "Editar"} onClick={() => one && setEditing(one)}><Pencil size={14} />Editar</button>
+            {adBlocked && <span className="level-selection-summary" role="status">Operações em anúncios aguardam a atualização do banco neste ambiente.</span>}
             {operable && <>
               <button type="button" className="ops-btn" onClick={() => setBatch("pause")}><Pause size={14} />Pausar{pickedRows.length > 1 ? ` (${pickedRows.length})` : ""}</button>
               <button type="button" className="ops-btn" onClick={() => setBatch("resume")}><Play size={14} />Retomar{pickedRows.length > 1 ? ` (${pickedRows.length})` : ""}</button></>}

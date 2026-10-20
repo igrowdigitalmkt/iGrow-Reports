@@ -77,7 +77,7 @@ describe("estado e permissões do controle manual", () => {
   });
   it("identificadores malformados nunca chegam ao banco ou à Meta", async () => {
     const d = deps();
-    for (const bad of [{ ...ref, clientId: "x" }, { ...ref, accountId: "../" }, { ...ref, entityId: "0" }, { ...ref, entityId: "12a" }, { ...ref, level: "ad" as never }]) {
+    for (const bad of [{ ...ref, clientId: "x" }, { ...ref, accountId: "../" }, { ...ref, entityId: "0" }, { ...ref, entityId: "12a" }, { ...ref, level: "ad" as never, entityId: "x1" }, { ...ref, level: "creative" as never }]) {
       expect(await resolveManualControl(owner, bad, d)).toMatchObject({ kind: "incompatible" });
     }
     expect(d.readEntity).not.toHaveBeenCalled();
@@ -376,5 +376,88 @@ describe("leitura direta da entidade (mesmo GET do executor)", () => {
   });
   it("sem id na resposta a entidade é desconhecida (null)", async () => {
     expect(await defaultReadEntity({} as never, scope, "900", "campaign", reply(200, {}))).toBeNull();
+  });
+});
+
+const adRef: ManualRef = { ...ref, level: "ad", entityId: "920" };
+const adEntity = (over: Partial<RawEntity> = {}): RawEntity => ({ id: "920", account_id: "act_1", name: "Anuncio atual", status: "ACTIVE", effective_status: "ACTIVE", adset_id: "910", ...over });
+
+describe("renomear e anúncios (controle do servidor)", () => {
+  it("anúncio: pausar/renomear disponíveis, sem orçamento; identidade vem do conjunto pai lido na Meta", async () => {
+    const control = await resolveManualControl(owner, adRef, deps({ entity: adEntity(), extendedSupported: async () => true } as never));
+    expect(control).toMatchObject({ kind: "ready", level: "ad", name: "Anuncio atual", dailyBudgetMinor: null,
+      ops: { pause: { enabled: true }, resume: { enabled: false }, rename: { enabled: true }, budget: { enabled: false, reason: expect.stringMatching(/Anúncios não têm orçamento/) } } });
+    for (const entity of [adEntity({ adset_id: undefined }), adEntity({ id: "921" }), adEntity({ account_id: "act_999" }), campaign({ id: "920" })]) {
+      expect(await resolveManualControl(owner, adRef, deps({ entity, extendedSupported: async () => true } as never))).toMatchObject({ kind: "incompatible" });
+    }
+  });
+  it("retomar anúncio pausado não exige orçamento", async () => {
+    const control = await resolveManualControl(owner, adRef, deps({ entity: adEntity({ status: "PAUSED" }), extendedSupported: async () => true } as never));
+    expect(control).toMatchObject({ kind: "ready", ops: { resume: { enabled: true }, pause: { enabled: false } } });
+  });
+  it("banco sem a migração: renomear e anúncios ficam desabilitados com o motivo; campanha continua operável", async () => {
+    const off = await resolveManualControl(owner, adRef, deps({ entity: adEntity(), extendedSupported: async () => false } as never));
+    expect(off).toMatchObject({ kind: "ready", ops: { pause: { enabled: false, reason: expect.stringMatching(/atualização do banco/) }, rename: { enabled: false } } });
+    const broken = await resolveManualControl(owner, ref, deps({ entity: campaign(), extendedSupported: async () => { throw new Error("rpc"); } } as never));
+    expect(broken).toMatchObject({ kind: "ready", ops: { pause: { enabled: true }, rename: { enabled: false } } });
+  });
+  it("renomear: confirma o nome visto, valida e chama o executor com o novo nome aparado", async () => {
+    const d = deps({ entity: campaign({ name: "Nome atual" }), extendedSupported: async () => true } as never);
+    const result = await runManualOperation(owner, { ref, op: "rename", requestId: REQUEST, expected: { ...expected, name: "Nome atual" }, newName: "  Nome novo  " }, d);
+    expect(result).toMatchObject({ ok: true, outcome: "verified" });
+    expect(d.request.mock.calls[0]![0]).toMatchObject({ action: "rename_campaign", newName: "Nome novo", targetId: "900" });
+    expect(d.request.mock.calls[0]![0]).not.toHaveProperty("dailyBudgetMinor");
+  });
+  it("renomear: nome vazio, igual ao atual, inválido, ausente ou em outra operação nunca chegam ao executor", async () => {
+    for (const newName of ["", "  ", "Nome atual", " Nome atual ", "x".repeat(201), "a\nb", undefined]) {
+      const d = deps({ entity: campaign({ name: "Nome atual" }), extendedSupported: async () => true } as never);
+      expect(await runManualOperation(owner, { ref, op: "rename", requestId: REQUEST, expected: { ...expected, name: "Nome atual" }, ...(newName !== undefined ? { newName } : {}) }, d)).toMatchObject({ ok: false, code: "invalid" });
+      expect(d.request).not.toHaveBeenCalled();
+    }
+    const smuggled = deps({ entity: campaign(), extendedSupported: async () => true } as never);
+    expect(await runManualOperation(owner, { ref, op: "pause", requestId: REQUEST, expected, newName: "Novo" }, smuggled)).toMatchObject({ ok: false, code: "invalid" });
+    expect(smuggled.request).not.toHaveBeenCalled();
+  });
+  it("renomear: nome mudou na Meta desde que a tela abriu (estado antigo) é recusado", async () => {
+    const d = deps({ entity: campaign({ name: "Outro nome (alterado por terceiros)" }), extendedSupported: async () => true } as never);
+    expect(await runManualOperation(owner, { ref, op: "rename", requestId: REQUEST, expected: { ...expected, name: "Nome atual" }, newName: "Novo" }, d)).toMatchObject({ ok: false, code: "stale" });
+    expect(d.request).not.toHaveBeenCalled();
+  });
+  it("renomear e anúncios sem migração: nada é enviado; usuário sem permissão, conta e entidade erradas idem", async () => {
+    const off = deps({ entity: campaign({ name: "Nome atual" }), extendedSupported: async () => false } as never);
+    expect(await runManualOperation(owner, { ref, op: "rename", requestId: REQUEST, expected: { ...expected, name: "Nome atual" }, newName: "Novo" }, off)).toMatchObject({ ok: false, code: "unavailable" });
+    const adOff = deps({ entity: adEntity(), extendedSupported: async () => false } as never);
+    expect(await runManualOperation(owner, { ref: adRef, op: "pause", requestId: REQUEST, expected }, adOff)).toMatchObject({ ok: false, code: "unavailable" });
+    const other = deps({ entity: adEntity({ account_id: "act_999" }), extendedSupported: async () => true } as never);
+    expect(await runManualOperation(owner, { ref: adRef, op: "pause", requestId: REQUEST, expected }, other)).toMatchObject({ ok: false, code: "incompatible" });
+    const member = deps({ entity: adEntity(), extendedSupported: async () => true } as never);
+    expect(await runManualOperation({ ...owner, role: "member" }, { ref: adRef, op: "pause", requestId: REQUEST, expected }, member)).toMatchObject({ ok: false, code: "unauthorized" });
+    for (const x of [off, adOff, other, member]) expect(x.request).not.toHaveBeenCalled();
+  });
+  it("pausar/retomar anúncio: ação própria do anúncio, sem orçamento; estado visto diferente é recusado; falha antes e depois do envio", async () => {
+    const d = deps({ entity: adEntity(), extendedSupported: async () => true } as never);
+    expect(await runManualOperation(owner, { ref: adRef, op: "pause", requestId: REQUEST, expected }, d)).toMatchObject({ ok: true });
+    expect(d.request.mock.calls[0]![0]).toMatchObject({ action: "pause_ad", targetId: "920" });
+    const stale = deps({ entity: adEntity({ status: "PAUSED" }), extendedSupported: async () => true } as never);
+    expect(await runManualOperation(owner, { ref: adRef, op: "pause", requestId: REQUEST, expected }, stale)).toMatchObject({ ok: false });
+    const before = deps({ entity: adEntity(), extendedSupported: async () => true } as never);
+    before.request.mockResolvedValueOnce({ ok: true, jobId: "j", execution: "failed" });
+    expect(await runManualOperation(owner, { ref: adRef, op: "pause", requestId: REQUEST, expected }, before)).toMatchObject({ ok: false, code: "blocked" });
+    const after = deps({ entity: adEntity(), extendedSupported: async () => true } as never);
+    after.request.mockResolvedValueOnce({ ok: true, jobId: "j", execution: "needs_verification" });
+    expect(await runManualOperation(owner, { ref: adRef, op: "pause", requestId: REQUEST, expected }, after)).toMatchObject({ ok: true, outcome: "needs_verification" });
+    const dup = deps({ entity: adEntity(), extendedSupported: async () => true } as never);
+    dup.request.mockResolvedValueOnce({ ok: false, message: "ja", code: "duplicate" });
+    expect(await runManualOperation(owner, { ref: adRef, op: "pause", requestId: REQUEST, expected }, dup)).toMatchObject({ ok: false, code: "duplicate" });
+    const unsupported = deps({ entity: adEntity(), extendedSupported: async () => true } as never);
+    unsupported.request.mockResolvedValueOnce({ ok: false, message: "x", code: "extended_unsupported" });
+    expect(await runManualOperation(owner, { ref: adRef, op: "pause", requestId: REQUEST, expected }, unsupported)).toMatchObject({ ok: false, code: "extended_unsupported" });
+  });
+  it("histórico inclui nome anterior, pedido e confirmado das renomeações (sem justificativa)", async () => {
+    const job = { id: "j1", created_at: "2026-10-21T10:00:00Z", action_type: "rename_ad", execution_origin: "manual", requested_by: "u1", approved_by: null, status: "verified", failure_code: null,
+      before_state: { previous_status: "ACTIVE", previous_name: "Antigo" }, after_state: { confirmed_status: "ACTIVE", confirmed_name: "Novo" }, daily_budget_minor: null, new_name: "Novo", rationale: "texto interno" };
+    const history = await loadManualHistory(owner, adRef, deps({ tables: { agent_action_jobs: [job] } }));
+    expect(history![0]).toMatchObject({ action: "rename_ad", previousName: "Antigo", requestedName: "Novo", confirmedName: "Novo" });
+    expect(JSON.stringify(history)).not.toContain("texto interno");
   });
 });

@@ -1,8 +1,8 @@
 import { MANUAL_MAX_INCREASE_PERCENT } from "@/modules/agent-executor/policy";
 /** Contratos compartilhados (servidor e cliente) das operações manuais de campanha. Sem segredos nem identificadores internos além dos da rota. */
 
-export type ManualLevel = "campaign" | "adset";
-export type ManualOp = "pause" | "resume" | "budget";
+export type ManualLevel = "campaign" | "adset" | "ad";
+export type ManualOp = "pause" | "resume" | "budget" | "rename";
 export type ManualRef = { clientId: string; accountId: string; level: ManualLevel; entityId: string };
 
 export type OpAvailability = { enabled: boolean; reason?: string };
@@ -11,6 +11,8 @@ export type OpAvailability = { enabled: boolean; reason?: string };
 export type ManualControl =
   | {
     kind: "ready"; level: ManualLevel; entityId: string; accountName: string; currency: string; exponent: number;
+    /** Nome atual confirmado na Meta (base da renomeação e da verificação de estado antigo). */
+    name: string | null;
     configuredStatus: "ACTIVE" | "PAUSED"; effectiveStatus: string | null;
     /** Orçamento diário atual CONFIRMADO na Meta, neste nível. null = não definido aqui (conjunto, compartilhado ou vitalício). */
     dailyBudgetMinor: number | null;
@@ -27,7 +29,7 @@ export type WritePermissionReason = "not_granted" | "declined" | "expired" | "to
 
 export type ManualRunFailureCode =
   | "invalid" | "unauthorized" | "executor_disabled" | "account_disconnected" | "account_restricted" | "write_permission_missing" | "incompatible" | "unknown_state" | "unsupported_status"
-  | "busy" | "unavailable" | "stale" | "duplicate" | "blocked" | "failed";
+  | "busy" | "unavailable" | "stale" | "duplicate" | "blocked" | "failed" | "extended_unsupported";
 
 export type ManualRunResult =
   | { ok: true; outcome: "verified" | "needs_verification"; message: string; control: ManualControl | null }
@@ -39,12 +41,14 @@ export type ManualHistoryItem = {
   status: string; failure: string | null;
   previousStatus: string | null; confirmedStatus: string | null;
   previousBudgetMinor: number | null; confirmedBudgetMinor: number | null; requestedBudgetMinor: number | null;
+  previousName: string | null; confirmedName: string | null; requestedName: string | null;
 };
 
 export const MANUAL_ACTION_NAMES = {
-  pause: { campaign: "pause_campaign", adset: "pause_adset" },
-  resume: { campaign: "resume_campaign", adset: "resume_adset" },
-  budget: { campaign: "set_campaign_daily_budget", adset: "set_adset_daily_budget" },
+  pause: { campaign: "pause_campaign", adset: "pause_adset", ad: "pause_ad" },
+  resume: { campaign: "resume_campaign", adset: "resume_adset", ad: "resume_ad" },
+  budget: { campaign: "set_campaign_daily_budget", adset: "set_adset_daily_budget", ad: null },
+  rename: { campaign: "rename_campaign", adset: "rename_adset", ad: "rename_ad" },
 } as const;
 
 /** Aumento máximo aceito pelo executor no clique humano (em %): fonte ÚNICA, a própria política do executor. */

@@ -10,7 +10,7 @@ import type { CampaignRow } from "../tree";
 import "../manual/operations.css";
 import "./navigation.css";
 
-const LEVEL = { campaign: "campanha", adset: "conjunto" } as const;
+const LEVEL = { campaign: "campanha", adset: "conjunto", ad: "anúncio" } as const;
 const OUTCOME_LABEL: Record<BatchOutcome["status"], string> = { verified: "Confirmada na Meta", needs_verification: "Aguardando verificação", failed: "Não realizada", skipped: "Não enviada" };
 
 /**
@@ -28,7 +28,7 @@ export function BatchDialog({ op, rows, clientId, runner: runnerProp, onClose, o
   const [outcomes, setOutcomes] = useState<BatchOutcome[] | null>(null);
   useEffect(() => { const node = element.current; if (node && !node.open) node.showModal(); }, []);
   const plan = planBatch(op, rows, entityKey);
-  const level = rows.length && rows.every(row => row.level === rows[0]!.level) ? LEVEL[rows[0]!.level as "campaign" | "adset"] ?? "entidade" : "entidade";
+  const level = rows.length && rows.every(row => row.level === rows[0]!.level) ? LEVEL[rows[0]!.level] : "entidade";
   const verb = op === "pause" ? "Pausar" : "Retomar";
   const names = new Map(rows.map(row => [entityKey(row), row.name]));
   const canRun = !running && !outcomes && plan.compatible.length > 0 && !plan.tooMany && (op === "pause" || understood);
@@ -43,7 +43,7 @@ export function BatchDialog({ op, rows, clientId, runner: runnerProp, onClose, o
 
   return <dialog ref={element} className="ops-dialog batch-dialog" aria-labelledby="batch-title" onCancel={event => { event.preventDefault(); if (!running) onClose(); }} onClose={() => { if (!running) onClose(); }}>
     <div className="batch-body">
-      <h3 id="batch-title">{verb} {plan.items.length} {plan.items.length === 1 ? level : `${level === "campanha" ? "campanhas" : level === "conjunto" ? "conjuntos" : "entidades"}`}</h3>
+      <h3 id="batch-title">{verb} {plan.items.length} {plan.items.length === 1 ? level : `${level === "campanha" ? "campanhas" : level === "conjunto" ? "conjuntos" : level === "anúncio" ? "anúncios" : "entidades"}`}</h3>
       <dl className="ops-summary">
         <div><dt>Contas envolvidas</dt><dd>{plan.accounts.join(", ")}</dd></div>
         <div><dt>Serão enviadas</dt><dd>{plan.compatible.length}</dd></div>
