@@ -542,3 +542,5 @@
 .section-toggle svg.is-collapsed { transform: rotate(-90deg); }
 .platform-heading .platform-logo { flex-shrink: 0; }
 .platform-heading { gap: 8px; }
+.platform-mark-slot { display: inline-flex; align-items: center; justify-content: center; width: 26px; flex-shrink: 0; }
+.platform-logo { color: var(--text); }

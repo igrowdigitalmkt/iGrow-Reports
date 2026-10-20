@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, GripVertical, Layers } from "lucide-react";
 
+import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { PLATFORM_INFO, PLATFORM_ORDER, type PlatformKey } from "@/modules/platforms/registry";
 
 export type { PlatformKey };
@@ -48,7 +49,7 @@ export function PlatformPicker({ value, onChange }: { value: PlatformPreference[
           onDragStart={() => setDragging(item.key)} onDragOver={event => { if (dragging) event.preventDefault(); }}
           onDrop={() => { if (dragging) move(dragging, item.key); setDragging(null); }} onDragEnd={() => setDragging(null)}>
           <GripVertical size={14} className="platform-grip" aria-hidden="true" />
-          <span className={`platform-mark is-${item.key}`} aria-hidden="true">{platform.mark}</span>
+          <span className="platform-mark-slot" aria-hidden="true"><PlatformLogo platform={item.key} size={item.key === "meta" ? 14 : 18} /></span>
           <label>
             <input type="checkbox" checked={item.enabled && platform.available} disabled={!platform.available}
               onChange={() => onChange(value.map(entry => entry.key === item.key ? { ...entry, enabled: !entry.enabled } : entry))} />
