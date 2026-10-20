@@ -14,8 +14,8 @@
   --color-primary: var(--accent);
 }
 
-/* A barra lateral usa sempre a paleta escura, independente do tema ativo no restante da tela. */
-:root, [data-theme="dark"], .sidebar {
+/* A barra lateral e o menu do cliente usam sempre a paleta escura, independente do tema ativo no restante da tela. */
+:root, [data-theme="dark"], .sidebar, .client-menu {
   color-scheme: dark;
   --bg: #0a0c10;
   --sidebar: #0d1015;
@@ -260,7 +260,7 @@ input[type="checkbox"]:not(:where(.wai-shell *)):disabled, input[type="radio"]:n
 .app-shell.is-client-mode.is-peek { --sidebar-width: 64px; }
 .app-shell.is-client-mode.is-peek .sidebar { width: 240px; z-index: 60; box-shadow: var(--shadow); }
 .peek-scrim { position: fixed; inset: 0; z-index: 55; }
-.client-menu { position: fixed; inset: 0 auto 0 var(--sidebar-width); z-index: 35; width: var(--client-panel-width); display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--border); transition: left .2s ease; }
+.client-menu { position: fixed; inset: 0 auto 0 var(--sidebar-width); z-index: 35; width: var(--client-panel-width); display: flex; flex-direction: column; background: var(--sidebar); color: var(--text); border-right: 1px solid var(--border); transition: left .2s ease; }
 .client-menu-head { height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--border); }
 .client-menu-avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--accent-bg); color: var(--accent-text); font-size: 12px; font-weight: 600; flex-shrink: 0; }
 .client-menu-identity { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
