@@ -71,6 +71,7 @@ export type MetaCampaign = {
   status?: string;
   effective_status?: string;
   issues_info?: unknown[];
+  created_time?: string;
 };
 
 export type MetaAdSet = {
@@ -82,6 +83,7 @@ export type MetaAdSet = {
   issues_info?: unknown[];
   start_time?: string;
   end_time?: string;
+  created_time?: string;
 };
 
 export type MetaBudgetEntity = {
@@ -103,6 +105,7 @@ export type MetaAd = {
   effective_status?: string;
   issues_info?: unknown[];
   creative?: { id?: string; thumbnail_url?: string };
+  created_time?: string;
 };
 
 export function metaDeliveryStatus(entity: { effective_status?: string | null }) {
@@ -420,7 +423,7 @@ export class MetaClient {
   async listCampaigns(adAccountId: string): Promise<MetaCampaign[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaCampaign>(`${adAccountId}/campaigns`, {
-      fields: "id,name,objective,status,effective_status,issues_info",
+      fields: "id,name,objective,status,effective_status,issues_info,created_time",
       limit: "500",
     });
   }
@@ -428,7 +431,7 @@ export class MetaClient {
   async listAdSets(adAccountId: string): Promise<MetaAdSet[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAdSet>(`${adAccountId}/adsets`, {
-      fields: "id,name,campaign_id,status,effective_status,start_time,end_time,issues_info",
+      fields: "id,name,campaign_id,status,effective_status,start_time,end_time,issues_info,created_time",
       limit: "500",
     });
   }
@@ -461,7 +464,7 @@ export class MetaClient {
   async listAds(adAccountId: string): Promise<MetaAd[]> {
     validateAccountId(adAccountId);
     return this.getAll<MetaAd>(`${adAccountId}/ads`, {
-      fields: "id,name,adset_id,campaign_id,status,effective_status,issues_info,creative{id,thumbnail_url}",
+      fields: "id,name,adset_id,campaign_id,status,effective_status,issues_info,created_time,creative{id,thumbnail_url}",
       limit: "500",
     });
   }

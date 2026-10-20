@@ -7,13 +7,14 @@ export type ColumnDef = { key: string; label: string; group: "base" | "results";
 const metric = (key: string, label: string, unit: AnalyticsMetric["unit"]): AnalyticsMetric => ({ key, label, unit, precision: unit === "currency" ? 2 : 0, desirable: unit === "currency" ? "down" : "up" });
 
 /** Métricas base mostradas quando a coleta da conta as trouxe (resultados e custos têm tratamento próprio abaixo). */
-export const BASE_METRIC_KEYS = ["spend", "impressions", "link_clicks", "ctr_link", "cpc_link", "cpm"];
+export const BASE_METRIC_KEYS = ["spend", "reach", "impressions", "link_clicks", "ctr_link", "cpc_link", "cpm"];
 /**
  * Definição das métricas base para quando a coleta do período ainda não as trouxe: as colunas existem (com "—"), nunca com valores.
  * Rótulos e unidades iguais aos da coleta.
  */
 export const FALLBACK_BASE_METRICS: AnalyticsMetric[] = [
   { key: "spend", label: "Investimento", unit: "currency", precision: 2, desirable: "neutral" },
+  { key: "reach", label: "Alcance", unit: "integer", precision: 0, desirable: "up" },
   { key: "impressions", label: "Impressões", unit: "integer", precision: 0, desirable: "up" },
   { key: "link_clicks", label: "Cliques no link", unit: "integer", precision: 0, desirable: "up" },
   { key: "ctr_link", label: "CTR (link)", unit: "percent", precision: 2, desirable: "up" },
@@ -22,7 +23,8 @@ export const FALLBACK_BASE_METRICS: AnalyticsMetric[] = [
 ];
 export const PENDING_METRICS_REASON = "As métricas deste período ainda estão sendo atualizadas. Por enquanto este valor está indisponível (não é zero).";
 
-export const DEFAULT_COLUMN_KEYS = ["spend", "results", "cost_result", "impressions", "link_clicks"];
+/** Colunas padrão, nesta ordem: Valor usado, Resultados, Custo por resultado, Alcance e Impressões. */
+export const DEFAULT_COLUMN_KEYS = ["spend", "results", "cost_result", "reach", "impressions"];
 
 export const ATTRIBUTED_HINT = "Custo atribuído: investimento da entidade (ou dos seus conjuntos/anúncios que têm um único tipo de resultado) ÷ resultados desse tipo. Só aparece quando a soma confere com os totais confirmados.";
 export const EVENT_HINT = "Referência: investimento total da entidade ÷ volume deste evento. Não é custo atribuído: com mais de um tipo de resultado o investimento é compartilhado.";
@@ -38,8 +40,8 @@ export function buildColumns(metrics: AnalyticsMetric[], families: { key: string
   const base: ColumnDef[] = BASE_METRIC_KEYS.flatMap(key => metrics.filter(item => item.key === key)).map(item => ({ key: item.key, label: item.label, group: "base", metric: item, sortable: true }));
   return [
     ...base.filter(column => column.key === "spend"),
-    { key: "results", label: "Resultados", group: "results", metric: metric("results", "Resultados", "integer"), sortable: false, hint: "Cada tipo de resultado aparece separado; nada é somado." },
-    { key: "cost_result", label: "Custo por resultado", group: "results", metric: metric("cost_result", "Custo por resultado", "currency"), sortable: false, hint: ATTRIBUTED_HINT },
+    { key: "results", label: "Resultados", group: "results", metric: metric("results", "Resultados", "integer"), sortable: true, hint: "Cada tipo de resultado aparece separado; nada é somado. A ordenação usa o tipo de maior volume." },
+    { key: "cost_result", label: "Custo por resultado", group: "results", metric: metric("cost_result", "Custo por resultado", "currency"), sortable: true, hint: `${ATTRIBUTED_HINT} A ordenação usa o custo do tipo de resultado de maior volume.` },
     ...base.filter(column => column.key !== "spend"),
     ...families.flatMap(family => [
       { key: `result:${family.key}`, label: `Resultados: ${family.label}`, group: "results" as const, metric: metric(`result:${family.key}`, `Resultados: ${family.label}`, "integer"), sortable: true },
@@ -108,6 +110,35 @@ export function columnValue(row: CampaignRow, key: string, index: CostIndex): nu
   if (key.startsWith("event:")) return eventCost(row.values, key.slice(6));
   if (key.startsWith("result:")) return resultFamilyValue(row.values, key.slice(7));
   return row.values[key] ?? null;
+}
+
+/**
+ * Valor usado SÓ para ordenar. Resultados e custo por resultado mostram cada tipo separado (nada é somado); para ordenar, vale o tipo
+ * de maior volume da própria linha e o custo atribuído a esse mesmo tipo.
+ */
+export function sortValue(row: CampaignRow, key: string, index: CostIndex): number | null {
+  if (key === "results" || key === "cost_result") {
+    const top = [...resultBreakdown(row.values)].sort((a, b) => b.value - a.value)[0];
+    if (!top) return null;
+    return key === "results" ? top.value : index.get(rowKey(row))?.get(top.key) ?? null;
+  }
+  return columnValue(row, key, index);
+}
+
+/** Prioridade da ordem padrão (como no Gerenciador de Anúncios): 0 = em veiculação, 1 = ativa, 2 = demais. */
+export function deliveryTier(state: CampaignRow["state"]): 0 | 1 | 2 {
+  if (state.group === "active" && state.restrictions.length === 0) return 0;
+  if (state.group === "active" || state.configured?.code === "ACTIVE") return 1;
+  return 2;
+}
+
+/**
+ * Chave numérica da ordem padrão, crescente: 1º campanhas em veiculação, 2º ativas, 3º data de criação (mais recentes primeiro).
+ * Sem data de criação a entidade fica no fim do seu grupo (a ordem seguinte é pelo nome).
+ */
+export function priorityValue(state: CampaignRow["state"]): number {
+  const created = state.createdAt ? Date.parse(state.createdAt) : NaN;
+  return deliveryTier(state) * 1e15 - (Number.isFinite(created) ? created : 0);
 }
 
 /** Por que um valor não é mostrado: ausência de dados é diferente de métrica sem denominador ou sem atribuição segura. */

@@ -79,6 +79,17 @@ describe("visão geral do cliente em todas as plataformas", () => {
     // sem a leitura ao vivo a situação não é inventada
     expect(buildClientOverview(meta(), []).campaigns.every(item => item.state === null && !item.active)).toBe(true);
   });
+  it("ordem padrão: em veiculação, depois ativas, depois as mais recentes", () => {
+    const rows = rankCampaigns([
+      { name: "ativa antiga", active: true, tier: 1 as const, createdAt: "2026-01-01T00:00:00+0000", spend: 500 },
+      { name: "em veiculação antiga", active: true, tier: 0 as const, createdAt: "2026-02-01T00:00:00+0000", spend: 1 },
+      { name: "em veiculação nova", active: true, tier: 0 as const, createdAt: "2026-09-01T00:00:00+0000", spend: 1 },
+      { name: "ativa nova", active: true, tier: 1 as const, createdAt: "2026-10-01T00:00:00+0000", spend: 1 },
+      { name: "ativa sem data", active: true, tier: 1 as const, createdAt: null, spend: 9999 },
+      { name: "pausada com gasto", active: false, tier: 2 as const, createdAt: "2026-10-10T00:00:00+0000", spend: 70 },
+    ]);
+    expect(rows.map(item => item.name)).toEqual(["em veiculação nova", "em veiculação antiga", "ativa nova", "ativa antiga", "ativa sem data", "pausada com gasto"]);
+  });
   it("só entram as contas selecionadas da Meta", () => {
     const overview = buildClientOverview(meta({ selectedAccountIds: ["m2"] }), []);
     expect(overview.accounts.map(item => item.id)).toEqual(["m2"]);

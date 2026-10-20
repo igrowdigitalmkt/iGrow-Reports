@@ -10,7 +10,7 @@ import { PeriodPicker } from "@/modules/client-portal/period-picker";
 import "@/modules/client-portal/analytics-dashboard.css";
 import "./campaigns.css";
 import { stamp } from "./cells";
-import { buildColumns, buildCostIndex, columnValue, DEFAULT_COLUMN_KEYS, resultFamilies, type ColumnDef } from "./columns";
+import { buildColumns, buildCostIndex, DEFAULT_COLUMN_KEYS, priorityValue, resultFamilies, sortValue, type ColumnDef } from "./columns";
 import { applyColumnPreference, columnPreferenceKey, moveColumn, parseColumnPreference, serializeColumnPreference } from "./column-preferences";
 import { DELIVERY_GROUPS, type DeliveryGroup } from "./delivery-state";
 import { useLocalPreference, writeLocalPreference } from "./local-preference";
@@ -41,7 +41,7 @@ const LEVEL_BY_SLUG = Object.fromEntries(Object.entries(TAB_SLUGS).map(([level, 
 const PAGE_SIZE = 100;
 type ConfiguredFilter = "all" | "ACTIVE" | "PAUSED" | "other";
 type LevelUi = { query: string; group: DeliveryGroup | "restricted" | "all"; configured: ConfiguredFilter; sort: SortSpec; page: number };
-const INITIAL_UI: LevelUi = { query: "", group: "all", configured: "all", sort: { key: "name", direction: "asc" }, page: 0 };
+const INITIAL_UI: LevelUi = { query: "", group: "all", configured: "all", sort: { key: "priority", direction: "asc" }, page: 0 };
 // Ordem da coluna Veiculação: ativos primeiro (↓ = do mais ativo ao menos ativo, como no Gerenciador de Anúncios).
 const STATE_ORDER: string[] = ["active", "paused", "review", "rejected", "other", "unavailable"];
 const fold = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR");
@@ -143,7 +143,7 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
   const costIndex = useMemo(() => buildCostIndex(data.rows), [data.rows]);
   const catalog = useMemo(() => buildColumns(data.metrics, resultFamilies(data.rows)), [data.metrics, data.rows]);
   const columns = useMemo(() => applyColumnPreference(catalog, columnKeys), [catalog, columnKeys]);
-  const valueOf = useCallback((row: CampaignRow, key: string) => key === "state" ? STATE_ORDER.indexOf(row.state.group) : columnValue(row, key, costIndex), [costIndex]);
+  const valueOf = useCallback((row: CampaignRow, key: string) => key === "priority" ? priorityValue(row.state) : key === "state" ? STATE_ORDER.indexOf(row.state.group) : sortValue(row, key, costIndex), [costIndex]);
 
   // Linhas do nível ativo: escopo da seleção › busca (nome, conjunto e campanha) › estados › ordem.
   const scoped = useMemo(() => scopeRows(level, data.rows, selection), [level, data.rows, selection]);

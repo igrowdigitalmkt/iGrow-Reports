@@ -14,6 +14,8 @@ export type DeliveryState = {
   /** Condições que impedem ou ameaçam a entrega; nunca substituem o estado acima. */
   restrictions: Restriction[];
   detail: string;
+  /** Criação da entidade na Meta (ISO), quando a leitura ao vivo a trouxe. */
+  createdAt?: string | null;
 };
 
 export const DELIVERY_GROUPS: ReadonlyArray<{ key: DeliveryGroup; label: string }> = [
@@ -58,12 +60,13 @@ export function classifyDelivery(state: LiveDeliveryState | null | undefined, de
   if (state?.status === "ACTIVE" && delivering === false && !state.accountBlocked) {
     restrictions.push({ key: "no_delivery", label: "Sem entrega no momento", detail: "Ativo, mas sem conjunto ou anúncio em condição de veicular (programação encerrada ou itens pausados)." });
   }
+  const createdAt = state?.createdAt ?? null;
   if (!effective) {
-    return { group: "unavailable", label: "Indisponível", tone: "neutral", configured, effective: null, restrictions,
+    return { group: "unavailable", label: "Indisponível", tone: "neutral", configured, effective: null, restrictions, createdAt,
       detail: `A Meta não devolveu o estado efetivo desta entidade agora.${configured ? ` Configurado: ${configured.label}.` : ""}` };
   }
   const known = KNOWN[effective.code];
   const note = [configured && configured.code !== effective.code ? `Configurado: ${configured.label}` : null, `Efetivo: ${effective.label}`, ...restrictions.map(item => item.label)].filter(Boolean).join(" · ");
-  if (!known) return { group: "other", label: "Estado não classificado", tone: "neutral", configured, effective, restrictions, detail: `Código da Meta: ${effective.code}. ${note}` };
-  return { ...known, configured, effective, restrictions, detail: note };
+  if (!known) return { group: "other", label: "Estado não classificado", tone: "neutral", configured, effective, restrictions, createdAt, detail: `Código da Meta: ${effective.code}. ${note}` };
+  return { ...known, configured, effective, restrictions, createdAt, detail: note };
 }

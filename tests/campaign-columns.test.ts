@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildColumns, buildCostIndex, columnValue, eventCost, resultFamilies, resultState, unavailableReason } from "@/modules/campaigns/columns";
+import { buildColumns, buildCostIndex, columnValue, DEFAULT_COLUMN_KEYS, deliveryTier, eventCost, priorityValue, resultFamilies, resultState, sortValue, unavailableReason } from "@/modules/campaigns/columns";
 import type { CampaignRow } from "@/modules/campaigns/tree";
 
 const LEAD = "result:provider:action:lead";
@@ -102,5 +102,40 @@ describe("zero confirmado, ausência e métrica indisponível (resultados)", () 
     expect(unavailableReason(entity({ spend: 10 }), "results")).toContain("não informou");
     expect(unavailableReason(entity({ spend: 10, "result:provider_known": 1 }), "results")).toContain("Zero confirmado");
     expect(unavailableReason(entity({ spend: 10, "result:provider_known": 1 }), "cost_result")).toContain("não se aplica");
+  });
+});
+
+describe("ordem padrão, colunas padrão e ordenação de resultados", () => {
+  const state = (group: string, restrictions: string[], configured: string | null, createdAt: string | null) => ({
+    group, restrictions: restrictions.map(key => ({ key, label: key, detail: "" })), configured: configured ? { code: configured, label: configured } : null, createdAt,
+  }) as unknown as CampaignRow["state"];
+  it("colunas padrão: Valor usado, Resultados, Custo por resultado, Alcance e Impressões", () => {
+    expect(DEFAULT_COLUMN_KEYS).toEqual(["spend", "results", "cost_result", "reach", "impressions"]);
+  });
+  it("prioridade: em veiculação, depois ativas, depois as demais; dentro do grupo, mais recentes primeiro", () => {
+    expect(deliveryTier(state("active", [], "ACTIVE", null))).toBe(0);
+    expect(deliveryTier(state("active", ["account"], "ACTIVE", null))).toBe(1);
+    expect(deliveryTier(state("rejected", [], "ACTIVE", null))).toBe(1);
+    expect(deliveryTier(state("paused", [], "PAUSED", null))).toBe(2);
+    const values = [
+      priorityValue(state("paused", [], "PAUSED", "2026-10-15T00:00:00+0000")),
+      priorityValue(state("active", ["account"], "ACTIVE", "2026-01-01T00:00:00+0000")),
+      priorityValue(state("active", [], "ACTIVE", "2026-02-01T00:00:00+0000")),
+      priorityValue(state("active", [], "ACTIVE", "2026-09-01T00:00:00+0000")),
+    ];
+    const order = values.map((value, index) => ({ value, index })).sort((a, b) => a.value - b.value).map(item => item.index);
+    expect(order).toEqual([3, 2, 1, 0]);
+  });
+  it("Resultados e Custo por resultado ordenam pelo tipo de maior volume, sem somar tipos", () => {
+    const campaign = row("campaign", "c1", null, vals(100, { [LEAD]: 10, [MSG]: 30 }));
+    const solo = row("campaign", "c2", null, vals(100, { [LEAD]: 20 }));
+    const index = buildCostIndex([campaign, solo]);
+    expect(sortValue(campaign, "results", index)).toBe(30);
+    expect(sortValue(solo, "results", index)).toBe(20);
+    expect(sortValue(solo, "cost_result", index)).toBe(5);
+    expect(sortValue(row("campaign", "c3", null, {}), "results", index)).toBeNull();
+    const columns = buildColumns([metric("spend")], []);
+    expect(columns.find(column => column.key === "results")?.sortable).toBe(true);
+    expect(columns.find(column => column.key === "cost_result")?.sortable).toBe(true);
   });
 });

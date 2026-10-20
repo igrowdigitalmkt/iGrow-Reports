@@ -12,8 +12,8 @@ export type OverviewAccount = {
 /** Situação de veiculação mostrada na tabela (mesmos rótulos da tela de Campanhas). */
 export type CampaignState = { label: string; tone: "good" | "warn" | "bad" | "neutral"; group: string; restriction: string | null };
 /** Campanha da Meta lida ao vivo (estado efetivo) pela mesma leitura da tela de Campanhas. */
-export type LiveMetaCampaign = { id: string; accountId: string; name: string; accountName: string; currency: string; values: AnalyticsValues; state: CampaignState };
-export type OverviewCampaign = { platform: "meta" | "google"; id: string; accountId: string; name: string; accountName: string; currency: string; state: CampaignState | null; active: boolean; spend: number | null; result: OverviewResult | null };
+export type LiveMetaCampaign = { id: string; accountId: string; name: string; accountName: string; currency: string; values: AnalyticsValues; state: CampaignState; /** 0 = em veiculação, 1 = ativa, 2 = demais. */ tier?: 0 | 1 | 2; createdAt?: string | null };
+export type OverviewCampaign = { platform: "meta" | "google"; id: string; accountId: string; name: string; accountName: string; currency: string; state: CampaignState | null; active: boolean; tier?: 0 | 1 | 2; createdAt?: string | null; spend: number | null; result: OverviewResult | null };
 
 /** Campanha configurada como ativa (Meta: ACTIVE; Google: ENABLED). */
 export const isActiveCampaignStatus = (status: string | null | undefined) => status === "ACTIVE" || status === "ENABLED";
@@ -22,9 +22,19 @@ export const isActiveCampaignStatus = (status: string | null | undefined) => sta
  * Ordem das campanhas: primeiro as ativas/em veiculação (as de maior investimento antes), depois as que investiram no período
  * selecionado. Campanha parada e sem investimento no período não entra.
  */
-export function rankCampaigns<T extends { active: boolean; spend: number | null }>(rows: T[]): T[] {
+export function rankCampaigns<T extends { active: boolean; spend: number | null; tier?: 0 | 1 | 2; createdAt?: string | null }>(rows: T[]): T[] {
   const bySpend = (a: T, b: T) => (b.spend ?? 0) - (a.spend ?? 0);
-  return [...rows.filter(row => row.active).sort(bySpend), ...rows.filter(row => !row.active && (row.spend ?? 0) > 0).sort(bySpend)];
+  const created = (row: T) => { const time = row.createdAt ? Date.parse(row.createdAt) : NaN; return Number.isFinite(time) ? time : null; };
+  // Mesma prioridade da tela de Campanhas: em veiculação, depois ativas, depois as mais recentes; sem data, pelo investimento.
+  const byPriority = (a: T, b: T) => {
+    const tier = (a.tier ?? 1) - (b.tier ?? 1);
+    if (tier) return tier;
+    const ca = created(a), cb = created(b);
+    if (ca != null && cb != null && ca !== cb) return cb - ca;
+    if ((ca == null) !== (cb == null)) return ca == null ? 1 : -1;
+    return bySpend(a, b);
+  };
+  return [...rows.filter(row => row.active).sort(byPriority), ...rows.filter(row => !row.active && (row.spend ?? 0) > 0).sort(bySpend)];
 }
 
 /** Situação de uma campanha do Google a partir do status configurado (a API não separa estado efetivo aqui). */
@@ -119,7 +129,7 @@ export function buildClientOverview(meta: AnalyticsDashboardData, google: Overvi
   const metaRows: OverviewCampaign[] = liveMeta
     ? liveMeta.filter(campaign => meta.selectedAccountIds.includes(campaign.accountId)).map(campaign => ({
       platform: "meta" as const, id: campaign.id, accountId: campaign.accountId, name: campaign.name, accountName: campaign.accountName, currency: campaign.currency,
-      state: campaign.state, active: campaign.state.group === "active", spend: spendOf(campaign.values),
+      state: campaign.state, active: (campaign.tier ?? (campaign.state.group === "active" ? 1 : 2)) <= 1, tier: campaign.tier, createdAt: campaign.createdAt ?? null, spend: spendOf(campaign.values),
       result: resultsOf(campaign.values, [{ values: campaign.values, id: campaign.id, accountId: campaign.accountId }])[0] ?? null,
     }))
     : meta.campaigns.filter(campaign => meta.selectedAccountIds.includes(campaign.accountId)).map(campaign => ({

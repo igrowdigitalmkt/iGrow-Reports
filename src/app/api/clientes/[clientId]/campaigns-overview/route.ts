@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { loadCampaignsData } from "@/modules/campaigns/load";
+import { deliveryTier } from "@/modules/campaigns/columns";
 import { requireClientDashboardAccess } from "@/modules/client-portal/context";
 import type { LiveMetaCampaign } from "@/modules/client-portal/client-overview";
 
@@ -25,6 +26,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
   if (data.state !== "ready") return Response.json({ error: data.message ?? "Campanhas indisponíveis agora.", campaigns: [] }, { headers });
   const campaigns: LiveMetaCampaign[] = data.rows.filter(row => row.level === "campaign").map(row => ({
     id: row.id, accountId: row.accountId, name: row.name, accountName: row.accountName, currency: row.currency, values: row.values,
+    tier: deliveryTier(row.state), createdAt: row.state.createdAt ?? null,
     state: { label: row.state.label, tone: row.state.tone, group: row.state.group, restriction: row.state.restrictions[0]?.label ?? null },
   }));
   return Response.json({ campaigns, live: data.live.state }, { headers });

@@ -55,7 +55,7 @@ describe("liveRawDeliveryStates", () => {
       [{ id: "1", name: "C", status: "paused", effective_status: "paused" }] as never,
       [{ id: "2", name: "S", campaign_id: "1", status: "ACTIVE", effective_status: "CAMPAIGN_PAUSED", issues_info: [{}] }] as never,
       [{ id: "3", name: "A", adset_id: "2", campaign_id: "1" }] as never, 3);
-    expect(states["campaign:1"]).toEqual({ configured: "PAUSED", status: "PAUSED", issues: false, accountBlocked: true });
+    expect(states["campaign:1"]).toEqual({ configured: "PAUSED", status: "PAUSED", issues: false, accountBlocked: true, createdAt: null });
     expect(states["adset:2"]).toMatchObject({ configured: "ACTIVE", status: "CAMPAIGN_PAUSED", issues: true });
     expect(states["ad:3"]).toMatchObject({ configured: null, status: null });
   });

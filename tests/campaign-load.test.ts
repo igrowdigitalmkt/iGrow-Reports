@@ -66,7 +66,7 @@ describe("catálogo operacional × métricas históricas", () => {
     expect(data.rows.find(row => row.id === "1")!.state.group).toBe("active");
     expect(data.rows.find(row => row.id === "2")!.state.group).toBe("paused");
     expect(mocks.rpc).not.toHaveBeenCalledWith("get_client_analytics_hierarchy", expect.anything()); // métricas de linha não são nem lidas
-    expect(data.metrics.map(metric => metric.key)).toEqual(["spend", "impressions", "link_clicks", "ctr_link", "cpc_link", "cpm"]); // colunas existem; valores não
+    expect(data.metrics.map(metric => metric.key)).toEqual(["spend", "reach", "impressions", "link_clicks", "ctr_link", "cpc_link", "cpm"]); // colunas existem; valores não
   });
 
   it("coleta incompleta e leitura parcial da Meta: mostra o que a Meta devolveu e avisa que faltam contas", async () => {
