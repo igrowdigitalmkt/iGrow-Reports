@@ -46,7 +46,7 @@ function observationIdFrom(hash: string): string {
  * qualquer duvida ou erro NEGA.
  * TODO(refactor): extrair para modulo unico quando a IA de texto puder ser tocada com seguranca.
  */
-async function aiAllowance(service: Service, agencyId: string, clientId: string): Promise<"ok" | "unavailable" | "budget"> {
+export async function aiAllowance(service: Service, agencyId: string, clientId: string): Promise<"ok" | "unavailable" | "budget"> {
   const [agency, client, month, entitlement] = await Promise.all([
     service.from("ai_settings").select("enabled,monthly_budget_usd").eq("agency_id", agencyId).maybeSingle(),
     service.from("ai_client_settings").select("enabled").eq("client_id", clientId).maybeSingle(),

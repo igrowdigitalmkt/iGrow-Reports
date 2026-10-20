@@ -1,0 +1,38 @@
+/* Análise operacional com IA: mesmos tokens do painel; funciona em tema claro e escuro. */
+.opps { margin: 0 0 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.opps-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; border-radius: 12px; }
+.opps-head:hover { background: var(--surface-hover); }
+.opps-head:focus-visible, .opps-btn:focus-visible, .opps-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opps-title { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.opps-badge { padding: 0 7px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--muted); font-size: 11px; font-style: normal; font-weight: 600; }
+.opps-chips { display: flex; flex: 1; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.opps-chip { padding: 1px 9px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.opps-chip.is-warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.opps-body { display: grid; gap: 12px; padding: 0 14px 14px; }
+.opps-scope { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-raised); font-size: 12.5px; line-height: 1.55; }
+.opps-scope svg { flex: none; margin-top: 2px; color: var(--accent-text); }
+.opps-run { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.opps-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.opps-btn:disabled { opacity: .55; cursor: not-allowed; }
+.opps-reason { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.opps-notice { margin: 0; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; font-size: 12.5px; line-height: 1.5; }
+.opps-notice.is-good { border-color: var(--good); background: var(--good-bg); }
+.opps-notice.is-warn { border-color: var(--warn); background: var(--warn-bg); }
+.opps-notice.is-bad { border-color: var(--bad); }
+.opps-stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+.opps-stage { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); }
+.opps-stage.is-awaiting_approval { border-color: var(--warn); }
+.opps-stage.is-executed { border-color: var(--good); }
+.opps-stage header { display: grid; gap: 2px; }
+.opps-stage h3 { display: flex; align-items: center; justify-content: space-between; margin: 0; font-size: 13px; }
+.opps-stage h3 span { padding: 0 7px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.opps-stage header small, .opps-empty { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+.opps-stage ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.opps-stage li { display: grid; gap: 3px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.opps-stage li small { color: var(--muted); font-size: 11.5px; }
+.opps-link { display: inline-flex; align-items: center; gap: 4px; width: fit-content; color: var(--accent-text); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+.opps-link:hover { text-decoration: underline; }
+.opps-spin { animation: opps-spin 1s linear infinite; }
+@keyframes opps-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .opps-spin { animation: none; } }
+@media (max-width: 480px) { .opps-head { flex-wrap: wrap; } .opps-body { padding: 0 10px 12px; } }

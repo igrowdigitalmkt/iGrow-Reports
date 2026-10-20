@@ -55,7 +55,7 @@ export function AssistantPanel({ context, clientName, accounts, conversation, av
   return <aside className="assistant-panel" aria-label="Assistente Groow">
     <header className="assistant-head">
       <span className="assistant-mark" aria-hidden="true"><Sparkles size={15} /></span>
-      <div><strong>Assistente Groow</strong><span className="assistant-badge" title="Inteligência artificial">IA</span></div>
+      <div><strong>Assistente Groow</strong><span className="assistant-badge" title="Inteligência artificial">IA</span><span className="assistant-badge" title="Responde sobre os dados confirmados desta tela e não altera campanhas">Consultivo</span></div>
       <button type="button" className="assistant-icon-button" onClick={onCollapse} aria-label="Recolher o Assistente Groow" title="Recolher"><PanelRightClose size={17} /></button>
     </header>
 
@@ -82,7 +82,7 @@ export function AssistantPanel({ context, clientName, accounts, conversation, av
         <span aria-hidden="true"><Sparkles size={20} /></span>
         <strong>Nenhuma conversa ainda</strong>
         <p>{available
-          ? "Pergunte sobre o contexto acima. As respostas usam somente os dados confirmados desta tela e o assistente não altera nada nas suas campanhas."
+          ? "Pergunte sobre o contexto acima. As respostas usam somente os dados confirmados desta tela e o assistente não altera nada nas suas campanhas. Para a IA propor ações (pausar, retomar ou ajustar orçamento, sempre com aprovação humana), use Analisar oportunidades acima da lista."
           : "Quando o assistente estiver disponível, as perguntas serão respondidas com base no contexto acima e nos dados confirmados desta tela."}</p>
       </div>}
       {conversation.messages.map(message => <article key={message.id} className={`assistant-message is-${message.role}${message.status === "error" ? " is-error" : ""}`}>

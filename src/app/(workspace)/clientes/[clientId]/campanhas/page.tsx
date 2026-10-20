@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { authorizeCampaignsClient } from "@/modules/campaigns/access";
 import { fetchAssistantAvailability } from "@/modules/campaigns/assistant/server/actions";
 import { CampaignsWorkspace } from "@/modules/campaigns/campaigns-workspace";
+import { OpportunitiesPanel, type EntityHint } from "@/modules/campaigns/opportunities/opportunities-panel";
 import { loadCampaignsData, type CampaignsQuery } from "@/modules/campaigns/load";
 
 export const metadata: Metadata = { title: "Campanhas", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -24,10 +25,16 @@ export default async function ClientCampaignsPage({ params, searchParams }: { pa
   const { context, client, allowed, preferenceKey } = await authorizeCampaignsClient(clientId);
   if (!allowed) return <p className="campaigns-notice">Seu acesso não inclui esta área. Peça a um administrador para liberar Clientes em Equipe › Permissões.</p>;
   const [data, availability] = await Promise.all([loadCampaignsData(client.id, query), fetchAssistantAvailability(client.id)]);
+  // Só nome e gasto CONFIRMADO do período (dados desta tela): servem para mostrar o impacto conhecido das propostas, nunca estimado.
+  const entities: Record<string, EntityHint> = {};
+  for (const row of data.rows) if (row.level !== "ad") entities[row.id] = { name: row.name, level: row.level, currency: row.currency,
+    spend: data.metricsState === "confirmed" && typeof row.values.spend === "number" && Number.isFinite(row.values.spend) ? row.values.spend : null };
+  const accountCurrencies = Object.fromEntries(data.accounts.map(account => [account.id, account.currency]));
   return <>
     <div className="page-heading"><div><h1>Campanhas</h1>
       <p>Estrutura e veiculação no Meta Ads, da campanha ao anúncio. Abra uma entidade para ver seus detalhes.</p></div></div>
     {client.archived_at && <p className="campaigns-alert">Cliente arquivado. Histórico preservado para consulta.</p>}
+    <OpportunitiesPanel clientId={client.id} entities={entities} accountCurrencies={accountCurrencies} currency={data.accounts[0]?.currency ?? "BRL"} />
     <CampaignsWorkspace key={client.id} organizationId={context.agency.id} clientId={client.id} clientName={client.name} data={data}
       onlyActive={query.ativas === "1"} availability={availability} preferenceKey={preferenceKey} />
   </>;
