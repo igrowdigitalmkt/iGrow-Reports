@@ -109,10 +109,12 @@ export function OpportunitiesPanel({ clientId, entities, currency, accountCurren
         {availability?.state === "available" && <small className="opps-reason">Usa a cota de IA da organização. A análise só propõe: nenhuma campanha é alterada.</small>}
       </div>
       {notice && <p className={`opps-notice is-${notice.tone}`} role={notice.tone === "bad" ? "alert" : "status"}>{notice.text}</p>}
-      <div className="opps-stages">{STAGE_ORDER.map(stage => <section key={stage} className={`opps-stage is-${stage}`} aria-label={STAGE_LABELS[stage].label}>
+      {STAGE_ORDER.every(stage => grouped[stage].length === 0) && <p className="opps-empty">Nenhuma observação, recomendação ou proposta registrada para este cliente ainda. Use Analisar oportunidades para pedir uma análise.</p>}
+      <div className="opps-stages">{STAGE_ORDER.filter(stage => grouped[stage].length > 0).map(stage => <section key={stage} className={`opps-stage is-${stage}`} aria-label={STAGE_LABELS[stage].label}>
         <header><h3>{STAGE_LABELS[stage].label} <span>{grouped[stage].length}</span></h3><small>{STAGE_LABELS[stage].hint}</small></header>
-        {grouped[stage].length === 0 ? <p className="opps-empty">Nada neste estado.</p> : <ul>{grouped[stage].map(item => <li key={item.key}>{item.node}</li>)}</ul>}
+        <ul>{grouped[stage].map(item => <li key={item.key}>{item.node}</li>)}</ul>
       </section>)}</div>
+      {STAGE_ORDER.some(stage => grouped[stage].length === 0) && STAGE_ORDER.some(stage => grouped[stage].length > 0) && <p className="opps-empty">Sem itens em: {STAGE_ORDER.filter(stage => grouped[stage].length === 0).map(stage => STAGE_LABELS[stage].label).join(", ")}.</p>}
     </div>}
   </section>;
 }
