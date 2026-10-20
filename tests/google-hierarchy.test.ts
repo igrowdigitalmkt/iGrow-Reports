@@ -61,3 +61,24 @@ describe("hierarquia do Google Ads no formato das linhas de Campanhas", () => {
     for (const query of [campaignQuery("2026-10-01", "2026-10-02"), campaignListQuery()]) expect(query).not.toMatch(/start_date|end_date/);
   });
 });
+
+describe("seleção de campanhas do Google Ads (recálculo do período)", () => {
+  it("soma as linhas campanha × dia por dia, na ordem das datas", async () => {
+    const { sumDailyByDate } = await import("@/modules/google-ads/normalize");
+    const rows = sumDailyByDate([
+      { segments: { date: "2026-10-02" }, campaign: { id: "1" }, metrics: { costMicros: "10000000", impressions: "100", clicks: "5", conversions: 1 } },
+      { segments: { date: "2026-10-01" }, campaign: { id: "1" }, metrics: { costMicros: "20000000", impressions: "200", clicks: "10", conversions: 2 } },
+      { segments: { date: "2026-10-02" }, campaign: { id: "2" }, metrics: { costMicros: "30000000", impressions: "300", clicks: "15", conversions: 3 } },
+      { segments: { date: "inválida" }, campaign: { id: "2" }, metrics: { costMicros: "999" } },
+    ]);
+    expect(rows.map(row => (row.segments as { date: string }).date)).toEqual(["2026-10-01", "2026-10-02"]);
+    expect(rows[1]!.metrics).toMatchObject({ costMicros: 40_000_000, impressions: 400, clicks: 20, conversions: 4 });
+  });
+  it("a consulta só aceita identificadores numéricos e uma quantidade limitada", async () => {
+    const { campaignDailyQuery } = await import("@/modules/google-ads/queries");
+    expect(campaignDailyQuery("2026-10-01", "2026-10-02", ["123", "456"])).toContain("campaign.id IN (123, 456)");
+    expect(() => campaignDailyQuery("2026-10-01", "2026-10-02", ["1) OR (1=1"])).toThrow();
+    expect(() => campaignDailyQuery("2026-10-01", "2026-10-02", [])).toThrow();
+    expect(() => campaignDailyQuery("2026-10-01", "2026-10-02", Array.from({ length: 201 }, (_, index) => String(index + 1)))).toThrow();
+  });
+});

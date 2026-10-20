@@ -34,6 +34,19 @@ function values(totals: Totals, video: boolean) {
   return out;
 }
 
+/** Soma as linhas "campanha × dia" por dia, no mesmo formato das linhas diárias da conta (para recalcular o período de uma seleção de campanhas). */
+export function sumDailyByDate(rows: Row[]): Row[] {
+  const byDate = new Map<string, Totals>();
+  for (const row of rows) {
+    const date = String(object(row.segments).date ?? "");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) byDate.set(date, add(byDate.get(date) ?? empty(), read(object(row.metrics))));
+  }
+  return [...byDate].sort(([a], [b]) => a.localeCompare(b)).map(([date, totals]) => ({
+    segments: { date },
+    metrics: { costMicros: totals.spend * 1_000_000, impressions: totals.impressions, clicks: totals.clicks, conversions: totals.conversions, conversionsValue: totals.conversionValue, videoTrueviewViews: totals.videoViews },
+  }));
+}
+
 /** Valores de uma entidade (campanha, grupo de anúncios ou anúncio) a partir da linha de métricas da API; sem linha = sem atividade no período. */
 export function googleEntityValues(metrics: Row | undefined, video: boolean) {
   return values(metrics ? read(metrics) : empty(), video);

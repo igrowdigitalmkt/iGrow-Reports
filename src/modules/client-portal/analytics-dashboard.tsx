@@ -1240,7 +1240,7 @@ export function ClientAnalyticsDashboard({
     </div>
     </>}
     </section> : null}
-    {googleVisible && (!sectioned || tab === "overview") && <GoogleDashboardSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsedPlatforms.includes("google")} onToggle={() => toggleSection("google")} />}
+    {googleVisible && (!sectioned || tab === "overview") && <GoogleDashboardSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsedPlatforms.includes("google")} onToggle={() => toggleSection("google")} clientId={clientId} preferenceKey={preferenceKey} />}
     {!summaryView && !metaVisible && !googleVisible && <section className="analytics-card platform-empty" style={{ order: 10 }}><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
 
     {tab !== "reports" && <footer className="analytics-data-footer" style={{ order: 100 }}><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>

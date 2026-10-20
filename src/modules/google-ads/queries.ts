@@ -12,6 +12,12 @@ const METRICS = "metrics.cost_micros, metrics.impressions, metrics.clicks, metri
 export const accountDailyQuery = (from: string, to: string) =>
   `SELECT segments.date, ${METRICS} FROM customer WHERE ${range(from, to)} ORDER BY segments.date`;
 
+/** Uma linha por campanha e dia, só das campanhas escolhidas (seleção de campanhas do Dashboard). Os identificadores entram validados (só dígitos). */
+export const campaignDailyQuery = (from: string, to: string, campaignIds: string[]) => {
+  if (!campaignIds.length || campaignIds.length > 200 || !campaignIds.every(id => /^\d{1,20}$/.test(id))) throw new Error("Seleção de campanhas inválida para a consulta do Google Ads.");
+  return `SELECT segments.date, campaign.id, ${METRICS} FROM campaign WHERE ${range(from, to)} AND campaign.id IN (${campaignIds.join(", ")}) ORDER BY segments.date`;
+};
+
 /** Total do período por campanha (sem segmentar por dia). */
 export const campaignQuery = (from: string, to: string) =>
   `SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, ${METRICS} FROM campaign WHERE ${range(from, to)} AND campaign.status != 'REMOVED'`;
