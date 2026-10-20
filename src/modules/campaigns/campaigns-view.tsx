@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useContext, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpRight, ChevronDown, Info, ChevronUp, Columns3, Download, Pause, Pencil, Play, Search, Sparkles, X } from "lucide-react";
@@ -39,9 +40,9 @@ type LevelUi = { query: string; group: DeliveryGroup | "restricted" | "all"; con
 const INITIAL_UI: LevelUi = { query: "", group: "all", configured: "all", sort: { key: "name", direction: "asc" }, page: 0 };
 const fold = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR");
 
-export function CampaignsView({ clientId, data, onlyActive, selected = null, onSelectEntity, preferenceKey }: {
+export function CampaignsView({ clientId, clientName, intro, data, onlyActive, selected = null, onSelectEntity, preferenceKey }: {
   /** Cliente da rota: a tela nunca escolhe outro. */
-  clientId: string; data: CampaignsData; onlyActive: boolean;
+  clientId: string; clientName?: string; /** Conteúdo exibido logo abaixo do cabeçalho do cliente (ex.: oportunidades). */ intro?: ReactNode; data: CampaignsData; onlyActive: boolean;
   /** Entidade em análise pelo assistente (identidade completa: conta + nível + ID). Independe das caixas de seleção. */
   selected?: SelectedEntity | null; onSelectEntity?: (row: CampaignRow) => void;
   /** Chave da preferência local (organização + usuário). Sem ela, colunas e seleção não são salvas. */
@@ -183,13 +184,24 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
     : `Nenhum item encontrado para as contas selecionadas.`;
 
   return <div className={`campaigns-page${pending ? " is-pending" : ""}`} aria-busy={pending}>
-    {data.state === "ready" && data.warnings.length > 0 && <div className="campaigns-quality">
-      <details className="analytics-quality-menu">
-        <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
-        <div>{data.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>
-      </details></div>}
-    <div className="campaigns-toolbar">
-      {data.accounts.length > 1 && <div className="campaigns-field"><span>Contas de anúncios</span>
+    <header className="analytics-header">
+      <div className="analytics-identity">
+        <span className="client-avatar large blue" aria-hidden="true">{(clientName ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
+        <div><h1>{clientName ?? "Campanhas"}</h1><p>Campanhas, conjuntos e anúncios · estrutura e veiculação</p></div>
+      </div>
+    </header>
+    <div className="analytics-period-row">
+      <PeriodPicker period={data.period} dateFrom={data.dateFrom} dateTo={data.dateTo} today={data.today} disabled={pending}
+          onApply={selection => navigate(selection.period === "custom" ? { periodo: "custom", from: selection.from, to: selection.to } : { periodo: selection.period, from: null, to: null })} />
+    </div>
+    {intro}
+    <section className="platform-section" aria-label="Meta Ads">
+      <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
+        {data.state === "ready" && data.warnings.length > 0 && <details className="analytics-quality-menu">
+          <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
+          <div>{data.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>
+        </details>}
+      {data.accounts.length > 1 && <div className="platform-heading-actions">
         <details className="campaigns-accounts" onToggle={event => { if (!event.currentTarget.open) setAccountDraft(null); }}>
           <summary>{data.selectedAccountIds.length === data.accounts.length ? "Todas as contas" : `${data.selectedAccountIds.length} de ${data.accounts.length} contas`}<ChevronDown size={14} /></summary>
           <div className="campaigns-accounts-list">
@@ -200,9 +212,8 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
               onClick={() => navigate({ contas: draft.length === data.accounts.length ? null : draft.join(",") })}>Aplicar</button>
           </div>
         </details></div>}
-      <div className="campaigns-field"><span>Período</span>
-        <PeriodPicker period={data.period} dateFrom={data.dateFrom} dateTo={data.dateTo} today={data.today} disabled={pending}
-          onApply={selection => navigate(selection.period === "custom" ? { periodo: "custom", from: selection.from, to: selection.to } : { periodo: selection.period, from: null, to: null })} /></div>
+      </div>
+    <div className="campaigns-toolbar">
       <label className="campaigns-field"><span>Veiculação (estado efetivo)</span>
         <Select className="compact-select campaigns-select" value={ui.group} aria-label="Filtrar por estado efetivo" onChange={event => patchUi({ group: event.target.value as LevelUi["group"] })}>
           <option value="all">Todos os estados</option>
@@ -276,6 +287,7 @@ export function CampaignsView({ clientId, data, onlyActive, selected = null, onS
         </div>
       </article>}
 
+    </section>
     {batch && <BatchDialog op={batch} rows={pickedRows} clientId={clientId} onClose={() => setBatch(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}
     {editing && <EditPanel row={editing} clientId={clientId} detailSearch={detailSearch} onClose={() => setEditing(null)} onChanged={() => router.refresh()}
       onViewChildren={editing.level === "campaign" ? () => { setEditing(null); goTo("adset"); } : undefined} />}

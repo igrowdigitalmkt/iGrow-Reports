@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { AssistantPanel, AssistantRail } from "./assistant/assistant-panel";
 import type { AssistantAvailability, AssistantScope } from "./assistant/contracts";
@@ -17,7 +18,8 @@ import "./assistant/assistant.css";
  * AssistantSessionProvider do layout (compartilhadas com as telas de detalhes do mesmo cliente).
  * O envio só acontece quando o servidor declara o assistente disponível.
  */
-export function CampaignsWorkspace({ organizationId, clientId, clientName, data, onlyActive, availability, preferenceKey, transport }: {
+export function CampaignsWorkspace({ organizationId, clientId, clientName, data, onlyActive, availability, preferenceKey, transport, intro }: {
+  /** Conteúdo exibido abaixo do cabeçalho do cliente. */ intro?: ReactNode;
   organizationId: string; clientId: string; clientName: string; data: CampaignsData; onlyActive: boolean;
   availability: AssistantAvailability; /** Chave da preferência local de colunas (organização + usuário). */ preferenceKey: string; transport?: AssistantTransport;
 }) {
@@ -29,7 +31,7 @@ export function CampaignsWorkspace({ organizationId, clientId, clientName, data,
   return <div className="campaigns-workspace">
     <div className={`campaigns-shell ${open ? "is-open" : "is-closed"}${ready ? "" : " is-unresolved"}`}>
       <div className="campaigns-main">
-        <CampaignsView clientId={clientId} data={data} onlyActive={onlyActive} selected={selected} preferenceKey={preferenceKey}
+        <CampaignsView clientId={clientId} clientName={clientName} intro={intro} data={data} onlyActive={onlyActive} selected={selected} preferenceKey={preferenceKey}
           onSelectEntity={row => {
             const same = !!selected && selected.accountId === row.accountId && selected.level === row.level && selected.id === row.id;
             session.setSelection(same ? null : { scope, kind: "entity", accountId: row.accountId, level: row.level, entityId: row.id });
