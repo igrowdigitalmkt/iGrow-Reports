@@ -45,8 +45,11 @@ describe("hierarquia do Google Ads no formato das linhas de Campanhas", () => {
     expect(find("ad", "100")).toMatchObject({ parentId: "10", campaignId: "1" });
     expect(find("adset", "10")).toMatchObject({ parentId: "1", campaignId: "1" });
   });
-  it("a ordem padrão não depende de data inexistente na API: sem data, a referência fica vazia", () => {
-    expect(find("campaign", "2").state.createdAt ?? null).toBeNull();
+  it("data de início, quando a API a devolve, vira a referência de data; sem ela a referência fica vazia", () => {
+    expect(find("campaign", "2").state.createdAt).toBe("2026-10-20T00:00:00Z");
+    expect(find("adset", "10").state.createdAt ?? null).toBeNull();
+    const without = buildGoogleRows(account, { campaigns: [], campaignList: [{ campaign: { id: "9", name: "Sem data", status: "ENABLED" } }], adGroups: [], ads: [] });
+    expect(without[0]!.state.createdAt ?? null).toBeNull();
   });
   it("consultas só leem (GAQL), com datas validadas e sem remover itens", () => {
     for (const query of [campaignQuery("2026-10-01", "2026-10-02"), adGroupQuery("2026-10-01", "2026-10-02"), adRowsQuery("2026-10-01", "2026-10-02"), campaignListQuery(), adListQuery()]) {
