@@ -1,10 +1,11 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { DEFAULT_MONTHLY_BUDGET_USD } from "./defaults";
 import { verifyNumbers } from "./number-guard";
+import { ceilUsd, reserveAiUsage, settleAiUsage, type ReserveResult } from "./reservation";
 
 export const AI_MODEL = "claude-sonnet-5-5";
 const DEFAULT_MAX_TOKENS = 1500;
@@ -21,6 +22,32 @@ export function estimateCostUsd(tokens: UsageTokens): number {
   return Math.round(cost * 1e6) / 1e6;
 }
 
+/** Folga de enquadramento (sistema, rótulos, formatação) somada ao tamanho dos fatos na estimativa da reserva. */
+export const RESERVATION_FRAMING_TOKENS = 500;
+/**
+ * Limite superior PRÁTICO do custo de uma chamada, para a reserva: toda a saída permitida (max_tokens, que inclui o raciocínio) ao preço
+ * de saída, mais a entrada contada em um token por byte (conservador) ao preço mais caro de entrada. A liquidação troca pelo custo real.
+ */
+export function generationReservationUsd(inputBytes: number, maxTokens: number): number {
+  return ceilUsd(estimateCostUsd({ input: 0, output: maxTokens, cacheRead: 0, cacheWrite: Math.max(0, Math.ceil(inputBytes)) + RESERVATION_FRAMING_TOKENS }));
+}
+
+/** Traduz a recusa da reserva em resultado para o usuário. Nenhum caso autoriza uma chamada paga. */
+export function reservationRefusal(outcome: Exclude<ReserveResult, { ok: true }>["outcome"]): Extract<GuardedResult, { ok: false }> {
+  switch (outcome) {
+    case "budget": return { ok: false, reason: "budget", message: "O orçamento mensal de IA desta organização foi atingido." };
+    case "disabled": case "plan": case "restricted":
+      return { ok: false, reason: "disabled", message: "A IA não está disponível para esta organização ou cliente no momento." };
+    case "duplicate_in_flight": case "duplicate_completed": case "duplicate_unknown": case "conflict":
+      return { ok: false, reason: "error", message: "Esta solicitação já foi processada ou está em andamento." };
+    default: return { ok: false, reason: "unavailable", message: "A reserva de orçamento de IA está indisponível; por segurança nenhuma chamada foi feita." };
+  }
+}
+
+/** Recusas do provedor que provam que nada foi gerado (rejeição de requisição ou de cota); o resto é consumo desconhecido. */
+export const providerRejectedBeforeGeneration = (error: unknown) =>
+  error instanceof Anthropic.APIError && typeof error.status === "number" && [400, 401, 403, 404, 413, 422, 429].includes(error.status);
+
 export type AiFeature = "report_comment" | "portfolio_summary" | "whatsapp_summary";
 
 export type GuardedInput = {
@@ -35,6 +62,8 @@ export type GuardedInput = {
   factsLabel: string;
   sourceRef?: string;
   maxTokens?: number;
+  /** Identificador único da solicitação (idempotência). Sem ele cada chamada é uma solicitação nova. */
+  requestId?: string;
 };
 
 export type GuardedResult =
@@ -120,15 +149,36 @@ export async function runGuardedGeneration(input: GuardedInput, deps: GuardedDep
     anthropic = new Anthropic();
   }
 
+  // RESERVA ATÔMICA antes da chamada paga: o banco confere o orçamento atual (inclusive outras reservas em andamento), aplica a
+  // idempotência por solicitação e cria a reserva na mesma transação. Só `ok` autoriza a chamada.
+  const maxTokens = input.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const userContent = `${input.factsLabel}
+${input.factsText}`;
+  const scopeHash = createHash("sha256").update(JSON.stringify([input.agencyId, input.clientId, input.userId, input.feature, factsHash])).digest("hex").slice(0, 64);
+  const reservation = await reserveAiUsage(supabase, {
+    agencyId: input.agencyId, clientId: input.clientId, userId: input.userId, feature: input.feature, model: AI_MODEL,
+    requestKey: input.requestId ?? `req-${randomUUID()}`, scopeHash,
+    estimatedUsd: generationReservationUsd(Buffer.byteLength(input.system) + Buffer.byteLength(userContent), maxTokens),
+  });
+  if (!reservation.ok) {
+    if (reservation.outcome === "budget") await log("blocked_budget");
+    else if (["disabled", "plan", "restricted"].includes(reservation.outcome)) await log("blocked_disabled");
+    return reservationRefusal(reservation.outcome);
+  }
+  const settle = (extra: Omit<Parameters<typeof settleAiUsage>[1], "usageId" | "agencyId" | "factsHash" | "model">) =>
+    settleAiUsage(supabase, { usageId: reservation.usageId, agencyId: input.agencyId, factsHash, model: AI_MODEL, ...extra }).then(result => result.ok);
+  const accountingFailed: GuardedResult = { ok: false, reason: "error", message: "Não foi possível registrar o consumo de IA; o texto foi retido por segurança." };
+
   let response: Anthropic.Message;
   try {
     response = await anthropic.messages.create({
-      model: AI_MODEL, max_tokens: input.maxTokens ?? DEFAULT_MAX_TOKENS, system: input.system,
+      model: AI_MODEL, max_tokens: maxTokens, system: input.system,
       output_config: { effort: "medium" },
-      messages: [{ role: "user", content: `${input.factsLabel}\n${input.factsText}` }],
+      messages: [{ role: "user", content: userContent }],
     });
   } catch (error) {
-    await log("error");
+    // Recusa certa do provedor libera a reserva; timeout e falha de rede mantêm a estimativa como consumo desconhecido (nunca zero).
+    await settle({ outcome: providerRejectedBeforeGeneration(error) ? "released" : "unknown" });
     const status = error instanceof Anthropic.APIError ? error.status : undefined;
     return { ok: false, reason: "error", message: status === 429 ? "A IA está sobrecarregada. Tente novamente em instantes." : "Não foi possível gerar o texto agora." };
   }
@@ -140,16 +190,18 @@ export async function runGuardedGeneration(input: GuardedInput, deps: GuardedDep
   const costUsd = estimateCostUsd(tokens);
   const requestId = (response as { _request_id?: string | null })._request_id ?? null;
   const text = response.content.flatMap(block => block.type === "text" ? [block.text] : []).join("\n").trim();
+  const base = { outcome: "completed" as const, tokens, costUsd, providerRequestId: requestId?.slice(0, 120) ?? null };
 
   if (response.stop_reason !== "end_turn" || !text) {
-    await log("error", { tokens, costUsd, requestId });
+    if (!(await settle({ ...base, status: "error", verifierPassed: null }))) return accountingFailed;
     return { ok: false, reason: "error", message: "A IA não concluiu o texto. Tente novamente." };
   }
   const check = verifyNumbers(text, [input.factsText]);
   if (!check.ok) {
-    await log("rejected_numbers", { tokens, costUsd, verified: false, requestId });
+    if (!(await settle({ ...base, status: "rejected_numbers", verifierPassed: false }))) return accountingFailed;
     return { ok: false, reason: "rejected_numbers", message: "O texto gerado citou números que não estão nos dados e foi bloqueado.", draft: text, unverified: check.unverified };
   }
-  await log("ok", { tokens, costUsd, verified: true, requestId });
+  // O texto só é entregue se o consumo foi liquidado: sem liquidação ele é retido (nunca sucesso silencioso).
+  if (!(await settle({ ...base, status: "ok", verifierPassed: true }))) return accountingFailed;
   return { ok: true, text, costUsd };
 }

@@ -21,6 +21,7 @@ const hierarchy = [
 type Table = { data?: unknown; error?: unknown };
 function fakeService(tables: Record<string, Table>, rpcs: Record<string, Table>) {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
+  const calls: { name: string; params: Record<string, unknown> }[] = [];
   const chain = (table: string) => {
     const c: Record<string, unknown> = {};
     for (const m of ["select", "eq", "is", "single"]) c[m] = () => c;
@@ -30,10 +31,15 @@ function fakeService(tables: Record<string, Table>, rpcs: Record<string, Table>)
     return c;
   };
   return {
-    inserts,
+    inserts, calls,
     service: {
       from: (t: string) => chain(t),
-      rpc: (name: string) => Promise.resolve({ data: rpcs[name]?.data ?? null, error: rpcs[name]?.error ?? null }),
+      rpc: (name: string, params: Record<string, unknown> = {}) => {
+        calls.push({ name, params });
+        if (name === "reserve_ai_usage" && !rpcs[name]) return Promise.resolve({ data: [{ outcome: "reserved", usage_id: "usage-1", month_cost_usd: 1, budget_usd: 50 }], error: null });
+        if (name === "settle_ai_usage" && !rpcs[name]) return Promise.resolve({ data: [{ outcome: "settled", cost_usd: params.p_cost_usd ?? null, delta_usd: 0 }], error: null });
+        return Promise.resolve({ data: rpcs[name]?.data ?? null, error: rpcs[name]?.error ?? null });
+      },
     } as never,
   };
 }
@@ -84,11 +90,17 @@ describe("ciclo de decisao", () => {
   it("ciclo completo: registra custo e deixa a pausa aguardando aprovacao", async () => {
     stage.mockReset().mockResolvedValue({ id: "job9", deduplicated: false });
     const m = model();
-    const { service, inserts } = fakeService(baseTables(), baseRpcs());
+    const { service, inserts, calls } = fakeService(baseTables(), baseRpcs());
     const r = await runDecisionCycle(service, scope, { model: m, enabled: true, now: () => NOW, liveState: live() });
     expect(r.ok && r.accounts[0]).toMatchObject({ status: "done", stages: [{ ref: "c1", status: "awaiting_approval", jobId: "job9" }] });
-    expect(inserts[0]).toMatchObject({ table: "ai_usage", row: { feature: "agent_decision", status: "ok", input_tokens: 1000, output_tokens: 200 } });
-    expect(inserts[0]!.row.cost_usd).toBeGreaterThan(0);
+    // Contabilidade: reserva ANTES da chamada ao modelo, liquidação com o consumo conhecido (nenhuma inserção direta em ai_usage).
+    const names = calls.map(c => c.name);
+    expect(names.indexOf("reserve_ai_usage")).toBeGreaterThan(-1);
+    expect(names.indexOf("reserve_ai_usage")).toBeLessThan(names.indexOf("settle_ai_usage"));
+    expect(inserts.some(i => i.table === "ai_usage")).toBe(false);
+    expect(calls.find(c => c.name === "reserve_ai_usage")!.params).toMatchObject({ p_feature: "agent_decision", p_client_id: "cl", p_user_id: null });
+    expect(Number(calls.find(c => c.name === "reserve_ai_usage")!.params.p_estimated_usd)).toBeGreaterThan(0.08);
+    expect(calls.find(c => c.name === "settle_ai_usage")!.params).toMatchObject({ p_outcome: "completed", p_status: "ok", p_input_tokens: 1000, p_output_tokens: 200, p_usage_id: "usage-1" });
     // Historico: analise gravada com nome da campanha (nunca o id Meta), contagens e texto validado.
     const history = inserts.find(i => i.table === "agent_analysis_runs");
     expect(history?.row).toMatchObject({ agency_id: "ag", client_id: "cl", ad_account_id: ACCOUNT, origin: "scheduled", proposals: 1, blocked: 0, rejected: 0 });
@@ -109,11 +121,48 @@ describe("ciclo de decisao", () => {
   });
   it("saida invalida do modelo ainda registra o custo e nao enfileira", async () => {
     stage.mockReset();
-    const { service, inserts } = fakeService(baseTables(), baseRpcs());
+    const { service, calls } = fakeService(baseTables(), baseRpcs());
     const bad = { decide: async () => ({ output: { lixo: true }, usage: { inputTokens: 5, outputTokens: 5 } }) };
     const r = await runDecisionCycle(service, scope, { model: bad, enabled: true, now: () => NOW, liveState: live() });
     expect(r.ok && r.accounts[0]).toMatchObject({ status: "skipped", reason: "invalid_output" });
-    expect(inserts[0]!.row.status).toBe("error");
+    expect(calls.find(c => c.name === "settle_ai_usage")!.params).toMatchObject({ p_outcome: "completed", p_status: "error", p_input_tokens: 5, p_output_tokens: 5 });
+    expect(stage).not.toHaveBeenCalled();
+  });
+});
+
+describe("contabilidade financeira do ciclo", () => {
+  it.each([["budget", "ai_budget"], ["plan", "ai_unavailable"], ["unavailable", "ai_unavailable"]])("reserva recusada (%s) nunca chama o modelo", async (outcome, reason) => {
+    stage.mockReset();
+    const m = model();
+    const { service, calls } = fakeService(baseTables(), baseRpcs({ reserve_ai_usage: { data: [{ outcome, usage_id: null }] } }));
+    const r = await runDecisionCycle(service, scope, { model: m, enabled: true, now: () => NOW, liveState: live() });
+    expect(r).toEqual({ ok: false, reason });
+    expect(m.decide).not.toHaveBeenCalled();
+    expect(calls.some(c => c.name === "settle_ai_usage")).toBe(false);
+    expect(stage).not.toHaveBeenCalled();
+  });
+  it("solicitação repetida (mesma conta e fatos na mesma hora) não gasta de novo", async () => {
+    const m = model();
+    const { service } = fakeService(baseTables(), baseRpcs({ reserve_ai_usage: { data: [{ outcome: "duplicate_completed", usage_id: "u0" }] } }));
+    const r = await runDecisionCycle(service, scope, { model: m, enabled: true, now: () => NOW, liveState: live() });
+    expect(r.ok && r.accounts[0]).toMatchObject({ status: "skipped", reason: "duplicate_request" });
+    expect(m.decide).not.toHaveBeenCalled();
+  });
+  it("erro do provedor com recusa certa libera a reserva; falha de rede mantém como consumo desconhecido", async () => {
+    const run = async (code: string) => {
+      const { service, calls } = fakeService(baseTables(), baseRpcs());
+      await runDecisionCycle(service, scope, { model: { decide: async () => { throw new Error(code); } }, enabled: true, now: () => NOW, liveState: live() });
+      return calls.find(c => c.name === "settle_ai_usage")!.params.p_outcome;
+    };
+    expect(await run("anthropic_http_400")).toBe("released");
+    expect(await run("anthropic_http_network")).toBe("unknown");
+    expect(await run("anthropic_http_500")).toBe("unknown");
+  });
+  it("falha ao liquidar não encaminha propostas e interrompe o ciclo", async () => {
+    stage.mockReset();
+    const { service } = fakeService(baseTables(), baseRpcs({ settle_ai_usage: { error: { code: "XX000" } } }));
+    const r = await runDecisionCycle(service, scope, { model: model(), enabled: true, now: () => NOW, liveState: live() });
+    expect(r.ok && r.accounts[0]).toMatchObject({ status: "skipped", reason: "accounting_failed" });
     expect(stage).not.toHaveBeenCalled();
   });
 });

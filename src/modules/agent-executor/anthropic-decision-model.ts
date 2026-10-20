@@ -2,7 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { AI_MODEL } from "@/modules/ai/guarded-text";
 import { DECISION_TOOL } from "./decision-contract";
-import type { DecisionModel } from "./decision-engine";
+import { DECISION_MAX_OUTPUT_TOKENS, type DecisionModel } from "./decision-engine";
 
 type Messages = { create: (params: Anthropic.MessageCreateParamsNonStreaming) => Promise<Anthropic.Message> };
 
@@ -18,7 +18,7 @@ export function createAnthropicDecisionModel(client?: { messages: Messages }): D
         response = await anthropic.messages.create({
           // Claude Sonnet 5.5 rejeita tool_choice forcado (400): usa `auto` e a instrucao no prompt.
           // A saida continua nao confiavel: o validador do servidor confere tudo.
-          model: AI_MODEL, max_tokens: 8000, system: `${system}
+          model: AI_MODEL, max_tokens: DECISION_MAX_OUTPUT_TOKENS, system: `${system}
 Responda SEMPRE chamando a ferramenta ${DECISION_TOOL.name}, sem texto livre.`,
           output_config: { effort: "medium" },
           tools: [DECISION_TOOL], tool_choice: { type: "auto" },

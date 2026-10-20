@@ -1,11 +1,14 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeHierarchy } from "@/modules/client-portal/analytics-hierarchy";
 import { DEFAULT_MONTHLY_BUDGET_USD } from "@/modules/ai/defaults";
-import { AI_MODEL, estimateCostUsd, parseAiEntitlement } from "@/modules/ai/guarded-text";
+import { AI_MODEL, estimateCostUsd, generationReservationUsd, parseAiEntitlement } from "@/modules/ai/guarded-text";
+import { reserveAiUsage, settleAiUsage } from "@/modules/ai/reservation";
 import type { Database } from "@/types/database";
 import { stageValidatedDecisions, type StageOutcome } from "./decision-bridge";
-import { decisionEngineEnabled, runDecisionEngine, type DecisionModel } from "./decision-engine";
+import { DECISION_MAX_OUTPUT_TOKENS, DECISION_SYSTEM_PROMPT, decisionEngineEnabled, runDecisionEngine, type DecisionModel } from "./decision-engine";
+import { DECISION_TOOL } from "./decision-contract";
 import { buildDecisionFacts } from "./decision-facts";
 import { readLiveEntityState, type LiveEntityState } from "./decision-live-state";
 
@@ -109,19 +112,43 @@ export async function runDecisionCycle(
       entities: confirmed, previousEntities: previousEntities.filter(e => e.accountId === adAccountId),
       currency, periodFrom: range.from, periodTo: range.to, collectedAt, goals: goal ? [goal] : [], budgetsMinor: budgets,
     });
+    // RESERVA ATÔMICA antes da chamada paga (só contabilidade: regras de decisão, aprovação e execução não mudam). Sem alvos o motor
+    // nem chama o modelo, então não há o que reservar. Identificador determinístico por conta, fatos e hora: repetição não gasta duas vezes.
+    let usageId: string | null = null;
+    if (facts.targets.size > 0) {
+      const hour = now.toISOString().slice(0, 13);
+      const reservation = await reserveAiUsage(service, {
+        agencyId: scope.agencyId, clientId: scope.clientId, userId: null, feature: "agent_decision", model: AI_MODEL,
+        requestKey: `decision-${createHash("sha256").update([scope.agencyId, scope.clientId, adAccountId, facts.factsHash, hour].join("|")).digest("hex").slice(0, 40)}`,
+        scopeHash: createHash("sha256").update([scope.agencyId, scope.clientId, adAccountId, "agent_decision"].join("|")).digest("hex").slice(0, 64),
+        estimatedUsd: generationReservationUsd(Buffer.byteLength(DECISION_SYSTEM_PROMPT) + Buffer.byteLength(facts.factsText) + Buffer.byteLength(JSON.stringify(DECISION_TOOL)), DECISION_MAX_OUTPUT_TOKENS),
+      });
+      if (!reservation.ok) {
+        if (reservation.outcome.startsWith("duplicate_") || reservation.outcome === "conflict") { skip("duplicate_request"); continue; }
+        const reason = reservation.outcome === "budget" ? "ai_budget" : "ai_unavailable";
+        if (accounts.length === 0) return { ok: false, reason };
+        skip(reason);
+        break;
+      }
+      usageId = reservation.usageId;
+    }
     const result = await runDecisionEngine({ model: deps.model, enabled: true }, facts, now);
 
-    // Registra o custo mesmo quando a saida e rejeitada: o gasto de tokens ocorreu.
-    const usage = result.ok ? result.usage : undefined;
-    const inTok = usage?.inputTokens ?? 0, outTok = usage?.outputTokens ?? 0;
-    const { error } = await service.from("ai_usage").insert({
-      agency_id: scope.agencyId, client_id: scope.clientId, user_id: null, feature: "agent_decision", model: AI_MODEL,
-      status: result.ok ? "ok" : result.reason === "unverified_numbers" ? "rejected_numbers" : "error",
-      input_tokens: inTok, output_tokens: outTok, cost_usd: estimateCostUsd({ input: inTok, output: outTok, cacheRead: 0, cacheWrite: 0 }),
-      verifier_passed: result.ok ? true : null, facts_hash: facts.factsHash.slice(0, 32),
-      source_ref: `${range.from}..${range.to}`, request_id: result.ok ? (result.requestId?.slice(0, 120) ?? null) : null,
-    });
-    if (error) console.error("agent_decision ai_usage insert failed", error.code);
+    // Liquidação: consumo conhecido substitui a estimativa. Recusa certa do provedor (4xx) ou ausência de chamada libera a reserva;
+    // qualquer outra falha sem informação de uso mantém a estimativa como consumo desconhecido (nunca custo zero por suposição).
+    const usage = result.usage;
+    if (usageId) {
+      const refusedBeforeGeneration = !result.ok && result.reason === "model_error"
+        && /^(no_api_key|anthropic_http_(400|401|403|404|413|422|429))$/.test(result.detail ?? "");
+      const settled = await settleAiUsage(service, usage
+        ? { usageId, agencyId: scope.agencyId, outcome: "completed", status: result.ok ? "ok" : result.reason === "unverified_numbers" ? "rejected_numbers" : "error",
+            tokens: { input: usage.inputTokens, output: usage.outputTokens, cacheRead: 0, cacheWrite: 0 },
+            costUsd: estimateCostUsd({ input: usage.inputTokens, output: usage.outputTokens, cacheRead: 0, cacheWrite: 0 }),
+            providerRequestId: result.requestId?.slice(0, 120) ?? null, verifierPassed: result.ok ? true : null, factsHash: facts.factsHash.slice(0, 32), model: AI_MODEL }
+        : { usageId, agencyId: scope.agencyId, outcome: refusedBeforeGeneration ? "released" : "unknown", factsHash: facts.factsHash.slice(0, 32), model: AI_MODEL });
+      // Sem liquidação nada é encaminhado e o ciclo para: a reserva permanece e o gasto não continua sem registro.
+      if (!settled.ok) { skip("accounting_failed"); break; }
+    }
     if (!result.ok) { skip(result.detail ? `${result.reason}:${result.detail}` : result.reason); continue; }
 
     const stages = await stageValidatedDecisions(service, {

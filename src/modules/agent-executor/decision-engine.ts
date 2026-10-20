@@ -10,6 +10,9 @@ export type DecisionModel = {
   }>;
 };
 
+/** Teto de saída da chamada de decisão (usado pelo adaptador e pela estimativa conservadora da reserva). */
+export const DECISION_MAX_OUTPUT_TOKENS = 8000;
+
 export const DECISION_SYSTEM_PROMPT = [
   "Voce e o analista de midia paga da Groow Ads. Receba fatos de campanhas e proponha, se houver, ate 8 recomendacoes.",
   "Regras: use SOMENTE as referencias (c1, a2...) dos fatos; nao invente metricas, ids, contas ou permissoes.",
@@ -21,7 +24,9 @@ export const DECISION_SYSTEM_PROMPT = [
 
 export type EngineResult =
   | { ok: true; decision: ValidatedDecision; usage?: { inputTokens: number; outputTokens: number }; requestId?: string | null }
-  | { ok: false; reason: "disabled" | "no_facts" | "model_error" | "invalid_output" | "stale_facts" | "unverified_numbers"; detail?: string };
+  | { ok: false; reason: "disabled" | "no_facts" | "model_error" | "invalid_output" | "stale_facts" | "unverified_numbers"; detail?: string;
+      /** Consumo informado pelo provedor quando houve resposta paga que o validador rejeitou (para a contabilização). */
+      usage?: { inputTokens: number; outputTokens: number }; requestId?: string | null };
 
 /** Motor desligado por padrao; so roda com AGENT_DECISION_ENGINE_ENABLED=true. */
 export function decisionEngineEnabled(env: Record<string, string | undefined> = process.env): boolean {
@@ -44,6 +49,6 @@ export async function runDecisionEngine(
     return { ok: false, reason: "model_error", ...(/^(anthropic|no)_[a-z0-9_]{1,40}$/.test(message) ? { detail: message } : {}) };
   }
   const result = validateModelDecision(response.output, facts, now);
-  if (!result.ok) return { ok: false, reason: result.reason };
+  if (!result.ok) return { ok: false, reason: result.reason, usage: response.usage, requestId: response.requestId };
   return { ok: true, decision: result.decision, usage: response.usage, requestId: response.requestId };
 }

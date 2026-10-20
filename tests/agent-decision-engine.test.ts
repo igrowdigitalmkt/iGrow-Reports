@@ -143,7 +143,7 @@ describe("motor", () => {
     expect(await runDecisionEngine({ model: { decide: async () => { throw new Error("x"); } }, enabled: true }, facts(), NOW))
       .toEqual({ ok: false, reason: "model_error" });
     expect(await runDecisionEngine({ model: model({ lixo: 1 }), enabled: true }, facts(), NOW))
-      .toEqual({ ok: false, reason: "invalid_output" });
+      .toMatchObject({ ok: false, reason: "invalid_output" });
   });
   it("informa apenas codigos seguros do provedor, nunca mensagens livres", async () => {
     const safe = await runDecisionEngine({ model: { decide: async () => { throw new Error("anthropic_http_401"); } }, enabled: true }, facts(), NOW);

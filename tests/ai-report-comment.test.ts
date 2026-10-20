@@ -18,18 +18,25 @@ const facts: ReportFacts = {
 };
 const input = { agencyId: "agency-1", clientId: "client-1", userId: "user-1", facts, sourceRef: "report-1" };
 
-function fakeSupabase(options: { agency?: unknown; client?: unknown; monthCost?: number | null; settingsError?: boolean; entitlement?: unknown; entitlementError?: { code: string } } = {}) {
+function fakeSupabase(options: { agency?: unknown; client?: unknown; monthCost?: number | null; settingsError?: boolean; entitlement?: unknown; entitlementError?: { code: string }; reserveOutcome?: string; settleOutcome?: string } = {}) {
+  const reserves: Array<Record<string, unknown>> = [];
+  const settles: Array<Record<string, unknown>> = [];
   const inserted: Array<Record<string, unknown>> = [];
   const result = (data: unknown) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data, error: options.settingsError ? { code: "x" } : null }) }) }) });
   const client = {
     from: (table: string) => table === "ai_usage"
       ? { insert: async (row: Record<string, unknown>) => { inserted.push(row); return { error: null }; } }
       : result(table === "ai_settings" ? (options.agency ?? null) : (options.client ?? null)),
-    rpc: async (name: string) => name === "agency_ai_entitlement"
+    rpc: async (name: string, params: Record<string, unknown> = {}) => name === "reserve_ai_usage"
+      ? (reserves.push(params), { data: [{ outcome: options.reserveOutcome ?? "reserved", usage_id: options.reserveOutcome && options.reserveOutcome !== "reserved" ? null : "usage-1", month_cost_usd: 1, budget_usd: 5 }], error: null })
+      : name === "settle_ai_usage"
+      ? (settles.push(params), inserted.push({ agency_id: params.p_agency_id, client_id: "client-1", status: params.p_status, input_tokens: params.p_input_tokens, output_tokens: params.p_output_tokens, cost_usd: params.p_cost_usd ?? 0, verifier_passed: params.p_verifier_passed, facts_hash: params.p_facts_hash, source_ref: "report-1", outcome: params.p_outcome }),
+        options.settleOutcome === "error" ? { data: null, error: { code: "XX000" } } : { data: [{ outcome: "settled", cost_usd: params.p_cost_usd ?? 0, delta_usd: 0 }], error: null })
+      : name === "agency_ai_entitlement"
       ? { data: options.entitlementError ? null : options.entitlement === undefined ? { allowed: true, budget_usd: null } : options.entitlement, error: options.entitlementError ?? null }
       : { data: options.monthCost === undefined ? 0 : options.monthCost, error: null },
   };
-  return { client: client as unknown as NonNullable<CommentDeps["supabase"]>, inserted };
+  return { client: client as unknown as NonNullable<CommentDeps["supabase"]>, inserted, reserves, settles };
 }
 
 function fakeAnthropic(text: string, overrides: Record<string, unknown> = {}) {
@@ -123,7 +130,8 @@ describe("comentário de relatório com IA", () => {
     const { client, inserted } = fakeSupabase();
     const ai = { messages: { create: vi.fn(async () => { throw new Error("boom"); }) } } as unknown as CommentDeps["anthropic"];
     expect(await generateReportComment(input, { supabase: client, anthropic: ai })).toMatchObject({ ok: false, reason: "error" });
-    expect(inserted[0]).toMatchObject({ status: "error", cost_usd: 0 });
+    // Falha sem confirmação de recusa do provedor: a reserva é mantida como consumo desconhecido (nunca custo zero).
+    expect(inserted[0]).toMatchObject({ outcome: "unknown" });
   });
 
   it("trata resposta incompleta como erro", async () => {
@@ -146,5 +154,48 @@ describe("comentário de relatório com IA", () => {
   it("estima o custo pelos preços do modelo, incluindo cache", () => {
     expect(estimateCostUsd({ input: 2800, output: 600, cacheRead: 0, cacheWrite: 0 })).toBe(0.0116);
     expect(estimateCostUsd({ input: 0, output: 0, cacheRead: 1_000_000, cacheWrite: 1_000_000 })).toBe(2.7);
+  });
+
+  describe("reserva atômica de orçamento", () => {
+    it("reserva ANTES da chamada com estimativa conservadora e liquida com o consumo conhecido", async () => {
+      const order: string[] = [];
+      const { client, reserves, settles } = fakeSupabase();
+      const rpc = client.rpc.bind(client) as unknown as (name: string, params: Record<string, unknown>) => Promise<unknown>;
+      (client as unknown as { rpc: unknown }).rpc = async (name: string, params: Record<string, unknown>) => { order.push(name); return rpc(name, params); };
+      const ai = fakeAnthropic("Foram 66 conversas.");
+      ai.create.mockImplementationOnce(async () => { order.push("anthropic"); return { content: [{ type: "text", text: "Foram 66 conversas." }], stop_reason: "end_turn", usage: { input_tokens: 2800, output_tokens: 600, cache_read_input_tokens: null, cache_creation_input_tokens: null } } as never; });
+      const result = await generateReportComment({ ...input, requestId: "report-req-0001" } as never, { supabase: client, anthropic: ai.deps });
+      expect(result).toMatchObject({ ok: true });
+      expect(order.indexOf("reserve_ai_usage")).toBeLessThan(order.indexOf("anthropic"));
+      expect(order.indexOf("anthropic")).toBeLessThan(order.indexOf("settle_ai_usage"));
+      expect(reserves[0]).toMatchObject({ p_feature: "report_comment", p_request_key: "report-req-0001" });
+      // Estimativa cobre toda a saída permitida: nunca menor que o custo real da chamada.
+      expect(Number(reserves[0]?.p_estimated_usd)).toBeGreaterThan(0.0116);
+      expect(settles[0]).toMatchObject({ p_outcome: "completed", p_status: "ok", p_usage_id: "usage-1" });
+    });
+    it.each(["budget", "disabled", "plan", "restricted", "duplicate_in_flight", "duplicate_completed", "duplicate_unknown", "conflict", "invalid", "unavailable"])(
+      "recusa da reserva (%s) nunca chama a IA", async outcome => {
+        const { client, settles } = fakeSupabase({ reserveOutcome: outcome });
+        const ai = fakeAnthropic("x");
+        const result = await generateReportComment(input, { supabase: client, anthropic: ai.deps });
+        expect(result.ok).toBe(false);
+        expect(ai.create).not.toHaveBeenCalled();
+        expect(settles).toHaveLength(0);
+      });
+    it("falha ao liquidar retém o texto: nunca sucesso silencioso", async () => {
+      const { client } = fakeSupabase({ settleOutcome: "error" });
+      const ai = fakeAnthropic("Foram 66 conversas.");
+      const result = await generateReportComment(input, { supabase: client, anthropic: ai.deps });
+      expect(result).toMatchObject({ ok: false, reason: "error" });
+      expect((result as { text?: string }).text).toBeUndefined();
+    });
+    it("recusa certa do provedor libera a reserva; falha de rede mantém como desconhecida", async () => {
+      const { Anthropic } = await import("@anthropic-ai/sdk/index.mjs").then(m => ({ Anthropic: m.default })).catch(() => ({ Anthropic: null }));
+      const refused = fakeSupabase();
+      const rejection = Anthropic ? new Anthropic.APIError(400, undefined, "bad", undefined) : new Error("bad");
+      const ai = { messages: { create: vi.fn(async () => { throw rejection; }) } } as unknown as CommentDeps["anthropic"];
+      await generateReportComment(input, { supabase: refused.client, anthropic: ai });
+      expect(refused.settles[0]).toMatchObject({ p_outcome: Anthropic ? "released" : "unknown" });
+    });
   });
 });
