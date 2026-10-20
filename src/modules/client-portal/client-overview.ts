@@ -9,7 +9,21 @@ export type OverviewAccount = {
   platform: "meta" | "google"; id: string; name: string; detail: string; currency: string;
   spend: number | null; results: OverviewResult[]; trend: number[]; days: string[];
 };
-export type OverviewCampaign = { platform: "meta" | "google"; id: string; accountId: string; name: string; accountName: string; currency: string; spend: number | null; result: OverviewResult | null };
+export type OverviewCampaign = { platform: "meta" | "google"; id: string; accountId: string; name: string; accountName: string; currency: string; status: string | null; active: boolean; spend: number | null; result: OverviewResult | null };
+
+/** Campanha configurada como ativa (Meta: ACTIVE; Google: ENABLED). */
+export const isActiveCampaignStatus = (status: string | null | undefined) => status === "ACTIVE" || status === "ENABLED";
+
+/**
+ * Ordem das campanhas: primeiro as ativas/em veiculação (as de maior investimento antes), depois as que investiram no período
+ * selecionado. Campanha parada e sem investimento no período não entra.
+ */
+export function rankCampaigns<T extends { status: string | null; spend: number | null }>(rows: T[]): T[] {
+  const bySpend = (a: T, b: T) => (b.spend ?? 0) - (a.spend ?? 0);
+  const active = rows.filter(row => isActiveCampaignStatus(row.status)).sort(bySpend);
+  const spent = rows.filter(row => !isActiveCampaignStatus(row.status) && (row.spend ?? 0) > 0).sort(bySpend);
+  return [...active, ...spent];
+}
 export type ClientOverview = {
   accounts: OverviewAccount[];
   campaigns: OverviewCampaign[];
@@ -36,7 +50,7 @@ function resultsOf(values: AnalyticsValues, sources: Array<{ values: AnalyticsVa
  * Resumo do cliente em todas as plataformas: investimento, resultados e série diária. Valores só são somados quando as contas usam a
  * mesma moeda e quando todas informam o dado; o que não pôde ser confirmado fica vazio (nunca zero).
  */
-export function buildClientOverview(meta: AnalyticsDashboardData, google: OverviewGoogleSection[], campaignLimit = 5): ClientOverview {
+export function buildClientOverview(meta: AnalyticsDashboardData, google: OverviewGoogleSection[], campaignLimit = 8): ClientOverview {
   const selected = meta.accounts.filter(account => meta.selectedAccountIds.includes(account.id));
   const accounts: OverviewAccount[] = selected.map(account => {
     const totals = meta.accountTotals.find(item => item.id === account.id);
@@ -95,10 +109,10 @@ export function buildClientOverview(meta: AnalyticsDashboardData, google: Overvi
     ...google.flatMap(section => section.data.campaigns.map(campaign => ({ platform: "google" as const, campaign }))),
   ].map(({ platform, campaign }) => ({
     platform, id: campaign.id, accountId: campaign.accountId, name: campaign.name, accountName: campaign.accountName, currency: campaign.currency,
-    spend: spendOf(campaign.values),
+    status: campaign.status, active: isActiveCampaignStatus(campaign.status), spend: spendOf(campaign.values),
     result: resultsOf(campaign.values, [{ values: campaign.values, id: campaign.id, accountId: campaign.accountId }])[0] ?? null,
   }));
-  const campaigns = campaignRows.filter(row => (row.spend ?? 0) > 0).sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0)).slice(0, campaignLimit);
+  const campaigns = rankCampaigns(campaignRows).slice(0, campaignLimit);
 
   return {
     accounts, campaigns, currency, spend, previousSpend, results, days, trend, previousTrend,

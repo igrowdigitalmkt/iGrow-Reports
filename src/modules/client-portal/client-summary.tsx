@@ -129,13 +129,14 @@ export function ClientSummary({ clientId, data, googleSections, googleFailures, 
       </table></div> : <p className="muted text-sm" style={{ padding: "0 18px 16px" }}>Nenhuma conta de anúncios vinculada.</p>}
     </section>
 
-    {overview.campaigns.length > 0 && <section className="panel cs-table" aria-label="Principais campanhas">
-      <div className="panel-heading"><div><h2>Principais campanhas</h2><p>As que mais investiram no período, nas duas plataformas</p></div></div>
+    {overview.campaigns.length > 0 && <section className="panel cs-table" aria-label="Campanhas">
+      <div className="panel-heading"><div><h2>Campanhas</h2><p>Ativas e em veiculação primeiro; depois as que investiram no período selecionado</p></div></div>
       <div className="table-scroll"><table className="data-table">
         <caption className="sr-only">Campanhas com maior investimento</caption>
-        <thead><tr><th scope="col">Campanha</th><th scope="col" className="numeric">Investimento</th><th scope="col">Resultado</th></tr></thead>
+        <thead><tr><th scope="col">Campanha</th><th scope="col">Situação</th><th scope="col" className="numeric">Investimento no período</th><th scope="col">Resultado</th></tr></thead>
         <tbody>{overview.campaigns.map(campaign => <tr key={`${campaign.platform}:${campaign.accountId}:${campaign.id}`}>
           <th scope="row" style={{ fontWeight: 400 }}><span className="cs-account"><PlatformLogo platform={campaign.platform} size={campaign.platform === "meta" ? 14 : 18} /><span><strong>{campaign.name}</strong><small>{campaign.accountName}</small></span></span></th>
+          <td><span className={`badge ${campaign.active ? "green" : "neutral"}`}><span className="status-dot" />{campaign.active ? "Ativa" : campaign.status === "PAUSED" ? "Pausada" : "Parada"}</span></td>
           <td className="numeric">{money(campaign.spend, campaign.currency)}</td>
           <td>{campaign.result ? <span><strong>{integer(campaign.result.value)}</strong> {campaign.result.label.toLowerCase()}{campaign.result.cost != null ? ` · ${money(campaign.result.cost, campaign.currency)} cada` : ""}</span> : <span className="muted">Sem resultado</span>}</td>
         </tr>)}</tbody>

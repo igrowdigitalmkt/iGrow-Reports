@@ -153,6 +153,22 @@ describe("seção do Google Ads no painel e no PDF", () => {
     expect(summary.campaigns[0]).toMatchObject({ name: "Pesquisa" });
     expect(summary.campaigns[0].result).toMatch(/10 conversões/);
   });
+  it("campanha ativa sem atividade no período aparece, com gasto zero, antes das paradas", async () => {
+    const { googleAccountSummary } = await import("@/modules/google-ads/google-section");
+    const account = { id: "a", customerId: "1112223333", name: "Conta Google", currency: "BRL", timezone: "America/Sao_Paulo" };
+    const data = buildGoogleAnalytics({ account, dateFrom: "2026-09-20", dateTo: "2026-10-19", rows: {
+      daily: [], previousDaily: [], campaigns: [],
+      campaignList: [
+        { campaign: { id: "9", name: "Parada antiga", status: "PAUSED", advertisingChannelType: "SEARCH" } },
+        { campaign: { id: "7", name: "Nova ativa", status: "ENABLED", advertisingChannelType: "SEARCH" } },
+      ],
+    } });
+    expect(data.campaigns.map(item => item.name).sort()).toEqual(["Nova ativa", "Parada antiga"]);
+    const summary = googleAccountSummary({ id: "a", name: "Conta Google", data });
+    expect(summary.idle).toBe(true);
+    expect(summary.campaigns.map(item => item.name)).toEqual(["Nova ativa"]);
+    expect(summary.campaigns[0]).toMatchObject({ active: true });
+  });
   it("o PDF do Google usa a capa e a cor da plataforma", async () => {
     const { toReportPdfInput } = await import("@/modules/reports/pdf/adapter");
     const account = { id: "a", customerId: "1112223333", name: "Conta Google", currency: "BRL", timezone: "America/Sao_Paulo" };

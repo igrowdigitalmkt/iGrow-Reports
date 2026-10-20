@@ -16,6 +16,10 @@ export const accountDailyQuery = (from: string, to: string) =>
 export const campaignQuery = (from: string, to: string) =>
   `SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, ${METRICS} FROM campaign WHERE ${range(from, to)} AND campaign.status != 'REMOVED'`;
 
+/** Todas as campanhas da conta (sem métricas, sem filtro de data): inclui as ativas que ainda não tiveram entrega no período. */
+export const campaignListQuery = () =>
+  "SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign WHERE campaign.status != 'REMOVED'";
+
 /** Total do período por anúncio, só os que apareceram. */
 export const adQuery = (from: string, to: string) =>
   `SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group.id, ad_group.name, campaign.id, campaign.name, campaign.advertising_channel_type, ${METRICS} FROM ad_group_ad WHERE ${range(from, to)} AND metrics.impressions > 0`;

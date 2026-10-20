@@ -1,3 +1,4 @@
+import { isActiveCampaignStatus, rankCampaigns } from "@/modules/client-portal/client-overview";
 import { resultCostBreakdown } from "@/modules/client-portal/analytics-results";
 import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { SectionToggle } from "@/modules/client-portal/section-toggle";
@@ -15,9 +16,9 @@ export function googleAccountSummary(section: GoogleSectionView) {
   const percent = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const sources = data.campaigns.map(campaign => ({ values: campaign.values, level: "campaign" as const, id: campaign.id, accountId: campaign.accountId }));
   const results = resultCostBreakdown(data.summary, sources).sort((a, b) => b.value - a.value);
-  const campaigns = [...data.campaigns].sort((a, b) => (b.values.spend ?? 0) - (a.values.spend ?? 0)).slice(0, 5).map(campaign => {
+  const campaigns = rankCampaigns(data.campaigns.map(campaign => ({ ...campaign, spend: campaign.values.spend ?? null }))).slice(0, 5).map(campaign => {
     const own = resultCostBreakdown(campaign.values, [{ values: campaign.values, level: "campaign" as const, id: campaign.id, accountId: campaign.accountId }])[0];
-    return { id: campaign.id, name: campaign.name, spend: ok(campaign.values.spend) ? money.format(campaign.values.spend) : "—",
+    return { id: campaign.id, name: campaign.name, active: isActiveCampaignStatus(campaign.status), spend: ok(campaign.values.spend) ? money.format(campaign.values.spend) : "—",
       result: own ? `${whole.format(own.value)} ${own.label.toLowerCase()}${own.cost != null ? ` (${money.format(own.cost)} cada)` : ""}` : "Sem resultado no período" };
   });
   return {
@@ -47,14 +48,15 @@ export function GoogleAdsSection({ sections, failures, order, collapsed = false,
         const summary = googleAccountSummary(section);
         return <article key={summary.id} className="analytics-card" style={{ display: "grid", gap: 10, padding: 18, alignContent: "start" }}>
           <h3 style={{ margin: 0, fontSize: 16 }}>{summary.name}</h3>
-          {summary.idle ? <p className="muted">Sem investimento neste período.</p> : <>
+          {summary.idle && !summary.campaigns.length ? <p className="muted">Sem investimento neste período.</p> : <>
+            {summary.idle && <p className="muted" style={{ margin: 0 }}>Sem investimento neste período.</p>}
             <dl style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "4px 12px", margin: 0 }}>
               {summary.metrics.map(([label, value]) => <div key={label} style={{ display: "contents" }}><dt className="muted">{label}</dt><dd style={{ margin: 0, textAlign: "right" }}>{value}</dd></div>)}
             </dl>
             {summary.results.length > 0 && <ul style={{ margin: 0, paddingLeft: 18 }}>{summary.results.map(result => <li key={result.label}>{result.value} {result.label.toLowerCase()}{result.cost ? ` (${result.cost} cada)` : ""}</li>)}</ul>}
             {summary.campaigns.length > 0 && <div style={{ display: "grid", gap: 6 }}>
-              <strong style={{ fontSize: 13 }}>Principais campanhas</strong>
-              {summary.campaigns.map(campaign => <div key={campaign.id} style={{ display: "grid", gap: 2 }}><span>{campaign.name}</span><small className="muted">{campaign.spend} · {campaign.result}</small></div>)}
+              <strong style={{ fontSize: 13 }}>Campanhas</strong>
+              {summary.campaigns.map(campaign => <div key={campaign.id} style={{ display: "grid", gap: 2 }}><span>{campaign.name}{campaign.active ? <small className="muted"> · Ativa</small> : null}</span><small className="muted">{campaign.spend} no período · {campaign.result}</small></div>)}
             </div>}
           </>}
         </article>;

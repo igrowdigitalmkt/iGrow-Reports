@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClientOverview, type OverviewGoogleSection } from "@/modules/client-portal/client-overview";
+import { buildClientOverview, rankCampaigns, type OverviewGoogleSection } from "@/modules/client-portal/client-overview";
 import { googleAccountBilling } from "@/modules/google-ads/billing";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
 
@@ -55,6 +55,16 @@ describe("visão geral do cliente em todas as plataformas", () => {
     const overview = buildClientOverview(meta(), [google(500)], 2);
     expect(overview.campaigns.map(item => item.name)).toEqual(["Search", "Camp A"]);
     expect(overview.campaigns[0]!.platform).toBe("google");
+  });
+  it("campanhas: ativas primeiro (mesmo sem gasto), depois as com gasto no período; parada sem gasto fica de fora", () => {
+    const ranked = rankCampaigns([
+      { name: "parada sem gasto", status: "PAUSED", spend: 0 },
+      { name: "pausada com gasto", status: "PAUSED", spend: 300 },
+      { name: "ativa sem gasto", status: "ENABLED", spend: 0 },
+      { name: "ativa com gasto", status: "ACTIVE", spend: 10 },
+      { name: "pausada com menos gasto", status: "PAUSED", spend: 20 },
+    ]);
+    expect(ranked.map(item => item.name)).toEqual(["ativa com gasto", "ativa sem gasto", "pausada com gasto", "pausada com menos gasto"]);
   });
   it("só entram as contas selecionadas da Meta", () => {
     const overview = buildClientOverview(meta({ selectedAccountIds: ["m2"] }), []);

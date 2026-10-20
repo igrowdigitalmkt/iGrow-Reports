@@ -53,7 +53,7 @@ export function previousPeriod(from: string, to: string) {
   return { from: shift(from, -length), to: shift(from, -1) };
 }
 
-export type GoogleAccountRows = { daily: Row[]; previousDaily: Row[]; campaigns: Row[] };
+export type GoogleAccountRows = { daily: Row[]; previousDaily: Row[]; campaigns: Row[]; /** Todas as campanhas da conta, sem métricas (opcional): as que não aparecem em `campaigns` não tiveram atividade no período. */ campaignList?: Row[] };
 
 export function buildGoogleAnalytics(input: { account: GoogleAccount; dateFrom: string; dateTo: string; rows: GoogleAccountRows; now?: Date }): AnalyticsDashboardData {
   const { account, dateFrom, dateTo, rows } = input;
@@ -62,7 +62,9 @@ export function buildGoogleAnalytics(input: { account: GoogleAccount; dateFrom: 
   const dailyRows = series(rows.daily);
   const previousRows = series(rows.previousDaily);
 
-  const campaigns = rows.campaigns.map(row => {
+  const withActivity = new Set(rows.campaigns.map(row => String(object(row.campaign).id ?? "")));
+  const idle = (rows.campaignList ?? []).filter(row => { const id = String(object(row.campaign).id ?? ""); return id && !withActivity.has(id); });
+  const campaigns = [...rows.campaigns, ...idle].map(row => {
     const campaign = object(row.campaign);
     const video = campaign.advertisingChannelType === "VIDEO";
     const totals = read(object(row.metrics));

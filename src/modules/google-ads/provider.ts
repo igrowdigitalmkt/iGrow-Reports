@@ -9,7 +9,7 @@ import type { GoogleAdsClient } from "./client";
 import type { ClientAccountBilling } from "@/modules/meta/server";
 import { googleAccountBilling } from "./billing";
 import { buildGoogleAnalytics, previousPeriod } from "./normalize";
-import { accountDailyQuery, campaignQuery } from "./queries";
+import { accountDailyQuery, campaignListQuery, campaignQuery } from "./queries";
 import { loadGoogleAdsClient } from "./server";
 
 type Service = SupabaseClient<Database>;
@@ -39,12 +39,14 @@ export async function loadGoogleSections(input: { service: Service; agencyId: st
   type Outcome = { section?: PlatformAccountSection; failure?: { name: string; message: string } };
   const results: Outcome[] = await Promise.all(linked.map(async (account): Promise<Outcome> => {
     try {
-      const [daily, previousDaily, campaigns] = await Promise.all([
+      const [daily, previousDaily, campaigns, campaignList] = await Promise.all([
         client.search(account.customerId, accountDailyQuery(input.dateFrom, input.dateTo), { loginCustomerId: account.loginCustomerId }),
         client.search(account.customerId, accountDailyQuery(previous.from, previous.to), { loginCustomerId: account.loginCustomerId }),
         client.search(account.customerId, campaignQuery(input.dateFrom, input.dateTo), { loginCustomerId: account.loginCustomerId }),
+        // A lista completa só acrescenta campanhas sem atividade no período; se falhar, a leitura segue como antes.
+        client.search(account.customerId, campaignListQuery(), { loginCustomerId: account.loginCustomerId }).catch(() => undefined),
       ]);
-      const data: AnalyticsDashboardData = buildGoogleAnalytics({ account, dateFrom: input.dateFrom, dateTo: input.dateTo, rows: { daily, previousDaily, campaigns } });
+      const data: AnalyticsDashboardData = buildGoogleAnalytics({ account, dateFrom: input.dateFrom, dateTo: input.dateTo, rows: { daily, previousDaily, campaigns, campaignList } });
       return { section: { id: account.id, name: account.name, data } };
     } catch (error) {
       return { failure: { name: account.name, message: error instanceof Error ? error.message : "Falha ao ler o Google Ads." } };
