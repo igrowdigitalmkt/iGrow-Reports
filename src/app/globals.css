@@ -1110,3 +1110,5 @@ img.team-avatar { object-fit: cover; padding: 0; }
 .cs-ok { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0; color: var(--muted); font-size: 12px; }
 @media (max-width: 1100px) { .cs-kpis { grid-template-columns: 1fr 1fr; } .cs-chart { grid-column: 1 / -1; } }
 @media (max-width: 640px) { .cs-kpis { grid-template-columns: 1fr; } }
+.cs-state { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.cs-restriction { font-weight: 500; }

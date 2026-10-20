@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, Target } from "lucide-react";
 import type { ClientAccountBilling } from "@/modules/meta/server";
 import { PortfolioSpendChart } from "@/modules/operations/portfolio-chart";
 import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { BillingSummary } from "./billing-section";
-import { buildClientOverview, type OverviewGoogleSection, type OverviewResult } from "./client-overview";
+import { buildClientOverview, type CampaignState, type LiveMetaCampaign, type OverviewGoogleSection, type OverviewResult } from "./client-overview";
 import type { AnalyticsDashboardData } from "./analytics-types";
 
 type Props = {
@@ -41,6 +41,13 @@ function Sparkline({ values, width = 88, height = 28 }: { values: number[]; widt
     <path d={line} className="sparkline-line" /><circle cx={lastX} cy={lastY} r="2.4" className="sparkline-dot" /></svg>;
 }
 
+const TONE: Record<CampaignState["tone"], string> = { good: "green", warn: "amber", bad: "amber", neutral: "neutral" };
+function StateBadge({ state }: { state: CampaignState | null }) {
+  if (!state) return <span className="muted">Indisponível</span>;
+  return <span className="cs-state"><span className={`badge ${TONE[state.tone]}`}><span className="status-dot" />{state.label}</span>
+    {state.restriction && <span className="badge amber cs-restriction">{state.restriction}</span>}</span>;
+}
+
 function Results({ results, currency }: { results: OverviewResult[]; currency: string | null }) {
   if (!results.length) return <span className="muted">Sem resultados</span>;
   const single = results.length === 1 ? results[0]! : null;
@@ -58,7 +65,21 @@ function Results({ results, currency }: { results: OverviewResult[]; currency: s
  */
 export function ClientSummary({ clientId, data, googleSections, googleFailures, latest, dailySpend, demoBilling }: Props) {
   const complete = data.coverage.status === "complete";
-  const overview = useMemo(() => buildClientOverview(data, googleSections), [data, googleSections]);
+  // Estado real das campanhas da Meta (o mesmo da tela de Campanhas), lido depois da abertura para não atrasar a página.
+  const [live, setLive] = useState<{ status: "loading" } | { status: "ready"; campaigns: LiveMetaCampaign[] } | { status: "error" }>({ status: "loading" });
+  const selectedKey = data.selectedAccountIds.join(",");
+  useEffect(() => {
+    if (demoBilling || !data.selectedAccountIds.length) return;
+    let alive = true;
+    const query = new URLSearchParams({ from: data.dateFrom, to: data.dateTo, contas: selectedKey });
+    fetch(`/api/clientes/${clientId}/campaigns-overview?${query}`, { cache: "no-store" })
+      .then(response => response.json() as Promise<{ campaigns?: LiveMetaCampaign[]; error?: string }>)
+      .then(body => { if (alive) setLive(body.campaigns?.length ? { status: "ready", campaigns: body.campaigns } : { status: "error" }); })
+      .catch(() => { if (alive) setLive({ status: "error" }); });
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedKey resume selectedAccountIds
+  }, [clientId, data.dateFrom, data.dateTo, selectedKey, demoBilling]);
+  const overview = useMemo(() => buildClientOverview(data, googleSections, live.status === "ready" ? live.campaigns : null), [data, googleSections, live]);
   const alerts = [...data.warnings, ...googleFailures.map(failure => `Google Ads: não foi possível ler a conta ${failure.name} agora. ${failure.message}`)];
   // Média diária por conta (para a duração do saldo): Google entra pelo gasto do período dividido pelos dias.
   const dailyByAccount = useMemo(() => ({
@@ -129,14 +150,14 @@ export function ClientSummary({ clientId, data, googleSections, googleFailures, 
       </table></div> : <p className="muted text-sm" style={{ padding: "0 18px 16px" }}>Nenhuma conta de anúncios vinculada.</p>}
     </section>
 
-    {overview.campaigns.length > 0 && <section className="panel cs-table" aria-label="Campanhas">
-      <div className="panel-heading"><div><h2>Campanhas</h2><p>Ativas e em veiculação primeiro; depois as que investiram no período selecionado</p></div></div>
+    {(overview.campaigns.length > 0 || live.status === "loading") && <section className="panel cs-table" aria-label="Campanhas">
+      <div className="panel-heading"><div><h2>Campanhas</h2><p>Ativas e em veiculação primeiro; depois as que investiram no período selecionado{live.status === "loading" ? " · lendo o estado atual na Meta…" : live.status === "error" ? " · estado atual da Meta indisponível agora" : ""}</p></div></div>
       <div className="table-scroll"><table className="data-table">
         <caption className="sr-only">Campanhas com maior investimento</caption>
         <thead><tr><th scope="col">Campanha</th><th scope="col">Situação</th><th scope="col" className="numeric">Investimento no período</th><th scope="col">Resultado</th></tr></thead>
         <tbody>{overview.campaigns.map(campaign => <tr key={`${campaign.platform}:${campaign.accountId}:${campaign.id}`}>
           <th scope="row" style={{ fontWeight: 400 }}><span className="cs-account"><PlatformLogo platform={campaign.platform} size={campaign.platform === "meta" ? 14 : 18} /><span><strong>{campaign.name}</strong><small>{campaign.accountName}</small></span></span></th>
-          <td><span className={`badge ${campaign.active ? "green" : "neutral"}`}><span className="status-dot" />{campaign.active ? "Ativa" : campaign.status === "PAUSED" ? "Pausada" : "Parada"}</span></td>
+          <td><StateBadge state={campaign.state} /></td>
           <td className="numeric">{money(campaign.spend, campaign.currency)}</td>
           <td>{campaign.result ? <span><strong>{integer(campaign.result.value)}</strong> {campaign.result.label.toLowerCase()}{campaign.result.cost != null ? ` · ${money(campaign.result.cost, campaign.currency)} cada` : ""}</span> : <span className="muted">Sem resultado</span>}</td>
         </tr>)}</tbody>

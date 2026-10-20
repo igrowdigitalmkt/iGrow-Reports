@@ -16,7 +16,7 @@ export function googleAccountSummary(section: GoogleSectionView) {
   const percent = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const sources = data.campaigns.map(campaign => ({ values: campaign.values, level: "campaign" as const, id: campaign.id, accountId: campaign.accountId }));
   const results = resultCostBreakdown(data.summary, sources).sort((a, b) => b.value - a.value);
-  const campaigns = rankCampaigns(data.campaigns.map(campaign => ({ ...campaign, spend: campaign.values.spend ?? null }))).slice(0, 5).map(campaign => {
+  const campaigns = rankCampaigns(data.campaigns.map(campaign => ({ ...campaign, active: isActiveCampaignStatus(campaign.status), spend: campaign.values.spend ?? null }))).slice(0, 5).map(campaign => {
     const own = resultCostBreakdown(campaign.values, [{ values: campaign.values, level: "campaign" as const, id: campaign.id, accountId: campaign.accountId }])[0];
     return { id: campaign.id, name: campaign.name, active: isActiveCampaignStatus(campaign.status), spend: ok(campaign.values.spend) ? money.format(campaign.values.spend) : "—",
       result: own ? `${whole.format(own.value)} ${own.label.toLowerCase()}${own.cost != null ? ` (${money.format(own.cost)} cada)` : ""}` : "Sem resultado no período" };

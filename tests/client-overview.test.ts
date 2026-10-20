@@ -52,19 +52,32 @@ describe("visão geral do cliente em todas as plataformas", () => {
     expect(single.accounts[0]!.trend).toEqual([80, 70]);
   });
   it("principais campanhas: só as que gastaram, em ordem, nas duas plataformas", () => {
-    const overview = buildClientOverview(meta(), [google(500)], 2);
+    const overview = buildClientOverview(meta(), [google(500)], null, 2);
     expect(overview.campaigns.map(item => item.name)).toEqual(["Search", "Camp A"]);
     expect(overview.campaigns[0]!.platform).toBe("google");
   });
   it("campanhas: ativas primeiro (mesmo sem gasto), depois as com gasto no período; parada sem gasto fica de fora", () => {
     const ranked = rankCampaigns([
-      { name: "parada sem gasto", status: "PAUSED", spend: 0 },
-      { name: "pausada com gasto", status: "PAUSED", spend: 300 },
-      { name: "ativa sem gasto", status: "ENABLED", spend: 0 },
-      { name: "ativa com gasto", status: "ACTIVE", spend: 10 },
-      { name: "pausada com menos gasto", status: "PAUSED", spend: 20 },
+      { name: "parada sem gasto", active: false, spend: 0 },
+      { name: "pausada com gasto", active: false, spend: 300 },
+      { name: "ativa sem gasto", active: true, spend: 0 },
+      { name: "ativa com gasto", active: true, spend: 10 },
+      { name: "pausada com menos gasto", active: false, spend: 20 },
     ]);
     expect(ranked.map(item => item.name)).toEqual(["ativa com gasto", "ativa sem gasto", "pausada com gasto", "pausada com menos gasto"]);
+  });
+  it("Meta ao vivo: campanha ativa sem gasto entra antes das pausadas, com o estado real", () => {
+    const state = (group: string, label: string) => ({ label, tone: "neutral" as const, group, restriction: group === "active" ? "Conta sem veiculação" : null });
+    const live = [
+      { id: "p", accountId: "m1", name: "Pausada com gasto", accountName: "Conta m1", currency: "BRL", values: { spend: 90 }, state: state("paused", "Pausado") },
+      { id: "a", accountId: "m1", name: "Ativa sem gasto", accountName: "Conta m1", currency: "BRL", values: { spend: null }, state: state("active", "Ativo") },
+      { id: "x", accountId: "other", name: "Outra conta", accountName: "Outra", currency: "BRL", values: { spend: 999 }, state: state("active", "Ativo") },
+    ];
+    const rows = buildClientOverview(meta(), [], live).campaigns;
+    expect(rows.map(item => item.name)).toEqual(["Ativa sem gasto", "Pausada com gasto"]);
+    expect(rows[0]).toMatchObject({ active: true, spend: null, state: { label: "Ativo", restriction: "Conta sem veiculação" } });
+    // sem a leitura ao vivo a situação não é inventada
+    expect(buildClientOverview(meta(), []).campaigns.every(item => item.state === null && !item.active)).toBe(true);
   });
   it("só entram as contas selecionadas da Meta", () => {
     const overview = buildClientOverview(meta({ selectedAccountIds: ["m2"] }), []);

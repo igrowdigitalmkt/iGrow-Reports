@@ -9,7 +9,11 @@ export type OverviewAccount = {
   platform: "meta" | "google"; id: string; name: string; detail: string; currency: string;
   spend: number | null; results: OverviewResult[]; trend: number[]; days: string[];
 };
-export type OverviewCampaign = { platform: "meta" | "google"; id: string; accountId: string; name: string; accountName: string; currency: string; status: string | null; active: boolean; spend: number | null; result: OverviewResult | null };
+/** Situação de veiculação mostrada na tabela (mesmos rótulos da tela de Campanhas). */
+export type CampaignState = { label: string; tone: "good" | "warn" | "bad" | "neutral"; group: string; restriction: string | null };
+/** Campanha da Meta lida ao vivo (estado efetivo) pela mesma leitura da tela de Campanhas. */
+export type LiveMetaCampaign = { id: string; accountId: string; name: string; accountName: string; currency: string; values: AnalyticsValues; state: CampaignState };
+export type OverviewCampaign = { platform: "meta" | "google"; id: string; accountId: string; name: string; accountName: string; currency: string; state: CampaignState | null; active: boolean; spend: number | null; result: OverviewResult | null };
 
 /** Campanha configurada como ativa (Meta: ACTIVE; Google: ENABLED). */
 export const isActiveCampaignStatus = (status: string | null | undefined) => status === "ACTIVE" || status === "ENABLED";
@@ -18,12 +22,18 @@ export const isActiveCampaignStatus = (status: string | null | undefined) => sta
  * Ordem das campanhas: primeiro as ativas/em veiculação (as de maior investimento antes), depois as que investiram no período
  * selecionado. Campanha parada e sem investimento no período não entra.
  */
-export function rankCampaigns<T extends { status: string | null; spend: number | null }>(rows: T[]): T[] {
+export function rankCampaigns<T extends { active: boolean; spend: number | null }>(rows: T[]): T[] {
   const bySpend = (a: T, b: T) => (b.spend ?? 0) - (a.spend ?? 0);
-  const active = rows.filter(row => isActiveCampaignStatus(row.status)).sort(bySpend);
-  const spent = rows.filter(row => !isActiveCampaignStatus(row.status) && (row.spend ?? 0) > 0).sort(bySpend);
-  return [...active, ...spent];
+  return [...rows.filter(row => row.active).sort(bySpend), ...rows.filter(row => !row.active && (row.spend ?? 0) > 0).sort(bySpend)];
 }
+
+/** Situação de uma campanha do Google a partir do status configurado (a API não separa estado efetivo aqui). */
+export function googleCampaignState(status: string | null): CampaignState {
+  if (status === "ENABLED") return { label: "Ativo", tone: "good", group: "active", restriction: null };
+  if (status === "PAUSED") return { label: "Pausado", tone: "neutral", group: "paused", restriction: null };
+  return { label: status ? "Outro estado" : "Indisponível", tone: "neutral", group: "other", restriction: null };
+}
+
 export type ClientOverview = {
   accounts: OverviewAccount[];
   campaigns: OverviewCampaign[];
@@ -50,7 +60,7 @@ function resultsOf(values: AnalyticsValues, sources: Array<{ values: AnalyticsVa
  * Resumo do cliente em todas as plataformas: investimento, resultados e série diária. Valores só são somados quando as contas usam a
  * mesma moeda e quando todas informam o dado; o que não pôde ser confirmado fica vazio (nunca zero).
  */
-export function buildClientOverview(meta: AnalyticsDashboardData, google: OverviewGoogleSection[], campaignLimit = 8): ClientOverview {
+export function buildClientOverview(meta: AnalyticsDashboardData, google: OverviewGoogleSection[], liveMeta: LiveMetaCampaign[] | null = null, campaignLimit = 8): ClientOverview {
   const selected = meta.accounts.filter(account => meta.selectedAccountIds.includes(account.id));
   const accounts: OverviewAccount[] = selected.map(account => {
     const totals = meta.accountTotals.find(item => item.id === account.id);
@@ -104,15 +114,25 @@ export function buildClientOverview(meta: AnalyticsDashboardData, google: Overvi
   const aligned = series.length > 0 && series.every(item => item.previous.length === days.length);
   const previousTrend = currency && aligned ? days.map((_, index) => series.reduce((total, item) => total + (item.previous[index]?.values.spend ?? 0), 0)) : [];
 
-  const campaignRows: OverviewCampaign[] = [
-    ...meta.campaigns.filter(campaign => meta.selectedAccountIds.includes(campaign.accountId)).map(campaign => ({ platform: "meta" as const, campaign })),
-    ...google.flatMap(section => section.data.campaigns.map(campaign => ({ platform: "google" as const, campaign }))),
-  ].map(({ platform, campaign }) => ({
-    platform, id: campaign.id, accountId: campaign.accountId, name: campaign.name, accountName: campaign.accountName, currency: campaign.currency,
-    status: campaign.status, active: isActiveCampaignStatus(campaign.status), spend: spendOf(campaign.values),
+  // Meta: com a leitura ao vivo, as campanhas e o estado são os da tela de Campanhas (inclui ativas sem gasto);
+  // sem ela, só as campanhas com dados do período, com a situação marcada como indisponível.
+  const metaRows: OverviewCampaign[] = liveMeta
+    ? liveMeta.filter(campaign => meta.selectedAccountIds.includes(campaign.accountId)).map(campaign => ({
+      platform: "meta" as const, id: campaign.id, accountId: campaign.accountId, name: campaign.name, accountName: campaign.accountName, currency: campaign.currency,
+      state: campaign.state, active: campaign.state.group === "active", spend: spendOf(campaign.values),
+      result: resultsOf(campaign.values, [{ values: campaign.values, id: campaign.id, accountId: campaign.accountId }])[0] ?? null,
+    }))
+    : meta.campaigns.filter(campaign => meta.selectedAccountIds.includes(campaign.accountId)).map(campaign => ({
+      platform: "meta" as const, id: campaign.id, accountId: campaign.accountId, name: campaign.name, accountName: campaign.accountName, currency: campaign.currency,
+      state: null, active: false, spend: spendOf(campaign.values),
+      result: resultsOf(campaign.values, [{ values: campaign.values, id: campaign.id, accountId: campaign.accountId }])[0] ?? null,
+    }));
+  const googleRows: OverviewCampaign[] = google.flatMap(section => section.data.campaigns.map(campaign => ({
+    platform: "google" as const, id: campaign.id, accountId: campaign.accountId, name: campaign.name, accountName: campaign.accountName, currency: campaign.currency,
+    state: googleCampaignState(campaign.status), active: isActiveCampaignStatus(campaign.status), spend: spendOf(campaign.values),
     result: resultsOf(campaign.values, [{ values: campaign.values, id: campaign.id, accountId: campaign.accountId }])[0] ?? null,
-  }));
-  const campaigns = rankCampaigns(campaignRows).slice(0, campaignLimit);
+  })));
+  const campaigns = rankCampaigns([...metaRows, ...googleRows]).slice(0, campaignLimit);
 
   return {
     accounts, campaigns, currency, spend, previousSpend, results, days, trend, previousTrend,
