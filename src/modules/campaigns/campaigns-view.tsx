@@ -210,12 +210,10 @@ export function CampaignsView({ clientId, clientName, intro, googleSections = []
         <span className="client-avatar large blue" aria-hidden="true">{(clientName ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
         <div><h1>{clientName ?? "Campanhas"}</h1><p>Campanhas, conjuntos e anúncios · estrutura e veiculação</p></div>
       </div>
-      <div className="analytics-command-actions"><PlatformPicker value={platforms} onChange={changePlatforms} /></div>
+      <div className="analytics-command-actions"><PlatformPicker value={platforms} onChange={changePlatforms} />
+        <PeriodPicker period={data.period} dateFrom={data.dateFrom} dateTo={data.dateTo} today={data.today} disabled={pending}
+          onApply={selection => navigate(selection.period === "custom" ? { periodo: "custom", from: selection.from, to: selection.to } : { periodo: selection.period, from: null, to: null })} /></div>
     </header>
-    <div className="analytics-period-row">
-      <PeriodPicker period={data.period} dateFrom={data.dateFrom} dateTo={data.dateTo} today={data.today} disabled={pending}
-          onApply={selection => navigate(selection.period === "custom" ? { periodo: "custom", from: selection.from, to: selection.to } : { periodo: selection.period, from: null, to: null })} />
-    </div>
     {intro}
     {metaVisible && <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
       <div className="platform-heading"><span className="platform-mark is-meta" aria-hidden="true">∞</span><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
