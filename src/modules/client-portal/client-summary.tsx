@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, Target } from "lucide-react";
+import { SortHeader, ariaSort, type SortDirection } from "@/components/ui/sort-header";
 import type { ClientAccountBilling } from "@/modules/meta/server";
 import { PortfolioSpendChart } from "@/modules/operations/portfolio-chart";
 import { PlatformLogo } from "@/modules/platforms/platform-logo";
@@ -40,6 +41,28 @@ function Sparkline({ values, width = 88, height = 28 }: { values: number[]; widt
     <path d={`${line} L${lastX!.toFixed(1)} ${height} L${pad} ${height} Z`} className="sparkline-area" />
     <path d={line} className="sparkline-line" /><circle cx={lastX} cy={lastY} r="2.4" className="sparkline-dot" /></svg>;
 }
+
+type SortState = { key: string; direction: SortDirection } | null;
+/** Ordena por uma chave; sem escolha do usuário mantém a ordem original (ativas primeiro). 1º clique: decrescente (texto: crescente). */
+function useSort(textKeys: string[]) {
+  const [sort, setSort] = useState<SortState>(null);
+  const toggle = (key: string) => setSort(current => current?.key === key ? { key, direction: current.direction === "asc" ? "desc" : "asc" } : { key, direction: textKeys.includes(key) ? "asc" : "desc" });
+  const apply = <T,>(rows: T[], value: (row: T, key: string) => number | string | null) => {
+    if (!sort) return rows;
+    const factor = sort.direction === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = value(a, sort.key), bv = value(b, sort.key);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (typeof av === "string" && typeof bv === "string" ? av.localeCompare(bv, "pt-BR", { sensitivity: "base" }) : Number(av) - Number(bv)) * factor;
+    });
+  };
+  const head = (key: string, label: string) => <SortHeader label={label} active={sort?.key === key} direction={sort?.direction ?? "desc"} onSort={() => toggle(key)} />;
+  const aria = (key: string) => ariaSort(sort?.key === key, sort?.direction ?? "desc");
+  return { apply, head, aria };
+}
+const STATE_RANK = ["active", "paused", "review", "rejected", "other", "unavailable"];
 
 const TONE: Record<CampaignState["tone"], string> = { good: "green", warn: "amber", bad: "amber", neutral: "neutral" };
 function StateBadge({ state }: { state: CampaignState | null }) {
@@ -80,6 +103,13 @@ export function ClientSummary({ clientId, data, googleSections, googleFailures, 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedKey resume selectedAccountIds
   }, [clientId, data.dateFrom, data.dateTo, selectedKey, demoBilling]);
   const overview = useMemo(() => buildClientOverview(data, googleSections, live.status === "ready" ? live.campaigns : null), [data, googleSections, live]);
+  const campaignSort = useSort(["name"]);
+  const accountSort = useSort(["name"]);
+  const [showAllCampaigns, setShowAllCampaigns] = useState(false);
+  const CAMPAIGN_LIMIT = 8;
+  const campaignRows = campaignSort.apply(overview.campaigns, (row, key) => key === "name" ? row.name : key === "state" ? (row.state ? STATE_RANK.indexOf(row.state.group) : 99) : key === "spend" ? row.spend : row.result?.value ?? null);
+  const visibleCampaigns = showAllCampaigns ? campaignRows : campaignRows.slice(0, CAMPAIGN_LIMIT);
+  const accountRows = accountSort.apply(overview.accounts, (row, key) => key === "name" ? row.name : key === "spend" ? row.spend : row.results[0]?.value ?? null);
   const alerts = [...data.warnings, ...googleFailures.map(failure => `Google Ads: não foi possível ler a conta ${failure.name} agora. ${failure.message}`)];
   // Média diária por conta (para a duração do saldo): Google entra pelo gasto do período dividido pelos dias.
   const dailyByAccount = useMemo(() => ({
@@ -140,8 +170,8 @@ export function ClientSummary({ clientId, data, googleSections, googleFailures, 
       <div className="panel-heading"><div><h2>Contas de anúncios</h2><p>Desempenho de cada conta no período</p></div></div>
       {overview.accounts.length ? <div className="table-scroll"><table className="data-table">
         <caption className="sr-only">Investimento e resultados de cada conta de anúncios</caption>
-        <thead><tr><th scope="col">Conta</th><th scope="col" className="numeric">Investimento</th><th scope="col">Resultados no período</th><th scope="col">Tendência</th></tr></thead>
-        <tbody>{overview.accounts.map(account => <tr key={`${account.platform}:${account.id}`}>
+        <thead><tr><th scope="col" aria-sort={accountSort.aria("name")}>{accountSort.head("name", "Conta")}</th><th scope="col" className="numeric" aria-sort={accountSort.aria("spend")}>{accountSort.head("spend", "Investimento")}</th><th scope="col" aria-sort={accountSort.aria("results")}>{accountSort.head("results", "Resultados no período")}</th><th scope="col">Tendência</th></tr></thead>
+        <tbody>{accountRows.map(account => <tr key={`${account.platform}:${account.id}`}>
           <th scope="row" style={{ fontWeight: 400 }}><span className="cs-account"><PlatformLogo platform={account.platform} size={account.platform === "meta" ? 14 : 18} /><span><strong>{account.name}</strong><small>{account.platform === "meta" ? "Meta Ads" : "Google Ads"} · {account.detail}</small></span></span></th>
           <td className="numeric">{money(account.spend, account.currency)}</td>
           <td>{account.spend == null ? <span className="muted">—</span> : <Results results={account.results} currency={account.currency} />}</td>
@@ -151,17 +181,19 @@ export function ClientSummary({ clientId, data, googleSections, googleFailures, 
     </section>
 
     {(overview.campaigns.length > 0 || live.status === "loading") && <section className="panel cs-table" aria-label="Campanhas">
-      <div className="panel-heading"><div><h2>Campanhas</h2><p>Ativas e em veiculação primeiro; depois as que investiram no período selecionado{live.status === "loading" ? " · lendo o estado atual na Meta…" : live.status === "error" ? " · estado atual da Meta indisponível agora" : ""}</p></div></div>
+      <div className="panel-heading"><div><h2>Campanhas</h2><p>Ativas, em veiculação ou que investiram no período selecionado.{live.status === "loading" ? " Lendo o estado atual na Meta…" : live.status === "error" ? " Estado atual da Meta indisponível agora." : ""}</p></div></div>
       <div className="table-scroll"><table className="data-table">
         <caption className="sr-only">Campanhas com maior investimento</caption>
-        <thead><tr><th scope="col">Campanha</th><th scope="col">Situação</th><th scope="col" className="numeric">Investimento no período</th><th scope="col">Resultado</th></tr></thead>
-        <tbody>{overview.campaigns.map(campaign => <tr key={`${campaign.platform}:${campaign.accountId}:${campaign.id}`}>
+        <thead><tr><th scope="col" aria-sort={campaignSort.aria("name")}>{campaignSort.head("name", "Campanha")}</th><th scope="col" aria-sort={campaignSort.aria("state")}>{campaignSort.head("state", "Situação")}</th><th scope="col" className="numeric" aria-sort={campaignSort.aria("spend")}>{campaignSort.head("spend", "Investimento no período")}</th><th scope="col" aria-sort={campaignSort.aria("result")}>{campaignSort.head("result", "Resultado")}</th></tr></thead>
+        <tbody>{visibleCampaigns.map(campaign => <tr key={`${campaign.platform}:${campaign.accountId}:${campaign.id}`}>
           <th scope="row" style={{ fontWeight: 400 }}><span className="cs-account"><PlatformLogo platform={campaign.platform} size={campaign.platform === "meta" ? 14 : 18} /><span><strong>{campaign.name}</strong><small>{campaign.accountName}</small></span></span></th>
           <td><StateBadge state={campaign.state} /></td>
           <td className="numeric">{money(campaign.spend, campaign.currency)}</td>
           <td>{campaign.result ? <span><strong>{integer(campaign.result.value)}</strong> {campaign.result.label.toLowerCase()}{campaign.result.cost != null ? ` · ${money(campaign.result.cost, campaign.currency)} cada` : ""}</span> : <span className="muted">Sem resultado</span>}</td>
         </tr>)}</tbody>
       </table></div>
+      {campaignRows.length > CAMPAIGN_LIMIT && <button type="button" className="billing-idle-toggle" aria-expanded={showAllCampaigns} onClick={() => setShowAllCampaigns(value => !value)}>
+        {showAllCampaigns ? "Mostrar menos" : `Mostrar todas (${campaignRows.length})`}</button>}
     </section>}
 
     {!alerts.length && <p className="cs-ok"><CircleCheck size={14} />Nenhum alerta de qualidade no período.</p>}

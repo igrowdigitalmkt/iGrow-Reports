@@ -1112,3 +1112,10 @@ img.team-avatar { object-fit: cover; padding: 0; }
 @media (max-width: 640px) { .cs-kpis { grid-template-columns: 1fr; } }
 .cs-state { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .cs-restriction { font-weight: 500; }
+
+/* Títulos de coluna ordenáveis (padrão do Gerenciador de Anúncios) */
+.sort-header { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.sort-header svg { flex-shrink: 0; color: var(--muted); opacity: .75; }
+.sort-header:hover svg { opacity: 1; color: var(--text); }
+.sort-header.is-active, .sort-header.is-active svg { color: var(--accent-text); opacity: 1; }
+th:has(> .sort-header.is-active) { color: var(--accent-text); }

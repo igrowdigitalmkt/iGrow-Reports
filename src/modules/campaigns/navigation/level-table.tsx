@@ -1,9 +1,10 @@
 "use client";
 
+import { SortHeader, ariaSort } from "@/components/ui/sort-header";
 import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Sparkles, TriangleAlert } from "lucide-react";
+import { Sparkles, TriangleAlert } from "lucide-react";
 import { Cell, LEVEL_LABELS } from "../cells";
 import type { ColumnDef, CostIndex } from "../columns";
 import { entityPath } from "../routes";
@@ -29,19 +30,19 @@ export function LevelTable({ level, rows, columns, index, selected, onToggle, on
   const someSelected = !allSelected && rows.some(row => selected.has(entityKey(row)));
   const head = useRef<HTMLInputElement>(null);
   useEffect(() => { if (head.current) head.current.indeterminate = someSelected; }, [someSelected]);
-  const mark = (key: string) => sort.key === key && <ChevronDown size={12} style={{ transform: sort.direction === "asc" ? "rotate(180deg)" : undefined }} />;
-  const aria = (key: string) => sort.key === key ? (sort.direction === "asc" ? "ascending" as const : "descending" as const) : "none" as const;
+  const aria = (key: string) => ariaSort(sort.key === key, sort.direction);
+  const header = (key: string, label: string) => <SortHeader label={label} active={sort.key === key} direction={sort.direction} onSort={() => onSort(key)} />;
   const span = columns.length + 3 + (level === "campaign" ? 0 : level === "adset" ? 1 : 2);
 
   return <div className="analytics-table-scroll is-capped"><table className="analytics-table analytics-campaign-table level-table" aria-label={`Tabela de ${NAME_HEADER[level].toLocaleLowerCase("pt-BR")}`}>
     <thead><tr>
       <th scope="col" className="level-check"><input ref={head} type="checkbox" checked={allSelected} aria-label="Selecionar esta página" disabled={!rows.length} onChange={event => onTogglePage(event.target.checked)} /></th>
-      <th scope="col" className="analytics-campaign-main-header" aria-sort={aria("name")}><button type="button" onClick={() => onSort("name")}>{NAME_HEADER[level]}{mark("name")}</button></th>
+      <th scope="col" className="analytics-campaign-main-header" aria-sort={aria("name")}>{header("name", NAME_HEADER[level])}</th>
       {level === "ad" && <th scope="col" className="level-parent">Conjunto</th>}
       {level !== "campaign" && <th scope="col" className="level-parent">Campanha</th>}
-      <th scope="col" className="campaign-state-head">Veiculação</th>
+      <th scope="col" className="campaign-state-head" aria-sort={aria("state")}>{header("state", "Veiculação")}</th>
       {columns.map(column => <th scope="col" key={column.key} data-col={column.key} title={column.hint} aria-sort={column.sortable ? aria(column.key) : undefined}>{column.sortable
-        ? <button type="button" onClick={() => onSort(column.key)}>{column.label}{mark(column.key)}</button> : column.label}</th>)}
+        ? header(column.key, column.label) : column.label}</th>)}
     </tr></thead>
     <tbody>{rows.map(row => {
       const key = entityKey(row);

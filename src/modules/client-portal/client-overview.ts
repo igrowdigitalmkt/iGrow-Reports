@@ -60,7 +60,7 @@ function resultsOf(values: AnalyticsValues, sources: Array<{ values: AnalyticsVa
  * Resumo do cliente em todas as plataformas: investimento, resultados e série diária. Valores só são somados quando as contas usam a
  * mesma moeda e quando todas informam o dado; o que não pôde ser confirmado fica vazio (nunca zero).
  */
-export function buildClientOverview(meta: AnalyticsDashboardData, google: OverviewGoogleSection[], liveMeta: LiveMetaCampaign[] | null = null, campaignLimit = 8): ClientOverview {
+export function buildClientOverview(meta: AnalyticsDashboardData, google: OverviewGoogleSection[], liveMeta: LiveMetaCampaign[] | null = null, campaignLimit = Number.POSITIVE_INFINITY): ClientOverview {
   const selected = meta.accounts.filter(account => meta.selectedAccountIds.includes(account.id));
   const accounts: OverviewAccount[] = selected.map(account => {
     const totals = meta.accountTotals.find(item => item.id === account.id);
