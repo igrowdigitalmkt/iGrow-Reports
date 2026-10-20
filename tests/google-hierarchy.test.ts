@@ -45,9 +45,8 @@ describe("hierarquia do Google Ads no formato das linhas de Campanhas", () => {
     expect(find("ad", "100")).toMatchObject({ parentId: "10", campaignId: "1" });
     expect(find("adset", "10")).toMatchObject({ parentId: "1", campaignId: "1" });
   });
-  it("data de início da campanha vira a referência de data da ordem padrão", () => {
-    expect(find("campaign", "2").state.createdAt).toBe("2026-10-20T00:00:00Z");
-    expect(find("adset", "10").state.createdAt ?? null).toBeNull();
+  it("a ordem padrão não depende de data inexistente na API: sem data, a referência fica vazia", () => {
+    expect(find("campaign", "2").state.createdAt ?? null).toBeNull();
   });
   it("consultas só leem (GAQL), com datas validadas e sem remover itens", () => {
     for (const query of [campaignQuery("2026-10-01", "2026-10-02"), adGroupQuery("2026-10-01", "2026-10-02"), adRowsQuery("2026-10-01", "2026-10-02"), campaignListQuery(), adListQuery()]) {
@@ -55,5 +54,7 @@ describe("hierarquia do Google Ads no formato das linhas de Campanhas", () => {
       expect(query).toContain("!= 'REMOVED'");
     }
     expect(() => adGroupQuery("2026-10-01; DROP", "2026-10-02")).toThrow();
+    // campos só de versões antigas ou novas da API derrubam a consulta inteira (UNRECOGNIZED_FIELD)
+    for (const query of [campaignQuery("2026-10-01", "2026-10-02"), campaignListQuery()]) expect(query).not.toMatch(/start_date|end_date/);
   });
 });
