@@ -5,7 +5,8 @@ import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const source = readFileSync("infra/evolution/native-label-sync.mjs", "utf8");
-const methods = source.split("const methods=String.raw`")[1].split("`;\n")[0];
+// Aceita LF e CRLF (checkout do Windows com autocrlf): dividir só por "\n" capturava o arquivo inteiro e acusava palavras do instalador.
+const methods = source.split("const methods=String.raw`")[1].split(/`;\r?\n/)[0];
 type Label = { id: string; name: string; color: number; deleted?: boolean; igrowLabelAction?: Record<string, unknown> };
 type Projection = { labels: Map<string, Label>; chats: Map<string, Set<string>> };
 type Snapshot = { labels: Label[]; syncVersions: { regular: number }; chats: Array<{ remoteJid: string; labels: string[]; remoteJidAlt: string | null }> };
