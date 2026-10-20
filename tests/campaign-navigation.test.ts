@@ -41,6 +41,12 @@ describe("menu do cliente e barra principal", () => {
     expect(page).not.toContain('"cliente"');
     expect(read("src/modules/campaigns/load.ts")).not.toMatch(/query\.cliente/);
   });
+  it("a página de detalhes confere o vínculo da conta com o cliente antes de ler dados (conta alheia = não encontrado)", () => {
+    const page = read("src/app/(workspace)/clientes/[clientId]/campanhas/meta/[accountId]/[level]/[entityId]/page.tsx");
+    expect(page).toContain('from("client_ad_accounts")');
+    expect(page).toContain("if (!link) notFound()");
+    expect(page.indexOf("if (!link) notFound()")).toBeLessThan(page.indexOf("loadCampaignsData("));
+  });
   it("a lista de clientes abre o painel pelo endereço do cliente (/clientes/ID)", () => {
     expect(read("src/modules/clients/client-manager.tsx")).toContain("href={`/clientes/${client.id}`}");
   });

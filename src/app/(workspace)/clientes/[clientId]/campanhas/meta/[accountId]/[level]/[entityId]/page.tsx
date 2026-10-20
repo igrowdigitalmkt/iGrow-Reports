@@ -37,7 +37,13 @@ export default async function EntityDetailPage({ params, searchParams }: {
   }
   const { context, client, allowed } = await authorizeCampaignsClient(route.clientId);
   if (!allowed) return <p className="campaigns-notice">Seu acesso não inclui esta área. Peça a um administrador para liberar Clientes em Equipe › Permissões.</p>;
-  // Só a conta da rota é lida (e precisa estar vinculada ao cliente): a lista completa do cliente não é carregada.
+  // A conta da rota precisa estar vinculada a ESTE cliente (leitura sob a sessão do usuário, protegida por RLS) ANTES de qualquer leitura de
+  // dados: conta de outro cliente ou inexistente é "não encontrado", sem erro interno nem consulta à Meta.
+  const { data: link, error: linkError } = await context.supabase.from("client_ad_accounts").select("ad_account_id")
+    .eq("client_id", client.id).eq("ad_account_id", ref.accountId).eq("active", true).maybeSingle();
+  if (linkError) throw new Error("Não foi possível consultar as contas do cliente.");
+  if (!link) notFound();
+  // Só a conta da rota é lida: a lista completa do cliente não é carregada.
   const data = await loadCampaignsData(client.id, { ...query, contas: ref.accountId });
   if (data.state === "no-accounts") return <Notice clientId={client.id} title="Nenhuma conta vinculada" text="Este cliente não tem conta de anúncios da Meta vinculada." />;
   if (data.state === "error") return <Notice clientId={client.id} title="Detalhes indisponíveis" text={data.message ?? "Não foi possível consultar esta entidade agora. Tente novamente em instantes."} />;

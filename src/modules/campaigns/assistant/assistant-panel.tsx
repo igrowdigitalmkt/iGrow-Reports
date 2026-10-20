@@ -81,7 +81,9 @@ export function AssistantPanel({ context, clientName, accounts, conversation, av
       {conversation.messages.length === 0 && conversation.status !== "sending" && <div className="assistant-empty">
         <span aria-hidden="true"><Sparkles size={20} /></span>
         <strong>Nenhuma conversa ainda</strong>
-        <p>Quando o assistente estiver conectado, as perguntas serão respondidas com base no contexto acima e nos dados confirmados desta tela.</p>
+        <p>{available
+          ? "Pergunte sobre o contexto acima. As respostas usam somente os dados confirmados desta tela e o assistente não altera nada nas suas campanhas."
+          : "Quando o assistente estiver disponível, as perguntas serão respondidas com base no contexto acima e nos dados confirmados desta tela."}</p>
       </div>}
       {conversation.messages.map(message => <article key={message.id} className={`assistant-message is-${message.role}${message.status === "error" ? " is-error" : ""}`}>
         {message.role === "assistant" && <span className="assistant-message-who"><Sparkles size={11} />Assistente Groow</span>}
