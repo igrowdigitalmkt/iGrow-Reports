@@ -16,7 +16,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { AnalyticsEntity } from "./analytics-hierarchy";
 import type { AnalyticsReportItem } from "./analytics-types";
 
-export type ClientAnalyticsQuery = { periodo?: string; from?: string; to?: string; accounts?: string; aba?: string; inicio?: string; consolidar?: string };
+export type ClientAnalyticsQuery = { periodo?: string; from?: string; to?: string; accounts?: string; aba?: string; inicio?: string; separar?: string };
 
 function queryString(query: ClientAnalyticsQuery) {
   const params = new URLSearchParams(Object.entries(query).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
@@ -80,7 +80,7 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
     data.warnings.push("A comparação anterior permanece indisponível até a cobertura desse período também ficar completa.");
   }
   // Contas separadas (padrão): cada conta selecionada com os próprios números, lidos e confirmados como uma conta só.
-  const accountViews = query.consolidar !== "1" && data.selectedAccountIds.length > 1 && data.coverage.status === "complete"
+  const accountViews = query.separar === "1" && data.selectedAccountIds.length > 1 && data.coverage.status === "complete"
     ? (await Promise.all(data.accounts.filter(account => data.selectedAccountIds.includes(account.id)).map(async account => {
       try {
         const view = await getFreshClientAnalytics({ supabase, agencyId: access.agencyId, clientId, dateFrom: range.dateFrom, dateTo: range.dateTo, accountIds: [account.id] });

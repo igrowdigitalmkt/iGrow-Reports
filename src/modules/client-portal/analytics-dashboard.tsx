@@ -22,6 +22,7 @@ import { AccountComparison } from "./account-comparison";
 import type { GoogleSectionView } from "@/modules/google-ads/google-section";
 import { GoogleDashboardSection } from "@/modules/google-ads/google-insights";
 import { sortActionsByImportance } from "./action-priority";
+import { Switch } from "@/components/ui/switch";
 import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { SectionToggle } from "./section-toggle";
 import { DEFAULT_PLATFORMS, PLATFORMS, PlatformPicker, type PlatformPreference } from "./platform-picker";
@@ -193,8 +194,9 @@ export function ClientAnalyticsDashboard({
   const [to, setTo] = useState(data.dateTo);
   const [accounts, setAccounts] = useState(data.selectedAccountIds);
   // Contas separadas por padrão; "Consolidar resultados" soma as contas selecionadas como uma conta só.
-  const [consolidate, setConsolidate] = useState(query.get("consolidar") === "1");
-  const separated = !(query.get("consolidar") === "1") && data.selectedAccountIds.length > 1;
+  // Consolidar resultados vem ligado por padrão; ao desligar, a URL leva separar=1 e cada conta aparece com os próprios números.
+  const [consolidate, setConsolidate] = useState(query.get("separar") !== "1");
+  const separated = query.get("separar") === "1" && data.selectedAccountIds.length > 1;
   const [optionalMetricKeys, setOptionalMetricKeys] = useState<string[]>(
     DEFAULT_OPTIONAL_METRICS.filter((key) => data.metrics.some((metric) => metric.key === key)),
   );
@@ -537,7 +539,7 @@ export function ClientAnalyticsDashboard({
     if (selectedAccounts.length && selectedAccounts.length < data.accounts.length) {
       next.set("accounts", selectedAccounts.join(","));
     }
-    if (consolidate && selectedAccounts.length > 1) next.set("consolidar", "1");
+    if (!consolidate && selectedAccounts.length > 1) next.set("separar", "1");
     const selectedLabel = PERIOD_LABELS[nextPeriod as keyof typeof PERIOD_LABELS] ?? "período selecionado";
     setApplyingPeriodLabel(nextPeriod === "custom"
       ? `${displayDate(customFrom)} a ${displayDate(customTo)}`
@@ -913,8 +915,10 @@ export function ClientAnalyticsDashboard({
                   ? current.filter((id) => id !== account.id) : [...current, account.id])} />
               <span>{account.name}<small>{account.externalId}</small></span>
             </label>)}
-            <label className="analytics-consolidate"><input type="checkbox" checked={consolidate} onChange={event => setConsolidate(event.target.checked)} />
-              <span>Consolidar resultados<small>Soma as contas selecionadas como se fossem uma só</small></span></label>
+            <div className="analytics-consolidate">
+              <span>Consolidar resultados<small>Soma as contas selecionadas como se fossem uma só</small></span>
+              <Switch checked={consolidate} onChange={setConsolidate} label="Consolidar resultados das contas selecionadas" />
+            </div>
             <button type="button" className="analytics-button analytics-button-primary analytics-accounts-apply" disabled={navigating || !accounts.length}
               onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); if (accounts.length) navigate(period); }}>Aplicar contas</button>
           </div>
