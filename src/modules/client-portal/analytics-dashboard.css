@@ -544,3 +544,5 @@
 .platform-heading { gap: 8px; }
 .platform-mark-slot { display: inline-flex; align-items: center; justify-content: center; width: 26px; flex-shrink: 0; }
 .platform-logo { color: var(--text); }
+.billing-account-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.billing-account-name .platform-logo { flex-shrink: 0; }

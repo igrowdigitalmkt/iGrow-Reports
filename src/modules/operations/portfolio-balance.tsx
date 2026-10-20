@@ -12,7 +12,7 @@ export function ClientBalance({ clientId, enabled, demo }: { clientId: string; e
     if (demo || !enabled) return;
     let cancelled = false;
     fetch(`/api/clientes/${clientId}/billing`, { cache: "no-store" }).then(response => response.json()).then((body: { accounts?: ClientAccountBilling[] }) => {
-      if (!cancelled) setState(body.accounts ? { status: "ready", ...summarizeBalance(body.accounts) } : { status: "error" });
+      if (!cancelled) setState(body.accounts ? { status: "ready", ...summarizeBalance(body.accounts.filter(account => account.platform !== "google")) } : { status: "error" });
     }).catch(() => { if (!cancelled) setState({ status: "error" }); });
     return () => { cancelled = true; };
   }, [clientId, enabled, demo]);

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ChevronDown, CircleCheck, CreditCard, RefreshCw } from "lucide-react";
 import type { ClientAccountBilling } from "@/modules/meta/server";
+import { PlatformLogo } from "@/modules/platforms/platform-logo";
 
-type BillingState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; accounts: ClientAccountBilling[] };
+type BillingState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; accounts: ClientAccountBilling[]; failures: string[] };
 
 const money = (value: number | null | undefined, currency: string) => value == null ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(value);
 // Below this many days of funds at the current pace, the account asks for attention.
@@ -34,12 +35,12 @@ function describe(account: ClientAccountBilling, daily: number): Row {
 }
 
 /**
- * Balance and payment state of each ad account, read live from Meta: one aligned row per
+ * Balance and payment state of each ad account (Meta and Google Ads), read live from each platform: one aligned row per
  * account, accounts that need action first, unused accounts folded away.
  */
 // `accountIds`: só as contas selecionadas no painel aparecem (sem valor, todas as contas do cliente).
 export function BillingSummary({ clientId, dailySpend, demoAccounts, accountIds }: { clientId: string; dailySpend: Record<string, number>; demoAccounts?: ClientAccountBilling[]; accountIds?: string[] }) {
-  const [state, setState] = useState<BillingState>(demoAccounts ? { status: "ready", accounts: demoAccounts } : { status: "loading" });
+  const [state, setState] = useState<BillingState>(demoAccounts ? { status: "ready", accounts: demoAccounts, failures: [] } : { status: "loading" });
   const [showIdle, setShowIdle] = useState(false);
 
   const load = useCallback(async () => {
@@ -47,17 +48,17 @@ export function BillingSummary({ clientId, dailySpend, demoAccounts, accountIds 
     setState({ status: "loading" });
     try {
       const response = await fetch(`/api/clientes/${clientId}/billing`, { cache: "no-store" });
-      const body = await response.json() as { accounts?: ClientAccountBilling[]; error?: string };
-      setState(body.accounts ? { status: "ready", accounts: body.accounts } : { status: "error", message: body.error ?? "Não foi possível consultar a Meta agora." });
+      const body = await response.json() as { accounts?: ClientAccountBilling[]; failures?: string[]; error?: string };
+      setState(body.accounts ? { status: "ready", accounts: body.accounts, failures: body.failures ?? [] } : { status: "error", message: body.error ?? "Não foi possível consultar as plataformas agora." });
     } catch {
-      setState({ status: "error", message: "Não foi possível consultar a Meta agora." });
+      setState({ status: "error", message: "Não foi possível consultar as plataformas agora." });
     }
   }, [clientId, demoAccounts]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- loads external data once per client
   useEffect(() => { void load(); }, [load]);
 
-  const rows = state.status === "ready" ? state.accounts.filter(account => !accountIds || accountIds.includes(account.accountId)).map(account => describe(account, dailySpend[account.accountId] ?? 0))
+  const rows = state.status === "ready" ? state.accounts.filter(account => account.platform === "google" || !accountIds || accountIds.includes(account.accountId)).map(account => describe(account, dailySpend[account.accountId] ?? 0))
     .sort((a, b) => Number(!!b.issue) - Number(!!a.issue) || b.daily - a.daily) : [];
   const active = rows.filter(row => !row.idle);
   const idle = rows.filter(row => row.idle);
@@ -75,6 +76,7 @@ export function BillingSummary({ clientId, dailySpend, demoAccounts, accountIds 
     </div>
     {state.status === "loading" && <div className="billing-rows">{[0, 1].map(index => <div className="billing-row" key={index}>{[38, 22, 22, 26].map((width, cell) => <span key={cell} className="sk" style={{ display: "block", width: `${width + 30}%`, height: cell ? 18 : 14 }} />)}</div>)}</div>}
     {state.status === "error" && <div className="billing-message"><span>{state.message}</span><button type="button" className="text-link" onClick={() => void load()}><RefreshCw size={13} />Tentar novamente</button></div>}
+    {state.status === "ready" && state.failures.length > 0 && <div className="billing-message"><span>Não foi possível consultar agora: {state.failures.join(", ")}.</span><button type="button" className="text-link" onClick={() => void load()}><RefreshCw size={13} />Tentar novamente</button></div>}
     {state.status === "ready" && !rows.length && <div className="billing-message"><span>Nenhuma conta de anúncio disponível para consulta.</span></div>}
     {rows.length > 0 && <div className="billing-rows" role="table" aria-label="Contas de anúncio">
       <div className="billing-row billing-row-head" role="row"><span role="columnheader">Conta</span><span role="columnheader">Saldo ou a pagar</span><span role="columnheader">Duração</span><span role="columnheader">Limite de gastos</span></div>
@@ -93,13 +95,15 @@ function BillingRow({ row }: { row: Row }) {
   const payment = account.prepaid ? "Pré-pago" : `Pós-pago${account.fundingLabel ? ` · ${account.fundingLabel}` : ""}`;
   return <div className={`billing-row${row.issue ? " has-issue" : ""}${row.idle ? " is-idle" : ""}`} role="row">
     <div className="billing-cell billing-account-cell" role="cell">
-      <strong title={account.name}>{account.name}</strong>
+      <strong title={account.name} className="billing-account-name"><PlatformLogo platform={account.platform ?? "meta"} size={(account.platform ?? "meta") === "meta" ? 12 : 16} />{account.name}</strong>
       <span className="billing-meta"><span className={`billing-dot ${account.delivering ? "is-ok" : "is-warn"}`} />{account.statusLabel} · {payment}</span>
     </div>
     <div className="billing-cell" role="cell">
       {account.prepaid
         ? <><strong>{account.availableBalance != null ? money(account.availableBalance, account.currency) : "—"}</strong><small>saldo pré-pago</small></>
-        : <><strong className={account.balanceDue && !account.delivering ? "is-warn" : undefined}>{money(account.balanceDue, account.currency)}</strong><small>a pagar</small></>}
+        : account.platform === "google"
+          ? <><strong className="is-muted">—</strong><small>saldo não informado pela API</small></>
+          : <><strong className={account.balanceDue && !account.delivering ? "is-warn" : undefined}>{money(account.balanceDue, account.currency)}</strong><small>a pagar</small></>}
     </div>
     <div className="billing-cell" role="cell">
       {row.days != null
@@ -109,7 +113,7 @@ function BillingRow({ row }: { row: Row }) {
     <div className="billing-cell" role="cell">
       {account.spendCap != null
         ? <><strong>{money(row.remainingCap, account.currency)}</strong><div className="billing-track" aria-hidden="true"><i style={{ width: `${(used ?? 0) * 100}%` }} className={(used ?? 0) > .9 ? "is-high" : ""} /></div><small>restantes de {money(account.spendCap, account.currency)}</small></>
-        : <><strong className="is-muted">Sem limite</strong><small>{money(account.amountSpent, account.currency)} gastos desde a criação</small></>}
+        : <><strong className="is-muted">{account.platform === "google" ? "Sem limite informado" : "Sem limite"}</strong><small>{account.amountSpent != null ? `${money(account.amountSpent, account.currency)} gastos desde a criação` : "limite de cartão não exposto pela API"}</small></>}
     </div>
   </div>;
 }

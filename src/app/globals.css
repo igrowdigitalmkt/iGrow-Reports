@@ -1085,3 +1085,28 @@ img.team-avatar { object-fit: cover; padding: 0; }
 .ai-usage-breakdown > div { display: flex; justify-content: space-between; gap: 12px; }
 .ai-usage-breakdown dt { color: var(--muted); }
 .ai-usage-breakdown dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* Visão geral do cliente (todas as plataformas) */
+.summary-logos { display: flex; align-items: center; gap: 14px; min-height: 28px; margin-top: 6px; }
+.summary-alerts { position: relative; }
+.summary-alerts > summary { display: flex; flex-direction: column; margin-top: 4px; cursor: pointer; list-style: none; }
+.summary-alerts > summary::-webkit-details-marker { display: none; }
+.summary-alerts > summary strong { margin-top: 0; color: var(--warn); }
+.summary-alerts > summary small { color: var(--muted); font-size: 12px; text-decoration: underline; }
+.summary-alerts > div { position: absolute; z-index: 40; top: calc(100% + 8px); right: 0; width: min(440px, 80vw); padding: 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
+.summary-alerts p { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; color: var(--secondary); font-size: 13px; line-height: 1.55; margin: 0; }
+.summary-alerts p + p { border-top: 1px solid var(--border); }
+.summary-alerts p svg { flex-shrink: 0; margin-top: 3px; color: var(--warn); }
+.cs-kpis { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(320px, 2fr); gap: 12px; margin: 8px 0; }
+.cs-results ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.cs-results li { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--secondary); }
+.cs-results li strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.cs-chart-body { padding: 0 12px 12px; min-height: 120px; }
+.cs-table { margin: 8px 0; overflow: hidden; }
+.cs-account { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+.cs-account > .platform-logo { flex-shrink: 0; }
+.cs-account strong { display: block; color: var(--text); font-weight: 500; }
+.cs-account small { display: block; color: var(--muted); font-size: 12px; }
+.cs-ok { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0; color: var(--muted); font-size: 12px; }
+@media (max-width: 1100px) { .cs-kpis { grid-template-columns: 1fr 1fr; } .cs-chart { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .cs-kpis { grid-template-columns: 1fr; } }

@@ -896,7 +896,7 @@ export function ClientAnalyticsDashboard({
         {pending ? "Atualizando…" : "Tentar atualizar novamente"} <ArrowUpRight size={14} />
       </button>}
     </div>}
-    {summaryView && <ClientSummary clientId={clientId} data={data} googleAccounts={googleSections.map(section => ({ id: section.id, name: section.name }))} latest={latest} dailySpend={dailySpend} demoBilling={demo ? demoBilling ?? [] : undefined} />}
+    {summaryView && <ClientSummary clientId={clientId} data={data} googleSections={googleSections} googleFailures={googleFailures} latest={latest} dailySpend={dailySpend} demoBilling={demo ? demoBilling ?? [] : undefined} />}
     {metaVisible && !summaryView ? <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
     <div className="platform-heading">{sectioned && <SectionToggle collapsed={collapsedPlatforms.includes("meta")} label="Meta Ads" onToggle={() => toggleSection("meta")} />}<PlatformLogo platform="meta" /><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
       {!!data.warnings.length && <details className="analytics-quality-menu">

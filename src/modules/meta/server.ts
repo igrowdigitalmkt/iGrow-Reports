@@ -255,6 +255,8 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
 }
 
 export type ClientAccountBilling = {
+  /** Plataforma da conta (ausente = Meta, formato anterior). */
+  platform?: "meta" | "google";
   accountId: string;
   name: string;
   currency: string;
