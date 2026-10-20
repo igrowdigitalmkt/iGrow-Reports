@@ -92,7 +92,7 @@ export function BillingSummary({ clientId, dailySpend, demoAccounts, accountIds 
 function BillingRow({ row }: { row: Row }) {
   const { account } = row;
   const used = account.spendCap && account.amountSpent != null ? Math.min(1, account.amountSpent / account.spendCap) : null;
-  const payment = account.prepaid ? "Pré-pago" : `Pós-pago${account.fundingLabel ? ` · ${account.fundingLabel}` : ""}`;
+  const payment = account.platform === "google" ? (account.fundingLabel ?? "Pagamento no Google Ads") : account.prepaid ? "Pré-pago" : `Pós-pago${account.fundingLabel ? ` · ${account.fundingLabel}` : ""}`;
   return <div className={`billing-row${row.issue ? " has-issue" : ""}${row.idle ? " is-idle" : ""}`} role="row">
     <div className="billing-cell billing-account-cell" role="cell">
       <strong title={account.name} className="billing-account-name"><PlatformLogo platform={account.platform ?? "meta"} size={(account.platform ?? "meta") === "meta" ? 12 : 16} />{account.name}</strong>
@@ -113,7 +113,7 @@ function BillingRow({ row }: { row: Row }) {
     <div className="billing-cell" role="cell">
       {account.spendCap != null
         ? <><strong>{money(row.remainingCap, account.currency)}</strong><div className="billing-track" aria-hidden="true"><i style={{ width: `${(used ?? 0) * 100}%` }} className={(used ?? 0) > .9 ? "is-high" : ""} /></div><small>restantes de {money(account.spendCap, account.currency)}</small></>
-        : <><strong className="is-muted">{account.platform === "google" ? "Sem limite informado" : "Sem limite"}</strong><small>{account.amountSpent != null ? `${money(account.amountSpent, account.currency)} gastos desde a criação` : "limite de cartão não exposto pela API"}</small></>}
+        : <><strong className="is-muted">{account.platform === "google" ? "Sem limite informado" : "Sem limite"}</strong><small>{account.amountSpent != null ? `${money(account.amountSpent, account.currency)} gastos desde a criação` : account.platform === "google" ? "limite de cartão não exposto pela API" : "—"}</small></>}
     </div>
   </div>;
 }

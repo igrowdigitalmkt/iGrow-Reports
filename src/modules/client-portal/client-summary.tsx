@@ -96,6 +96,7 @@ export function ClientSummary({ clientId, data, googleSections, googleFailures, 
         <div className="metric-foot">{overview.spend != null && overview.previousSpend != null
           ? <><Delta value={change(overview.spend, overview.previousSpend)} /><span>vs. período anterior</span></>
           : <span>{overview.currency ? "comparação indisponível" : "contas com moedas diferentes: veja o valor de cada conta abaixo"}</span>}</div>
+        {overview.spend != null && overview.days.length > 0 && <div className="metric-foot"><span>média de {money(overview.spend / overview.days.length, overview.currency)} por dia</span></div>}
       </section>
       <section className="panel metric-card cs-results">
         <div className="metric-label"><span>Resultados</span><Target size={15} className="muted" /></div>
