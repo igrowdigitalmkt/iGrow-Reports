@@ -125,11 +125,12 @@ type AiClientSettingsRow = {
 };
 type AiUsageRow = {
   id: string; agency_id: string; client_id: string | null; user_id: string | null;
-  feature: "report_comment" | "portfolio_summary" | "whatsapp_summary" | "agent_decision"; model: string;
-  status: "ok" | "blocked_disabled" | "blocked_budget" | "rejected_numbers" | "error";
+  feature: "report_comment" | "portfolio_summary" | "whatsapp_summary" | "agent_decision" | "campaign_chat"; model: string;
+  status: "ok" | "blocked_disabled" | "blocked_budget" | "rejected_numbers" | "error" | "reserved" | "unknown_consumption";
   input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_write_tokens: number;
   cost_usd: number; verifier_passed: boolean | null; facts_hash: string | null;
   source_ref: string | null; request_id: string | null; created_at: string;
+  reserved_usd: number | null; request_key: string | null; scope_hash: string | null; settled_at: string | null; needs_reconciliation: boolean;
 };
 type ReportTemplateRow = {
   id: string; agency_id: string; name: string; description: string | null;

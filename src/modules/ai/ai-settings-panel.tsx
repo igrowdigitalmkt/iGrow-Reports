@@ -47,8 +47,15 @@ export function AiSettingsPanel({ agencyId }: { agencyId: string }) {
       <p className="muted text-xs mt-2">Cada comentário custa em média US$ 0,01 a US$ 0,02. Ao atingir o orçamento, a IA pausa até o mês seguinte.</p>
       <div className="mt-5" role="img" aria-label={`Gasto do mês: ${usd(view.monthCostUsd)} de ${usd(view.monthlyBudgetUsd)}`}>
         <div style={{ height: 8, borderRadius: 4, background: "var(--border)" }}><div style={{ height: 8, borderRadius: 4, width: `${used}%`, background: used >= 90 ? "var(--danger, #c0392b)" : "var(--accent, #2563eb)" }} /></div>
-        <p className="text-sm mt-2">{usd(view.monthCostUsd)} de {usd(view.monthlyBudgetUsd)} neste mês</p>
+        <p className="text-sm mt-2">{usd(view.monthCostUsd)} de {usd(view.effectiveBudgetUsd)} comprometidos neste mês</p>
       </div>
+      <dl className="ai-usage-breakdown text-xs mt-3" aria-label="Detalhe do consumo de IA no mês">
+        <div><dt>Consumo liquidado</dt><dd>{usd(view.settledUsd)}</dd></div>
+        <div><dt title="Estimativa conservadora de chamadas em andamento; será trocada pelo custo real">Reservado (estimativa)</dt><dd>{usd(view.reservedUsd)}</dd></div>
+        <div><dt title="Sem informação do provedor; mantido pela estimativa até a conciliação">Consumo desconhecido{view.reconcileCount ? ` (${view.reconcileCount} a conciliar)` : ""}</dt><dd>{usd(view.unknownUsd)}</dd></div>
+        <div><dt>Disponível para novas chamadas</dt><dd>{usd(view.availableUsd)}</dd></div>
+      </dl>
+      <p className="muted text-xs mt-2">Valores de custo de inteligência artificial; não incluem o investimento em anúncios. Reservas e consumo desconhecido contam contra o orçamento, mas não são gasto definitivo.</p>
       <p className="muted text-xs mt-2">{view.generated} {view.generated === 1 ? "comentário gerado" : "comentários gerados"} neste mês{view.rejected ? `, ${view.rejected} bloqueado(s) por números fora dos dados` : ""}{view.blocked ? `, ${view.blocked} pedido(s) recusado(s) por limite ou desligamento` : ""}.</p>
       {error && <p role="alert" className="mt-4 text-rose-400 text-sm">{error}</p>}
       {notice && <p role="status" className="mt-4 text-sm">{notice}</p>}

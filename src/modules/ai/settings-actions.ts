@@ -4,30 +4,50 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { DEFAULT_MONTHLY_BUDGET_USD } from "./defaults";
+import { parseAiEntitlement } from "./entitlement";
+import { aiAvailability, summarizeAiUsage } from "./usage-summary";
 
 const agencyScope = z.object({ agencyId: z.uuid() });
 const clientScope = z.object({ agencyId: z.uuid(), clientId: z.uuid() });
 const isAdmin = (role: string) => role === "owner" || role === "admin";
 
 export type AiSettingsView = {
-  enabled: boolean; monthlyBudgetUsd: number; monthCostUsd: number;
+  enabled: boolean; monthlyBudgetUsd: number;
+  /** Total que conta contra o orçamento (liquidado + reservado + desconhecido): é o que o banco usa para recusar novas chamadas. */
+  monthCostUsd: number;
+  /** Consumo já liquidado (chamadas concluídas com custo conhecido). */
+  settledUsd: number;
+  /** Reservas em andamento: estimativas conservadoras, NÃO são gasto definitivo e serão trocadas pelo custo real. */
+  reservedUsd: number;
+  /** Consumo desconhecido (sem informação do provedor): mantido pela estimativa até a conciliação. */
+  unknownUsd: number;
+  /** Chamadas aguardando conciliação. */
+  reconcileCount: number;
+  /** Orçamento efetivo: o menor entre o configurado e o do plano. */
+  effectiveBudgetUsd: number;
+  /** Quanto ainda pode ser reservado neste mês. */
+  availableUsd: number;
   generated: number; blocked: number; rejected: number;
 };
 export type AiSettingsResult = { error: string } | { settings: AiSettingsView };
 
 async function loadView(context: Awaited<ReturnType<typeof requireAgencyContext>>): Promise<AiSettingsResult> {
   const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString();
-  const [settings, cost, usage] = await Promise.all([
+  const [settings, cost, usage, entitlement] = await Promise.all([
     context.supabase.from("ai_settings").select("enabled,monthly_budget_usd").eq("agency_id", context.agency.id).maybeSingle(),
     context.supabase.rpc("ai_month_cost", { p_agency_id: context.agency.id }),
-    context.supabase.from("ai_usage").select("status").eq("agency_id", context.agency.id).gte("created_at", monthStart).limit(5000),
+    context.supabase.from("ai_usage").select("status,cost_usd,needs_reconciliation").eq("agency_id", context.agency.id).gte("created_at", monthStart).limit(5000),
+    context.supabase.rpc("agency_ai_entitlement", { p_agency_id: context.agency.id }),
   ]);
   if (settings.error || cost.error || usage.error) return { error: "Não foi possível carregar as configurações de IA." };
   const rows = usage.data ?? [];
+  const monthlyBudgetUsd = Number(settings.data?.monthly_budget_usd ?? DEFAULT_MONTHLY_BUDGET_USD);
+  const planBudget = parseAiEntitlement(entitlement.error ? null : entitlement.data)?.budgetUsd ?? null;
+  const monthCostUsd = Number(cost.data ?? 0);
   return { settings: {
     enabled: settings.data?.enabled ?? true,
-    monthlyBudgetUsd: Number(settings.data?.monthly_budget_usd ?? DEFAULT_MONTHLY_BUDGET_USD),
-    monthCostUsd: Number(cost.data ?? 0),
+    monthlyBudgetUsd,
+    monthCostUsd, ...summarizeAiUsage(rows), ...aiAvailability(monthlyBudgetUsd, planBudget, monthCostUsd),
     generated: rows.filter(row => row.status === "ok").length,
     blocked: rows.filter(row => row.status === "blocked_budget" || row.status === "blocked_disabled").length,
     rejected: rows.filter(row => row.status === "rejected_numbers").length,

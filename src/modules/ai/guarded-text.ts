@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createHash, randomUUID } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { DEFAULT_MONTHLY_BUDGET_USD } from "./defaults";
+import { parseAiEntitlement } from "./entitlement";
 import { verifyNumbers } from "./number-guard";
 import { ceilUsd, reserveAiUsage, settleAiUsage, type ReserveResult } from "./reservation";
 
@@ -76,14 +77,7 @@ export type GuardedDeps = {
   supabase?: NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 };
 
-/** Resposta de agency_ai_entitlement; formato inesperado vale como indisponível (nega por segurança). */
-export function parseAiEntitlement(value: unknown): { allowed: boolean; budgetUsd: number | null; restricted: boolean } | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const { allowed, budget_usd: budget, restricted } = value as { allowed?: unknown; budget_usd?: unknown; restricted?: unknown };
-  if (typeof allowed !== "boolean") return null;
-  if (budget !== null && budget !== undefined && (typeof budget !== "number" || !Number.isFinite(budget) || budget < 0)) return null;
-  return { allowed, budgetUsd: typeof budget === "number" ? budget : null, restricted: restricted === true };
-}
+export { parseAiEntitlement };
 
 type UsageStatus = "ok" | "blocked_disabled" | "blocked_budget" | "rejected_numbers" | "error";
 

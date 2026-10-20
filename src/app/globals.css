@@ -1080,3 +1080,8 @@ img.team-avatar { object-fit: cover; padding: 0; }
 .billing-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .billing-danger { color: var(--bad); border-color: var(--bad); }
 .billing-danger:hover:not(:disabled) { background: var(--bad-bg); border-color: var(--bad); }
+
+.ai-usage-breakdown { display: grid; gap: 4px; margin: 0; }
+.ai-usage-breakdown > div { display: flex; justify-content: space-between; gap: 12px; }
+.ai-usage-breakdown dt { color: var(--muted); }
+.ai-usage-breakdown dd { margin: 0; font-variant-numeric: tabular-nums; }
