@@ -11,6 +11,7 @@ import { CoreMotion, Motion, MotionDefs, type MotionKind } from "./sales-motion"
 import { photos, type SalesPhoto } from "./sales-photos";
 import { AnimatedMoney, LiveDashboard } from "./sales-live";
 import { ChatDemo, OpportunitiesDemo } from "./sales-ai";
+import { TaskPile } from "./sales-tasks";
 import { Reveal } from "./sales-reveal";
 
 // Fotografia do catálogo publicado (consulta somente leitura em 19/10/2026). A contratação continua validando no servidor.
@@ -141,7 +142,7 @@ export function SalesPage() {
             <span className={styles.kicker}>O custo de fazer tudo na mão</span>
             <h2 className={styles.h2}>Seu tempo está sendo gasto <span className={styles.accent}>onde menos rende.</span></h2>
             <p className={styles.lead}>Gestão de anúncios não deveria ser sinônimo de planilha, cópia de números e lembrete de envio. É trabalho necessário, mas repetível. E o que é repetível pode ser delegado.</p>
-            <figure className={styles.storyPhoto}><Pic photo={photos.problem} className={styles.storyImg} sizes="(max-width: 1100px) 94vw, 520px" /><figcaption>O trabalho acompanha você até no café.</figcaption></figure>
+            <TaskPile />
           </div>
           <div>
             <ul className={styles.costList}>{chores.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}</ul>
