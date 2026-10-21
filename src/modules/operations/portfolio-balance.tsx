@@ -7,7 +7,7 @@ import { PlatformLogo } from "@/modules/platforms/platform-logo";
 
 type Balance =
   | { status: "loading" }
-  | { status: "ready"; accounts: ClientAccountBilling[] | null; funds: number | null; currency: string | null; postpaid: boolean; due: boolean }
+  | { status: "ready"; accounts: ClientAccountBilling[] | null; failures?: string[]; funds: number | null; currency: string | null; postpaid: boolean; due: boolean }
   | { status: "error" };
 
 const money = (value: number, currency: string | null) => currency ? new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(value) : value.toLocaleString("pt-BR");
@@ -21,10 +21,10 @@ export function ClientBalance({ clientId, enabled, demo }: { clientId: string; e
   useEffect(() => {
     if (demo || !enabled) return;
     let cancelled = false;
-    fetch(`/api/clientes/${clientId}/billing`, { cache: "no-store" }).then(response => response.json()).then((body: { accounts?: ClientAccountBilling[] }) => {
+    fetch(`/api/clientes/${clientId}/billing`, { cache: "no-store" }).then(response => response.json()).then((body: { accounts?: ClientAccountBilling[]; failures?: string[] }) => {
       if (cancelled) return;
       if (!body.accounts) { setState({ status: "error" }); return; }
-      setState({ status: "ready", accounts: body.accounts, ...summarizeBalance(body.accounts.filter(account => account.platform !== "google")) });
+      setState({ status: "ready", accounts: body.accounts, failures: body.failures ?? [], ...summarizeBalance(body.accounts.filter(account => account.platform !== "google")) });
     }).catch(() => { if (!cancelled) setState({ status: "error" }); });
     return () => { cancelled = true; };
   }, [clientId, enabled, demo]);
@@ -35,6 +35,7 @@ export function ClientBalance({ clientId, enabled, demo }: { clientId: string; e
 
   const accounts = state.accounts ?? [];
   const lines = accounts.map(account => ({ account, line: describeAccountBalance(account) }));
+  const failed = state.failures?.length ? `${state.failures.join(", ")}: não consultado agora` : null;
   const toneClass = (tone: "ok" | "warn" | "muted") => tone === "warn" ? "balance-due" : tone === "muted" ? "muted" : undefined;
 
   // Sem a lista de contas (demonstração): só o resumo.
@@ -50,6 +51,7 @@ export function ClientBalance({ clientId, enabled, demo }: { clientId: string; e
     return <div className="balance-cell">
       <strong className={toneClass(line.tone)}>{line.text}</strong>
       <small className="balance-account-name"><PlatformLogo platform={account.platform ?? "meta"} size={(account.platform ?? "meta") === "meta" ? 11 : 14} />{account.name}{line.detail ? ` · ${line.detail}` : ""}</small>
+      {failed && <small className="muted">{failed}</small>}
     </div>;
   }
 
@@ -60,6 +62,7 @@ export function ClientBalance({ clientId, enabled, demo }: { clientId: string; e
   return <div className="balance-cell">
     <strong className={toneClass(headline.tone)}>{headline.text}</strong>
     <ul className="balance-accounts" aria-label="Situação de cada conta">
+      {failed && <li className="muted">{failed}</li>}
       {lines.map(({ account, line }) => <li key={account.accountId} title={`${account.name}: ${line.text}${line.detail ? ` (${line.detail})` : ""}`}>
         <PlatformLogo platform={account.platform ?? "meta"} size={(account.platform ?? "meta") === "meta" ? 11 : 14} />
         <span className="balance-account-name">{account.name}</span>
