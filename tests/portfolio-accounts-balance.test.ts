@@ -72,7 +72,7 @@ describe("rótulos de métricas sem texto guardado", () => {
 
 describe("saldo do Google pelos orçamentos totais das campanhas", () => {
   it("sem saldo da conta, mostra o que resta nos orçamentos totais definidos e diz de onde vem", () => {
-    const line = describeAccountBalance(account({ platform: "google", google: { monthSpend: 3, dailyBudget: null, invoiced: false, paymentsAccount: null, probes: [],
+    const line = describeAccountBalance(account({ platform: "google", google: { monthSpend: 3, dailyBudget: null, hasBillingSetup: false, paymentsAccount: null, probes: [],
       totalBudgets: [{ id: "1", name: "Teste", total: 40, spent: 10, remaining: 30 }, { id: "2", name: "Outra", total: 20, spent: 20, remaining: 0 }] } }));
     expect(line).toMatchObject({ text: expect.stringMatching(/R\$\s30,00/), tone: "ok", detail: "restante nos orçamentos totais das campanhas" });
   });
