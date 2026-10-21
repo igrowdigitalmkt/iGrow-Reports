@@ -1140,3 +1140,8 @@ th:has(> .sort-header.is-active) { color: var(--accent-text); }
 .balance-accounts li em { font-style: normal; font-weight: 500; white-space: nowrap; }
 .result-more { justify-self: start; padding: 0; border: 0; background: transparent; color: var(--accent-text); font: inherit; font-size: 12.5px; cursor: pointer; text-align: left; }
 .result-more:hover { text-decoration: underline; }
+
+/* Destaque ao passar o mouse: SEMPRE na linha inteira (célula do nome, colunas fixas e as demais), em toda tabela da plataforma, as atuais
+   e as futuras. Uma tabela que não é de linhas de dados (calendário) opta por sair com a classe "no-row-hover". */
+:root { --row-hover: color-mix(in srgb, var(--surface-hover) 60%, var(--surface)); }
+table:not(.no-row-hover) tbody tr:hover > td, table:not(.no-row-hover) tbody tr:hover > th { background: var(--row-hover); }

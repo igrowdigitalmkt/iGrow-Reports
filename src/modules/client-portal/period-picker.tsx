@@ -81,7 +81,7 @@ export function PeriodPicker({ period, dateFrom, dateTo, today, disabled = false
               {index === 1 ? <button type="button" aria-label="Próximo mês" disabled={addMonths(monthStart, 1) > firstOfMonth(today) && monthStart >= firstOfMonth(today)}
                 onClick={() => setLeftMonth(addMonths(leftMonth, 1))}><ChevronRight size={16} /></button> : <span />}
             </div>
-            <table>
+            <table className="no-row-hover">
               <thead><tr>{WEEKDAYS.map(day => <th key={day} scope="col">{day}</th>)}</tr></thead>
               <tbody>{monthGrid(monthStart).map((week, row) => <tr key={row}>{week.map((day, column) => {
                 if (!day) return <td key={column} />;
