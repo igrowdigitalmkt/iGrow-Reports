@@ -170,7 +170,8 @@
 .analytics-kpi { position: relative; grid-column: span 3; display: flex; flex-direction: column; min-height: 132px; padding: 16px 18px 44px; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .analytics-kpi.is-fixed { grid-column: span var(--kpi-span, 4); }
 .analytics-kpi.is-removable { grid-column: span 2; min-height: 118px; padding-bottom: 40px; }
-.analytics-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+/* Título do indicador no mesmo estilo dos títulos dos cartões do público (Plataformas, Gênero, Idade, Região). */
+.analytics-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; }
 .analytics-kpi-icon { display: none; }
 .analytics-kpi-value { display: block; margin-top: 6px; color: var(--text); font-size: 26px; font-weight: 600; letter-spacing: -.03em; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .analytics-kpi.is-removable .analytics-kpi-value { font-size: 20px; letter-spacing: -.02em; }
@@ -488,7 +489,7 @@
   body { background: #fff !important; }
   .topbar, .sidebar, .client-topbar, .analytics-command-actions, .analytics-section-toolbar, .analytics-period-row, .analytics-data-footer, .analytics-notice, .analytics-coverage-banner, .analytics-kpi-remove { display: none !important; }
   .analytics-kpi, .analytics-card { break-inside: avoid; border-color: #d7d7d7 !important; background: #fff !important; }
-  .analytics-dashboard, .analytics-kpi-value, .analytics-card h3 { color: #111 !important; }
+  .analytics-dashboard, .analytics-kpi-value, .analytics-kpi-top, .analytics-card h3 { color: #111 !important; }
 }
 
 /* Audience of the period: platform, gender, age donuts and region/country table */

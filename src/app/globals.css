@@ -344,7 +344,7 @@ kbd { padding: 0 5px; border: 1px solid var(--border); border-radius: 4px; color
 .pulse-icon { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; }
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .metric-card { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; min-width: 0; }
-.metric-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 13px; }
+.metric-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; }
 .metric-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; }
 .metric-value { display: block; font-size: 26px; font-weight: 600; letter-spacing: -.03em; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .metric-note { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
