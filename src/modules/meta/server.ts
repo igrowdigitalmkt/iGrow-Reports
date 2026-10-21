@@ -264,8 +264,8 @@ export type GoogleBillingExtras = {
   dailyBudget: number | null;
   /** Campanhas ativas com orçamento TOTAL: quanto foi definido, gasto desde o início e o que resta. */
   totalBudgets: Array<{ id: string; name: string; total: number; spent: number; remaining: number }>;
-  /** Conta com faturamento mensal (a única em que a API informa cobrança e orçamento da conta). */
-  invoiced: boolean;
+  /** A conta tem uma cobrança aprovada (conta de pagamentos vinculada). Não diz o modo de pagamento nem o saldo. */
+  hasBillingSetup: boolean;
   paymentsAccount: { id: string | null; name: string | null } | null;
   probes: GoogleBillingProbe[];
 };

@@ -141,11 +141,17 @@ describe("tudo o que a API do Google Ads informa de pagamento e gasto", () => {
   it("gasto acima do orçamento total nunca gera saldo negativo", () => {
     expect(billingOf({ ...base, campaignBudgetRows: [{ campaign: { id: "1", name: "A" }, campaignBudget: { totalAmountMicros: "10000000" }, metrics: { costMicros: "12000000" } }] }).google?.totalBudgets[0]).toMatchObject({ remaining: 0 });
   });
-  it("faturamento mensal: cobrança e conta de pagamentos aparecem; sem isso a conta não é tratada como faturada", () => {
-    const invoiced = billingOf({ ...base, billingSetupRows: [{ billingSetup: { status: "APPROVED", paymentsAccountInfo: { paymentsAccountId: "1111-2222", paymentsAccountName: "iGrow" } } }] });
-    expect(invoiced.google).toMatchObject({ invoiced: true, paymentsAccount: { id: "1111-2222", name: "iGrow" } });
-    expect(invoiced.fundingLabel).toBe("Faturamento mensal");
-    expect(billingOf(base).google).toMatchObject({ invoiced: false, paymentsAccount: null });
+  it("cobrança aprovada: a conta de pagamentos aparece, sem afirmar o modo de pagamento nem inventar saldo", () => {
+    const withSetup = billingOf({ ...base, billingSetupRows: [{ billingSetup: { status: "APPROVED", paymentsAccountInfo: { paymentsAccountId: "1111-2222", paymentsAccountName: "iGrow" } } }] });
+    expect(withSetup.google).toMatchObject({ hasBillingSetup: true, paymentsAccount: { id: "1111-2222", name: "iGrow" } });
+    expect(withSetup.fundingLabel).toBe("Pagamento gerenciado no Google Ads");
+    expect(withSetup.availableBalance).toBeNull();
+    expect(billingOf(base).google).toMatchObject({ hasBillingSetup: false, paymentsAccount: null });
+  });
+  it("orçamento da conta ILIMITADO não vira limite nem saldo", () => {
+    const row = billingOf({ ...base, accountBudgetRows: [{ accountBudget: { status: "APPROVED", approvedSpendingLimitType: "INFINITE", adjustedSpendingLimitType: "INFINITE" } }] });
+    expect(row.spendCap).toBeNull();
+    expect(row.fundingLabel).toBe("Pagamento gerenciado no Google Ads");
   });
   it("as fontes consultadas viajam junto, com o que cada uma devolveu", () => {
     const probes = [{ source: "cobrança da conta", state: "error" as const, message: "sem permissão" }];

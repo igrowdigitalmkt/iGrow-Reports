@@ -52,14 +52,14 @@ export function googleAccountBilling(input: { id: string; name: string; currency
   const totalBudgets = campaigns.filter(item => item.total != null && item.total > 0).map(item => ({ id: item.id, name: item.name, total: item.total!, spent: item.spent, remaining: Math.max(0, item.total! - item.spent) }));
 
   const extras: GoogleBillingExtras = {
-    monthSpend, dailyBudget, totalBudgets, invoiced: !!setup || approved.length > 0,
+    monthSpend, dailyBudget, totalBudgets, hasBillingSetup: !!setup,
     paymentsAccount: setup ? { id: text(payments.paymentsAccountId) || null, name: text(payments.paymentsAccountName) || text(payments.paymentsProfileName) || null } : null,
     probes: input.probes,
   };
   return {
     platform: "google", accountId: input.id, name: input.name, currency: typeof customer.currencyCode === "string" ? customer.currencyCode : input.currency,
     delivering: status === "ENABLED", statusLabel: STATUS_LABELS[status] ?? "Situação desconhecida",
-    prepaid: false, fundingLabel: budget ? "Orçamento da conta" : setup ? "Faturamento mensal" : "Pagamento gerenciado no Google Ads",
+    prepaid: false, fundingLabel: budget ? "Orçamento da conta" : "Pagamento gerenciado no Google Ads",
     amountSpent: budget ? budget.served : null, spendCap: budget?.limit ?? null, balanceDue: null, availableBalance: null, google: extras,
   };
 }
