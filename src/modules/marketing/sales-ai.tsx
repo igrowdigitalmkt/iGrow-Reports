@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronRight, Loader2, PanelRightClose, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { Check, ChevronRight, Loader2, PanelRightClose, Send, Sparkles } from "lucide-react";
 import { useInView } from "./sales-live";
 import styles from "./sales-page.module.css";
 
@@ -54,7 +54,7 @@ export function ChatDemo() {
       {msgs.map((m, i) => <article key={`${m.role}-${i}`} className={`${styles.chMsg} ${m.role === "user" ? styles.chUser : styles.chBot}`}>{m.role === "assistant" && <span className={styles.chWho}><Sparkles size={11} />Assistente Groow</span>}<div>{m.text}{m.role === "assistant" && seen && !reduced() && <i className={styles.chCaret} />}</div></article>)}
       {typing && <div className={styles.chTyping} role="status"><span /><span /><span /></div>}
     </div>
-    <footer className={styles.chComposer}><div className={styles.chRow}><div className={styles.chInput}>{draft || <span>Pergunte sobre este contexto…</span>}{draft && <i className={styles.chCaret} />}</div><span className={`${styles.chSend} ${draft ? styles.chSendOn : ""}`}><Send size={16} /></span></div><small>A IA pode errar: confira as informações importantes. Nenhuma alteração é feita sem as autorizações do sistema.</small></footer>
+    <footer className={styles.chComposer}><div className={styles.chRow}><div className={styles.chInput}>{draft || <span>Pergunte sobre este contexto…</span>}{draft && <i className={styles.chCaret} />}</div><span className={`${styles.chSend} ${draft ? styles.chSendOn : ""}`}><Send size={16} /></span></div></footer>
   </div>;
 }
 
@@ -82,8 +82,7 @@ export function OpportunitiesDemo() {
   const running = step === 2;
   return <div ref={ref} className={styles.opp}>
     <div className={styles.opHead}><span className={styles.opTitle}><Sparkles size={15} /> Análise operacional com IA <em>IA</em></span>{step === 4 && <span className={styles.opChip}>1 aguardando aprovação</span>}</div>
-    <p className={styles.opScope}><ShieldCheck size={14} /> <span>Escopo real: a IA lê campanhas e conjuntos de anúncios de 2 contas com delegação vigente, compara os últimos 14 dias com os 14 anteriores e pode propor pausar, retomar e ajustar o orçamento diário. <strong>Nada é executado sem a aprovação específica de um proprietário ou administrador.</strong></span></p>
-    <div className={styles.opRun}><span className={`${styles.opBtn} ${step === 1 ? styles.opPress : ""} ${running ? styles.opBusy : ""}`}>{running ? <><Loader2 size={14} className={styles.opSpin} /> Analisando… pode levar alguns instantes</> : <><Sparkles size={14} /> Analisar oportunidades</>}</span><small>Usa a cota de IA da organização. A análise só propõe: nenhuma campanha é alterada.</small></div>
+    <div className={styles.opRun}><span className={`${styles.opBtn} ${step === 1 ? styles.opPress : ""} ${running ? styles.opBusy : ""}`}>{running ? <><Loader2 size={14} className={styles.opSpin} /> Analisando… pode levar alguns instantes</> : <><Sparkles size={14} /> Analisar oportunidades</>}</span></div>
     <div className={styles.opStages}>
       {step >= 3 && <section className={`${styles.opStage} ${styles.opIn}`}><header><h4>Observação <span>1</span></h4><small>O que a IA percebeu nos dados</small></header><ul><li><strong>Visita guiada · Mensagens</strong><span>Custo por conversa 18% abaixo da meta há 5 dias, com volume estável.</span></li></ul></section>}
       {step >= 3 && <section className={`${styles.opStage} ${styles.opIn}`} style={{ animationDelay: ".15s" }}><header><h4>Recomendação <span>1</span></h4><small>Resumo da análise</small></header><ul><li><span>Há espaço para escalar a campanha de mensagens dentro do teto mensal definido.</span><small>agora · pedida manualmente</small></li></ul></section>}
