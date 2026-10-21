@@ -200,6 +200,15 @@ export function ClientAnalyticsDashboard({
   const separated = query.get("separar") === "1" && data.selectedAccountIds.length > 1;
   // Consolidar desligado: cada conta Meta vira a sua própria linha recolhível ("Meta Ads · nome da conta") com o painel completo.
   const separatedViews = separated && accountViews && accountViews.length === data.selectedAccountIds.length ? accountViews : null;
+  // Selecionar campanhas de UMA conta: recalcula o período só com as campanhas marcadas (mesma leitura confirmada da seleção global).
+  const metaScopeLoader = (view: { id: string; data: AnalyticsDashboardData }) => async (campaignIds: string[]) => {
+    const raw = await getCampaignScopedAnalytics({ clientId, dateFrom: data.dateFrom, dateTo: data.dateTo, accountIds: [view.id], entityKeys: campaignIds.map(id => `campaign:${id}`) });
+    const result = raw as unknown as { success?: true; error?: string } & Pick<AnalyticsDashboardData, "summary" | "previousSummary" | "daily" | "previousDaily" | "coverage" | "metrics"> & Partial<Pick<AnalyticsDashboardData, "metaAggregate" | "estimatedMetricKeys">>;
+    if (!result.success) return { ok: false as const, message: result.error ?? "Não foi possível aplicar a seleção agora." };
+    return { ok: true as const, data: { ...view.data, summary: result.summary, previousSummary: result.previousSummary, daily: result.daily, previousDaily: result.previousDaily,
+      coverage: result.coverage, metrics: result.metrics, metaAggregate: result.metaAggregate, estimatedMetricKeys: result.estimatedMetricKeys,
+      campaigns: view.data.campaigns.filter(campaign => campaignIds.includes(campaign.id)) } };
+  };
   const metaCollapseKey = separatedViews ? `meta:${separatedViews[0]!.id}` : "meta";
   const [optionalMetricKeys, setOptionalMetricKeys] = useState<string[]>(
     DEFAULT_OPTIONAL_METRICS.filter((key) => data.metrics.some((metric) => metric.key === key)),
@@ -256,6 +265,7 @@ export function ClientAnalyticsDashboard({
   const [analysisNote, setAnalysisNote] = useState("");
   const [presenting, setPresenting] = useState(false);
   const [customizing, setCustomizing] = useState(false);
+  const customizeButton = <button type="button" className="analytics-button analytics-button-ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal size={15} />Personalizar relatório</button>;
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
   const [aiNudge, setAiNudge] = useState<string | null>(null);
@@ -906,10 +916,10 @@ export function ClientAnalyticsDashboard({
     {summaryView && <ClientSummary clientId={clientId} data={data} googleSections={googleSections} googleFailures={googleFailures} latest={latest} dailySpend={dailySpend} demoBilling={demo ? demoBilling ?? [] : undefined} />}
     {metaVisible && !summaryView ? <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
     <div className="platform-heading">{sectioned && <SectionToggle collapsed={collapsedPlatforms.includes(metaCollapseKey)} label={separatedViews ? `Meta Ads ${separatedViews[0]!.name}` : "Meta Ads"} onToggle={() => toggleSection(metaCollapseKey)} />}<PlatformLogo platform="meta" /><h2>Meta Ads</h2><span className="platform-heading-meta">{separatedViews ? separatedViews[0]!.name : <>{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</>}</span>
-      {!!data.warnings.length && <details className="analytics-quality-menu">
-        <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
-        <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
-      </details>}
+      {(() => { const list = separatedViews ? separatedViews[0]!.data.warnings : data.warnings; return !!list.length && <details className="analytics-quality-menu">
+        <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{list.length}</span></summary>
+        <div>{list.map((warning) => <p key={warning}>{warning}</p>)}</div>
+      </details>; })()}
       <div className="platform-heading-actions">{data.accounts.length > 1 && <details className="analytics-filter-menu">
           <summary><WalletCards size={14} />{accounts.length === data.accounts.length ? "Todas as contas" : accounts.length === 1 ? "1 conta" : `${accounts.length} contas`}<ChevronDown size={13} /></summary>
           <div className="analytics-filter-popover"><strong>Contas de anúncios</strong>
@@ -941,7 +951,7 @@ export function ClientAnalyticsDashboard({
           aria-selected={tab === key} key={key} className={tab === key ? "is-active" : ""}
           onClick={() => selectTab(key as typeof tab)}><Icon size={14} />{label}</button>)}
       </div>}
-      {overviewShown && analyticsReady && <div className="analytics-toolbar-actions">{inlineScope && <button type="button" className="analytics-button analytics-button-ghost" onClick={openScope}><BarChart3 size={15} />Selecionar campanhas</button>}<button type="button" className="analytics-button analytics-button-ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal size={15} />Personalizar relatório</button><details className="analytics-filter-menu analytics-metric-menu">
+      {overviewShown && analyticsReady && !separatedViews && <div className="analytics-toolbar-actions">{inlineScope && <button type="button" className="analytics-button analytics-button-ghost" onClick={openScope}><BarChart3 size={15} />Selecionar campanhas</button>}<button type="button" className="analytics-button analytics-button-ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal size={15} />Personalizar relatório</button><details className="analytics-filter-menu analytics-metric-menu">
         <summary><Filter size={14} />Métricas <span className="analytics-count">{overviewMetrics.length}</span><ChevronDown size={13} /></summary>
         <div className="analytics-filter-popover">
           <div className="analytics-metric-picker-heading"><strong>Métricas {dash.of}</strong>
@@ -959,7 +969,7 @@ export function ClientAnalyticsDashboard({
       {overviewShown && analyticsReady && separated && (separatedViews
         // Esta linha mostra a PRIMEIRA conta; as demais vêm em linhas próprias logo abaixo.
         ? <AccountInsights key={separatedViews[0]!.id} title={separatedViews[0]!.name} data={separatedViews[0]!.data} platform="meta"
-          optional={optionalMetricKeys} setOptional={setOptionalMetricKeys} metricsMenu={false} showTitle={false} />
+          optional={optionalMetricKeys} setOptional={setOptionalMetricKeys} showTitle={false} scopeLoader={metaScopeLoader(separatedViews[0]!)} extraActions={customizeButton} />
         : <AccountComparison data={scopedData} views={accountViews} onOpen={accountId => navigate(period, [accountId])} />)}
       {overviewShown && analyticsReady && !separated && <>
         <div className="analytics-kpi-grid analytics-kpi-grid-fixed">
@@ -1254,8 +1264,13 @@ export function ClientAnalyticsDashboard({
     {metaVisible && !summaryView && overviewShown && analyticsReady && separatedViews && separatedViews.slice(1).map(view => {
       const key = `meta:${view.id}`;
       return <section key={key} className="platform-section" aria-label={`Meta Ads ${view.name}`} style={{ order: platformOrder("meta") }}>
-        <div className="platform-heading">{sectioned && <SectionToggle collapsed={collapsedPlatforms.includes(key)} label={`Meta Ads ${view.name}`} onToggle={() => toggleSection(key)} />}<PlatformLogo platform="meta" /><h2>Meta Ads</h2><span className="platform-heading-meta">{view.name}</span></div>
-        {!(sectioned && collapsedPlatforms.includes(key)) && <AccountInsights title={view.name} data={view.data} platform="meta" optional={optionalMetricKeys} setOptional={setOptionalMetricKeys} metricsMenu={false} showTitle={false} />}
+        <div className="platform-heading">{sectioned && <SectionToggle collapsed={collapsedPlatforms.includes(key)} label={`Meta Ads ${view.name}`} onToggle={() => toggleSection(key)} />}<PlatformLogo platform="meta" /><h2>Meta Ads</h2><span className="platform-heading-meta">{view.name}</span>
+          {!!view.data.warnings.length && <details className="analytics-quality-menu">
+            <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{view.data.warnings.length}</span></summary>
+            <div>{view.data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
+          </details>}</div>
+        {!(sectioned && collapsedPlatforms.includes(key)) && <AccountInsights title={view.name} data={view.data} platform="meta" optional={optionalMetricKeys} setOptional={setOptionalMetricKeys} showTitle={false}
+          scopeLoader={metaScopeLoader(view)} extraActions={customizeButton} />}
       </section>;
     })}
     {googleVisible && (!sectioned || tab === "overview") && <GoogleDashboardSection separate={separated} sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsedPlatforms.includes("google")} onToggle={() => toggleSection("google")} clientId={clientId} preferenceKey={preferenceKey} />}

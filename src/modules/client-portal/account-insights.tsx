@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, type CSSProperties } from "react";
+import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { ArrowDownRight, ArrowLeftRight, ArrowUpRight, BarChart3, ChevronDown, Filter, GripVertical, Search, TrendingUp, X } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { useSort } from "@/components/ui/use-sort";
@@ -82,7 +82,8 @@ function campaignState(platform: "meta" | "google", status: string | null) {
  * Painel completo de UMA conta (Meta ou Google Ads): indicadores com variação (removíveis, trocáveis e reordenáveis), seleção de
  * campanhas (quando há leitor), gráfico do período e tabela de campanhas ordenável. É o mesmo desenho para todas as plataformas.
  */
-export function AccountInsights({ title, data: base, platform, optional, setOptional, scopeLoader, metricsMenu = true, showTitle = true }: {
+export function AccountInsights({ title, data: base, platform, optional, setOptional, scopeLoader, metricsMenu = true, showTitle = true, extraActions }: {
+  /** Botões a mais na barra desta conta (ex.: Personalizar relatório). */ extraActions?: ReactNode;
   /** Nome da conta como título do bloco (desligado quando o nome já está no título da linha da plataforma). */ showTitle?: boolean;
   title: string; data: AnalyticsDashboardData; platform: "meta" | "google"; optional: string[]; setOptional: (update: (keys: string[]) => string[]) => void;
   scopeLoader?: ScopeLoader; metricsMenu?: boolean;
@@ -158,11 +159,12 @@ export function AccountInsights({ title, data: base, platform, optional, setOpti
   return <div className="platform-account-block">
     {showTitle && <h3 className="platform-account-name">{title}</h3>}
     {idle ? <p className="analytics-empty-copy">Nenhuma campanha encontrada nesta conta.</p> : <>
-      {(scopeLoader || metricsMenu) && <div className="analytics-section-toolbar" style={{ borderBottom: 0 }}>
+      {(scopeLoader || metricsMenu || extraActions) && <div className="analytics-section-toolbar" style={{ borderBottom: 0 }}>
         <span className="platform-heading-meta">{scope ? `${scope.ids.length} de ${allCampaigns.length} campanhas selecionadas` : "Todas as campanhas"}</span>
         <div className="analytics-toolbar-actions">
           {scope && <button type="button" className="analytics-button analytics-button-ghost" onClick={() => setScope(null)}><X size={14} />Limpar seleção</button>}
           {scopeLoader && <button type="button" className="analytics-button analytics-button-ghost" onClick={() => picking ? setPicking(false) : openPicker()} aria-expanded={picking}><BarChart3 size={15} />Selecionar campanhas</button>}
+          {extraActions}
           {metricsMenu && <details className="analytics-filter-menu analytics-metric-menu">
             <summary><Filter size={14} />Métricas <span className="analytics-count">{FIXED_ACCOUNT_METRICS.length + optional.length}</span><ChevronDown size={13} /></summary>
             <div className="analytics-filter-popover">
