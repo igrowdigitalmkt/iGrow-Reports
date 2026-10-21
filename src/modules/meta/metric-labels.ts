@@ -79,8 +79,10 @@ function actionLabel(key: string): string | null {
 }
 
 export function metaMetricLabel(key: string, fallback: string): string {
-  if (key.startsWith("cost:action:")) return `Custo por ${metaMetricLabel(key.slice(5), fallback.replace(/^Custo por /i, "")).toLocaleLowerCase("pt-BR")}`;
-  if (key.startsWith("value:action:")) return `Valor de conversão de ${metaMetricLabel(key.slice(6), fallback.replace(/^Valor de conversão de /i, "")).toLocaleLowerCase("pt-BR")}`;
+  // Sem rótulo guardado (o texto é o próprio código), o nome vem do tipo de ação: nunca "cost:action:..." na tela.
+  const innerFallback = (inner: string, prefix: RegExp) => { const text = fallback.replace(prefix, "").trim(); return text === key || text === inner || /^(cost|value):/.test(text) ? inner : text; };
+  if (key.startsWith("cost:action:")) return `Custo por ${metaMetricLabel(key.slice(5), innerFallback(key.slice(5), /^Custo por /i)).toLocaleLowerCase("pt-BR")}`;
+  if (key.startsWith("value:action:")) return `Valor de conversão de ${metaMetricLabel(key.slice(6), innerFallback(key.slice(6), /^Valor de conversão de /i)).toLocaleLowerCase("pt-BR")}`;
   const label = labels[key];
   if (label) return label;
   if (fallback === key && key.startsWith("action:")) {

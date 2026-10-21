@@ -78,7 +78,7 @@ tr:hover .level-analyze, .level-analyze:focus-visible, .level-analyze.is-on { op
 
 /* Telas estreitas: nada fica fixo à esquerda (a coluna do nome sozinha ocuparia a tela e esconderia as demais). */
 @media (max-width: 640px) {
-  .level-table td.level-check, .level-table thead th.level-check, .level-table tbody th, .level-table thead th.analytics-campaign-main-header { position: static !important; }
+  .level-table td.level-check, .level-table thead th.level-check, .level-table td.level-status, .level-table thead th.level-status-head, .level-table tbody th, .level-table thead th.analytics-campaign-main-header { position: static !important; }
   .campaigns-card .analytics-table.level-table tbody th, .campaigns-card .analytics-table.level-table thead th.analytics-campaign-main-header { min-width: 210px; max-width: 240px; }
 }
 .batch-results li > div { display: grid; gap: 1px; min-width: 0; }
