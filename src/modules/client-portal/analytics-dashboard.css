@@ -161,7 +161,7 @@
 .analytics-table-scroll.is-capped tbody th, .analytics-table-scroll.is-capped thead th:first-child { position: sticky; left: 0; background: var(--surface); }
 .analytics-table-scroll.is-capped tbody th { z-index: 1; box-shadow: inset -1px 0 0 var(--border); }
 .analytics-table-scroll.is-capped thead th:first-child { z-index: 3; }
-.analytics-table-scroll.is-capped tbody tr:hover th { background: var(--surface-hover); }
+.analytics-table-scroll.is-capped tbody tr:hover th { background: var(--row-hover); }
 .analytics-table tbody td { vertical-align: middle; }
 
 /* KPI cards */
