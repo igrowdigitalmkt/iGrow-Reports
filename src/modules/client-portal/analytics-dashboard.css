@@ -574,3 +574,6 @@
 /* Valor usado em destaque: o dobro do tamanho dos demais indicadores, encolhendo só se o cartão for estreito demais. */
 .analytics-kpi.is-spend { container-type: inline-size; container-name: spend-card; }
 .analytics-kpi.is-spend .analytics-kpi-value { font-size: clamp(26px, 15cqi, 52px); letter-spacing: -.04em; line-height: 1.1; }
+
+.analytics-account-panels { display: flex; flex-direction: column; gap: 28px; }
+.analytics-account-panels > .platform-account-block + .platform-account-block { margin-top: 0; padding-top: 24px; border-top: 1px solid var(--border); }

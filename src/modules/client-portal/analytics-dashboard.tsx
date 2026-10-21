@@ -19,6 +19,7 @@ import { demoAudience } from "./demo-analytics";
 import { BillingSummary } from "./billing-section";
 import { ClientSummary } from "./client-summary";
 import { AccountComparison } from "./account-comparison";
+import { AccountInsights } from "./account-insights";
 import type { GoogleSectionView } from "@/modules/google-ads/google-section";
 import { GoogleDashboardSection } from "@/modules/google-ads/google-insights";
 import { sortActionsByImportance } from "./action-priority";
@@ -952,7 +953,11 @@ export function ClientAnalyticsDashboard({
       </details></div>}
     </div>}
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
-      {overviewShown && analyticsReady && separated && <AccountComparison data={scopedData} views={accountViews} onOpen={accountId => navigate(period, [accountId])} />}
+      {overviewShown && analyticsReady && separated && (accountViews && accountViews.length === data.selectedAccountIds.length
+        // Consolidar desligado: um painel completo para cada conta (indicadores, gráfico e campanhas), como no Google Ads.
+        ? <div className="analytics-account-panels">{accountViews.map(view => <AccountInsights key={view.id} title={view.name} data={view.data} platform="meta"
+          optional={optionalMetricKeys} setOptional={setOptionalMetricKeys} metricsMenu={false} />)}</div>
+        : <AccountComparison data={scopedData} views={accountViews} onOpen={accountId => navigate(period, [accountId])} />)}
       {overviewShown && analyticsReady && !separated && <>
         <div className="analytics-kpi-grid analytics-kpi-grid-fixed">
           {fixedMetrics.map((metric) => {
