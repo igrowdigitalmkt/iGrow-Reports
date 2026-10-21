@@ -198,6 +198,9 @@ export function ClientAnalyticsDashboard({
   // Consolidar resultados vem ligado por padrão; ao desligar, a URL leva separar=1 e cada conta aparece com os próprios números.
   const [consolidate, setConsolidate] = useState(query.get("separar") !== "1");
   const separated = query.get("separar") === "1" && data.selectedAccountIds.length > 1;
+  // Consolidar desligado: cada conta Meta vira a sua própria linha recolhível ("Meta Ads · nome da conta") com o painel completo.
+  const separatedViews = separated && accountViews && accountViews.length === data.selectedAccountIds.length ? accountViews : null;
+  const metaCollapseKey = separatedViews ? `meta:${separatedViews[0]!.id}` : "meta";
   const [optionalMetricKeys, setOptionalMetricKeys] = useState<string[]>(
     DEFAULT_OPTIONAL_METRICS.filter((key) => data.metrics.some((metric) => metric.key === key)),
   );
@@ -902,7 +905,7 @@ export function ClientAnalyticsDashboard({
     </div>}
     {summaryView && <ClientSummary clientId={clientId} data={data} googleSections={googleSections} googleFailures={googleFailures} latest={latest} dailySpend={dailySpend} demoBilling={demo ? demoBilling ?? [] : undefined} />}
     {metaVisible && !summaryView ? <section className="platform-section" aria-label="Meta Ads" style={{ order: platformOrder("meta") }}>
-    <div className="platform-heading">{sectioned && <SectionToggle collapsed={collapsedPlatforms.includes("meta")} label="Meta Ads" onToggle={() => toggleSection("meta")} />}<PlatformLogo platform="meta" /><h2>Meta Ads</h2><span className="platform-heading-meta">{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</span>
+    <div className="platform-heading">{sectioned && <SectionToggle collapsed={collapsedPlatforms.includes(metaCollapseKey)} label={separatedViews ? `Meta Ads ${separatedViews[0]!.name}` : "Meta Ads"} onToggle={() => toggleSection(metaCollapseKey)} />}<PlatformLogo platform="meta" /><h2>Meta Ads</h2><span className="platform-heading-meta">{separatedViews ? separatedViews[0]!.name : <>{data.selectedAccountIds.length} {data.selectedAccountIds.length === 1 ? "conta" : "contas"}{data.selectedAccountIds.length < data.accounts.length ? ` de ${data.accounts.length}` : ""}</>}</span>
       {!!data.warnings.length && <details className="analytics-quality-menu">
         <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{data.warnings.length}</span></summary>
         <div>{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>
@@ -924,7 +927,7 @@ export function ClientAnalyticsDashboard({
               onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); if (accounts.length) navigate(period); }}>Aplicar contas</button>
           </div>
         </details>}</div></div>
-    {!(sectioned && collapsedPlatforms.includes("meta")) && <>
+    {!(sectioned && collapsedPlatforms.includes(metaCollapseKey)) && <>
     {!sectioned && <BillingSummary clientId={clientId} dailySpend={dailySpend} accountIds={data.selectedAccountIds} demoAccounts={demo ? demoBilling ?? [] : undefined} />}
     {(!sectioned || tab === "overview") && <div className="analytics-section-toolbar">
       {!sectioned && <div className="analytics-tabs" role="tablist" aria-label="Seções do painel">
@@ -953,10 +956,10 @@ export function ClientAnalyticsDashboard({
       </details></div>}
     </div>}
     <div role="tabpanel" id={`analytics-panel-${tab}`} aria-labelledby={`analytics-tab-${tab}`}>
-      {overviewShown && analyticsReady && separated && (accountViews && accountViews.length === data.selectedAccountIds.length
-        // Consolidar desligado: um painel completo para cada conta (indicadores, gráfico e campanhas), como no Google Ads.
-        ? <div className="analytics-account-panels">{accountViews.map(view => <AccountInsights key={view.id} title={view.name} data={view.data} platform="meta"
-          optional={optionalMetricKeys} setOptional={setOptionalMetricKeys} metricsMenu={false} />)}</div>
+      {overviewShown && analyticsReady && separated && (separatedViews
+        // Esta linha mostra a PRIMEIRA conta; as demais vêm em linhas próprias logo abaixo.
+        ? <AccountInsights key={separatedViews[0]!.id} title={separatedViews[0]!.name} data={separatedViews[0]!.data} platform="meta"
+          optional={optionalMetricKeys} setOptional={setOptionalMetricKeys} metricsMenu={false} showTitle={false} />
         : <AccountComparison data={scopedData} views={accountViews} onOpen={accountId => navigate(period, [accountId])} />)}
       {overviewShown && analyticsReady && !separated && <>
         <div className="analytics-kpi-grid analytics-kpi-grid-fixed">
@@ -1248,7 +1251,14 @@ export function ClientAnalyticsDashboard({
     </div>
     </>}
     </section> : null}
-    {googleVisible && (!sectioned || tab === "overview") && <GoogleDashboardSection sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsedPlatforms.includes("google")} onToggle={() => toggleSection("google")} clientId={clientId} preferenceKey={preferenceKey} />}
+    {metaVisible && !summaryView && overviewShown && analyticsReady && separatedViews && separatedViews.slice(1).map(view => {
+      const key = `meta:${view.id}`;
+      return <section key={key} className="platform-section" aria-label={`Meta Ads ${view.name}`} style={{ order: platformOrder("meta") }}>
+        <div className="platform-heading">{sectioned && <SectionToggle collapsed={collapsedPlatforms.includes(key)} label={`Meta Ads ${view.name}`} onToggle={() => toggleSection(key)} />}<PlatformLogo platform="meta" /><h2>Meta Ads</h2><span className="platform-heading-meta">{view.name}</span></div>
+        {!(sectioned && collapsedPlatforms.includes(key)) && <AccountInsights title={view.name} data={view.data} platform="meta" optional={optionalMetricKeys} setOptional={setOptionalMetricKeys} metricsMenu={false} showTitle={false} />}
+      </section>;
+    })}
+    {googleVisible && (!sectioned || tab === "overview") && <GoogleDashboardSection separate={separated} sections={googleSections} failures={googleFailures} order={platformOrder("google")} collapsed={collapsedPlatforms.includes("google")} onToggle={() => toggleSection("google")} clientId={clientId} preferenceKey={preferenceKey} />}
     {!summaryView && !metaVisible && !googleVisible && <section className="analytics-card platform-empty" style={{ order: 10 }}><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
 
     {tab !== "reports" && <footer className="analytics-data-footer" style={{ order: 100 }}><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>

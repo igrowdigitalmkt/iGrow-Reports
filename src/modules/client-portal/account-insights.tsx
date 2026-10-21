@@ -82,7 +82,8 @@ function campaignState(platform: "meta" | "google", status: string | null) {
  * Painel completo de UMA conta (Meta ou Google Ads): indicadores com variação (removíveis, trocáveis e reordenáveis), seleção de
  * campanhas (quando há leitor), gráfico do período e tabela de campanhas ordenável. É o mesmo desenho para todas as plataformas.
  */
-export function AccountInsights({ title, data: base, platform, optional, setOptional, scopeLoader, metricsMenu = true }: {
+export function AccountInsights({ title, data: base, platform, optional, setOptional, scopeLoader, metricsMenu = true, showTitle = true }: {
+  /** Nome da conta como título do bloco (desligado quando o nome já está no título da linha da plataforma). */ showTitle?: boolean;
   title: string; data: AnalyticsDashboardData; platform: "meta" | "google"; optional: string[]; setOptional: (update: (keys: string[]) => string[]) => void;
   scopeLoader?: ScopeLoader; metricsMenu?: boolean;
 }) {
@@ -155,7 +156,7 @@ export function AccountInsights({ title, data: base, platform, optional, setOpti
   }
 
   return <div className="platform-account-block">
-    <h3 className="platform-account-name">{title}</h3>
+    {showTitle && <h3 className="platform-account-name">{title}</h3>}
     {idle ? <p className="analytics-empty-copy">Nenhuma campanha encontrada nesta conta.</p> : <>
       {(scopeLoader || metricsMenu) && <div className="analytics-section-toolbar" style={{ borderBottom: 0 }}>
         <span className="platform-heading-meta">{scope ? `${scope.ids.length} de ${allCampaigns.length} campanhas selecionadas` : "Todas as campanhas"}</span>
