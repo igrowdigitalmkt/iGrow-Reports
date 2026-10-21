@@ -9,6 +9,8 @@ import styles from "./sales-page.module.css";
 import { EXECUTION_LIVE as live } from "./sales-flags";
 import { CoreMotion, Motion, MotionDefs, type MotionKind } from "./sales-motion";
 import { photos, type SalesPhoto } from "./sales-photos";
+import { LiveDashboard } from "./sales-live";
+import { Reveal } from "./sales-reveal";
 
 // Fotografia do catálogo publicado (consulta somente leitura em 19/10/2026). A contratação continua validando no servidor.
 const plans = [
@@ -156,17 +158,24 @@ export function SalesPage() {
             <p className={styles.lead}>Em vez de aprender mais uma ferramenta, você apresenta o negócio, define os limites e deixa a inteligência assumir o trabalho, com transparência sobre o que foi feito.</p></div>
             <div className={styles.wayCore}><CoreMotion /></div>
           </div>
-          <div className={styles.steps}>{steps.map(([number, title, text, status, soon]) => <article className={styles.step} key={number}><span className={styles.stepNum} aria-hidden="true">{number}</span><h3>{title}</h3><p>{text}</p><span className={`${styles.tag} ${soon ? styles.tagSoon : ""}`}>{soon ? <Clock3 size={13} /> : <Check size={13} />}{status}</span></article>)}</div>
+          <div className={styles.steps}>{steps.map(([number, title, text, status, soon], index) => <Reveal key={number} delay={index * 140} className={styles.stepWrap}><article className={styles.step}><span className={styles.stepNum} aria-hidden="true">{number}</span><h3>{title}</h3><p>{text}</p><span className={`${styles.tag} ${soon ? styles.tagSoon : ""}`}>{soon ? <Clock3 size={13} /> : <Check size={13} />}{status}</span></article></Reveal>)}</div>
         </div>
       </section>
 
       <section className={`${styles.contrast} ${styles.light}`} aria-labelledby="contrast-title">
         <div className={styles.wrap}>
           <div className={styles.contrastHead}><div><span className={styles.kicker}>O que muda na prática</span><h2 className={styles.h2} id="contrast-title">Você comanda. <span className={styles.accent}>A Groow executa.</span></h2><p className={styles.lead}>Você define o objetivo e os limites. O trabalho repetitivo deixa de passar pelas suas mãos.</p></div><figure className={styles.commandPhoto}><Pic photo={photos.command} className={styles.commandImg} sizes="(max-width: 1100px) 94vw, 560px" /></figure></div>
-          <div className={styles.contrastTable} role="table" aria-label="Rotina até aqui comparada à rotina com a Groow Ads">
+          <Reveal><div className={styles.contrastTable} role="table" aria-label="Rotina até aqui comparada à rotina com a Groow Ads">
             <div className={styles.contrastRow} role="row"><span role="columnheader">Rotina até aqui</span><span role="columnheader" className={styles.contrastNew}>Com a Groow Ads</span></div>
             {contrast.map(([before, after]) => <div className={styles.contrastRow} role="row" key={before}><p role="cell"><X size={18} aria-hidden="true" />{before}</p><p role="cell" className={styles.contrastNew}><Check size={18} aria-hidden="true" />{after}</p></div>)}
-          </div>
+          </div></Reveal>
+        </div>
+      </section>
+
+      <section id="em-movimento" className={styles.liveSection}>
+        <div className={styles.wrap}>
+          <div className={styles.liveIntro}><span className={styles.kicker}>A plataforma em movimento</span><h2 className={styles.h2}>Os números chegam, a análise sai, <span className={styles.accent}>a ação acontece.</span></h2><p className={styles.lead}>É assim que o trabalho aparece para você: indicadores atualizados, gráficos que contam a história do período e um registro de tudo o que a Groow fez.</p></div>
+          <LiveDashboard />
         </div>
       </section>
 
@@ -202,7 +211,7 @@ export function SalesPage() {
       <section id="recursos" className={styles.features}>
         <div className={styles.wrap}>
           <div className={styles.featuresHead}><div><span className={styles.kicker}>Recursos da plataforma</span><h2 className={styles.h2}>Tudo o que sustenta o trabalho. <span className={styles.accent}>Pronto para usar.</span></h2></div><p className={styles.lead}>Dashboards, relatórios, mensagens e apresentação: a base que mantém você e o seu cliente sempre bem informados.</p></div>
-          <div className={styles.featureGrid}>{features.map(([kind, title, text]) => <article className={styles.feature} key={kind}><Motion kind={kind} /><h3>{title}</h3><p>{text}</p></article>)}</div>
+          <div className={styles.featureGrid}>{features.map(([kind, title, text], index) => <Reveal key={kind} delay={(index % 4) * 110} className={styles.featureWrap}><article className={styles.feature}><Motion kind={kind} /><h3>{title}</h3><p>{text}</p></article></Reveal>)}</div>
           <div className={styles.spotlight}>
             <figure className={styles.spotPhoto}><Pic photo={photos.meeting} className={styles.spotImg} sizes="(max-width: 1100px) 94vw, 640px" /></figure>
             <div><span className={styles.kicker}>Da tela para a reunião</span><h3>Apresente os resultados sem montar uma apresentação.</h3><p>O modo apresentação abre o painel em tela cheia, e o relatório horizontal em 1920 × 1080 já está pronto para a conversa com o cliente. Quem não estava na sala recebe o PDF, a mensagem no WhatsApp ou o e-mail.</p><ul className={styles.chips}>{["Tela cheia", "Relatório horizontal", "PDF", "WhatsApp", "E-mail"].map(chip => <li key={chip}>{chip}</li>)}</ul></div>
