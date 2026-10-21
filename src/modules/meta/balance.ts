@@ -39,7 +39,11 @@ export function describeAccountBalance(account: ClientAccountBilling): AccountBa
     const funds = Math.min(...limits);
     return { text: moneyOf(funds, account.currency), tone: funds <= 0 ? "warn" : "ok", detail: account.prepaid ? "saldo pré-pago" : "limite restante" };
   }
-  if (account.platform === "google") return { text: account.statusLabel, tone: "muted", detail: "saldo não informado pelo Google" };
+  if (account.platform === "google") {
+    const totals = account.google?.totalBudgets ?? [];
+    if (totals.length) return { text: moneyOf(totals.reduce((sum, item) => sum + item.remaining, 0), account.currency), tone: "ok", detail: "restante nos orçamentos totais das campanhas" };
+    return { text: account.statusLabel, tone: "muted", detail: "crédito da conta não informado pelo Google" };
+  }
   return { text: account.prepaid ? "Sem saldo informado" : "Cartão (pós-pago)", tone: "muted", detail: null };
 }
 

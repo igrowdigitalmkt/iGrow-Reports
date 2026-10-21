@@ -22,6 +22,16 @@ export const campaignDailyQuery = (from: string, to: string, campaignIds: string
 export const campaignQuery = (from: string, to: string) =>
   `SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, ${METRICS} FROM campaign WHERE ${range(from, to)} AND campaign.status != 'REMOVED'`;
 
+/** Fontes de pagamento e gasto da conta (somente leitura). Cada uma é consultada em separado: a falha de uma não derruba as outras. */
+export const accountBudgetQuery = () =>
+  "SELECT account_budget.status, account_budget.name, account_budget.approved_spending_limit_micros, account_budget.adjusted_spending_limit_micros, account_budget.total_adjustments_micros, account_budget.amount_served_micros FROM account_budget WHERE account_budget.status = 'APPROVED'";
+export const billingSetupQuery = () =>
+  "SELECT billing_setup.id, billing_setup.status, billing_setup.payments_account_info.payments_account_id, billing_setup.payments_account_info.payments_account_name, billing_setup.payments_account_info.payments_profile_id, billing_setup.payments_account_info.payments_profile_name FROM billing_setup";
+export const monthCostQuery = () => "SELECT metrics.cost_micros FROM customer WHERE segments.date DURING THIS_MONTH";
+/** Campanhas ativas com orçamento diário, orçamento total e gasto acumulado (sem filtro de data = desde o início). */
+export const campaignBudgetsQuery = () =>
+  "SELECT campaign.id, campaign.name, campaign_budget.amount_micros, campaign_budget.total_amount_micros, metrics.cost_micros FROM campaign WHERE campaign.status = 'ENABLED'";
+
 /** Todas as campanhas da conta (sem métricas, sem filtro de data): inclui as ativas que ainda não tiveram entrega no período. */
 export const campaignListQuery = () =>
   "SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign WHERE campaign.status != 'REMOVED'";

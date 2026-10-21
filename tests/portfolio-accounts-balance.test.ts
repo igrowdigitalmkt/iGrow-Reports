@@ -24,7 +24,7 @@ describe("saldo e pagamento de cada conta", () => {
     expect(describeAccountBalance(account({ prepaid: true }))).toMatchObject({ text: "Sem saldo informado", tone: "muted" });
   });
   it("Google Ads não informa saldo de cartão: só o estado da conta, sem 'pagamento pendente' inventado", () => {
-    expect(describeAccountBalance(account({ platform: "google", statusLabel: "Ativa" }))).toMatchObject({ text: "Ativa", tone: "muted", detail: "saldo não informado pelo Google" });
+    expect(describeAccountBalance(account({ platform: "google", statusLabel: "Ativa" }))).toMatchObject({ text: "Ativa", tone: "muted", detail: "crédito da conta não informado pelo Google" });
     expect(describeAccountBalance(account({ platform: "google", delivering: false, statusLabel: "Suspensa" }))).toMatchObject({ text: "Suspensa", tone: "warn" });
   });
 });
@@ -67,5 +67,16 @@ describe("rótulos de métricas sem texto guardado", () => {
     expect(metaMetricLabel("cost:action:lead", "Custo por leads")).toBe("Custo por leads");
     expect(metaMetricLabel("cost:action:complete_registration", "Custo por cadastros concluídos")).toBe("Custo por cadastros concluídos");
     expect(metaMetricLabel("cpm", "CPM")).toBe("CPM (custo por 1.000 impressões)");
+  });
+});
+
+describe("saldo do Google pelos orçamentos totais das campanhas", () => {
+  it("sem saldo da conta, mostra o que resta nos orçamentos totais definidos e diz de onde vem", () => {
+    const line = describeAccountBalance(account({ platform: "google", google: { monthSpend: 3, dailyBudget: null, invoiced: false, paymentsAccount: null, probes: [],
+      totalBudgets: [{ id: "1", name: "Teste", total: 40, spent: 10, remaining: 30 }, { id: "2", name: "Outra", total: 20, spent: 20, remaining: 0 }] } }));
+    expect(line).toMatchObject({ text: expect.stringMatching(/R\$\s30,00/), tone: "ok", detail: "restante nos orçamentos totais das campanhas" });
+  });
+  it("sem orçamento total, continua dizendo que o crédito da conta não é informado", () => {
+    expect(describeAccountBalance(account({ platform: "google" }))).toMatchObject({ tone: "muted", detail: "crédito da conta não informado pelo Google" });
   });
 });

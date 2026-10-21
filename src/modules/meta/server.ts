@@ -254,7 +254,25 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
   return statuses;
 }
 
+/** Fonte consultada na API do Google Ads para a situação financeira da conta e o que ela devolveu. */
+export type GoogleBillingProbe = { source: string; state: "ok" | "empty" | "error"; message?: string };
+/** Tudo o que a API do Google Ads informa sobre pagamento e gasto de uma conta (somente leitura). */
+export type GoogleBillingExtras = {
+  /** Gasto do mês corrente, nas métricas da conta (null = não foi possível ler). */
+  monthSpend: number | null;
+  /** Soma dos orçamentos DIÁRIOS das campanhas ativas sem orçamento total (null = não foi possível ler). */
+  dailyBudget: number | null;
+  /** Campanhas ativas com orçamento TOTAL: quanto foi definido, gasto desde o início e o que resta. */
+  totalBudgets: Array<{ id: string; name: string; total: number; spent: number; remaining: number }>;
+  /** Conta com faturamento mensal (a única em que a API informa cobrança e orçamento da conta). */
+  invoiced: boolean;
+  paymentsAccount: { id: string | null; name: string | null } | null;
+  probes: GoogleBillingProbe[];
+};
+
 export type ClientAccountBilling = {
+  /** Detalhes do Google Ads (só quando platform = google). */
+  google?: GoogleBillingExtras;
   /** Plataforma da conta (ausente = Meta, formato anterior). */
   platform?: "meta" | "google";
   accountId: string;

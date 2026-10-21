@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildClientOverview, rankCampaigns, type OverviewGoogleSection } from "@/modules/client-portal/client-overview";
-import { googleAccountBilling } from "@/modules/google-ads/billing";
+import { googleAccountBilling as billingOf } from "@/modules/google-ads/billing";
 import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-types";
 
 const day = (date: string, spend: number) => ({ date, values: { spend } });
@@ -98,6 +98,12 @@ describe("visão geral do cliente em todas as plataformas", () => {
   });
 });
 
+// As fontes que não são o assunto do teste ficam vazias.
+const googleAccountBilling = (input: { id: string; name: string; currency: string; customerRow: unknown; budgetRows: unknown[] | null }) => billingOf({
+  id: input.id, name: input.name, currency: input.currency, customerRow: input.customerRow, accountBudgetRows: input.budgetRows,
+  billingSetupRows: null, monthCostRows: null, campaignBudgetRows: null, probes: [],
+});
+
 describe("situação e limite das contas do Google Ads", () => {
   const base = { id: "g1", name: "Google 1", currency: "BRL" };
   it("estado da conta vira rótulo e entrega; sem orçamento da conta não há limite inventado", () => {
@@ -114,5 +120,35 @@ describe("situação e limite das contas do Google Ads", () => {
   });
   it("estado desconhecido não é tratado como ativo", () => {
     expect(googleAccountBilling({ ...base, customerRow: undefined, budgetRows: null })).toMatchObject({ delivering: false, statusLabel: "Situação desconhecida" });
+  });
+});
+
+describe("tudo o que a API do Google Ads informa de pagamento e gasto", () => {
+  const base = { id: "g1", name: "Google 1", currency: "BRL", customerRow: { customer: { status: "ENABLED", currencyCode: "BRL" } }, accountBudgetRows: [] as unknown[] | null, billingSetupRows: [] as unknown[] | null, monthCostRows: [] as unknown[] | null, campaignBudgetRows: [] as unknown[] | null, probes: [] };
+  it("gasto do mês soma as linhas; sem leitura fica vazio, nunca zero", () => {
+    expect(billingOf({ ...base, monthCostRows: [{ metrics: { costMicros: "1500000" } }, { metrics: { costMicros: "2500000" } }] }).google?.monthSpend).toBeCloseTo(4);
+    expect(billingOf({ ...base, monthCostRows: null }).google?.monthSpend).toBeNull();
+  });
+  it("orçamento total de campanha: definido, gasto e o que resta; orçamento diário só das campanhas sem total", () => {
+    const row = billingOf({ ...base, campaignBudgetRows: [
+      { campaign: { id: "1", name: "Teste de dados" }, campaignBudget: { amountMicros: "0", totalAmountMicros: "40000000" }, metrics: { costMicros: "12500000" } },
+      { campaign: { id: "2", name: "Diária" }, campaignBudget: { amountMicros: "10000000" }, metrics: { costMicros: "999" } },
+      { campaign: { id: "3", name: "Outra diária" }, campaignBudget: { amountMicros: "5000000" }, metrics: {} },
+    ] }).google!;
+    expect(row.totalBudgets).toEqual([{ id: "1", name: "Teste de dados", total: 40, spent: 12.5, remaining: 27.5 }]);
+    expect(row.dailyBudget).toBeCloseTo(15);
+  });
+  it("gasto acima do orçamento total nunca gera saldo negativo", () => {
+    expect(billingOf({ ...base, campaignBudgetRows: [{ campaign: { id: "1", name: "A" }, campaignBudget: { totalAmountMicros: "10000000" }, metrics: { costMicros: "12000000" } }] }).google?.totalBudgets[0]).toMatchObject({ remaining: 0 });
+  });
+  it("faturamento mensal: cobrança e conta de pagamentos aparecem; sem isso a conta não é tratada como faturada", () => {
+    const invoiced = billingOf({ ...base, billingSetupRows: [{ billingSetup: { status: "APPROVED", paymentsAccountInfo: { paymentsAccountId: "1111-2222", paymentsAccountName: "iGrow" } } }] });
+    expect(invoiced.google).toMatchObject({ invoiced: true, paymentsAccount: { id: "1111-2222", name: "iGrow" } });
+    expect(invoiced.fundingLabel).toBe("Faturamento mensal");
+    expect(billingOf(base).google).toMatchObject({ invoiced: false, paymentsAccount: null });
+  });
+  it("as fontes consultadas viajam junto, com o que cada uma devolveu", () => {
+    const probes = [{ source: "cobrança da conta", state: "error" as const, message: "sem permissão" }];
+    expect(billingOf({ ...base, probes }).google?.probes).toEqual(probes);
   });
 });

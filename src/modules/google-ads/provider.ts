@@ -6,13 +6,13 @@ import type { AnalyticsDashboardData } from "@/modules/client-portal/analytics-t
 import type { PlatformAccountSection } from "@/modules/platforms/provider";
 import type { Database } from "@/types/database";
 import type { GoogleAdsClient } from "./client";
-import type { ClientAccountBilling } from "@/modules/meta/server";
+import type { ClientAccountBilling, GoogleBillingProbe } from "@/modules/meta/server";
 import { googleAccountBilling } from "./billing";
 import type { AnalyticsMetric } from "@/modules/client-portal/analytics-types";
 import type { CampaignRow } from "@/modules/campaigns/tree";
 import { buildGoogleRows } from "./hierarchy";
 import { buildGoogleAnalytics, GOOGLE_METRICS, previousPeriod } from "./normalize";
-import { accountDailyQuery, adGroupListQuery, adGroupQuery, adListQuery, adRowsQuery, campaignListQuery, campaignQuery } from "./queries";
+import { accountBudgetQuery, accountDailyQuery, billingSetupQuery, campaignBudgetsQuery, monthCostQuery, adGroupListQuery, adGroupQuery, adListQuery, adRowsQuery, campaignListQuery, campaignQuery } from "./queries";
 import { loadGoogleAdsClient } from "./server";
 
 type Service = SupabaseClient<Database>;
@@ -73,20 +73,37 @@ export async function loadGoogleSections(input: { service: Service; agencyId: st
 }
 
 const customerStatusQuery = "SELECT customer.status, customer.currency_code FROM customer LIMIT 1";
-const accountBudgetQuery = "SELECT account_budget.status, account_budget.approved_spending_limit_micros, account_budget.adjusted_spending_limit_micros, account_budget.amount_served_micros FROM account_budget WHERE account_budget.status = 'APPROVED'";
 
-/** Situação e limite (somente leitura) de cada conta do Google Ads vinculada ao cliente. Uma conta que falha vira aviso, não derruba as outras. */
+/**
+ * Situação e pagamento (somente leitura) de cada conta do Google Ads vinculada ao cliente, lendo TODAS as fontes que a API oferece:
+ * estado da conta, orçamento da conta e cobrança (faturamento mensal), gasto do mês e orçamentos de campanha. Uma fonte que falha ou
+ * não existe para a conta vira um registro em `google.probes` (não é erro da conta); uma conta que falha por inteiro vira aviso.
+ */
 export async function loadGoogleBilling(input: { service: Service; agencyId: string; clientId: string; client?: GoogleAdsClient }): Promise<{ accounts: ClientAccountBilling[]; failures: string[] }> {
   await ensurePaidOperation(input.agencyId);
   const linked = await linkedGoogleAccounts(input.service, input.agencyId, input.clientId);
   if (!linked.length) return { accounts: [], failures: [] };
   const client = input.client ?? (await loadGoogleAdsClient(input.service, input.agencyId)).client;
   const results = await Promise.all(linked.map(async account => {
+    const options = { loginCustomerId: account.loginCustomerId };
+    const probes: GoogleBillingProbe[] = [];
+    const probe = async (source: string, query: string) => {
+      try {
+        const rows = await client.search(account.customerId, query, options);
+        probes.push({ source, state: rows.length ? "ok" : "empty" });
+        return rows;
+      } catch (error) {
+        probes.push({ source, state: "error", message: error instanceof Error ? error.message : "Falha ao ler esta fonte." });
+        return null;
+      }
+    };
     try {
-      const customer = await client.search(account.customerId, customerStatusQuery, { loginCustomerId: account.loginCustomerId });
-      // Orçamento da conta só existe em contas com fatura ou pré-pago: a falta dele (ou a recusa da API) não é erro da conta.
-      const budgets = await client.search(account.customerId, accountBudgetQuery, { loginCustomerId: account.loginCustomerId }).catch(() => null);
-      return { account: googleAccountBilling({ id: account.id, name: account.name, currency: account.currency, customerRow: customer[0], budgetRows: budgets }) };
+      const customer = await client.search(account.customerId, customerStatusQuery, options);
+      const [accountBudgetRows, billingSetupRows, monthCostRows, campaignBudgetRows] = await Promise.all([
+        probe("orçamento da conta", accountBudgetQuery()), probe("cobrança da conta", billingSetupQuery()),
+        probe("gasto do mês", monthCostQuery()), probe("orçamentos das campanhas", campaignBudgetsQuery()),
+      ]);
+      return { account: googleAccountBilling({ id: account.id, name: account.name, currency: account.currency, customerRow: customer[0], accountBudgetRows, billingSetupRows, monthCostRows, campaignBudgetRows, probes }) };
     } catch {
       return { failure: account.name };
     }

@@ -93,25 +93,37 @@ function BillingRow({ row }: { row: Row }) {
   const { account } = row;
   const used = account.spendCap && account.amountSpent != null ? Math.min(1, account.amountSpent / account.spendCap) : null;
   const payment = account.platform === "google" ? (account.fundingLabel ?? "Pagamento no Google Ads") : account.prepaid ? "Pré-pago" : `Pós-pago${account.fundingLabel ? ` · ${account.fundingLabel}` : ""}`;
+  const google = account.google;
+  const budgetsLeft = google?.totalBudgets.length ? google.totalBudgets.reduce((total, item) => total + item.remaining, 0) : null;
+  const budgetsTotal = google?.totalBudgets.reduce((total, item) => total + item.total, 0) ?? 0;
+  const budgetsSpent = google?.totalBudgets.reduce((total, item) => total + item.spent, 0) ?? 0;
+  const sources = google?.probes.map(item => `${item.source}: ${item.state === "ok" ? "lido" : item.state === "empty" ? "sem dados para esta conta" : `indisponível (${item.message ?? "erro"})`}`).join(" · ");
   return <div className={`billing-row${row.issue ? " has-issue" : ""}${row.idle ? " is-idle" : ""}`} role="row">
     <div className="billing-cell billing-account-cell" role="cell">
       <strong title={account.name} className="billing-account-name"><PlatformLogo platform={account.platform ?? "meta"} size={(account.platform ?? "meta") === "meta" ? 12 : 16} />{account.name}</strong>
-      <span className="billing-meta"><span className={`billing-dot ${account.delivering ? "is-ok" : "is-warn"}`} />{account.statusLabel} · {payment}</span>
+      <span className="billing-meta" title={sources ? `Fontes consultadas no Google Ads:
+${sources}` : undefined}><span className={`billing-dot ${account.delivering ? "is-ok" : "is-warn"}`} />{account.statusLabel} · {payment}{google?.paymentsAccount?.name ? ` · ${google.paymentsAccount.name}` : ""}</span>
     </div>
     <div className="billing-cell" role="cell">
       {account.prepaid
         ? <><strong>{account.availableBalance != null ? money(account.availableBalance, account.currency) : "—"}</strong><small>saldo pré-pago</small></>
         : account.platform === "google"
-          ? <><strong className="is-muted">—</strong><small>saldo não informado pela API</small></>
+          ? budgetsLeft != null
+            ? <><strong>{money(budgetsLeft, account.currency)}</strong><small>restantes nos orçamentos totais das campanhas ativas</small></>
+            : <><strong className="is-muted">—</strong><small>crédito da conta não informado pelo Google</small></>
           : <><strong className={account.balanceDue && !account.delivering ? "is-warn" : undefined}>{money(account.balanceDue, account.currency)}</strong><small>a pagar</small></>}
     </div>
     <div className="billing-cell" role="cell">
-      {row.days != null
+      {account.platform === "google" && row.days == null && google?.monthSpend != null
+        ? <><strong>{money(google.monthSpend, account.currency)}</strong><small>gasto neste mês{google.dailyBudget ? ` · orçamento diário ${money(google.dailyBudget, account.currency)}` : ""}</small></>
+        : row.days != null
         ? <><strong className={row.days < LOW_FUNDS_DAYS ? "is-warn" : undefined}>{row.days} {row.days === 1 ? "dia" : "dias"}</strong><small>{money(row.daily, account.currency)} por dia</small></>
         : <><strong className="is-muted">{row.daily > 0 ? money(row.daily, account.currency) : "—"}</strong><small>{row.daily > 0 ? "média por dia" : "sem investimento no período"}</small></>}
     </div>
     <div className="billing-cell" role="cell">
-      {account.spendCap != null
+      {account.spendCap == null && budgetsLeft != null
+        ? <><strong>{money(budgetsTotal, account.currency)}</strong><div className="billing-track" aria-hidden="true"><i style={{ width: `${budgetsTotal ? Math.min(100, budgetsSpent / budgetsTotal * 100) : 0}%` }} /></div><small>definidos nas campanhas · gasto {money(budgetsSpent, account.currency)}</small></>
+        : account.spendCap != null
         ? <><strong>{money(row.remainingCap, account.currency)}</strong><div className="billing-track" aria-hidden="true"><i style={{ width: `${(used ?? 0) * 100}%` }} className={(used ?? 0) > .9 ? "is-high" : ""} /></div><small>restantes de {money(account.spendCap, account.currency)}</small></>
         : <><strong className="is-muted">{account.platform === "google" ? "Sem limite informado" : "Sem limite"}</strong><small>{account.amountSpent != null ? `${money(account.amountSpent, account.currency)} gastos desde a criação` : account.platform === "google" ? "limite de cartão não exposto pela API" : "—"}</small></>}
     </div>
