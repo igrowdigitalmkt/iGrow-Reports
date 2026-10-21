@@ -9,7 +9,8 @@ import styles from "./sales-page.module.css";
 import { EXECUTION_LIVE as live } from "./sales-flags";
 import { CoreMotion, Motion, MotionDefs, type MotionKind } from "./sales-motion";
 import { photos, type SalesPhoto } from "./sales-photos";
-import { LiveDashboard } from "./sales-live";
+import { AnimatedMoney, LiveDashboard } from "./sales-live";
+import { ChatDemo, OpportunitiesDemo } from "./sales-ai";
 import { Reveal } from "./sales-reveal";
 
 // Fotografia do catálogo publicado (consulta somente leitura em 19/10/2026). A contratação continua validando no servidor.
@@ -32,7 +33,6 @@ const everyPlan = [
   "Dashboards e métricas por cliente e por carteira", "Análises e resumos escritos pela IA", "Relatórios em PDF, na vertical (A4) e na horizontal",
   "Modo apresentação em tela cheia", "Relatórios por WhatsApp e por e-mail", "Agendamentos com histórico de entrega", "Portal para o seu cliente", "Perfil do negócio de cada cliente",
 ];
-const money = (cents: number) => new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
 const navigation = [["O problema", "#problema"], ["Como funciona", "#como-funciona"], ["Produto", "#plataforma"], ["Recursos", "#recursos"], ["Planos", "#planos"], ["Dúvidas", "#duvidas"]];
 
 const chores = [
@@ -115,7 +115,7 @@ export function SalesPage() {
         <div className={`${styles.wrap} ${styles.heroGrid}`}>
           <div>
             <span className={styles.kicker}>Inteligência de marketing para anúncios</span>
-            <h1>Você define onde chegar. <em>A Groow Ads faz o trabalho.</em></h1>
+            <h1><span className={styles.h1a}>Você define onde chegar.</span> <em className={styles.h1b}>A Groow Ads faz o trabalho.</em></h1>
             <p className={styles.lead}>{live ? "Uma IA que conhece o seu negócio, lê as suas contas de anúncios e assume a rotina que hoje consome o seu dia: analisa, cria, ajusta e corrige campanhas dentro dos limites que você definir, e entrega os resultados." : "Uma IA que conhece o seu negócio, lê as suas contas de anúncios e assume a rotina que hoje consome o seu dia. Já trabalha nas análises e nas entregas. A execução nas campanhas vem a seguir, dentro dos limites que você definir."}</p>
             <div className={styles.heroActions}>
               <Link href="/criar-conta" className={`${styles.btn} ${styles.btnPrimary}`}>Testar grátis por 7 dias <ArrowRight size={18} /></Link>
@@ -175,7 +175,11 @@ export function SalesPage() {
       <section id="em-movimento" className={styles.liveSection}>
         <div className={styles.wrap}>
           <div className={styles.liveIntro}><span className={styles.kicker}>A plataforma em movimento</span><h2 className={styles.h2}>Os números chegam, a análise sai, <span className={styles.accent}>a ação acontece.</span></h2><p className={styles.lead}>É assim que o trabalho aparece para você: indicadores atualizados, gráficos que contam a história do período e um registro de tudo o que a Groow fez.</p></div>
-          <LiveDashboard />
+          <div className={styles.moveBlock}><div className={styles.moveLabel}><span>1</span><div><h3>O Dashboard do cliente</h3><p>Indicadores, gráficos e público atualizados, no mesmo painel que você usa.</p></div></div><LiveDashboard /></div>
+          <div className={styles.moveDuo}>
+            <div className={styles.moveBlock}><div className={styles.moveLabel}><span>2</span><div><h3>Pergunte. A IA responde com os seus dados.</h3><p>O Assistente Groow explica os números confirmados da tela.</p></div></div><ChatDemo /></div>
+            <div className={styles.moveBlock}><div className={styles.moveLabel}><span>3</span><div><h3>A IA sugere. Você aprova.</h3><p>Oportunidades de otimização chegam como proposta, e nada muda sem a sua aprovação.</p></div></div><OpportunitiesDemo /></div>
+          </div>
         </div>
       </section>
 
@@ -222,7 +226,7 @@ export function SalesPage() {
         <div className={styles.wrap}>
           <div className={styles.pricingHead}><span className={styles.kicker}>Planos</span><h2 className={styles.h2}>{live ? "Comece hoje. " : "Comece pelo que já funciona. "}<span className={styles.accent}>Sem cartão.</span></h2><p className={styles.lead}>{live ? "Sete dias para ver a Groow trabalhando na sua própria rotina." : "Sete dias para experimentar os recursos disponíveis na sua própria rotina."}</p></div>
           <div className={styles.billingToggle} role="group" aria-label="Período de cobrança"><button aria-pressed={!yearly} onClick={() => setYearly(false)}>Mensal</button><button aria-pressed={yearly} onClick={() => setYearly(true)}>Anual <span>2 meses grátis</span></button></div>
-          <div className={styles.planGrid}>{plans.map((plan, index) => <article className={`${styles.planCard} ${index === 1 ? styles.recommendedPlan : ""}`} key={plan.name}>{index === 1 && <span className={styles.planBadge}><Sparkles size={13} /> RECOMENDADO</span>}<span className={styles.planName}>{plan.name}</span><p>{plan.description}</p><div className={styles.planPrice}><span>R$</span><strong>{money(yearly ? plan.yearly : plan.monthly)}</strong><span>/{yearly ? "ano" : "mês"}</span></div><small className={styles.planBilling}>{yearly ? "Cobrança anual em pagamento integral. Equivale a 10 mensalidades." : "Cobrança mensal."}</small><Link href="/criar-conta" className={`${styles.btn} ${index === 1 ? styles.btnPrimary : styles.btnGhost}`}>Testar grátis por 7 dias <ArrowRight size={16} /></Link><span className={styles.planIncludes}>Limites do plano</span><ul>{planLimits(plan).map(([title, hint]) => <li key={title}><Check size={17} /><span><strong>{title}</strong><small>{hint}</small></span></li>)}</ul><a href="#incluso" className={styles.planAll}>+ todos os recursos da plataforma <ArrowDown size={15} /></a></article>)}</div>
+          <div className={styles.planGrid}>{plans.map((plan, index) => <article className={`${styles.planCard} ${index === 1 ? styles.recommendedPlan : ""}`} key={plan.name}>{index === 1 && <span className={styles.planBadge}><Sparkles size={13} /> RECOMENDADO</span>}<span className={styles.planName}>{plan.name}</span><p>{plan.description}</p><div className={styles.planPrice}><span>R$</span><strong><AnimatedMoney cents={yearly ? plan.yearly : plan.monthly} /></strong><span>/{yearly ? "ano" : "mês"}</span></div><small className={styles.planBilling}>{yearly ? "Cobrança anual em pagamento integral. Equivale a 10 mensalidades." : "Cobrança mensal."}</small><Link href="/criar-conta" className={`${styles.btn} ${index === 1 ? styles.btnPrimary : styles.btnGhost}`}>Testar grátis por 7 dias <ArrowRight size={16} /></Link><span className={styles.planIncludes}>Limites do plano</span><ul>{planLimits(plan).map(([title, hint]) => <li key={title}><Check size={17} /><span><strong>{title}</strong><small>{hint}</small></span></li>)}</ul><a href="#incluso" className={styles.planAll}>+ todos os recursos da plataforma <ArrowDown size={15} /></a></article>)}</div>
           <div id="incluso" className={styles.included}><h3>Incluído em todos os planos</h3><ul>{everyPlan.map(item => <li key={item}><Check size={17} />{item}</li>)}</ul></div>
           <p className={styles.planNote}><ShieldCheck size={17} /> {live ? "O investimento em anúncios é separado da assinatura. Recursos e limites completos na área de assinatura." : "O investimento em anúncios é separado da assinatura. A execução autônoma de campanhas está em desenvolvimento e não está incluída nesta oferta. Recursos e limites completos na área de assinatura."}</p>
         </div>
