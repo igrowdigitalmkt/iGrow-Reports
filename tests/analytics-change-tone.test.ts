@@ -8,11 +8,17 @@ const data = (current: number, previous: number, key: string) => ({
 }) as unknown as AnalyticsDashboardData;
 
 describe("cor da variação: depende de a métrica ser boa ao subir ou ao cair", () => {
-  it("custos, CPM, CPC e frequência: subir é ruim (vermelho), cair é bom (verde)", () => {
-    for (const [key, label] of [["cpm", "CPM"], ["cpc_link", "CPC"], ["cost_per_result", "Custo por resultado"], ["cost:action:lead", "Custo por lead"], ["frequency", "Frequência"], ["cpp", "CPP"]] as const) {
+  it("custos, CPM e CPC: subir é ruim (vermelho), cair é bom (verde)", () => {
+    for (const [key, label] of [["cpm", "CPM"], ["cpc_link", "CPC"], ["cost_per_result", "Custo por resultado"], ["cost:action:lead", "Custo por lead"], ["cpp", "CPP"]] as const) {
       // mesmo se o dado guardado vier como "neutral" ou "up", a regra por nome vale
       expect(changeDescription(data(150, 100, key), metric(key, label, "up")).direction, `${key} sobe`).toBe("negative");
       expect(changeDescription(data(70, 100, key), metric(key, label, "neutral")).direction, `${key} cai`).toBe("positive");
+    }
+  });
+  it("frequência é neutra: nunca verde nem vermelho", () => {
+    for (const desirable of ["up", "down", "neutral"] as const) {
+      expect(changeDescription(data(150, 100, "frequency"), metric("frequency", "Frequência", desirable))).toMatchObject({ direction: "neutral", up: true });
+      expect(changeDescription(data(70, 100, "frequency"), metric("frequency", "Frequência", desirable))).toMatchObject({ direction: "neutral", up: false });
     }
   });
   it("resultados, alcance, impressões, cliques e CTR: subir é bom, cair é ruim", () => {

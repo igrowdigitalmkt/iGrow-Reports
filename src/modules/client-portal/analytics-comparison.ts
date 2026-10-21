@@ -2,14 +2,15 @@ import { resultTypes } from "./analytics-results";
 import type { AnalyticsDashboardData, AnalyticsMetric } from "./analytics-types";
 
 /**
- * Sentido desejável de uma métrica: "up" = subir é bom; "down" = subir é ruim (custos, CPM, CPC, frequência); "neutral" = nem bom nem
- * ruim (investimento). As regras por nome valem mesmo quando o dado guardado veio com outro sentido; fora delas vale o da própria métrica.
+ * Sentido desejável de uma métrica: "up" = subir é bom; "down" = subir é ruim (custos, CPM, CPC); "neutral" = nem bom nem
+ * ruim (investimento e frequência). As regras por nome valem mesmo quando o dado guardado veio com outro sentido; fora delas vale o da própria métrica.
  */
 export function desirableDirection(metric: Pick<AnalyticsMetric, "key" | "label" | "desirable">): "up" | "down" | "neutral" {
   const key = metric.key.toLowerCase();
-  if (["spend", "social_spend"].includes(key)) return "neutral";
-  if (/^(cost[:_]|cost$|cpc|cpp|cpm|cpa|cpl|cpv|frequency)/.test(key) || /(^|_)cost(_|$)/.test(key)) return "down";
-  if (/^(custo|cpc|cpm|cpp|frequência)/i.test(metric.label.trim())) return "down";
+  // Investimento e frequência não são bons nem ruins por si só: variação em cinza.
+  if (["spend", "social_spend", "frequency"].includes(key)) return "neutral";
+  if (/^(cost[:_]|cost$|cpc|cpp|cpm|cpa|cpl|cpv)/.test(key) || /(^|_)cost(_|$)/.test(key)) return "down";
+  if (/^(custo|cpc|cpm|cpp)/i.test(metric.label.trim())) return "down";
   // Volume, entrega e retorno: subir é bom, mesmo que o dado guardado os tenha marcado como indiferentes.
   if (/^(impressions|reach|clicks|link_clicks|inline_link_clicks|outbound_clicks|unique_|primary_results|results?$|result:|action:|video_|inline_post_engagement|ctr|unique_ctr|roas|attributed_revenue|value:)/.test(key)) return "up";
   return metric.desirable;
