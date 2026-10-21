@@ -19,6 +19,20 @@ type Service = SupabaseClient<Database>;
 
 export type GoogleSectionsResult = { sections: PlatformAccountSection[]; failures: Array<{ name: string; message: string }> };
 
+/** Contas do Google Ads vinculadas a CADA cliente da organização (só cadastro, sem consultar a API): cliente → contas. */
+export async function googleAccountsByClient(service: Service, agencyId: string): Promise<Record<string, Array<{ id: string; name: string }>>> {
+  const { data: links } = await service.from("client_google_accounts").select("client_id,google_ad_account_id").eq("agency_id", agencyId).eq("active", true);
+  if (!links?.length) return {};
+  const { data: accounts } = await service.from("google_ad_accounts").select("id,name").eq("agency_id", agencyId).is("archived_at", null);
+  const names = new Map((accounts ?? []).map(account => [account.id, account.name]));
+  const out: Record<string, Array<{ id: string; name: string }>> = {};
+  for (const link of links) {
+    const name = names.get(link.google_ad_account_id);
+    if (name !== undefined) (out[link.client_id] ??= []).push({ id: link.google_ad_account_id, name });
+  }
+  return out;
+}
+
 /** Contas do Google Ads vinculadas ao cliente (ativas e não arquivadas). */
 export async function linkedGoogleAccounts(service: Service, agencyId: string, clientId: string) {
   const { data: links } = await service.from("client_google_accounts").select("google_ad_account_id").eq("agency_id", agencyId).eq("client_id", clientId).eq("active", true);

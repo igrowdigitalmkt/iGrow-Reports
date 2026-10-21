@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, PlugZap, RefreshCw, Target, TrendingUp, WalletCards } from "lucide-react";
 import { PortfolioSpendChart } from "./portfolio-chart";
 import { ClientBalance } from "./portfolio-balance";
+import { ResultList } from "./result-list";
+import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import { PortfolioAiSummary } from "@/modules/ai/portfolio-ai-summary";
 
 export type PortfolioStatus = "ok" | "no-accounts" | "no-delivery" | "cost-up" | "updating" | "unavailable";
@@ -10,6 +12,8 @@ export type PortfolioRow = {
   id: string;
   name: string;
   linkedAccounts: number;
+  /** Todas as contas de anúncios vinculadas ao cliente, de qualquer plataforma (mesmo as sem investimento no período). */
+  accounts?: PortfolioAccount[];
   status: PortfolioStatus;
   currency: string | null;
   spend: number | null;
@@ -26,6 +30,7 @@ export type PortfolioRow = {
   demoBalance?: { funds: number | null; postpaid?: boolean };
 };
 
+export type PortfolioAccount = { platform: "meta" | "google"; id: string; name: string };
 export type PortfolioResult = { key: string; label: string; value: number; cost: number | null; previousCost: number | null };
 
 export type PortfolioSummary = { rows: PortfolioRow[]; reportsGenerated: number | null; periodLabel: string; period?: "7d" | "30d" | "90d"; aiAgencyId?: string };
@@ -122,12 +127,12 @@ export function PortfolioView({ summary, base, demo = false }: { summary: Portfo
         <div className="panel-heading" style={{ paddingBottom: 12 }}><div><h2>Clientes</h2><p>{summary.periodLabel} · ordenados por investimento</p></div><Link className="button button-ghost button-sm" href={`${base}/clientes`}>Ver todos<ArrowUpRight size={14} /></Link></div>
         {rows.length ? <div className="table-scroll"><table className="data-table">
           <caption className="sr-only">Desempenho de cada cliente no período</caption>
-          <thead><tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col" className="numeric">Investimento</th><th scope="col" className="numeric">Saldo disponível</th><th scope="col">Resultados no período</th><th scope="col">Tendência</th></tr></thead>
+          <thead><tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col" className="numeric" title="Soma das contas Meta no período. As contas do Google Ads aparecem pela logo, mas ainda não entram neste total.">Investimento</th><th scope="col" className="numeric">Saldo disponível</th><th scope="col">Resultados no período</th><th scope="col">Tendência</th></tr></thead>
           <tbody>{sorted.map(row => <tr key={row.id}>
-            <th scope="row" style={{ fontWeight: 400 }}><Link href={clientHref(row.id)} className="client-cell"><span className="client-avatar blue">{row.name.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span><span style={{ minWidth: 0 }}><strong>{row.name}</strong><small>{row.linkedAccounts ? `${row.linkedAccounts} ${row.linkedAccounts === 1 ? "conta" : "contas"} Meta` : "Sem contas Meta"}</small></span></Link></th>
+            <th scope="row" style={{ fontWeight: 400 }}><Link href={clientHref(row.id)} className="client-cell"><span className="client-avatar blue">{row.name.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span><span style={{ minWidth: 0 }}><strong>{row.name}</strong><AccountLogos row={row} /></span></Link></th>
             <td><span className={`badge ${STATUS[row.status].tone}`}><span className="status-dot" />{STATUS[row.status].label}</span></td>
             <td className="numeric">{money(row.spend, row.currency)}</td>
-            <td className="numeric"><ClientBalance clientId={row.id} enabled={row.linkedAccounts > 0} demo={demo ? row.demoBalance ?? { funds: null, postpaid: true } : undefined} /></td>
+            <td className="numeric"><ClientBalance clientId={row.id} enabled={(row.accounts?.length ?? row.linkedAccounts) > 0} demo={demo ? row.demoBalance ?? { funds: null, postpaid: true } : undefined} /></td>
             <td><Results row={row} /></td>
             <td><Sparkline values={row.trend} /></td>
           </tr>)}</tbody>
@@ -161,16 +166,23 @@ function attentionText(row: PortfolioRow) {
   }
 }
 
-// All result types stay visible: up to three inline, the rest summarized with the full list on hover.
+// All result types stay reachable: the three largest inline; "+N tipos" opens the complete list.
 function Results({ row }: { row: PortfolioRow }) {
   if (row.spend == null) return <span className="muted">—</span>;
   if (!row.results.length) return <span className="muted">Sem resultados</span>;
   const single = row.results.length === 1 ? row.results[0] : null;
-  const shown = row.results.slice(0, 3);
-  const rest = row.results.slice(3);
-  return <div className="result-list" title={row.results.map(result => `${integer(result.value)} ${result.label}`).join(" · ")}>
-    {shown.map(result => <span key={result.key}><strong>{integer(result.value)}</strong> {result.label}</span>)}
-    {rest.length > 0 && <span className="muted">+{rest.length} {rest.length === 1 ? "tipo" : "tipos"}</span>}
-    {single?.cost != null && <span className="muted">{money(single.cost, row.currency)} por resultado</span>}
-  </div>;
+  return <ResultList results={row.results} costLine={single?.cost != null ? `${money(single.cost, row.currency)} por resultado` : null} />;
+}
+
+/** Contas vinculadas ao cliente, uma logo por conta (Meta e Google Ads), com o nome da conta ao passar o mouse. */
+function AccountLogos({ row }: { row: PortfolioRow }) {
+  const accounts: PortfolioAccount[] = row.accounts ?? Array.from({ length: row.linkedAccounts }, (_, index) => ({ platform: "meta" as const, id: `meta-${index}`, name: "Conta Meta Ads" }));
+  if (!accounts.length) return <small>Sem contas vinculadas</small>;
+  const ordered = [...accounts].sort((a, b) => (a.platform === b.platform ? 0 : a.platform === "meta" ? -1 : 1));
+  const meta = ordered.filter(account => account.platform === "meta").length, google = ordered.length - meta;
+  const label = [meta ? `${meta} ${meta === 1 ? "conta" : "contas"} Meta Ads` : null, google ? `${google} ${google === 1 ? "conta" : "contas"} Google Ads` : null].filter(Boolean).join(" e ");
+  return <span className="portfolio-accounts" role="img" aria-label={label}>
+    {ordered.map(account => <span key={`${account.platform}:${account.id}`} className="portfolio-account-logo" title={`${account.platform === "meta" ? "Meta Ads" : "Google Ads"} · ${account.name}`}>
+      <PlatformLogo platform={account.platform} size={account.platform === "meta" ? 13 : 17} /></span>)}
+  </span>;
 }

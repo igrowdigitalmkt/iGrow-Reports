@@ -1127,3 +1127,15 @@ th:has(> .sort-header.is-active) { color: var(--accent-text); }
 .status-switch.is-on i { transform: translateX(16px); background: #fff; }
 .status-switch:disabled { opacity: .45; cursor: not-allowed; }
 .status-switch:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+/* Carteira: contas por logo, saldo por conta, lista de resultados */
+.portfolio-accounts { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.portfolio-account-logo { display: inline-flex; align-items: center; }
+.balance-cell { display: grid; gap: 4px; justify-items: end; }
+.balance-account-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--muted); font-size: 12px; }
+.balance-accounts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; justify-items: end; }
+.balance-accounts li { display: flex; align-items: center; gap: 6px; max-width: 260px; font-size: 12px; }
+.balance-accounts li .balance-account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.balance-accounts li em { font-style: normal; font-weight: 500; white-space: nowrap; }
+.result-more { justify-self: start; padding: 0; border: 0; background: transparent; color: var(--accent-text); font: inherit; font-size: 12.5px; cursor: pointer; text-align: left; }
+.result-more:hover { text-decoration: underline; }

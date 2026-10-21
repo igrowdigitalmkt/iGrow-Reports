@@ -7,7 +7,7 @@ import { resultBreakdown } from "@/modules/client-portal/analytics-results";
 import type { ClientItem } from "@/modules/clients/schema";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import type { Database } from "@/types/database";
-import type { PortfolioRow, PortfolioStatus } from "./portfolio-view";
+import type { PortfolioAccount, PortfolioRow, PortfolioStatus } from "./portfolio-view";
 
 // A cost per result this much above the previous period is flagged for attention.
 const COST_ALERT_RATIO = 1.2;
@@ -20,13 +20,17 @@ export const portfolioPeriod = (value: string | undefined): PortfolioPeriod => v
 
 // Uses the same standard ranges the daily job pre-computes (account time zones), so each
 // client normally reads a cached result instead of recalculating.
-export async function loadPortfolioRows(supabase: SupabaseClient<Database>, clients: ClientItem[], meta: MetaAdminSnapshot | undefined, period: PortfolioPeriod = "30d", now = new Date()): Promise<PortfolioRow[]> {
+export async function loadPortfolioRows(supabase: SupabaseClient<Database>, clients: ClientItem[], meta: MetaAdminSnapshot | undefined, period: PortfolioPeriod = "30d", now = new Date(), googleByClient: Record<string, Array<{ id: string; name: string }>> = {}): Promise<PortfolioRow[]> {
   const active = clients.filter(client => !client.archived_at);
   return Promise.all(active.map(async (client): Promise<PortfolioRow> => {
     const linked = (meta?.links ?? []).filter(link => link.clientId === client.id && link.active);
     const accounts = (meta?.accounts ?? []).filter(account => linked.some(link => link.adAccountId === account.id));
+    const accountList: PortfolioAccount[] = [
+      ...accounts.map(account => ({ platform: "meta" as const, id: account.id, name: account.name })),
+      ...(googleByClient[client.id] ?? []).map(account => ({ platform: "google" as const, id: account.id, name: account.name })),
+    ];
     const base: PortfolioRow = {
-      id: client.id, name: client.name, linkedAccounts: linked.length, status: "no-accounts",
+      id: client.id, name: client.name, linkedAccounts: linked.length, accounts: accountList, status: "no-accounts",
       currency: null, spend: null, previousSpend: null, reach: null, impressions: null, results: [], trend: [], previousTrend: [], days: [],
     };
     if (!linked.length) return base;
