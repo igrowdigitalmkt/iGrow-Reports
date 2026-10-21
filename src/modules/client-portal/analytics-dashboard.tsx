@@ -4,7 +4,7 @@ import { RESULT_GROUPS, resultBreakdown, resultCostBreakdown, resultFamilyValue,
 import { hasConfirmedAnalytics } from "./analytics-readiness";
 import { changeDescription } from "./analytics-comparison";
 import { reconcileHierarchySelection } from "./analytics-selection";
-import { resultCardLayout, wrapResultLabel } from "./result-card-layout";
+import { resultCardLayout } from "./result-card-layout";
 
 import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
@@ -973,7 +973,7 @@ export function ClientAnalyticsDashboard({
                 "--result-label-size": `${resultLayout.labelSize}px`,
               } : {}),
             } as CSSProperties;
-            return <article className={`analytics-kpi is-fixed${showResultRows ? " has-result-rows is-result-adaptive" : ""}`} key={metric.key}
+            return <article className={`analytics-kpi is-fixed${metric.key === "spend" ? " is-spend" : ""}${showResultRows ? " has-result-rows is-result-adaptive" : ""}`} key={metric.key}
               style={cardStyle}>
               <div className="analytics-kpi-top"><span>{metric.label}</span></div>
               {showResultRows ? <div className="analytics-result-metric-list">
@@ -982,8 +982,7 @@ export function ClientAnalyticsDashboard({
                     ? result.value.toLocaleString("pt-BR")
                     : formatAnalyticsValue(resultCostByKey.get(result.key) ?? null, metric, data.currency)}</strong>
                   <span className="analytics-result-metric-label">
-                    {wrapResultLabel(result.label.toLocaleLowerCase("pt-BR"), 18, 2).map((line, index) =>
-                      <span className="analytics-result-metric-label-line" key={index}>{line}</span>)}
+                    <span className="analytics-result-metric-label-line">{result.label.toLocaleLowerCase("pt-BR")}</span>
                   </span>
                 </div>)}
               </div> : <strong title={scopedData.summary[metric.key] == null ? unavailableReason(scopedData, metric) : undefined} className={`analytics-kpi-value${scopedData.summary[metric.key] == null ? " is-unavailable" : ""}`}>

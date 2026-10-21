@@ -35,7 +35,7 @@ function Kpi({ data, metric, fixed, handlers }: { data: AnalyticsDashboardData; 
     ? resultCostBreakdown(data.summary, data.campaigns.map(campaign => ({ values: campaign.values, level: "campaign" as const, id: campaign.id, accountId: campaign.accountId }))).sort((a, b) => b.value - a.value) : [];
   const value = data.summary[metric.key];
   const movable = !fixed && !!handlers;
-  const className = `analytics-kpi${fixed ? " is-fixed" : " is-removable"}${movable && handlers.dragging === metric.key ? " is-dragging" : ""}${movable && handlers.dropTarget === metric.key && handlers.dragging !== metric.key ? " is-drop-target" : ""}`;
+  const className = `analytics-kpi${metric.key === "spend" ? " is-spend" : ""}${fixed ? " is-fixed" : " is-removable"}${movable && handlers.dragging === metric.key ? " is-dragging" : ""}${movable && handlers.dropTarget === metric.key && handlers.dragging !== metric.key ? " is-drop-target" : ""}`;
   const dragProps = movable ? {
     draggable: true,
     onDragStart: (event: React.DragEvent) => { handlers.onDragStart(metric.key); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", metric.key); },

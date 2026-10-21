@@ -566,6 +566,10 @@
 /* Cartões de Resultados e Custo por resultado: com vários tipos, a lista usa duas colunas só quando o cartão é largo o bastante para o valor
    e o nome do tipo caberem inteiros; abaixo disso vira uma coluna (nada é cortado nem escondido). */
 .analytics-kpi.has-result-rows { container-type: inline-size; container-name: result-card; }
-@container result-card (max-width: 500px) {
+@container result-card (max-width: 700px) {
   .analytics-result-metric-list { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; gap: 8px; }
 }
+
+/* Valor usado em destaque: o dobro do tamanho dos demais indicadores, encolhendo só se o cartão for estreito demais. */
+.analytics-kpi.is-spend { container-type: inline-size; container-name: spend-card; }
+.analytics-kpi.is-spend .analytics-kpi-value { font-size: clamp(26px, 15cqi, 52px); letter-spacing: -.04em; line-height: 1.1; }
