@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Download, Layers, Monitor } from "lucide-react";
 import styles from "./sales-page.module.css";
 
@@ -107,10 +107,32 @@ function Donut({ parts, center, label }: { parts: { name: string; value: string;
   </div>;
 }
 
+/** Bloco que anima ao entrar na tela, reinicia a cada nova entrada e repete em ciclo enquanto estiver visível. */
+function Replay({ children }: { children: (seen: boolean) => ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [on, setOn] = useState(false);
+  const [cycle, setCycle] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (reducedMotion() || typeof IntersectionObserver === "undefined") { const f = requestAnimationFrame(() => setOn(true)); return () => cancelAnimationFrame(f); }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setOn(true); setCycle(c => (c < 1 ? 1 : c)); } else { setOn(false); setCycle(0); }
+    }, { threshold: 0.2 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!on || reducedMotion()) return;
+    const id = setInterval(() => setCycle(c => c + 1), 13000);
+    return () => clearInterval(id);
+  }, [on]);
+  return <div ref={ref} className={`${styles.lvBlock} ${on ? styles.liveOn : ""} ${cycle > 1 ? styles.lvAgain : ""}`}><Fragment key={cycle}>{children(on)}</Fragment></div>;
+}
+
 export function LiveDashboard() {
-  const [ref, seen] = useInView<HTMLDivElement>();
   const w = 600, h = 200;
-  return <div ref={ref} className={`${styles.live} ${seen ? styles.liveOn : ""}`}>
+  return <div className={styles.live}>
     <div className={styles.lvBar}><span className={styles.lvDots}><i /><i /><i /></span><span>GROOW ADS / PAINEL DO CLIENTE</span><span className={styles.lvDemo}>DEMONSTRAÇÃO</span></div>
     <div className={styles.lvBody}>
       <div className={styles.lvHead}>
@@ -120,7 +142,8 @@ export function LiveDashboard() {
       <div className={styles.lvPeriod}><span>05 de set. de 2026 – 04 de out. de 2026</span><span className={styles.lvUpdated}><i /> Atualizado em 05/10, 06:00</span></div>
       <div className={styles.lvPlatform}><b>∞</b> Meta Ads <small>2 contas</small></div>
 
-      <div className={styles.lvTop}>
+<Replay>{seen => <>
+            <div className={styles.lvTop}>
         <div className={styles.lvCard}><h4>Valor usado</h4><strong className={styles.lvBig}><CountUp to={3885.18} active={seen} decimals={2} prefix="R$ " /></strong><em className={styles.lvGood}>↗ +19% vs. anterior</em><Spark seed={0.4} /></div>
         <div className={styles.lvCard}><h4>Resultados</h4><ul className={styles.lvList}>{results.map(([value, label]) => <li key={label}><strong><CountUp to={value} active={seen} /></strong><span>{label}</span></li>)}</ul></div>
         <div className={styles.lvCard}><h4>Custo por resultado</h4><ul className={styles.lvList}>{costs.map(([value, label]) => <li key={label}><strong><CountUp to={value} active={seen} decimals={2} prefix="R$ " /></strong><span>{label}</span></li>)}</ul></div>
@@ -128,8 +151,10 @@ export function LiveDashboard() {
 
       <div className={styles.lvKpis5}>{row1.map(m => <div key={m.title} className={styles.lvCard}><h4>{m.title}</h4><strong className={styles.lvMid}><CountUp to={m.to} active={seen} decimals={m.decimals} prefix={m.prefix} suffix={m.suffix} /></strong><em className={styles.lvGood}>↗ {m.delta}</em><Spark seed={m.seed} /></div>)}</div>
       <div className={styles.lvKpis4}>{row2.map(m => <div key={m.title} className={styles.lvCard}><h4>{m.title}</h4><strong className={styles.lvMid}><CountUp to={m.to} active={seen} decimals={m.decimals} prefix={m.prefix} /></strong><em className={styles.lvGood}>↗ {m.delta}</em><Spark seed={m.seed} /></div>)}</div>
+      </>}</Replay>
 
-      <div className={styles.lvChartRow}>
+<Replay>{() => <>
+            <div className={styles.lvChartRow}>
         <div className={styles.lvCard}>
           <div className={styles.lvCardHead}><h4>Desempenho do período</h4><span className={styles.lvSwitch}><b>Linhas</b><i>Barras</i></span></div>
           <div className={styles.lvPickers}><span>Principal <b>Valor usado</b></span><span>Comparar com <b>Cadastros concluídos</b></span></div>
@@ -147,20 +172,26 @@ export function LiveDashboard() {
           <Donut center="R$ 3.885,18" label="2 contas" parts={[{ name: "Escola Horizonte · Principal", value: "R$ 2.964,28", pct: 76.3, color: "#4f6bf0" }, { name: "Escola Horizonte · Unidade 2", value: "R$ 920,90", pct: 23.7, color: "#2cc4cf" }]} />
         </div>
       </div>
+      </>}</Replay>
 
-      <div className={styles.lvAudHead}><h4>Público do período</h4><span>Plataformas, gênero, idade e local, direto da Meta</span></div>
+<Replay>{() => <>
+            <div className={styles.lvAudHead}><h4>Público do período</h4><span>Plataformas, gênero, idade e local, direto da Meta</span></div>
       <div className={styles.lvAud}>
         <div className={styles.lvCard}><h4>Plataformas</h4><Donut center="488,9 mil" label="Impressões" parts={[{ name: "Instagram", value: "348,2 mil", pct: 71.2, color: "#c35ad9" }, { name: "Facebook", value: "131,4 mil", pct: 26.9, color: "#4f6bf0" }, { name: "Audience Network", value: "6,9 mil", pct: 1.4, color: "#f0b429" }, { name: "WhatsApp", value: "2,4 mil", pct: 0.5, color: "#3ecf8e" }]} /></div>
         <div className={styles.lvCard}><h4>Gênero</h4><Donut center="488,9 mil" label="Impressões" parts={[{ name: "Mulheres", value: "360,4 mil", pct: 73.7, color: "#e8618c" }, { name: "Homens", value: "126,2 mil", pct: 25.8, color: "#5b9cf5" }, { name: "Não informado", value: "2,3 mil", pct: 0.5, color: "#7d8799" }]} /></div>
       </div>
+      </>}</Replay>
 
-      <div className={styles.lvTableCard}>
+<Replay>{seen => <>
+            <div className={styles.lvTableCard}>
         <div className={styles.lvCardHead}><h4>Seleção incluída na análise <small>8</small></h4></div>
         <div className={styles.lvTable}>
           <div className={`${styles.lvTr} ${styles.lvTh}`}><span>Campanha</span><span>Valor usado</span><span>Resultados</span><span>Custo por resultado</span></div>
           {campaignsTable.map((c, i) => <div className={styles.lvTr} key={c.name} style={{ animationDelay: `${0.5 + i * 0.12}s` }}><span><b>{c.name}</b><small>{c.acct}</small></span><span><CountUp to={c.spend} active={seen} decimals={2} prefix="R$ " /></span><span><CountUp to={c.result} active={seen} /><small>{c.label}</small></span><span>{brl(c.cost)}<small>{c.label}</small></span></div>)}
         </div>
       </div>
+      </>}</Replay>
+
       <p className={styles.lvFoot}>Dados fictícios de demonstração. A interface é a do painel do cliente da Groow Ads.</p>
     </div>
 
