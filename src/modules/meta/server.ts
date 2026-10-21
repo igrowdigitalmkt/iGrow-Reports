@@ -254,6 +254,8 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
   return statuses;
 }
 
+import type { CreditEstimate } from "@/modules/google-ads/credit-balance";
+
 /** Fonte consultada na API do Google Ads para a situação financeira da conta e o que ela devolveu. */
 export type GoogleBillingProbe = { source: string; state: "ok" | "empty" | "error"; message?: string; /** Primeiras linhas devolvidas (texto), para conferir o que a API realmente informa. */ sample?: string };
 /** Tudo o que a API do Google Ads informa sobre pagamento e gasto de uma conta (somente leitura). */
@@ -268,6 +270,8 @@ export type GoogleBillingExtras = {
   hasBillingSetup: boolean;
   paymentsAccount: { id: string | null; name: string | null } | null;
   probes: GoogleBillingProbe[];
+  /** Saldo ESTIMADO a partir dos créditos informados pelo usuário (a API do Google não informa o saldo). */
+  credit?: CreditEstimate;
 };
 
 export type ClientAccountBilling = {

@@ -27,6 +27,8 @@ export const accountBudgetQuery = () =>
   "SELECT account_budget.status, account_budget.name, account_budget.approved_spending_limit_micros, account_budget.approved_spending_limit_type, account_budget.adjusted_spending_limit_micros, account_budget.adjusted_spending_limit_type, account_budget.total_adjustments_micros, account_budget.amount_served_micros, account_budget.approved_start_date_time, account_budget.approved_end_date_time, account_budget.approved_end_time_type FROM account_budget";
 export const billingSetupQuery = () =>
   "SELECT billing_setup.id, billing_setup.status, billing_setup.payments_account_info.payments_account_id, billing_setup.payments_account_info.payments_account_name, billing_setup.payments_account_info.payments_profile_id, billing_setup.payments_account_info.payments_profile_name FROM billing_setup";
+/** Gasto da conta entre duas datas (AAAA-MM-DD, validadas). */
+export const spendBetweenQuery = (from: string, to: string) => `SELECT metrics.cost_micros FROM customer WHERE ${range(from, to)}`;
 export const monthCostQuery = () => "SELECT metrics.cost_micros FROM customer WHERE segments.date DURING THIS_MONTH";
 /** Campanhas ativas com orçamento diário, orçamento total e gasto acumulado (sem filtro de data = desde o início). */
 export const campaignBudgetsQuery = () =>

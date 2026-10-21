@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ChevronDown, CircleCheck, CreditCard, RefreshCw } from "lucide-react";
 import type { ClientAccountBilling } from "@/modules/meta/server";
 import { PlatformLogo } from "@/modules/platforms/platform-logo";
+import { GoogleCreditDialog } from "./google-credit-dialog";
 
 type BillingState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; accounts: ClientAccountBilling[]; failures: string[] };
 
@@ -80,7 +81,7 @@ export function BillingSummary({ clientId, dailySpend, demoAccounts, accountIds 
     {state.status === "ready" && !rows.length && <div className="billing-message"><span>Nenhuma conta de anúncio disponível para consulta.</span></div>}
     {rows.length > 0 && <div className="billing-rows" role="table" aria-label="Contas de anúncio">
       <div className="billing-row billing-row-head" role="row"><span role="columnheader">Conta</span><span role="columnheader">Saldo ou a pagar</span><span role="columnheader">Duração</span><span role="columnheader">Limite de gastos</span></div>
-      {visible.map(row => <BillingRow key={row.account.accountId} row={row} />)}
+      {visible.map(row => <BillingRow key={row.account.accountId} row={row} clientId={clientId} onChanged={() => void load()} demo={!!demoAccounts} />)}
     </div>}
     {idle.length > 0 && <button type="button" className="billing-idle-toggle" aria-expanded={showIdle} onClick={() => setShowIdle(value => !value)}>
       <ChevronDown size={14} style={{ transform: showIdle ? "rotate(180deg)" : undefined }} />
@@ -89,8 +90,9 @@ export function BillingSummary({ clientId, dailySpend, demoAccounts, accountIds 
   </section>;
 }
 
-function BillingRow({ row }: { row: Row }) {
+function BillingRow({ row, clientId, onChanged, demo }: { row: Row; clientId: string; onChanged: () => void; demo: boolean }) {
   const { account } = row;
+  const [creditOpen, setCreditOpen] = useState(false);
   const used = account.spendCap && account.amountSpent != null ? Math.min(1, account.amountSpent / account.spendCap) : null;
   const payment = account.platform === "google" ? (account.fundingLabel ?? "Pagamento no Google Ads") : account.prepaid ? "Pré-pago" : `Pós-pago${account.fundingLabel ? ` · ${account.fundingLabel}` : ""}`;
   const google = account.google;
@@ -108,10 +110,18 @@ ${sources}` : undefined}><span className={`billing-dot ${account.delivering ? "i
       {account.prepaid
         ? <><strong>{account.availableBalance != null ? money(account.availableBalance, account.currency) : "—"}</strong><small>saldo pré-pago</small></>
         : account.platform === "google"
-          ? budgetsLeft != null
+          ? google?.credit
+            ? <><strong className={google.credit.estimatedBalance <= 0 || google.credit.exceeded ? "is-warn" : undefined}>{money(google.credit.estimatedBalance, account.currency)}</strong>
+              <small>saldo estimado · créditos informados {money(google.credit.informed, account.currency)} − gasto {money(google.credit.spentSince, account.currency)} desde {new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(`${google.credit.since}T12:00:00Z`))}{google.credit.exceeded ? " (gasto acima do informado: informe um novo depósito)" : ""}</small></>
+          : budgetsLeft != null
             ? <><strong>{money(budgetsLeft, account.currency)}</strong><small>restantes nos orçamentos totais das campanhas ativas</small></>
             : <><strong className="is-muted">—</strong><small>crédito da conta não informado pelo Google</small></>
           : <><strong className={account.balanceDue && !account.delivering ? "is-warn" : undefined}>{money(account.balanceDue, account.currency)}</strong><small>a pagar</small></>}
+      {account.platform === "google" && !demo && <>
+        <button type="button" className="text-link credit-link" onClick={() => setCreditOpen(true)}>{google?.credit ? "Editar créditos informados" : "Informar crédito (Pix, boleto)"}</button>
+        <GoogleCreditDialog open={creditOpen} onOpenChange={setCreditOpen} clientId={clientId} accountId={account.accountId} accountName={account.name} currency={account.currency}
+          entries={google?.credit?.entries ?? []} onChanged={onChanged} />
+      </>}
     </div>
     <div className="billing-cell" role="cell">
       {account.platform === "google" && row.days == null && google?.monthSpend != null

@@ -12,7 +12,8 @@ import type { AnalyticsMetric } from "@/modules/client-portal/analytics-types";
 import type { CampaignRow } from "@/modules/campaigns/tree";
 import { buildGoogleRows } from "./hierarchy";
 import { buildGoogleAnalytics, GOOGLE_METRICS, previousPeriod } from "./normalize";
-import { accountBudgetQuery, accountDailyQuery, billingSetupQuery, campaignBudgetsQuery, monthCostQuery, adGroupListQuery, adGroupQuery, adListQuery, adRowsQuery, campaignListQuery, campaignQuery } from "./queries";
+import { estimateCredit, type CreditEntry } from "./credit-balance";
+import { spendBetweenQuery, accountBudgetQuery, accountDailyQuery, billingSetupQuery, campaignBudgetsQuery, monthCostQuery, adGroupListQuery, adGroupQuery, adListQuery, adRowsQuery, campaignListQuery, campaignQuery } from "./queries";
 import { loadGoogleAdsClient } from "./server";
 
 type Service = SupabaseClient<Database>;
@@ -84,6 +85,11 @@ export async function loadGoogleBilling(input: { service: Service; agencyId: str
   const linked = await linkedGoogleAccounts(input.service, input.agencyId, input.clientId);
   if (!linked.length) return { accounts: [], failures: [] };
   const client = input.client ?? (await loadGoogleAdsClient(input.service, input.agencyId)).client;
+  // Créditos informados pelo usuário (ainda não removidos): base da estimativa de saldo.
+  const { data: creditRows } = await input.service.from("google_account_credits").select("id,google_ad_account_id,amount,currency,deposited_on,note,created_at")
+    .eq("agency_id", input.agencyId).in("google_ad_account_id", linked.map(account => account.id)).is("removed_at", null).order("deposited_on");
+  const creditsOf = (accountId: string): CreditEntry[] => (creditRows ?? []).filter(row => row.google_ad_account_id === accountId)
+    .map(row => ({ id: row.id, amount: Number(row.amount), currency: row.currency, depositedOn: row.deposited_on, note: row.note, createdAt: row.created_at }));
   const results = await Promise.all(linked.map(async account => {
     const options = { loginCustomerId: account.loginCustomerId };
     const probes: GoogleBillingProbe[] = [];
@@ -121,7 +127,17 @@ export async function loadGoogleBilling(input: { service: Service; agencyId: str
             `${customerPath}/invoices?billingSetup=${encodeURIComponent(`${customerPath}/billingSetups/${setupId}`)}&issueYear=${date.getFullYear()}&issueMonth=${months[date.getMonth()]}`);
         }
       }
-      return { account: googleAccountBilling({ id: account.id, name: account.name, currency: account.currency, customerRow: customer[0], accountBudgetRows, billingSetupRows, monthCostRows, campaignBudgetRows, probes }) };
+      // Gasto desde o primeiro crédito informado (calendário da conta): o saldo estimado é créditos − esse gasto.
+      const entries = creditsOf(account.id);
+      let credit = null;
+      if (entries.length) {
+        const from = entries.map(entry => entry.depositedOn).sort()[0]!;
+        const until = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+        const spentRows = await probe("gasto desde o primeiro crédito informado", spendBetweenQuery(from, until));
+        if (spentRows) credit = estimateCredit(entries, spentRows.reduce((total, row) => total + (Number(((row.metrics ?? {}) as Record<string, unknown>).costMicros) || 0), 0) / 1_000_000);
+      }
+      const built = googleAccountBilling({ id: account.id, name: account.name, currency: account.currency, customerRow: customer[0], accountBudgetRows, billingSetupRows, monthCostRows, campaignBudgetRows, probes });
+      return { account: built.google ? { ...built, google: { ...built.google, ...(credit ? { credit } : {}) } } : built };
     } catch {
       return { failure: account.name };
     }

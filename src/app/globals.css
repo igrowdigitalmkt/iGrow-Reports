@@ -1145,3 +1145,13 @@ th:has(> .sort-header.is-active) { color: var(--accent-text); }
    e as futuras. Uma tabela que não é de linhas de dados (calendário) opta por sair com a classe "no-row-hover". */
 :root { --row-hover: color-mix(in srgb, var(--surface-hover) 60%, var(--surface)); }
 table:not(.no-row-hover) tbody tr:hover > td, table:not(.no-row-hover) tbody tr:hover > th { background: var(--row-hover); }
+
+/* Crédito informado do Google Ads */
+.credit-link { margin-top: 6px; font-size: 12px; }
+.credit-form { display: grid; gap: 14px; }
+.credit-form label { display: grid; font-size: 13px; }
+.credit-error { color: var(--bad); font-size: 13px; margin: 0; }
+.credit-list { display: grid; gap: 8px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); }
+.credit-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.credit-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+.credit-note { font-size: 12px; line-height: 1.5; margin: 4px 0 0; }
