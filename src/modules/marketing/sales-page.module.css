@@ -318,6 +318,30 @@
 .opAwait { border-color: #f0b42966; box-shadow: 0 0 0 1px #f0b42922, 0 0 30px #f0b4291a; }
 .opLink { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: #9db0ff; font-weight: 600; font-size: 13px; }
 .opDone { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: #8be8bd; font-weight: 600; font-size: 13px; animation: liveIn .5s ease-out both; }
+
+/* Painéis de IA no tema claro da plataforma (tokens do [data-theme=light]) */
+.chat, .opp { --l-bg: #ffffff; --l-raised: #f2f4f7; --l-border: #e3e6ec; --l-border2: #d2d7e0; --l-text: #141821; --l-sec: #3d4554; --l-muted: #636c7d; --l-accent: #4162de; --l-accent-bg: #4162de1a; --l-good: #14935b; --l-warn: #a8690a;
+  background: var(--l-bg); color: var(--l-text); border-color: var(--l-border); box-shadow: 0 30px 80px #0007, 0 0 90px #4162de2e; }
+.chHead, .chContext, .chComposer { border-color: var(--l-border); }
+.chHead em { border-color: var(--l-border2); color: var(--l-muted); }
+.chMark { background: var(--l-accent-bg); color: var(--l-accent); } .chCollapse { color: var(--l-muted); }
+.chContext { background: var(--l-raised); } .chContext > span, .chContext div > span, .chWho, .chComposer small { color: var(--l-muted); }
+.chContext > div { border-left-color: var(--l-accent); } .chContext small { color: var(--l-accent); }
+.chUser > div { background: var(--l-accent); color: #fff; }
+.chBot > div { background: var(--l-raised); border-color: var(--l-border); color: var(--l-text); }
+.chTyping { background: var(--l-raised); } .chTyping span { background: #8a92a1; }
+.chInput { background: var(--l-bg); border-color: var(--l-border2); color: var(--l-text); } .chInput > span { color: #8a92a1; }
+.chSend { background: var(--l-raised); color: var(--l-muted); } .chSendOn { background: var(--l-accent); color: #fff; }
+.opTitle em { border-color: var(--l-border2); color: var(--l-muted); }
+.opChip { background: #a8690a1c; color: var(--l-warn); }
+.opScope, .opRun small, .opStage header small, .opStage li small { color: var(--l-muted); } .opScope strong { color: var(--l-text); }
+.opBtn { background: var(--l-accent); color: #fff; } .opBusy { background: #6f86e4; } .opPress { box-shadow: 0 0 0 8px #4162de33; }
+.opStage { background: var(--l-raised); border-color: var(--l-border); }
+.opStage h4 span { background: #e3e6ec; color: var(--l-muted); }
+.opStage li > span:not(.opLink):not(.opDone), .opStage .opReason { color: var(--l-sec); }
+.opAwait { border-color: #a8690a66; box-shadow: 0 0 0 1px #a8690a22, 0 0 30px #a8690a14; }
+.opLink { color: var(--l-accent); } .opDone { color: var(--l-good); }
+
 /* Entrada do topo */
 .h1a, .h1b { display: inline; }
 @media (prefers-reduced-motion: no-preference) {
