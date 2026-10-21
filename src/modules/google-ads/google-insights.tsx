@@ -1,12 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Info } from "lucide-react";
 import { AccountInsights, DEFAULT_OPTIONAL_ACCOUNT_METRICS, FIXED_ACCOUNT_METRICS } from "@/modules/client-portal/account-insights";
 import { SectionToggle } from "@/modules/client-portal/section-toggle";
 import { PlatformLogo } from "@/modules/platforms/platform-logo";
 import type { GoogleSectionView } from "./google-section";
 import { loadGoogleScopeAction } from "./scope-actions";
 import "@/modules/client-portal/analytics-dashboard.css";
+
+/** Avisos de qualidade dos dados da plataforma, no mesmo selo da Meta (abre a lista ao clicar). */
+function QualityBadge({ warnings }: { warnings: string[] }) {
+  if (!warnings.length) return null;
+  return <details className="analytics-quality-menu">
+    <summary><Info size={13} />Qualidade dos dados <span className="analytics-count">{warnings.length}</span></summary>
+    <div>{warnings.map(warning => <p key={warning}>{warning}</p>)}</div>
+  </details>;
+}
 
 /**
  * Google Ads no Dashboard, no mesmo padrão de exibição da Meta: um painel completo por conta (indicadores com variação removíveis,
@@ -47,7 +57,7 @@ export function GoogleDashboardSection({ sections, failures, order, collapsed, o
       const shut = collapsedIds.includes(section.id);
       return <section key={section.id} className="platform-section" aria-label={`Google Ads ${section.name}`} style={order === undefined ? undefined : { order }}>
         <div className="platform-heading"><SectionToggle collapsed={shut} label={`Google Ads ${section.name}`} onToggle={() => setCollapsedIds(current => current.includes(section.id) ? current.filter(id => id !== section.id) : [...current, section.id])} /><PlatformLogo platform="google" /><h2>Google Ads</h2>
-          <span className="platform-heading-meta">{section.name}</span></div>
+          <span className="platform-heading-meta">{section.name}</span><QualityBadge warnings={section.data.warnings} /></div>
         {!shut && <>
           {index === 0 && failures.map(failure => <p key={failure.name} role="alert" className="analytics-footnote" style={{ padding: "0 4px" }}>Não foi possível ler a conta {failure.name} agora. {failure.message}</p>)}
           <AccountInsights title={section.name} data={section.data} platform="google" optional={optional} setOptional={setOptional} scopeLoader={scopeFor(section)} showTitle={false} />
@@ -57,7 +67,8 @@ export function GoogleDashboardSection({ sections, failures, order, collapsed, o
   }
   return <section className="platform-section" aria-label="Google Ads" style={order === undefined ? undefined : { order }}>
     <div className="platform-heading"><SectionToggle collapsed={collapsed} label="Google Ads" onToggle={onToggle} /><PlatformLogo platform="google" /><h2>Google Ads</h2>
-      <span className="platform-heading-meta">{sections.length} {sections.length === 1 ? "conta" : "contas"}</span></div>
+      <span className="platform-heading-meta">{sections.length} {sections.length === 1 ? "conta" : "contas"}</span>
+      <QualityBadge warnings={[...new Set(sections.flatMap(section => section.data.warnings))]} /></div>
     {!collapsed && <>
       {failures.map(failure => <p key={failure.name} role="alert" className="analytics-footnote" style={{ padding: "0 4px" }}>Não foi possível ler a conta {failure.name} agora. {failure.message}</p>)}
       {sections.map(section => <AccountInsights key={section.id} title={section.name} data={section.data} platform="google" optional={optional} setOptional={setOptional} scopeLoader={scopeFor(section)} />)}
