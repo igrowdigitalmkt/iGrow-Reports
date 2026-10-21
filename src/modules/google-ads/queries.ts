@@ -24,7 +24,7 @@ export const campaignQuery = (from: string, to: string) =>
 
 /** Fontes de pagamento e gasto da conta (somente leitura). Cada uma é consultada em separado: a falha de uma não derruba as outras. */
 export const accountBudgetQuery = () =>
-  "SELECT account_budget.status, account_budget.name, account_budget.approved_spending_limit_micros, account_budget.adjusted_spending_limit_micros, account_budget.total_adjustments_micros, account_budget.amount_served_micros FROM account_budget WHERE account_budget.status = 'APPROVED'";
+  "SELECT account_budget.status, account_budget.name, account_budget.approved_spending_limit_micros, account_budget.approved_spending_limit_type, account_budget.adjusted_spending_limit_micros, account_budget.adjusted_spending_limit_type, account_budget.total_adjustments_micros, account_budget.amount_served_micros, account_budget.approved_start_date_time, account_budget.approved_end_date_time, account_budget.approved_end_time_type FROM account_budget";
 export const billingSetupQuery = () =>
   "SELECT billing_setup.id, billing_setup.status, billing_setup.payments_account_info.payments_account_id, billing_setup.payments_account_info.payments_account_name, billing_setup.payments_account_info.payments_profile_id, billing_setup.payments_account_info.payments_profile_name FROM billing_setup";
 export const monthCostQuery = () => "SELECT metrics.cost_micros FROM customer WHERE segments.date DURING THIS_MONTH";

@@ -245,3 +245,26 @@ describe("desconectar o Google Ads", () => {
     expect(calls).toEqual(expect.arrayContaining(["rpc:delete_integration_secret", "integrations:update:connection_status", "google_connections:update:connected_at,login_customer_id,scopes,last_accounts_sync_at", "client_google_accounts:update:active", "google_ad_accounts:update:archived_at"]));
   });
 });
+
+describe("leitura de pagamento (somente GET, caminhos fixos)", () => {
+  const make = () => {
+    const calls: Array<{ url: string; method: string }> = [];
+    const fetcher = vi.fn(async (url: string, init: { method: string }) => {
+      calls.push({ url, method: init.method });
+      return url.includes("oauth2") ? reply(200, { access_token: "tok", expires_in: 3600 }) : reply(200, { paymentsAccounts: [{ id: "1" }] });
+    });
+    return { calls, client: new GoogleAdsClient(credentials, { fetcher: fetcher as never }) };
+  };
+  it("aceita contas de pagamento e faturas, sempre por GET", async () => {
+    const { client, calls } = make();
+    await expect(client.readBilling("customers/1112223333/paymentsAccounts")).resolves.toMatchObject({ paymentsAccounts: [{ id: "1" }] });
+    await client.readBilling("customers/1112223333/invoices?billingSetup=customers%2F1112223333%2FbillingSetups%2F555&issueYear=2026&issueMonth=OCTOBER");
+    expect(calls.filter(call => !call.url.includes("oauth2")).every(call => call.method === "GET")).toBe(true);
+  });
+  it("recusa qualquer outro caminho (escrita, outro recurso, injeção)", async () => {
+    const { client } = make();
+    for (const path of ["customers/1112223333/campaigns:mutate", "customers/1112223333/paymentsAccounts/../x", "customers/111/paymentsAccounts", "customers/1112223333/invoices?billingSetup=x&issueYear=2026&issueMonth=OCTOBER", "me", "customers/1112223333/paymentsAccounts?x=1"]) {
+      await expect(client.readBilling(path)).rejects.toMatchObject({ code: "PATH_NOT_ALLOWED" });
+    }
+  });
+});

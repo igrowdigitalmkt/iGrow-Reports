@@ -255,7 +255,7 @@ export async function getMetaEntityStatuses(input: { agencyId: string; clientId:
 }
 
 /** Fonte consultada na API do Google Ads para a situação financeira da conta e o que ela devolveu. */
-export type GoogleBillingProbe = { source: string; state: "ok" | "empty" | "error"; message?: string };
+export type GoogleBillingProbe = { source: string; state: "ok" | "empty" | "error"; message?: string; /** Primeiras linhas devolvidas (texto), para conferir o que a API realmente informa. */ sample?: string };
 /** Tudo o que a API do Google Ads informa sobre pagamento e gasto de uma conta (somente leitura). */
 export type GoogleBillingExtras = {
   /** Gasto do mês corrente, nas métricas da conta (null = não foi possível ler). */

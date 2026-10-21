@@ -90,7 +90,7 @@ export async function loadGoogleBilling(input: { service: Service; agencyId: str
     const probe = async (source: string, query: string) => {
       try {
         const rows = await client.search(account.customerId, query, options);
-        probes.push({ source, state: rows.length ? "ok" : "empty" });
+        probes.push({ source, state: rows.length ? "ok" : "empty", ...(rows.length ? { sample: JSON.stringify(rows.slice(0, 3)).slice(0, 1500) } : {}) });
         return rows;
       } catch (error) {
         probes.push({ source, state: "error", message: error instanceof Error ? error.message : "Falha ao ler esta fonte." });
@@ -103,6 +103,24 @@ export async function loadGoogleBilling(input: { service: Service; agencyId: str
         probe("orçamento da conta", accountBudgetQuery()), probe("cobrança da conta", billingSetupQuery()),
         probe("gasto do mês", monthCostQuery()), probe("orçamentos das campanhas", campaignBudgetsQuery()),
       ]);
+      // Fontes fora do GAQL (somente leitura): contas de pagamento e as faturas do mês e do mês anterior da cobrança aprovada.
+      const readRest = async (source: string, path: string) => {
+        try { const body = await client.readBilling(path, options); probes.push({ source, state: Object.keys(body).length ? "ok" : "empty", sample: JSON.stringify(body).slice(0, 1500) }); }
+        catch (error) { probes.push({ source, state: "error", message: error instanceof Error ? error.message : "Falha ao ler esta fonte." }); }
+      };
+      const customerPath = `customers/${account.customerId.replace(/-/g, "")}`;
+      await readRest("contas de pagamento", `${customerPath}/paymentsAccounts`);
+      const setup = (billingSetupRows ?? []).map(row => (row.billingSetup ?? {}) as Record<string, unknown>).find(item => typeof item.resourceName === "string");
+      const setupId = typeof setup?.resourceName === "string" ? /billingSetups\/(\d+)$/.exec(setup.resourceName)?.[1] : undefined;
+      if (setupId) {
+        const months = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+        const now = new Date();
+        const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        for (const date of [now, previous]) {
+          await readRest(`faturas de ${months[date.getMonth()]!.toLowerCase()}/${date.getFullYear()}`,
+            `${customerPath}/invoices?billingSetup=${encodeURIComponent(`${customerPath}/billingSetups/${setupId}`)}&issueYear=${date.getFullYear()}&issueMonth=${months[date.getMonth()]}`);
+        }
+      }
       return { account: googleAccountBilling({ id: account.id, name: account.name, currency: account.currency, customerRow: customer[0], accountBudgetRows, billingSetupRows, monthCostRows, campaignBudgetRows, probes }) };
     } catch {
       return { failure: account.name };

@@ -95,6 +95,17 @@ export class GoogleAdsClient {
     throw new GoogleAdsApiError("A consulta ao Google Ads passou do limite de páginas.", 0, "PAGE_LIMIT");
   }
 
+  /**
+   * Leitura (GET) de recursos de pagamento que não passam pelo GAQL: contas de pagamento e faturas. Só estes dois caminhos são aceitos:
+   * nada de caminho livre nem de escrita.
+   */
+  async readBilling(path: string, options: { loginCustomerId?: string | null } = {}): Promise<Record<string, unknown>> {
+    if (!/^customers\/\d{10}\/(paymentsAccounts|invoices\?billingSetup=customers%2F\d{10}%2FbillingSetups%2F\d{1,20}&issueYear=\d{4}&issueMonth=[A-Z]{3,9})$/.test(path)) {
+      throw new GoogleAdsApiError("Consulta de pagamento não permitida.", 0, "PATH_NOT_ALLOWED");
+    }
+    return this.request(path, { method: "GET" }, options.loginCustomerId);
+  }
+
   /** Contas a que o usuário conectado tem acesso direto (sem passar por gerente). */
   async listAccessibleCustomerIds(): Promise<string[]> {
     const body = await this.request("customers:listAccessibleCustomers", { method: "GET" }, null);
