@@ -33,7 +33,8 @@ export async function loadPortfolioRows(supabase: SupabaseClient<Database>, clie
       id: client.id, name: client.name, linkedAccounts: linked.length, accounts: accountList, status: "no-accounts",
       currency: null, spend: null, previousSpend: null, reach: null, impressions: null, results: [], trend: [], previousTrend: [], days: [],
     };
-    if (!linked.length) return base;
+    // Só Google Ads (sem conta Meta): o cliente está integrado, mas esta carteira ainda não lê números do Google; não é "configurar integração".
+    if (!linked.length) return accountList.length ? { ...base, status: "ok" } : base;
     try {
       const timezones = accounts.map(account => account.timezoneName);
       const range = resolveAnalyticsRange({ periodo: period }, timezones.length ? timezones : "America/Sao_Paulo", now);

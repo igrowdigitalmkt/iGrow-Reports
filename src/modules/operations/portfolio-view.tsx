@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, PlugZap, Refr
 import { PortfolioSpendChart } from "./portfolio-chart";
 import { ClientBalance } from "./portfolio-balance";
 import { ResultList } from "./result-list";
-import { PlatformLogo } from "@/modules/platforms/platform-logo";
+import { AccountLogos } from "@/modules/platforms/account-logos";
 import { PortfolioAiSummary } from "@/modules/ai/portfolio-ai-summary";
 
 export type PortfolioStatus = "ok" | "no-accounts" | "no-delivery" | "cost-up" | "updating" | "unavailable";
@@ -37,7 +37,7 @@ export type PortfolioSummary = { rows: PortfolioRow[]; reportsGenerated: number 
 
 const STATUS: Record<PortfolioStatus, { label: string; tone: string }> = {
   ok: { label: "Veiculando", tone: "green" },
-  "no-accounts": { label: "Configurar Meta", tone: "amber" },
+  "no-accounts": { label: "Configurar integração", tone: "amber" },
   "no-delivery": { label: "Sem veiculação", tone: "amber" },
   "cost-up": { label: "Custo em alta", tone: "amber" },
   updating: { label: "Atualizando", tone: "neutral" },
@@ -129,7 +129,7 @@ export function PortfolioView({ summary, base, demo = false }: { summary: Portfo
           <caption className="sr-only">Desempenho de cada cliente no período</caption>
           <thead><tr><th scope="col">Cliente</th><th scope="col">Situação</th><th scope="col" className="numeric" title="Soma das contas Meta no período. As contas do Google Ads aparecem pela logo, mas ainda não entram neste total.">Investimento</th><th scope="col" className="numeric">Saldo disponível</th><th scope="col">Resultados no período</th><th scope="col">Tendência</th></tr></thead>
           <tbody>{sorted.map(row => <tr key={row.id}>
-            <th scope="row" style={{ fontWeight: 400 }}><Link href={clientHref(row.id)} className="client-cell"><span className="client-avatar blue">{row.name.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span><span style={{ minWidth: 0 }}><strong>{row.name}</strong><AccountLogos row={row} /></span></Link></th>
+            <th scope="row" style={{ fontWeight: 400 }}><Link href={clientHref(row.id)} className="client-cell"><span className="client-avatar blue">{row.name.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span><span style={{ minWidth: 0 }}><strong>{row.name}</strong><ClientAccountLogos row={row} /></span></Link></th>
             <td><span className={`badge ${STATUS[row.status].tone}`}><span className="status-dot" />{STATUS[row.status].label}</span></td>
             <td className="numeric">{money(row.spend, row.currency)}</td>
             <td className="numeric"><ClientBalance clientId={row.id} enabled={(row.accounts?.length ?? row.linkedAccounts) > 0} demo={demo ? row.demoBalance ?? { funds: null, postpaid: true } : undefined} /></td>
@@ -174,15 +174,8 @@ function Results({ row }: { row: PortfolioRow }) {
   return <ResultList results={row.results} costLine={single?.cost != null ? `${money(single.cost, row.currency)} por resultado` : null} />;
 }
 
-/** Contas vinculadas ao cliente, uma logo por conta (Meta e Google Ads), com o nome da conta ao passar o mouse. */
-function AccountLogos({ row }: { row: PortfolioRow }) {
+/** Contas vinculadas ao cliente em logotipos (o cadastro de demonstração só informa quantas são, todas Meta). */
+function ClientAccountLogos({ row }: { row: PortfolioRow }) {
   const accounts: PortfolioAccount[] = row.accounts ?? Array.from({ length: row.linkedAccounts }, (_, index) => ({ platform: "meta" as const, id: `meta-${index}`, name: "Conta Meta Ads" }));
-  if (!accounts.length) return <small>Sem contas vinculadas</small>;
-  const ordered = [...accounts].sort((a, b) => (a.platform === b.platform ? 0 : a.platform === "meta" ? -1 : 1));
-  const meta = ordered.filter(account => account.platform === "meta").length, google = ordered.length - meta;
-  const label = [meta ? `${meta} ${meta === 1 ? "conta" : "contas"} Meta Ads` : null, google ? `${google} ${google === 1 ? "conta" : "contas"} Google Ads` : null].filter(Boolean).join(" e ");
-  return <span className="portfolio-accounts" role="img" aria-label={label}>
-    {ordered.map(account => <span key={`${account.platform}:${account.id}`} className="portfolio-account-logo" title={`${account.platform === "meta" ? "Meta Ads" : "Google Ads"} · ${account.name}`}>
-      <PlatformLogo platform={account.platform} size={account.platform === "meta" ? 13 : 17} /></span>)}
-  </span>;
+  return <AccountLogos accounts={accounts} />;
 }

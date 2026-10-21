@@ -15,12 +15,13 @@ import { ClientAccessManager } from "@/modules/client-portal/client-access-manag
 import type { ClientPortalAdminAccess, ClientPortalPendingInvitation } from "@/modules/client-portal/types";
 import { ClientMetaManager } from "@/modules/meta/client-meta-manager";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
+import { AccountLogos, type LogoAccount } from "@/modules/platforms/account-logos";
 
 type SettingsTab = "dados" | "perfil" | "destinatarios" | "acesso" | "meta" | "arquivo";
 
 const samples: ClientItem[] = demoClients.map((client, index) => ({ id: `demo-${index}`, name: client.name, notes: client.segment, archived_at: null, updated_at: "2026-09-30T12:00:00Z" }));
 
-export function ClientManager({ demo, initialClients = [], agencyId, canEdit = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot = { accounts: [], links: [], mappings: [], integration: null, connections: [], serverReadiness: { databaseReady: false, serviceRoleConfigured: false, encryptionConfigured: false, apiVersion: null, ready: false } }, search }: { demo: boolean; initialClients?: ClientItem[]; agencyId?: string; canEdit?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; search: string }) {
+export function ClientManager({ demo, initialClients = [], agencyId, canEdit = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], googleAccounts = {}, metaSnapshot = { accounts: [], links: [], mappings: [], integration: null, connections: [], serverReadiness: { databaseReady: false, serviceRoleConfigured: false, encryptionConfigured: false, apiVersion: null, ready: false } }, search }: { demo: boolean; initialClients?: ClientItem[]; agencyId?: string; canEdit?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; /** Contas do Google Ads por cliente (só cadastro). */ googleAccounts?: Record<string, Array<{ id: string; name: string }>>; metaSnapshot?: MetaAdminSnapshot; search: string }) {
   const [rows, setRows] = useState(demo ? samples : initialClients);
   const [filter, setFilter] = useState("active");
   const [creating, setCreating] = useState(false);
@@ -89,9 +90,12 @@ export function ClientManager({ demo, initialClients = [], agencyId, canEdit = f
     {notice && <p role="status" className="info-banner">{notice}</p>}
     {filtered.length > 0 && <section className="panel" style={{ overflow: "hidden" }}><div className="table-scroll"><table className="data-table client-table">
       <caption className="sr-only">Clientes do espaço de trabalho</caption>
-      <thead><tr><th scope="col">Cliente</th><th scope="col">Meta Ads</th><th scope="col">Situação</th><th scope="col">Atualizado</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
+      <thead><tr><th scope="col">Cliente</th><th scope="col">Contas</th><th scope="col">Situação</th><th scope="col">Atualizado</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
       <tbody>{filtered.map(client => {
-        const linked = demo ? 2 : metaSnapshot.links.filter(link => link.clientId === client.id && link.active).length;
+        const metaAccounts: LogoAccount[] = demo ? [{ platform: "meta", id: "d1", name: "Conta Meta Ads" }, { platform: "meta", id: "d2", name: "Conta Meta Ads" }]
+          : metaSnapshot.links.filter(link => link.clientId === client.id && link.active).map(link => ({ platform: "meta" as const, id: link.adAccountId, name: metaSnapshot.accounts.find(account => account.id === link.adAccountId)?.name ?? "Conta Meta Ads" }));
+        const accounts: LogoAccount[] = [...metaAccounts, ...(demo ? [] : (googleAccounts[client.id] ?? []).map(account => ({ platform: "google" as const, id: account.id, name: account.name })))];
+        const linked = accounts.length;
         const initials = client.name.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
         const items: RowMenuItem[] = settingsTabs(client).map(tab => ({ label: tab.label, icon: tab.icon, separatorBefore: tab.key === "dados" || tab.key === "arquivo", danger: tab.key === "arquivo" && !client.archived_at, onSelect: () => { setError(""); setSettings({ client, tab: tab.key }); } }));
         return <tr key={client.id} className="client-row">
@@ -99,8 +103,8 @@ export function ClientManager({ demo, initialClients = [], agencyId, canEdit = f
             <span className="client-avatar blue">{initials}</span>
             <div style={{ minWidth: 0 }}>{demo ? <strong>{client.name}</strong> : <Link href={`/clientes/${client.id}`}><strong>{client.name}</strong></Link>}{firstLine(client.notes) && <small>{firstLine(client.notes)}</small>}</div>
           </div></th>
-          <td>{linked ? `${linked} ${linked === 1 ? "conta" : "contas"}` : <span className="muted">Sem contas</span>}</td>
-          <td>{client.archived_at ? <span className="badge neutral">Arquivado</span> : linked ? <span className="badge green"><span className="status-dot" />Ativo</span> : <span className="badge amber"><span className="status-dot" />Configurar Meta</span>}</td>
+          <td>{linked ? <AccountLogos accounts={accounts} /> : <span className="muted">Sem contas</span>}</td>
+          <td>{client.archived_at ? <span className="badge neutral">Arquivado</span> : linked ? <span className="badge green"><span className="status-dot" />Ativo</span> : <span className="badge amber"><span className="status-dot" />Configurar integração</span>}</td>
           <td className="muted">{new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(client.updated_at))}</td>
           <td><div className="row-actions">
             {!demo && !client.archived_at && <Link className="button button-primary button-sm" href={`/clientes/${client.id}`}>Abrir painel<ArrowUpRight size={14} /></Link>}
