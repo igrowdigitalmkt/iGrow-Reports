@@ -361,15 +361,14 @@
 
 /* Entrada do topo */
 .h1a, .h1b { display: inline; }
+.hero .kicker::before { display: none; }
 @media (prefers-reduced-motion: no-preference) {
   .hero .kicker, .hero h1, .hero .lead, .heroActions, .heroNote { animation: heroUp .8s cubic-bezier(.2, .7, .2, 1) both; }
   .hero h1 { animation-delay: .1s; } .hero .lead { animation-delay: .22s; } .heroActions { animation-delay: .34s; } .heroNote { animation-delay: .44s; }
   .heroVisual { animation: heroUp 1s cubic-bezier(.2, .7, .2, 1) both .25s; }
-  .h1b { background: linear-gradient(90deg, #6f89ff, #6f89ff) no-repeat 0 100% / 0% 3px; animation: h1Line 1.2s ease-out 1s both; padding-bottom: 4px; }
   .statusBar { animation: heroUp .9s ease-out both .6s; }
 }
 @keyframes heroUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
-@keyframes h1Line { to { background-size: 100% 3px; } }
 
 /* Entrada ao rolar (movimento sutil) */
 .revealArmed { opacity: 0; transform: translateY(18px); }
