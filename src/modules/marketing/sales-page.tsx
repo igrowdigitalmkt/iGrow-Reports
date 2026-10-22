@@ -89,7 +89,7 @@ function Pic({ photo, className, sizes, priority }: { photo: SalesPhoto; classNa
 }
 
 function Brand() {
-  return <Image src="/brand/groow-ads-color.png" alt="Groow Ads" width={1179} height={212} className={styles.logo} />;
+  return <Image src="/brand/groow-ads-color.png" alt="Groow Ads" width={1920} height={350} className={styles.logo} />;
 }
 
 export function SalesPage() {

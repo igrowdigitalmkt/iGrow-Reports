@@ -11,7 +11,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div aria-hidden="true" className="auth-glow" />
       <div className="auth-layout">
         <header className="auth-brand">
-          <Link href="/" aria-label="Groow Ads, início"><Image src="/brand/groow-ads-color.png" alt="Groow Ads" width={1179} height={212} priority className="auth-logo" /></Link>
+          <Link href="/" aria-label="Groow Ads, início"><Image src="/brand/groow-ads-color.png" alt="Groow Ads" width={1920} height={350} priority className="auth-logo" /></Link>
         </header>
 
         <section className="auth-story">
