@@ -172,7 +172,7 @@
 .analytics-kpi.is-removable { grid-column: span 2; min-height: 118px; padding-bottom: 40px; }
 .analytics-kpi-top > span { min-width: 0; overflow-wrap: anywhere; }
 /* Título do indicador no mesmo estilo dos títulos dos cartões do público (Plataformas, Gênero, Idade, Região). */
-.analytics-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; }
+.analytics-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; color: var(--muted); font-size: 13px; font-weight: 400; line-height: 1.35; }
 .analytics-kpi-icon { display: none; }
 .analytics-kpi-value { display: block; margin-top: 6px; color: var(--text); font-size: 26px; font-weight: 600; letter-spacing: -.03em; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .analytics-kpi.is-removable .analytics-kpi-value { font-size: 20px; letter-spacing: -.02em; }
@@ -573,7 +573,7 @@
 
 /* Valor usado em destaque: o dobro do tamanho dos demais indicadores, encolhendo só se o cartão for estreito demais. */
 .analytics-kpi.is-spend { container-type: inline-size; container-name: spend-card; }
-.analytics-kpi.is-spend .analytics-kpi-value { font-size: clamp(26px, 15cqi, 52px); letter-spacing: -.04em; line-height: 1.1; }
+.analytics-kpi.is-spend .analytics-kpi-value { font-size: clamp(18px, 10.5cqi, 36px); letter-spacing: -.04em; line-height: 1.1; }
 
 .analytics-account-panels { display: flex; flex-direction: column; gap: 28px; }
 .analytics-account-panels > .platform-account-block + .platform-account-block { margin-top: 0; padding-top: 24px; border-top: 1px solid var(--border); }
