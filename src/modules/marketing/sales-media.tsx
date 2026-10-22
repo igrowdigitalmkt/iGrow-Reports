@@ -17,7 +17,7 @@ export function DeviceShowcase() {
   return <div className={styles.deviceStage} aria-label="Groow Ads em computador, tablet e celular">
     <div className={styles.deviceHalo} aria-hidden="true" />
     <div className={styles.computer}>
-      <div className={styles.computerScreen}><Image src="/product/hero-desktop.webp" alt="Interface real da Groow Ads no computador, em modo apresentação, com indicadores e gráfico do período de um cliente fictício" width={1600} height={900} sizes="(max-width: 760px) 94vw, 78vw" preload /></div>
+      <div className={styles.computerScreen}><Image src="/product/hero-desktop.webp" alt="Interface real da Groow Ads no computador, com a barra lateral, os indicadores e o gráfico do período de um cliente fictício" width={1600} height={900} sizes="(max-width: 760px) 94vw, 78vw" preload /></div>
       <div className={styles.computerChin} aria-hidden="true"><span /></div><div className={styles.computerStand} aria-hidden="true" />
     </div>
     <div className={styles.tablet}><Image src="/product/hero-tablet.webp" alt="Painel do cliente da Groow Ads no tablet, com público do período e campanhas, dados fictícios" width={1024} height={1366} sizes="(max-width: 760px) 27vw, 25vw" /></div>
