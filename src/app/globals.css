@@ -1198,3 +1198,15 @@ table:not(.no-row-hover) tbody tr:hover > td, table:not(.no-row-hover) tbody tr:
   .settings-dialog-nav { flex-direction: row; flex-wrap: wrap; padding: 12px 48px 12px 12px; border-right: 0; border-bottom: 1px solid var(--border); }
   .settings-dialog-nav h2 { display: none; }
 }
+
+/* Contador de créditos com o menu recolhido: anel de consumo com as moedas no meio */
+.credits-ring { display: none; position: relative; width: 40px; height: 40px; place-items: center; }
+.credits-ring > svg:first-child { position: absolute; inset: 0; }
+.credits-ring circle { fill: none; stroke-width: 4; }
+.credits-ring-track { stroke: var(--border); }
+.credits-ring-value { stroke: var(--accent); stroke-linecap: round; }
+.credits-ring-icon { position: relative; color: var(--text); }
+.credits-card.is-warning .credits-ring-value { stroke: var(--warn, #d9a21b); }
+.credits-card.is-exhausted .credits-ring-value { stroke: var(--bad, #d64545); }
+.app-shell.is-collapsed .credits-card > .credits-icon { display: none; }
+.app-shell.is-collapsed .credits-ring { display: grid; }
