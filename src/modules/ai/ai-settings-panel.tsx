@@ -3,9 +3,10 @@
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AI_CREDITS_PER_USD, creditsToUsd, formatCredits, usdToCredits } from "./credits";
 import { getAiSettings, saveAiSettings, type AiSettingsView } from "./settings-actions";
 
-const usd = (value: number) => `US$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const credits = (usd: number) => formatCredits(usdToCredits(usd));
 
 export function AiSettingsPanel({ agencyId }: { agencyId: string }) {
   const [view, setView] = useState<AiSettingsView | null>(null);
@@ -25,7 +26,7 @@ export function AiSettingsPanel({ agencyId }: { agencyId: string }) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const budget = Number(String(form.get("budget") ?? "").replace(",", "."));
+    const budget = creditsToUsd(Number(String(form.get("budget") ?? "").replace(/\./g, "").replace(",", ".")));
     setError(""); setNotice("");
     startTransition(async () => {
       try {
@@ -42,18 +43,18 @@ export function AiSettingsPanel({ agencyId }: { agencyId: string }) {
     {!view && !error && <p className="muted text-sm">Carregando…</p>}
     {view && <form onSubmit={submit} key={`${view.enabled}-${view.monthlyBudgetUsd}`}>
       <label className="flex items-center gap-3 text-sm"><input type="checkbox" name="enabled" defaultChecked={view.enabled} disabled={pending} />IA ligada neste espaço de trabalho</label>
-      <label className="block text-sm mt-5" htmlFor="ai-budget">Orçamento mensal (US$)</label>
-      <input id="ai-budget" name="budget" className="input mt-2" inputMode="decimal" defaultValue={String(view.monthlyBudgetUsd).replace(".", ",")} disabled={pending} />
-      <p className="muted text-xs mt-2">Cada comentário custa em média US$ 0,01 a US$ 0,02. Ao atingir o orçamento, a IA pausa até o mês seguinte.</p>
-      <div className="mt-5" role="img" aria-label={`Gasto do mês: ${usd(view.monthCostUsd)} de ${usd(view.monthlyBudgetUsd)}`}>
+      <label className="block text-sm mt-5" htmlFor="ai-budget">Limite mensal de créditos de IA</label>
+      <input id="ai-budget" name="budget" className="input mt-2" inputMode="numeric" defaultValue={formatCredits(usdToCredits(view.monthlyBudgetUsd))} disabled={pending} />
+      <p className="muted text-xs mt-2">Cada comentário consome em média {formatCredits(AI_CREDITS_PER_USD * 0.01)} a {formatCredits(AI_CREDITS_PER_USD * 0.02)} créditos. Ao atingir o limite, a IA pausa até o mês seguinte.</p>
+      <div className="mt-5" role="img" aria-label={`Consumo do mês: ${credits(view.monthCostUsd)} de ${credits(view.monthlyBudgetUsd)} créditos`}>
         <div style={{ height: 8, borderRadius: 4, background: "var(--border)" }}><div style={{ height: 8, borderRadius: 4, width: `${used}%`, background: used >= 90 ? "var(--danger, #c0392b)" : "var(--accent, #2563eb)" }} /></div>
-        <p className="text-sm mt-2">{usd(view.monthCostUsd)} de {usd(view.effectiveBudgetUsd)} comprometidos neste mês</p>
+        <p className="text-sm mt-2">{credits(view.monthCostUsd)} de {credits(view.effectiveBudgetUsd)} créditos comprometidos neste mês</p>
       </div>
       <dl className="ai-usage-breakdown text-xs mt-3" aria-label="Detalhe do consumo de IA no mês">
-        <div><dt>Consumo liquidado</dt><dd>{usd(view.settledUsd)}</dd></div>
-        <div><dt title="Estimativa conservadora de chamadas em andamento; será trocada pelo custo real">Reservado (estimativa)</dt><dd>{usd(view.reservedUsd)}</dd></div>
-        <div><dt title="Sem informação do provedor; mantido pela estimativa até a conciliação">Consumo desconhecido{view.reconcileCount ? ` (${view.reconcileCount} a conciliar)` : ""}</dt><dd>{usd(view.unknownUsd)}</dd></div>
-        <div><dt>Disponível para novas chamadas</dt><dd>{usd(view.availableUsd)}</dd></div>
+        <div><dt>Consumo liquidado</dt><dd>{credits(view.settledUsd)}</dd></div>
+        <div><dt title="Estimativa conservadora de chamadas em andamento; será trocada pelo custo real">Reservado (estimativa)</dt><dd>{credits(view.reservedUsd)}</dd></div>
+        <div><dt title="Sem informação do provedor; mantido pela estimativa até a conciliação">Consumo desconhecido{view.reconcileCount ? ` (${view.reconcileCount} a conciliar)` : ""}</dt><dd>{credits(view.unknownUsd)}</dd></div>
+        <div><dt>Disponível para novas chamadas</dt><dd>{credits(view.availableUsd)}</dd></div>
       </dl>
       <p className="muted text-xs mt-2">Valores de custo de inteligência artificial; não incluem o investimento em anúncios. Reservas e consumo desconhecido contam contra o orçamento, mas não são gasto definitivo.</p>
       <p className="muted text-xs mt-2">{view.generated} {view.generated === 1 ? "comentário gerado" : "comentários gerados"} neste mês{view.rejected ? `, ${view.rejected} bloqueado(s) por números fora dos dados` : ""}{view.blocked ? `, ${view.blocked} pedido(s) recusado(s) por limite ou desligamento` : ""}.</p>

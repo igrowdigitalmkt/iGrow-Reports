@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formatCredits, usdToCredits } from "@/modules/ai/credits";
 
 // Planos contratáveis: vêm do banco (catálogo da etapa 2.1). Os preços aqui são só para EXIBIÇÃO; o valor cobrado é sempre
 // recalculado no servidor a partir da versão publicada (billing_create_intent).
@@ -38,7 +39,7 @@ export function describeEntitlement(item: Offer["entitlements"][number]): string
   if (item.kind === "feature") return item.enabled ? item.label : null;
   if (item.unlimited) return `${item.label}: ilimitado`;
   if (!item.limit || item.limit <= 0) return null;
-  if (item.key === "ai_budget_usd_cents") return `${item.label}: até US$ ${(item.limit / 100).toFixed(2).replace(".", ",")}`;
+  if (item.key === "ai_budget_usd_cents") return `${item.label}: até ${formatCredits(usdToCredits(item.limit / 100))} créditos`;
   return `${item.label}: até ${item.limit}`;
 }
 

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { isSidebarCollapsed, SIDEBAR_COOKIE } from "@/components/layout/sidebar-state";
+import { loadAiCredits } from "@/modules/ai/credits-usage";
 import { requireAgencyContext } from "@/modules/agencies/context";
 import { roleLabels } from "@/modules/agencies/roles";
 import { loadOwnModules } from "@/modules/team/admin";
@@ -18,9 +19,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     .filter(([, section]) => !canOpenSection(context.role, modules, section)).map(([key]) => key);
   // Unread conversations of the WhatsApp inbox (0 before its migration or without access).
   const { data: unread } = hiddenKeys.includes("whatsapp") ? { data: null } : await context.supabase.from("whatsapp_conversations").select("*").eq("agency_id", context.agency.id).gt("unread_count", 0).limit(500);
+  const aiCredits = await loadAiCredits(context.agency.id);
   const metadata = context.user.user_metadata as { full_name?: string; avatar_url?: string } | undefined;
-  return <AppShell key={context.agency.id} demo={false} initialCollapsed={collapsed} clientCount={count ?? undefined} whatsappUnread={unread?.filter(row => !row.archived).length ?? 0} workspaceCount={context.memberships.length} hiddenKeys={hiddenKeys}
-    identity={{ agencyName: context.agency.name, userName: metadata?.full_name?.trim() || (context.user.email?.split("@")[0] ?? "Gestor"), roleLabel: roleLabels[context.role], timezone: context.agency.timezone, avatarUrl: metadata?.avatar_url ?? null }}>
+  return <AppShell key={context.agency.id} demo={false} initialCollapsed={collapsed} clientCount={count ?? undefined} whatsappUnread={unread?.filter(row => !row.archived).length ?? 0} workspaceCount={context.memberships.length} hiddenKeys={hiddenKeys} aiCredits={aiCredits}
+    identity={{ agencyName: context.agency.name, userName: metadata?.full_name?.trim() || (context.user.email?.split("@")[0] ?? "Gestor"), roleLabel: roleLabels[context.role], timezone: context.agency.timezone, avatarUrl: metadata?.avatar_url ?? null, email: context.user.email ?? undefined, agencyId: context.agency.id, canAdmin: context.role === "owner" || context.role === "admin" }}>
     {children}
   </AppShell>;
 }

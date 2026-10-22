@@ -1,26 +1,22 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { PortfolioView } from "./portfolio-view";
 import { demoPortfolio } from "./demo-data";
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { motion } from "motion/react";
-import { ArrowDownToLine, ArrowRight, ArrowUpRight, CheckCheck, Clock3, FileChartColumn, Filter, Info, Monitor, Moon, Settings2, ShieldCheck, Sun, Users } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, ArrowUpRight, CheckCheck, Clock3, FileChartColumn, Filter, Info, ShieldCheck, Users } from "lucide-react";
 import { type WorkspaceIdentity, navigation, useWorkspaceSearch } from "@/components/layout/app-shell";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { getDemoSnapshot } from "./demo-data";
 import { emptySnapshot, type ReportRow } from "./dashboard-data";
 import { ClientManager } from "@/modules/clients/client-manager";
-import { AiSettingsPanel } from "@/modules/ai/ai-settings-panel";
-import { PdfLayoutPanel } from "@/modules/reports/pdf-layout-panel";
 import type { ClientItem } from "@/modules/clients/schema";
 import type { ClientPortalAdminAccess, ClientPortalPendingInvitation } from "@/modules/client-portal/types";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import { ReportManager } from "@/modules/reports/report-manager";
 import type { ReportsAdminSnapshot } from "@/modules/reports/types";
-import { logoutAction } from "@/modules/auth/actions";
 import type { WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
 import { DeliveriesView, type DeliveryItem } from "@/modules/whatsapp/deliveries-view";
 import { AutomationsView } from "@/modules/automations/automations-view";
@@ -29,7 +25,7 @@ import type { AutomationsSnapshot } from "@/modules/automations/types";
 import type { TemplatesSnapshot } from "@/modules/templates/types";
 import { TemplatesView } from "@/modules/templates/templates-view";
 import { TeamView } from "@/modules/team/team-view";
-import { ProfilePanel } from "@/modules/profile/profile-panel";
+import { SettingsGrid } from "./settings-panels";
 import type { TeamSnapshot } from "@/modules/team/admin";
 import { demoTeam } from "@/modules/team/demo";
 import type { AgencyRole } from "@/types/database";
@@ -44,14 +40,11 @@ import { numberName } from "@/modules/whatsapp/whatsapp-manager";
 import { Select } from "@/components/ui/select";
 
 interface Props { /** Contas do Google Ads por cliente (lista de Clientes). */ googleAccounts?: Record<string, Array<{ id: string; name: string }>>; portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string; appId: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; templates?: TemplatesSnapshot; team?: TeamSnapshot; currentUserId?: string; currentRole?: AgencyRole; blocked?: boolean; initialClientId?: string; overviewPeriod?: "7d" | "30d" | "90d"; qrConnected?: boolean; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
-const subscribeToHydration = () => () => {};
 
 export function DashboardWorkspace({ googleAccounts, portfolio, whatsapp = [], whatsappReadiness, whatsappEmbedded = null, recipients = [], deliveries = [], automations, templates, team, currentUserId = "", currentRole = "owner", blocked = false, initialClientId, overviewPeriod = "30d", qrConnected = false, canSendReports = false, demo, section, identity, activeClients = 0, clients, initialMetaClientId, agencyId, canEditClients = false, canManageClientAccess = false, clientPortalAdminReady = false, portalAccesses = [], portalInvitations = [], metaSnapshot, reportsSnapshot }: Props) {
   const { search } = useWorkspaceSearch();
   const [status, setStatus] = useState("Todos os estados");
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
-  const { theme, setTheme } = useTheme();
-  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const base = demo ? "/demo" : "";
   const data = demo ? getDemoSnapshot("30d") : emptySnapshot(activeClients);
   const matchingReports = data.reports.filter(report => `${report.client} ${report.type} ${report.id}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")) && (status === "Todos os estados" || report.status === status));
@@ -81,7 +74,7 @@ export function DashboardWorkspace({ googleAccounts, portfolio, whatsapp = [], w
         <p className="footnote"><ShieldCheck size={15} />Chaves e tokens ficam só no servidor. Apenas proprietários e administradores podem alterá-los.</p>
       </>}
 
-      {section === "configuracoes" && <div className="settings-grid"><ProfilePanel name={identity.userName} email={identity.email ?? (demo ? "silvio@igrow.com.br" : "")} avatarUrl={identity.avatarUrl ?? null} demo={demo} /><section className="panel settings-panel"><div className="panel-heading"><div><h2>Espaço de trabalho e acesso</h2><p>{demo ? "Contexto demonstrativo" : "Contexto autenticado da sua sessão"}</p></div><ShieldCheck size={18} className="muted" /></div><dl className="settings-fields"><div><dt>Espaço de trabalho</dt><dd>{identity.agencyName}</dd></div><div><dt>Usuário</dt><dd>{identity.userName}</dd></div><div><dt>Perfil</dt><dd>{identity.roleLabel}</dd></div><div><dt>Fuso horário</dt><dd className="font-mono text-sm">{identity.timezone}</dd></div></dl>{demo ? <Link className="button button-secondary" href="/entrar">Entrar no meu espaço<ArrowUpRight size={15} /></Link> : <div className="flex gap-3 flex-wrap"><Link className="button button-secondary" href="/selecionar-espaco">Trocar espaço de trabalho</Link><form action={logoutAction}><button className="button button-secondary" type="submit">Sair da conta</button></form></div>}</section><section className="panel settings-panel"><div className="panel-heading"><div><h2>Aparência</h2><p>Escolha como a plataforma aparece para você</p></div><Settings2 size={18} className="muted" /></div><div className="theme-options">{[{ key: "dark", label: "Escuro", Icon: Moon }, { key: "light", label: "Claro", Icon: Sun }, { key: "system", label: "Sistema", Icon: Monitor }].map(({ key, label, Icon }) => <button key={key} className={cn("theme-option", hydrated && theme === key && "selected")} onClick={() => setTheme(key)} aria-pressed={hydrated && theme === key}><Icon size={24} /><span>{label}</span></button>)}</div><p className="muted text-xs mt-5">Sua preferência fica salva neste navegador.</p></section>{!demo && agencyId && (currentRole === "owner" || currentRole === "admin") && <><PdfLayoutPanel agencyId={agencyId} /><AiSettingsPanel agencyId={agencyId} /></>}</div>}
+      {section === "configuracoes" && <SettingsGrid identity={identity} demo={demo} agencyId={agencyId} canAdmin={currentRole === "owner" || currentRole === "admin"} />}
 
       {section === "entregas" && <DeliveriesView deliveries={demo ? [] : deliveries} automations={demo ? demoAutomations : automations ?? null} clients={demo ? demoAutomationClients : clients ?? []} connected={whatsapp.length > 0 || demo} timezone={identity.timezone || "America/Sao_Paulo"} initialClientId={initialClientId} />}
 

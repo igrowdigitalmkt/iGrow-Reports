@@ -4,10 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type FocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import type { LucideProps } from "lucide-react";
-import { ArrowUpRight, Bell, CalendarClock, Moon, Sun, SunMoon, ChevronRight, ChevronsUpDown, CircleHelp, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
+import { ArrowUpRight, Bell, CalendarClock, Moon, Sun, SunMoon, ChevronRight, ChevronsUpDown, UsersRound, FileChartColumn, FlaskConical, LayoutDashboard, Menu, PanelLeft, Plug, Search, Settings2, Users, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { AiCreditsMeter } from "./ai-credits-meter";
 import { Brand } from "./brand";
+import { SettingsDialog } from "./settings-dialog";
+import { UserMenu } from "./user-menu";
+import type { AiCreditsView } from "@/modules/ai/credits";
 import { NavigationProgress } from "./navigation-progress";
 import { SIDEBAR_COOKIE, SIDEBAR_COOKIE_MAX_AGE } from "./sidebar-state";
 import { Dialog } from "@/components/ui/dialog";
@@ -31,17 +35,17 @@ export const navigationGroups: { title: string; items: NavItem[] }[] = [
   { title: "Conta", items: [
     { key: "integracoes", label: "Integrações", icon: Plug },
     { key: "equipe", label: "Equipe", icon: UsersRound },
-    { key: "configuracoes", label: "Configurações", icon: Settings2 },
   ] },
   { title: "Comunicação", items: [
     { key: "whatsapp", label: "WhatsApp", icon: WhatsAppIcon, iconSize: 24 },
   ] },
 ];
-export const navigation = navigationGroups.flatMap(group => group.items);
+// Configurações saiu do menu lateral (abre pelo avatar), mas a página continua existindo e precisa de nome no breadcrumb.
+export const navigation: NavItem[] = [...navigationGroups.flatMap(group => group.items), { key: "configuracoes", label: "Configurações", icon: Settings2 }];
 // Entregas, Templates and PDFs are tabs inside Relatórios: their names appear in the breadcrumb.
 const REPORT_TAB_LABELS: Record<string, string> = { entregas: "Entregas", templates: "Templates", pdfs: "PDFs salvos" };
 
-export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; avatarUrl?: string | null; email?: string; }
+export interface WorkspaceIdentity { agencyName: string; userName: string; roleLabel: string; timezone: string; avatarUrl?: string | null; email?: string; agencyId?: string; canAdmin?: boolean; }
 const SUPPORT_URL = "https://wa.me/5586995560428?text=" + encodeURIComponent("Olá! Preciso de ajuda com o Groow Ads.");
 
 const SearchContext = createContext<{ search: string; setSearch: (value: string) => void }>({ search: "", setSearch: () => {} });
@@ -53,7 +57,7 @@ const useIsMobile = () => useSyncExternalStore(subscribeMobile, () => window.mat
 const subscribeToHydration = () => () => {};
 const initialsOf = (value: string) => value.split(/[ @._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
-export function AppShell({ demo, identity, initialCollapsed = false, clientCount, whatsappUnread, workspaceCount = 1, hiddenKeys = [], children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; whatsappUnread?: number; workspaceCount?: number; hiddenKeys?: string[]; children: ReactNode }) {
+export function AppShell({ demo, identity, initialCollapsed = false, clientCount, whatsappUnread, workspaceCount = 1, hiddenKeys = [], aiCredits, children }: { demo: boolean; identity: WorkspaceIdentity; initialCollapsed?: boolean; clientCount?: number; whatsappUnread?: number; workspaceCount?: number; hiddenKeys?: string[]; aiCredits?: AiCreditsView | null; children: ReactNode }) {
   const base = demo ? "/demo" : "";
   const pathname = usePathname();
   const segments = pathname.replace(base, "").split("/").filter(Boolean);
@@ -70,6 +74,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   const [search, setSearch] = useState("");
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [tooltip, setTooltip] = useState<{ text: string; top: number; left: number } | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const mobile = useIsMobile();
@@ -78,7 +83,6 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
   const dark = resolvedTheme !== "light";
   const themeLabel = !hydrated ? "Mudar tema" : dark ? "Mudar para o tema claro" : "Mudar para o tema escuro";
   const toggleLabel = mobile ? (drawerOpen ? "Fechar menu" : "Abrir menu") : (collapsed ? "Expandir menu" : "Recolher menu");
-  const initials = initialsOf(identity.userName) || "IG";
   const href = (key: string) => key ? `${base}/${key}` : base || "/";
 
   const toggleSidebar = useCallback(() => {
@@ -164,16 +168,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
           </div>)}
         </nav>
         <div className="sidebar-footer">
-          <button type="button" className="help-card" data-tip="Central de ajuda" aria-label="Central de ajuda" onClick={() => setHelpOpen(true)}>
-            <CircleHelp size={24} strokeWidth={navStrokeWidth(24)} />
-            <span className="collapse-hide"><strong>Precisa de ajuda?</strong><small>Falar com o suporte</small></span>
-          </button>
-          <Link className="user-profile" href={href("configuracoes")} data-tip={`${identity.userName} · ${identity.roleLabel}`} aria-label={`Perfil de ${identity.userName}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- small profile photo from storage */}
-            {identity.avatarUrl ? <img className="user-avatar" src={identity.avatarUrl} alt="" /> : <span className="user-avatar">{initials}</span>}
-            <span className="user-meta collapse-hide"><strong>{identity.userName}</strong><small>{identity.roleLabel}</small></span>
-            <ChevronRight size={15} className="user-chevron collapse-hide" />
-          </Link>
+          {aiCredits && <AiCreditsMeter credits={aiCredits} />}
         </div>
       </aside>
       <div className="sidebar-scrim" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
@@ -198,11 +193,13 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
           </label>
           <button type="button" className="icon-button" onClick={() => setTheme(dark ? "light" : "dark")} aria-label={themeLabel} title={themeLabel}>{!hydrated ? <SunMoon size={17} /> : dark ? <Sun size={17} /> : <Moon size={17} />}</button>
           <button type="button" className="icon-button notification-button" onClick={() => setNoticeOpen(true)} aria-label="Abrir notificações"><Bell size={17} />{demo && <span className="notification-dot" />}</button>
+          <UserMenu identity={identity} demo={demo} onSettings={() => setSettingsOpen(true)} onHelp={() => setHelpOpen(true)} />
         </header>
         {demo && <div className="demo-banner"><span><FlaskConical size={14} /><strong>Modo demonstração</strong><span>Todos os dados são fictícios. Nenhuma mensagem é enviada.</span></span><Link href="/entrar">Acessar meu espaço <ArrowUpRight size={13} /></Link></div>}
         <main id="main-content" className={cn("main-content", activeKey === "whatsapp" && "is-full")} tabIndex={-1}>{children}</main>
       </div>
 
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} identity={identity} demo={demo} />
       <Dialog open={noticeOpen} onOpenChange={setNoticeOpen} title="Notificações" description={demo ? "Exemplos fictícios de pendências." : "Avisos do seu espaço de trabalho."}>{demo ? <div className="space-y-3"><div className="notice-item"><span className="status-dot amber" /><div><strong>Um relatório aguarda aprovação</strong><p className="muted text-sm mt-1">Verde & Grão · revisão demonstrativa</p></div></div><div className="notice-item"><span className="status-dot cyan" /><div><strong>Primeiros passos da plataforma</strong><p className="muted text-sm mt-1">Conecte a Meta e cadastre seus clientes.</p></div></div><Link href={`${base}/relatorios/pdfs`} onClick={() => setNoticeOpen(false)} className="button button-secondary w-full">Ver relatórios</Link></div> : <p className="muted text-sm">Nenhum aviso no momento.</p>}</Dialog>
       <Dialog open={helpOpen} onOpenChange={setHelpOpen} title="Central de ajuda" description="Fale com o suporte ou siga o caminho para o primeiro relatório."><a className="button button-primary w-full" href={SUPPORT_URL} target="_blank" rel="noreferrer"><WhatsAppIcon size={16} />Falar com o suporte no WhatsApp</a><ol className="onboarding-list mt-5"><li><span>1</span><div><strong>Conecte a Meta</strong><p>Em Integrações, entre com o Facebook e autorize as contas de anúncio.</p></div></li><li><span>2</span><div><strong>Cadastre os clientes</strong><p>Em Clientes, crie cada cliente e associe as contas de anúncio dele.</p></div></li><li><span>3</span><div><strong>Abra o painel</strong><p>O painel do cliente mostra os números do período e gera o relatório em PDF.</p></div></li></ol></Dialog>
     </div>

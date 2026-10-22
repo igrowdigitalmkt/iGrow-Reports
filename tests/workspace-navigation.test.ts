@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const route = vi.hoisted(() => ({ pathname: "/" }));
 vi.mock("next/navigation", () => ({ usePathname: () => route.pathname, useSearchParams: () => new URLSearchParams() }));
+vi.mock("server-only", () => ({}));
 vi.mock("next-themes", () => ({ useTheme: () => ({ resolvedTheme: "dark", setTheme: vi.fn() }) }));
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -18,10 +19,12 @@ const render = (pathname: string, demo = false) => {
 describe("navegação do espaço sem prefixo", () => {
   it("liga a marca e a visão geral à raiz e as seções aos endereços diretos", () => {
     const html = render("/");
-    for (const href of ["/", "/clientes", "/relatorios", "/agendamentos", "/integracoes", "/equipe", "/configuracoes", "/whatsapp"]) {
+    for (const href of ["/", "/clientes", "/relatorios", "/agendamentos", "/integracoes", "/equipe", "/whatsapp"]) {
       expect(html).toContain(`href="${href}"`);
     }
     expect(html).not.toContain('href=""');
+    // Configurações abre pelo avatar, não pelo menu lateral.
+    expect(html).not.toContain(`href="/configuracoes"`);
     expect(html).not.toContain('href="//');
     expect(html).not.toContain("/dashboard");
     expect(html.match(/<a\b[^>]*aria-current="page"[^>]*>/)?.[0]).toContain('href="/"');

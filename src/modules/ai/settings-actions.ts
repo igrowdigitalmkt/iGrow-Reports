@@ -65,7 +65,7 @@ export async function getAiSettings(input: unknown): Promise<AiSettingsResult> {
 export async function saveAiSettings(input: unknown): Promise<AiSettingsResult> {
   const context = await requireAgencyContext();
   const parsed = agencyScope.extend({ enabled: z.boolean(), monthlyBudgetUsd: z.number().min(0).max(1000) }).safeParse(input);
-  if (!parsed.success) return { error: "Informe um orçamento mensal entre US$ 0 e US$ 1.000." };
+  if (!parsed.success) return { error: "Informe um limite mensal entre 0 e 2.000.000 de créditos." };
   if (parsed.data.agencyId !== context.agency.id) return { error: "O espaço de trabalho mudou. Atualize a página." };
   if (!isAdmin(context.role)) return { error: "Apenas proprietários e administradores configuram a IA." };
   const { error } = await context.supabase.from("ai_settings").upsert({
