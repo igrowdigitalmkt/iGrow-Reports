@@ -17,11 +17,11 @@ export function DeviceShowcase() {
   return <div className={styles.deviceStage} aria-label="Groow Ads em computador, tablet e celular">
     <div className={styles.deviceHalo} aria-hidden="true" />
     <div className={styles.computer}>
-      <div className={styles.computerScreen}><Image src="/product/overview.webp" alt="Interface real da Groow Ads no computador, exibindo a carteira de clientes com dados fictícios" width={1440} height={1000} sizes="(max-width: 760px) 94vw, 78vw" preload /></div>
+      <div className={styles.computerScreen}><Image src="/product/hero-desktop.webp" alt="Interface real da Groow Ads no computador, em modo apresentação, com indicadores e gráfico do período de um cliente fictício" width={1600} height={900} sizes="(max-width: 760px) 94vw, 78vw" preload /></div>
       <div className={styles.computerChin} aria-hidden="true"><span /></div><div className={styles.computerStand} aria-hidden="true" />
     </div>
-    <div className={styles.tablet}><Image src="/product/tablet.webp" alt="Painel do cliente da Groow Ads renderizado em uma tela de tablet" width={1024} height={1366} sizes="(max-width: 760px) 27vw, 25vw" /></div>
-    <div className={styles.phone}><div className={styles.phoneCamera} aria-hidden="true" /><Image src="/product/mobile.webp" alt="Versão móvel real da visão geral da Groow Ads, com indicadores demonstrativos" width={390} height={844} sizes="(max-width: 760px) 17vw, 15vw" /><div className={styles.phoneBar} aria-hidden="true" /></div>
+    <div className={styles.tablet}><Image src="/product/hero-tablet.webp" alt="Painel do cliente da Groow Ads no tablet, com público do período e campanhas, dados fictícios" width={1024} height={1366} sizes="(max-width: 760px) 27vw, 25vw" /></div>
+    <div className={styles.phone}><div className={styles.phoneCamera} aria-hidden="true" /><Image src="/product/hero-mobile.webp" alt="Versão móvel real da Groow Ads, com o valor usado e os resultados de um cliente fictício" width={780} height={1688} sizes="(max-width: 760px) 17vw, 15vw" /><div className={styles.phoneBar} aria-hidden="true" /></div>
     <span className={styles.deviceAnnotation}><span /> O mesmo negócio. Na tela que está com você.</span>
   </div>;
 }
