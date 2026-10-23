@@ -45,7 +45,6 @@ import { ConversationRowMenu } from "./conversation-row-menu";
 import type { NativeConversationState } from "./conversation-controls";
 import { PhonePanel } from "./phone-panel";
 import "./platform-theme.css";
-import "./inbox-premium.css";
 import {withOwnReaction} from "./optimistic-reactions";
 
 type Filter = "all" | "unread" | "groups";
