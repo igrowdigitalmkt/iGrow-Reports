@@ -1202,7 +1202,7 @@ table:not(.no-row-hover) tbody tr:hover > td, table:not(.no-row-hover) tbody tr:
 /* Contador de créditos com o menu recolhido: anel de consumo com as moedas no meio */
 .credits-ring { display: none; position: relative; width: 40px; height: 40px; place-items: center; }
 .credits-ring > svg:first-child { position: absolute; inset: 0; }
-.credits-ring circle { fill: none; stroke-width: 4; }
+.credits-ring-track, .credits-ring-value { fill: none; stroke-width: 4; }
 .credits-ring-track { stroke: var(--border); }
 .credits-ring-value { stroke: var(--accent); stroke-linecap: round; }
 .credits-ring-icon { position: relative; color: var(--text); }

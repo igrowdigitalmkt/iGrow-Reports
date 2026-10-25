@@ -1,7 +1,8 @@
 import { formatCredits, type AiCreditsView } from "@/modules/ai/credits";
 
 /** Duas moedas entrelaçadas, o ícone de créditos. */
-const CreditsIcon = ({ className = "credits-icon", size = 22 }: { className?: string; size?: number }) => <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+// A espessura é proporcional ao tamanho (o traço renderizado fica igual em qualquer tamanho: ~1,6 px).
+const CreditsIcon = ({ className = "credits-icon", size = 22 }: { className?: string; size?: number }) => <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={(1.6 * 24) / size} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
   <circle cx="9" cy="14.5" r="5.5" /><circle cx="15" cy="9.5" r="5.5" />
 </svg>;
 
