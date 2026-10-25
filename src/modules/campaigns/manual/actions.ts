@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { clearLiveCache } from "../live-cache";
 import { z } from "zod";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAgencyContext } from "@/modules/agencies/context";
@@ -51,7 +52,9 @@ export async function runManualOperationAction(input: unknown): Promise<ManualRu
   if (!s) return { ok: false, code: "unavailable", message: "Serviço indisponível neste ambiente." };
   const result = await runManualOperation(s.actor, parsed.data, s.deps).catch((): ManualRunResult => ({ ok: false, code: "failed", message: "Não foi possível concluir a operação. Consulte o histórico antes de tentar novamente." }));
   const history = await loadManualHistory(s.actor, parsed.data.ref, s.deps).catch(() => null);
-  // A tela só atualiza os dados depois de uma confirmação efetiva da Meta.
+  // A tela só atualiza os dados depois de uma confirmação efetiva da Meta. A leitura de visualização guardada por até 45 s
+  // (live-cache) é descartada junto: sem isso, a atualização logo após a operação devolveria o estado antigo.
+  if (result.ok) clearLiveCache();
   if (result.ok && result.outcome === "verified") revalidatePath("/clientes/[clientId]/campanhas", "layout");
   return { ...result, history };
 }

@@ -1210,3 +1210,6 @@ table:not(.no-row-hover) tbody tr:hover > td, table:not(.no-row-hover) tbody tr:
 .credits-card.is-exhausted .credits-ring-value { stroke: var(--bad, #d64545); }
 .app-shell.is-collapsed .credits-card > .credits-icon { display: none; }
 .app-shell.is-collapsed .credits-ring { display: grid; }
+.status-switch.is-pending { opacity: .75; cursor: progress; animation: status-pending 1s ease-in-out infinite; }
+@keyframes status-pending { 50% { box-shadow: 0 0 0 4px var(--accent-bg); } }
+@media (prefers-reduced-motion: reduce) { .status-switch.is-pending { animation: none; } }

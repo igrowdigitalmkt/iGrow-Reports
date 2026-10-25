@@ -17,8 +17,12 @@ const OUTCOME_LABEL: Record<BatchOutcome["status"], string> = { verified: "Confi
  * Revisão e execução de pausa/retomada EM LOTE. Mostra o que será enviado e o que é incompatível ANTES; só envia depois da confirmação
  * explícita e entidade por entidade (cada uma com idempotência, revalidação no servidor e registro próprios). O resultado é por entidade.
  */
-export function BatchDialog({ op, rows, clientId, runner: runnerProp, onClose, onDone }: {
+export function BatchDialog({ op, rows, clientId, runner: runnerProp, onClose, onDone, onStart, onSettled }: {
   op: BatchOp; rows: CampaignRow[]; clientId: string; runner?: BatchRunner; onClose: () => void; onDone: (verified: number) => void;
+  /** Chamado no instante em que o envio é confirmado, antes da resposta da Meta (a tela já reflete a ação). */
+  onStart?: (keys: string[]) => void;
+  /** Resultado final por entidade; quem não foi realizada (falha ou não enviada) deve voltar ao estado anterior. */
+  onSettled?: (outcomes: BatchOutcome[], startedKeys: string[]) => void;
 }) {
   const services = useContext(OperationsServicesContext);
   const runner = runnerProp ?? (services.runner as BatchRunner | undefined) ?? (runManualOperationAction as BatchRunner);
@@ -35,8 +39,10 @@ export function BatchDialog({ op, rows, clientId, runner: runnerProp, onClose, o
 
   const run = async () => {
     setRunning(true); setOutcomes([]);
+    onStart?.(plan.compatible.map(item => item.key));
     const results = await runBatch({ clientId, op, items: plan.compatible, runner, newRequestId: () => crypto.randomUUID(), onProgress: outcome => setOutcomes(current => [...(current ?? []), outcome]) });
     setRunning(false);
+    onSettled?.(results, plan.compatible.map(item => item.key));
     onDone(summarizeBatch(results).verified);
   };
   const summary = outcomes ? summarizeBatch(outcomes) : null;

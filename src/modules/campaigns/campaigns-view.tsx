@@ -12,12 +12,13 @@ import "./campaigns.css";
 import { stamp } from "./cells";
 import { buildColumns, buildCostIndex, DEFAULT_COLUMN_KEYS, priorityValue, resultFamilies, sortValue, type ColumnDef } from "./columns";
 import { applyColumnPreference, columnPreferenceKey, moveColumn, parseColumnPreference, serializeColumnPreference } from "./column-preferences";
-import { DELIVERY_GROUPS, type DeliveryGroup } from "./delivery-state";
+import { DELIVERY_GROUPS, withConfiguredStatus, type DeliveryGroup } from "./delivery-state";
 import { useLocalPreference, writeLocalPreference } from "./local-preference";
 import { entityPath, periodSearch } from "./routes";
 import { sortRows, type CampaignRow, type SortSpec } from "./tree";
 import type { CampaignsData } from "./load";
 import { BatchDialog } from "./navigation/batch-dialog";
+import type { BatchOutcome } from "./navigation/batch";
 import { buildCsv } from "./navigation/export-csv";
 import { EditPanel } from "./navigation/edit-panel";
 import { LevelTable } from "./navigation/level-table";
@@ -47,7 +48,7 @@ const INITIAL_UI: LevelUi = { query: "", group: "all", configured: "all", sort: 
 const STATE_ORDER: string[] = ["active", "paused", "review", "rejected", "other", "unavailable"];
 const fold = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR");
 
-export function CampaignsView({ clientId, clientName, intro, googleCampaigns, platformKey, data, onlyActive, selected = null, onSelectEntity, preferenceKey }: {
+export function CampaignsView({ clientId, clientName, intro, googleCampaigns, platformKey, data: serverData, onlyActive, selected = null, onSelectEntity, preferenceKey }: {
   /** Cliente da rota: a tela nunca escolhe outro. */
   clientId: string; clientName?: string; /** Conteúdo exibido logo abaixo do cabeçalho do cliente (ex.: oportunidades). */ intro?: ReactNode; googleCampaigns?: GoogleCampaignsData; platformKey?: string; data: CampaignsData; onlyActive: boolean;
   /** Entidade em análise pelo assistente (identidade completa: conta + nível + ID). Independe das caixas de seleção. */
@@ -59,6 +60,28 @@ export function CampaignsView({ clientId, clientName, intro, googleCampaigns, pl
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  // Pausa/retomada aparece na tela NO INSTANTE da confirmação; a Meta confirma em segundo plano. Se a operação não for realizada, a linha volta
+  // ao que era. A leitura da Meta (que pode demorar a refletir a mudança) nunca desfaz o que já foi confirmado: o ajuste só sai quando a
+  // leitura nova concorda com ele ou depois de 2 minutos.
+  const [optimistic, setOptimistic] = useState<Record<string, "ACTIVE" | "PAUSED">>({});
+  const [inFlight, setInFlight] = useState<ReadonlySet<string>>(new Set());
+  const forget = useCallback((keys: string[]) => setOptimistic(current => { const next = { ...current }; for (const key of keys) delete next[key]; return next; }), []);
+  const data = useMemo<CampaignsData>(() => Object.keys(optimistic).length === 0 ? serverData : {
+    ...serverData,
+    rows: serverData.rows.map(row => { const code = optimistic[entityKey(row)]; return code && row.state.configured?.code !== code ? { ...row, state: withConfiguredStatus(row.state, code) } : row; }),
+  }, [serverData, optimistic]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- descarta o ajuste que a leitura nova da Meta já confirmou
+  useEffect(() => { setOptimistic(current => { const confirmed = serverData.rows.filter(row => current[entityKey(row)] && current[entityKey(row)] === row.state.configured?.code).map(entityKey); if (!confirmed.length) return current; const next = { ...current }; for (const key of confirmed) delete next[key]; return next; }); }, [serverData.rows]);
+  const startOptimistic = (op: "pause" | "resume") => (keys: string[]) => {
+    setOptimistic(current => ({ ...current, ...Object.fromEntries(keys.map(key => [key, op === "pause" ? "PAUSED" : "ACTIVE"] as const)) }));
+    setInFlight(new Set(keys));
+    setTimeout(() => forget(keys), 120_000);
+  };
+  const settleOptimistic = (outcomes: BatchOutcome[], startedKeys: string[]) => {
+    const kept = new Set(outcomes.filter(outcome => outcome.status === "verified" || outcome.status === "needs_verification").map(outcome => outcome.key));
+    forget(startedKeys.filter(key => !kept.has(key)));
+    setInFlight(new Set());
+  };
   const level: NavLevel = LEVEL_BY_SLUG[searchParams.get("aba") ?? ""] ?? "campaign";
   const [uiByLevel, setUiByLevel] = useState<Record<NavLevel, LevelUi>>({ campaign: INITIAL_UI, adset: INITIAL_UI, ad: INITIAL_UI });
   const ui = uiByLevel[level];
@@ -305,7 +328,7 @@ export function CampaignsView({ clientId, clientName, intro, googleCampaigns, pl
         <div role="tabpanel" id={`level-panel-${level}`} aria-labelledby={`level-tab-${level}`}>
           <LevelTable level={level} rows={pageRows} columns={columns} index={costIndex} selected={selectedKeys} onToggle={toggleRow} onTogglePage={togglePage}
             clientId={clientId} detailSearch={detailSearch} analyzing={selected} onAnalyze={onSelectEntity} campaignName={campaignName} adsetName={adsetName} sort={ui.sort} onSort={sortBy}
-            onToggleStatus={(row, turnOn) => setStatusChange({ row, op: turnOn ? "resume" : "pause" })}
+            onToggleStatus={(row, turnOn) => setStatusChange({ row, op: turnOn ? "resume" : "pause" })} pendingKeys={inFlight}
             statusBlocked={row => row.level === "ad" && extended !== true ? "Operações em anúncios aguardam a atualização do banco neste ambiente." : null} />
         </div>
         {!sorted.length && <p className="analytics-empty-copy">{emptyText}</p>}
@@ -324,8 +347,8 @@ export function CampaignsView({ clientId, clientName, intro, googleCampaigns, pl
     </section>}
     {googleVisible && googleCampaigns && <GoogleCampaignsSection data={googleCampaigns} order={platformOrder("google")} collapsed={collapsed.includes("google")} onToggle={() => toggleSection("google")} dateFrom={data.dateFrom} dateTo={data.dateTo} preferenceKey={preferenceKey} />}
     {!metaVisible && !googleVisible && <div className="campaigns-empty"><strong>Nenhuma plataforma selecionada</strong><p>Escolha ao menos uma em Plataformas.</p></div>}
-    {statusChange && <BatchDialog op={statusChange.op} rows={[statusChange.row]} clientId={clientId} onClose={() => setStatusChange(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}
-    {batch && <BatchDialog op={batch} rows={pickedRows} clientId={clientId} onClose={() => setBatch(null)} onDone={verified => { if (verified > 0) router.refresh(); }} />}
+    {statusChange && <BatchDialog op={statusChange.op} rows={[statusChange.row]} clientId={clientId} onClose={() => setStatusChange(null)} onStart={startOptimistic(statusChange.op)} onSettled={settleOptimistic} onDone={verified => { if (verified > 0) router.refresh(); }} />}
+    {batch && <BatchDialog op={batch} rows={pickedRows} clientId={clientId} onClose={() => setBatch(null)} onStart={startOptimistic(batch)} onSettled={settleOptimistic} onDone={verified => { if (verified > 0) router.refresh(); }} />}
     {editing && <EditPanel row={editing} clientId={clientId} detailSearch={detailSearch} onClose={() => setEditing(null)} onChanged={() => router.refresh()}
       onViewChildren={editing.level === "campaign" ? () => { setEditing(null); goTo("adset"); } : undefined} />}
   </div>;

@@ -20,11 +20,13 @@ const DEFAULT_TERMS: LevelTerms = { name: { campaign: "Campanha", adset: "Conjun
  * 2) nome = abre a página de detalhes;
  * 3) ícone de brilho = define a entidade como contexto do Assistente Groow (uma por vez).
  */
-export function LevelTable({ level, rows, columns, index, selected, onToggle, onTogglePage, clientId, detailSearch, analyzing, onAnalyze, campaignName, adsetName, sort, onSort, onToggleStatus, statusBlocked, readOnly = false, terms = DEFAULT_TERMS }: {
+export function LevelTable({ level, rows, columns, index, selected, onToggle, onTogglePage, clientId, detailSearch, analyzing, onAnalyze, campaignName, adsetName, sort, onSort, onToggleStatus, statusBlocked, pendingKeys, readOnly = false, terms = DEFAULT_TERMS }: {
   /** Plataformas sem operações (hoje o Google Ads): sem caixas, interruptor, ícone do assistente nem link para detalhes. */
   readOnly?: boolean; terms?: LevelTerms;
   /** Interruptor Ativado/Desativado: só PEDE a mudança (abre a confirmação); nada é enviado sem a confirmação explícita. */
   onToggleStatus?: (row: CampaignRow, turnOn: boolean) => void; statusBlocked?: (row: CampaignRow) => string | null;
+  /** Entidades com pausa/retomada em andamento: o interruptor já mostra o novo estado e fica travado até a Meta responder. */
+  pendingKeys?: ReadonlySet<string>;
   level: CampaignRow["level"]; rows: CampaignRow[]; columns: ColumnDef[]; index: CostIndex;
   selected: Set<string>; onToggle: (row: CampaignRow, on: boolean) => void; onTogglePage: (on: boolean) => void;
   clientId: string; detailSearch: string; analyzing: { accountId: string; level: CampaignRow["level"]; id: string } | null; onAnalyze?: (row: CampaignRow) => void;
@@ -57,7 +59,7 @@ export function LevelTable({ level, rows, columns, index, selected, onToggle, on
       const isAnalyzing = !!analyzing && analyzing.accountId === row.accountId && analyzing.level === row.level && analyzing.id === row.id;
       return <tr key={key} className={`${isSelected ? "is-selected" : ""}${isAnalyzing ? " is-context" : ""}`}>
         {!readOnly && <td className="level-check"><input type="checkbox" checked={isSelected} aria-label={`Selecionar ${row.name}`} onChange={event => onToggle(row, event.target.checked)} /></td>}
-        {onToggleStatus && !readOnly && <td className="level-status"><StatusSwitch row={row} blocked={statusBlocked?.(row) ?? null} onToggle={onToggleStatus} /></td>}
+        {onToggleStatus && !readOnly && <td className="level-status"><StatusSwitch row={row} blocked={statusBlocked?.(row) ?? null} pending={pendingKeys?.has(entityKey(row)) ?? false} onToggle={onToggleStatus} /></td>}
         <th scope="row"><div className="analytics-campaign-name">
           {level === "ad" && (row.thumbnailUrl
             ? <Image className="analytics-ad-thumbnail" src={row.thumbnailUrl} alt="" width={44} height={44} unoptimized referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = "none"; }} />
@@ -83,12 +85,12 @@ export function LevelTable({ level, rows, columns, index, selected, onToggle, on
 }
 
 /** Estado configurado: ACTIVE = ligado, PAUSED = desligado. Qualquer outro estado (arquivado, excluído...) não é alterável aqui. */
-function StatusSwitch({ row, blocked, onToggle }: { row: CampaignRow; blocked: string | null; onToggle: (row: CampaignRow, turnOn: boolean) => void }) {
+function StatusSwitch({ row, blocked, pending, onToggle }: { row: CampaignRow; blocked: string | null; pending: boolean; onToggle: (row: CampaignRow, turnOn: boolean) => void }) {
   const code = row.state.configured?.code ?? null;
   const known = code === "ACTIVE" || code === "PAUSED";
   const on = code === "ACTIVE";
-  const reason = !known ? `Estado ${row.state.configured?.label ?? "indisponível"}: não pode ser alterado por aqui.` : blocked;
-  return <button type="button" role="switch" aria-checked={known ? on : undefined} className={`status-switch${on ? " is-on" : ""}`} disabled={!!reason}
+  const reason = pending ? "Alteração em andamento: a Meta está confirmando." : !known ? `Estado ${row.state.configured?.label ?? "indisponível"}: não pode ser alterado por aqui.` : blocked;
+  return <button type="button" role="switch" aria-checked={known ? on : undefined} className={`status-switch${on ? " is-on" : ""}${pending ? " is-pending" : ""}`} disabled={!!reason} aria-busy={pending || undefined}
     aria-label={`${on ? "Desativar" : "Ativar"} ${row.name}`} title={reason ?? (on ? "Ativo. Clique para pausar (pede confirmação)." : "Pausado. Clique para ativar (pede confirmação).")}
     onClick={() => onToggle(row, !on)}><i aria-hidden="true" /></button>;
 }

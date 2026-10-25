@@ -70,3 +70,22 @@ export function classifyDelivery(state: LiveDeliveryState | null | undefined, de
   if (!known) return { group: "other", label: "Estado não classificado", tone: "neutral", configured, effective, restrictions, createdAt, detail: `Código da Meta: ${effective.code}. ${note}` };
   return { ...known, configured, effective, restrictions, createdAt, detail: note };
 }
+
+/**
+ * Estado esperado de uma pausa/retomada que o usuário acabou de confirmar. Serve só para a tela refletir a ação na hora (atualização
+ * otimista) enquanto a Meta confirma em segundo plano; a leitura seguinte da Meta sempre prevalece e, se a operação falhar, a tela volta
+ * ao estado anterior. Retomar só troca o estado efetivo quando ele era "Pausado"; qualquer outro (análise, pai pausado…) é preservado.
+ */
+export function withConfiguredStatus(state: DeliveryState, code: "ACTIVE" | "PAUSED"): DeliveryState {
+  const configured = textOf(code);
+  const effectiveCode = state.effective?.code ?? null;
+  if (code === "PAUSED") {
+    const effective = textOf("PAUSED");
+    return { ...KNOWN.PAUSED!, configured, effective, restrictions: state.restrictions.filter(item => item.key !== "no_delivery"), createdAt: state.createdAt, detail: "Configurado: Pausado · Efetivo: Pausado" };
+  }
+  if (effectiveCode === "PAUSED" || effectiveCode === null) {
+    const effective = textOf("ACTIVE");
+    return { ...KNOWN.ACTIVE!, configured, effective, restrictions: state.restrictions, createdAt: state.createdAt, detail: "Configurado: Ativo · Efetivo: Ativo" };
+  }
+  return { ...state, configured };
+}
