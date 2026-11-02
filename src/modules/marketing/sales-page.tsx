@@ -255,7 +255,7 @@ export function SalesPage() {
       <div className={styles.wrap}>
         <div className={styles.footerTop}><div><Link href="/" aria-label="Groow Ads, início"><Brand /></Link><p>Inteligência para conhecer o negócio.<br />Tecnologia para assumir o trabalho.</p></div><nav aria-label="Links do rodapé">{navigation.map(([label, href]) => <a key={href} href={href}>{label}</a>)}<Link href="/entrar">Entrar</Link></nav></div>
         <p className={styles.imageNote}>Imagens ilustrativas geradas com inteligência artificial. As interfaces exibidas são da Groow Ads, com dados demonstrativos.</p>
-        <div className={styles.footerBottom}><span>© {new Date().getFullYear()} Groow Ads · Uma plataforma da iGrow Digital.</span><div><Link href="/privacidade">Privacidade</Link><Link href="/exclusao-de-dados">Exclusão de dados</Link></div></div>
+        <div className={styles.footerBottom}><span>© {new Date().getFullYear()} Groow Ads · Uma plataforma da iGrow Digital.</span><div><Link href="/termos">Termos</Link><Link href="/privacidade">Privacidade</Link><Link href="/exclusao-de-dados">Exclusão de dados</Link></div></div>
       </div>
     </footer>
   </div>;

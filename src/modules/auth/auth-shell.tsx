@@ -29,7 +29,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
         <footer className="auth-footer">
           <span>© {new Date().getFullYear()} Groow Ads · Uma plataforma da iGrow Digital</span>
-          <span><Link href="/privacidade">Privacidade</Link><Link href="/">Conheça a Groow Ads</Link></span>
+          <span><Link href="/termos">Termos</Link><Link href="/privacidade">Privacidade</Link><Link href="/">Conheça a Groow Ads</Link></span>
         </footer>
       </div>
     </main>

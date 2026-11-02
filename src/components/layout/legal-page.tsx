@@ -3,14 +3,14 @@ import type { ReactNode } from "react";
 import { Brand } from "./brand";
 
 export const LEGAL_CONTACT_EMAIL = "igrowdigitalmkt@gmail.com";
-export const LEGAL_UPDATED_AT = "7 de outubro de 2026";
+export const LEGAL_UPDATED_AT = "2 de novembro de 2026";
 
-// Public legal pages (privacy, data deletion): readable text column, no login required.
+// Public legal pages (terms, privacy, data deletion): readable text column, no login required.
 export function LegalPage({ title, children }: { title: string; children: ReactNode }) {
   return <div className="legal-page">
     <header className="legal-header">
       <Link href="/" className="brand-link" aria-label="Groow Ads"><Brand /></Link>
-      <nav aria-label="Páginas legais"><Link href="/privacidade">Privacidade</Link><Link href="/exclusao-de-dados">Exclusão de dados</Link></nav>
+      <nav aria-label="Páginas legais"><Link href="/termos">Termos</Link><Link href="/privacidade">Privacidade</Link><Link href="/exclusao-de-dados">Exclusão de dados</Link></nav>
     </header>
     <main className="legal-content">
       <h1>{title}</h1>
