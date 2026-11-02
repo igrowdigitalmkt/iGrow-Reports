@@ -9,6 +9,7 @@ import {
 } from "./hub-actions";
 import type { BoardForm } from "./hub-types";
 import { LeadsWhatsApp } from "./leads-whatsapp";
+import { Dialog } from "@/components/ui/dialog";
 import "./lead-feed.css";
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -31,6 +32,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
   const [copied, setCopied] = useState<string | null>(null);
   const [linkDraft, setLinkDraft] = useState<LinkDraft | null>(null);
   const [sourceDraft, setSourceDraft] = useState<SourceDraft | null>(null);
+  const [removing, setRemoving] = useState<{ source: SettingsSnapshot["sources"][number]; step: 1 | 2; typed: string } | null>(null);
   const [picker, setPicker] = useState<{ pages: { id: string; name: string; category: string | null; connected: boolean }[]; query: string } | "loading" | null>(null);
   const [adopt, setAdopt] = useState<{ id: string; code: string } | null>(null);
 
@@ -80,7 +82,28 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
     });
   };
 
+  const confirmRemoval = () => {
+    if (!removing) return;
+    const { source, typed } = removing;
+    setRemoving(null);
+    run(() => deleteLeadSourceAction({ clientId, sourceId: source.id, confirmName: typed }), undefined, `Excluindo “${source.title}” e os leads dela…`);
+  };
+  const nameMatches = !!removing && removing.typed.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR") === removing.source.title.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
+
   return <div className="leads-settings">
+    <Dialog open={!!removing} onOpenChange={open => { if (!open) setRemoving(null); }} title={removing?.step === 2 ? "Confirme o nome da Página" : "Excluir esta Página?"}
+      description={removing ? `“${removing.source.title}”` : undefined}>
+      {removing && (removing.step === 1 ? <div className="lead-delete-dialog">
+        <p>Você tem certeza que deseja excluir esta Página? <strong>Com a exclusão, todos os leads dela ({removing.source.leadCount}) serão excluídos juntos</strong>, com as notas e o histórico. Isso não pode ser desfeito.</p>
+        <p className="lead-muted">Para só parar de receber novos leads, use <strong>Pausar</strong>: os leads continuam no painel.</p>
+        <div className="lead-form-actions"><button type="button" className="lead-btn" onClick={() => setRemoving(null)}>Cancelar</button><button type="button" className="lead-btn is-danger" onClick={() => setRemoving({ ...removing, step: 2 })}>Sim, continuar</button></div>
+      </div> : <form className="lead-delete-dialog" onSubmit={event => { event.preventDefault(); if (nameMatches) confirmRemoval(); }}>
+        <p>Para confirmar, digite o nome da Página exatamente como aparece abaixo.</p>
+        <p className="lead-delete-name">{removing.source.title}</p>
+        <label>Nome da Página<input value={removing.typed} onChange={event => setRemoving({ ...removing, typed: event.target.value })} autoFocus autoComplete="off" placeholder="Digite o nome da Página" aria-label="Nome da Página para confirmar" /></label>
+        <div className="lead-form-actions"><button type="button" className="lead-btn" onClick={() => setRemoving({ ...removing, step: 1, typed: "" })}>Voltar</button><button type="submit" className="lead-btn is-danger" disabled={!nameMatches}>Excluir Página e leads</button></div>
+      </form>)}
+    </Dialog>
     <div ref={statusRef} className="lead-status-stack" aria-live="polite">
       {busy && <div className="lead-toast is-busy" role="status"><Loader2 size={18} className="lead-spin" aria-hidden="true" /><div><strong>Aguarde</strong><span>{busy}</span></div></div>}
       {error && <div className="lead-toast is-error" role="alert"><AlertTriangle size={18} aria-hidden="true" /><div><strong>Não foi possível concluir</strong><span>{error}</span></div><button type="button" onClick={() => setError("")} aria-label="Fechar aviso"><X size={15} /></button></div>}
@@ -98,7 +121,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
     </section>
 
     <section className="lead-panel" aria-labelledby="lead-sources-title">
-      <header><div><h2 id="lead-sources-title">Fontes de leads conectadas</h2><p>Por onde os leads chegam a este menu. Hoje: Páginas do Facebook, pelos formulários de anúncio. Pausar mantém os leads; remover só é possível antes de receber o primeiro lead.</p></div><Plug size={18} className="lead-muted" /></header>
+      <header><div><h2 id="lead-sources-title">Fontes de leads conectadas</h2><p>Por onde os leads chegam a este menu. Hoje: Páginas do Facebook, pelos formulários de anúncio. Pausar mantém os leads. Excluir apaga a Página e todos os leads dela.</p></div><Plug size={18} className="lead-muted" /></header>
       {data.sources.length === 0 ? <p className="lead-muted">Nenhuma fonte conectada ainda. Use “Conectar nova página” para escolher a Página do Facebook que recebe os leads dos anúncios.</p>
         : <ul className="lead-source-list">{data.sources.map(source => <li key={source.id}>
           {sourceDraft?.id === source.id ? <form className="lead-form-inline lead-inline-edit" onSubmit={event => { event.preventDefault(); run(() => updateLeadSourceAction({ clientId, sourceId: source.id, title: sourceDraft.title, formId: sourceDraft.formId.trim() || null }), () => setSourceDraft(null)); }}>
@@ -120,7 +143,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
               <button type="button" className="lead-btn" disabled={pending} onClick={() => run(() => syncLeadSourceAction({ clientId, sourceId: source.id }), undefined, `Conferindo “${source.title}” na Meta…`)}><RefreshCw size={14} />Verificar conexão</button>
               <button type="button" className="lead-btn" disabled={pending} onClick={() => { setNotice(""); setError(""); setSourceDraft({ id: source.id, title: source.title, formId: source.formId ?? "" }); }}><Pencil size={14} />Editar</button>
               <button type="button" className="lead-btn" disabled={pending} onClick={() => run(() => setLeadSourceActiveAction({ clientId, sourceId: source.id, active: !source.active }))}>{source.active ? "Pausar" : "Reativar"}</button>
-              <button type="button" className="lead-btn is-danger" disabled={pending} onClick={() => { if (window.confirm(`Remover a Página “${source.title}”? Só é possível se ela nunca recebeu leads.`)) run(() => deleteLeadSourceAction({ clientId, sourceId: source.id })); }}><Trash2 size={14} />Remover</button>
+              <button type="button" className="lead-btn is-danger" disabled={pending} onClick={() => setRemoving({ source, step: 1, typed: "" })}><Trash2 size={14} />Excluir</button>
             </div>
           </>}
         </li>)}</ul>}

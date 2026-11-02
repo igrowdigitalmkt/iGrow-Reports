@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
   const history = url.searchParams.get("historico");
   if (history) {
     if (!UUID.test(history)) return Response.json({ error: "bad_request" }, { status: 400, headers });
-    const events = await loadLeadEvents(access.service, { clientId: access.clientId, leadId: history, restrictFormIds: access.restrictFormIds });
+    const events = await loadLeadEvents(access.service, { clientId: access.clientId, leadId: history, restrictFormIds: access.restrictFormIds, maskStaff: access.via === "portal" });
     return events ? Response.json({ events }, { headers }) : Response.json({ error: "not_found" }, { status: 404, headers });
   }
   const performance = url.searchParams.get("desempenho");

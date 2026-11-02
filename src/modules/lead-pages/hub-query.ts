@@ -88,12 +88,13 @@ export async function queryBoard(service: Service, input: { clientId: string; re
 }
 
 /** Histórico (status e notas) de um lead do cliente; o lead precisa pertencer ao cliente (e ao escopo de formulários, se houver). */
-export async function loadLeadEvents(service: Service, input: { clientId: string; leadId: string; restrictFormIds: string[] | null }): Promise<LeadEvent[] | null> {
+/** `maskStaff`: para quem vê por link ou pelo portal do cliente, o nome de quem da equipe fez a ação vira "Equipe" (o nome do link é mantido). */
+export async function loadLeadEvents(service: Service, input: { clientId: string; leadId: string; restrictFormIds: string[] | null; maskStaff?: boolean }): Promise<LeadEvent[] | null> {
   const lead = await findClientLead(service, input);
   if (!lead) return null;
   const events = await service.from("lead_events").select("id,kind,status,body,actor,created_at").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(100);
   if (events.error) return null;
-  return (events.data ?? []).map(row => ({ id: row.id, kind: row.kind, status: isLeadStatus(row.status) ? row.status : null, body: row.body, actor: row.actor, createdAt: row.created_at }));
+  return (events.data ?? []).map(row => ({ id: row.id, kind: row.kind, status: isLeadStatus(row.status) ? row.status : null, body: row.body, actor: input.maskStaff && !row.actor.startsWith("Link:") ? "Equipe" : row.actor, createdAt: row.created_at }));
 }
 
 /** Lead do cliente (e do escopo permitido) ou null: nunca devolve lead de outro cliente. */

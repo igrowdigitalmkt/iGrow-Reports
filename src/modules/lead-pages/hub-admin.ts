@@ -118,18 +118,20 @@ export async function updateSource(service: Service, input: { clientId: string; 
   return !error;
 }
 
+/** Confere o nome digitado com o da fonte: ignora maiúsculas, espaços nas pontas e repetidos. */
+export const sameSourceName = (typed: string, title: string) => typed.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR") === title.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
+
 /**
- * Remove uma fonte SÓ se ela nunca recebeu leads (nada é apagado além da própria fonte e do cache de formulários). Com leads, a saída
- * é pausar: os leads continuam no painel.
+ * Remove uma fonte E todos os leads dela (com histórico e notas), de uma só vez. Só acontece quando o nome da fonte é digitado igual:
+ * a tela pede essa confirmação. Fica registrado na auditoria, com a quantidade de leads apagados.
  */
-export async function deleteSource(service: Service, input: { clientId: string; sourceId: string }): Promise<{ ok: true } | { ok: false; message: string }> {
-  const { data: source } = await service.from("lead_pages").select("id").eq("id", input.sourceId).eq("client_id", input.clientId).maybeSingle();
+export async function deleteSource(service: Service, input: { agencyId: string; clientId: string; userId: string | null; sourceId: string; confirmName: string }): Promise<{ ok: true; leads: number } | { ok: false; message: string }> {
+  const { data: source } = await service.from("lead_pages").select("id,title").eq("id", input.sourceId).eq("client_id", input.clientId).maybeSingle();
   if (!source) return { ok: false, message: "Fonte de leads não encontrada." };
-  const leads = await service.from("leads").select("id", { count: "exact", head: true }).eq("lead_page_id", source.id);
-  if (leads.error) return { ok: false, message: "Não foi possível conferir os leads desta fonte." };
-  if ((leads.count ?? 0) > 0) return { ok: false, message: `Esta Página já recebeu ${leads.count} lead(s), que continuam no painel. Para parar de receber, use Pausar em vez de remover.` };
-  const forms = await service.from("lead_forms").delete().eq("lead_page_id", source.id);
-  if (forms.error) return { ok: false, message: "Não foi possível remover a fonte." };
-  const removed = await service.from("lead_pages").delete().eq("id", source.id).eq("client_id", input.clientId);
-  return removed.error ? { ok: false, message: "Não foi possível remover a fonte." } : { ok: true };
+  if (!sameSourceName(input.confirmName, source.title)) return { ok: false, message: "O nome digitado não confere com o da fonte. Nada foi excluído." };
+  const removed = await service.rpc("delete_lead_source", { p_client_id: input.clientId, p_source_id: source.id });
+  if (removed.error) return { ok: false, message: "Não foi possível excluir a fonte agora. Nada foi apagado." };
+  const leads = typeof removed.data === "number" ? removed.data : 0;
+  await service.from("audit_logs").insert({ agency_id: input.agencyId, actor_id: input.userId, action: "lead_source.deleted", entity_id: source.id, metadata: { title: source.title, leads_deleted: leads, client_id: input.clientId } });
+  return { ok: true, leads };
 }

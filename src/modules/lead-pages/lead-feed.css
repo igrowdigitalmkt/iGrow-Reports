@@ -362,3 +362,10 @@
 .lead-wa-safety { font-size: 12px; }
 
 .lead-detail-main > a.lead-btn { justify-self: start; text-decoration: none; }
+
+/* Exclusão de fonte com confirmação digitada */
+.lead-delete-dialog { display: grid; gap: 12px; }
+.lead-delete-dialog p { margin: 0; font-size: 14px; line-height: 1.5; }
+.lead-delete-dialog label { display: grid; gap: 4px; font-size: 13px; }
+.lead-delete-dialog input { padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
+.lead-delete-name { padding: 10px 12px; border-radius: 10px; background: var(--bad-bg); color: var(--bad); font-weight: 650; overflow-wrap: anywhere; }

@@ -228,12 +228,12 @@ export async function updateLeadSourceAction(input: unknown): Promise<SettingsRe
   return await updateSource(access.service, { clientId: access.clientId, sourceId: parsed.data.sourceId, title: parsed.data.title, formId: parsed.data.formId }) ? snapshot(access, { message: "Fonte atualizada." }) : { ok: false, message: "Não foi possível salvar." };
 }
 
-/** Remove a fonte só se nunca recebeu leads; senão orienta a pausar (leads nunca são apagados). */
+/** Exclui a fonte e todos os leads dela. Exige digitar o nome da fonte; fica na auditoria. */
 export async function deleteLeadSourceAction(input: unknown): Promise<SettingsResult> {
-  const parsed = z.object({ clientId, sourceId: z.uuid() }).safeParse(input);
+  const parsed = z.object({ clientId, sourceId: z.uuid(), confirmName: z.string().max(200) }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "Pedido inválido." };
   const access = await authorizeLeadsClient(parsed.data.clientId);
   if (!access.allowed || !access.canManage) return NO_ACCESS;
-  const removed = await deleteSource(access.service, { clientId: access.clientId, sourceId: parsed.data.sourceId });
-  return removed.ok ? snapshot(access, { message: "Fonte removida." }) : removed;
+  const removed = await deleteSource(access.service, { agencyId: access.agencyId, clientId: access.clientId, userId: access.userId, sourceId: parsed.data.sourceId, confirmName: parsed.data.confirmName });
+  return removed.ok ? snapshot(access, { message: removed.leads > 0 ? `Fonte excluída junto com ${removed.leads} lead(s).` : "Fonte excluída." }) : removed;
 }

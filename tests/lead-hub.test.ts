@@ -153,6 +153,18 @@ describe("status e notas", () => {
     expect(await findClientLead(service, { clientId: CLIENT, leadId: "a", restrictFormIds: ["100001"] })).toMatchObject({ id: "a" });
     expect(writes).toEqual([]);
   });
+  it("quem vê por link ou portal não vê o nome de quem da equipe agiu", async () => {
+    const data = tables();
+    data.lead_events = [
+      { id: "e1", lead_id: "a", kind: "status", status: "contacted", body: null, actor: "iGrow Digital", created_at: "2026-11-02T15:10:00.000Z" },
+      { id: "e2", lead_id: "a", kind: "note", status: null, body: "Liguei", actor: "Link: Equipe comercial", created_at: "2026-11-02T15:20:00.000Z" },
+    ];
+    const { service } = fakeService(data);
+    const staff = await loadLeadEvents(service, { clientId: CLIENT, leadId: "a", restrictFormIds: null });
+    expect(staff?.map(event => event.actor).sort()).toEqual(["Link: Equipe comercial", "iGrow Digital"]);
+    const masked = await loadLeadEvents(service, { clientId: CLIENT, leadId: "a", restrictFormIds: null, maskStaff: true });
+    expect(masked?.map(event => event.actor).sort()).toEqual(["Equipe", "Link: Equipe comercial"]);
+  });
   it("nota vazia ou longa demais é recusada; nota válida é gravada com o autor", async () => {
     const { service, writes } = fakeService(tables());
     const base = { clientId: CLIENT, leadId: "a", restrictFormIds: null, actor: "Link: Equipe", userId: null };

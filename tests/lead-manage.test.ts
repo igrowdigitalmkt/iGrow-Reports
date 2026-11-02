@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { adoptLinkCode, createLink, deleteLink, deleteSource, readLinkCode, rotateLinkCode, updateLink, updateSource } from "@/modules/lead-pages/hub-admin";
+import { adoptLinkCode, createLink, deleteLink, deleteSource, readLinkCode, rotateLinkCode, sameSourceName, updateLink, updateSource } from "@/modules/lead-pages/hub-admin";
 import { accessCodeMatches, hashAccessCode } from "@/modules/lead-pages/leads";
 import type { Service } from "@/modules/lead-pages/hub-query";
 
@@ -36,7 +36,18 @@ function fakeService(seed: Record<string, Row[]>) {
     };
     return builder;
   };
-  return { service: { from } as unknown as Service, tables };
+  const rpcCalls: { name: string; args: Row }[] = [];
+  // Mesmo efeito da função do banco: apaga leads, histórico, formulários e a fonte; devolve quantos leads saíram.
+  const rpc = async (name: string, args: Row) => {
+    rpcCalls.push({ name, args });
+    const sourceId = args.p_source_id;
+    const leadIds = (tables.leads ?? []).filter(row => row.lead_page_id === sourceId).map(row => row.id);
+    tables.leads = (tables.leads ?? []).filter(row => row.lead_page_id !== sourceId);
+    tables.lead_forms = (tables.lead_forms ?? []).filter(row => row.lead_page_id !== sourceId);
+    tables.lead_pages = (tables.lead_pages ?? []).filter(row => row.id !== sourceId);
+    return { data: leadIds.length, error: null };
+  };
+  return { service: { from, rpc } as unknown as Service, tables, rpcCalls };
 }
 
 const CLIENT = "cl-1";
@@ -116,25 +127,30 @@ describe("fontes de leads: editar e remover", () => {
     await updateSource(service, { clientId: "outro", sourceId: "S1", title: "Invasão", formId: null });
     expect(tables.lead_pages[0]!.title).toBe("Página da RM");
   });
-  it("só remove fonte sem leads (e limpa o cache de formulários dela)", async () => {
-    const { service, tables } = fakeService({ lead_pages: [source()], lead_forms: [{ lead_page_id: "S1", form_id: "100001" }], leads: [] });
-    expect(await deleteSource(service, { clientId: CLIENT, sourceId: "S1" })).toEqual({ ok: true });
-    expect(tables.lead_pages).toEqual([]);
-    expect(tables.lead_forms).toEqual([]);
+  const ctx = { agencyId: "ag", userId: "u1" };
+  it("o nome é comparado sem diferenciar maiúsculas nem espaços repetidos", () => {
+    expect(sameSourceName("  página   ANTIGA ", "Página antiga")).toBe(true);
+    expect(sameSourceName("Página", "Página antiga")).toBe(false);
   });
-  it("fonte que já recebeu leads nunca é removida: orienta a pausar e preserva tudo", async () => {
-    const { service, tables } = fakeService({ lead_pages: [source()], lead_forms: [{ lead_page_id: "S1", form_id: "100001" }], leads: [{ id: "a", lead_page_id: "S1" }, { id: "b", lead_page_id: "S1" }] });
-    const result = await deleteSource(service, { clientId: CLIENT, sourceId: "S1" });
+  it("exclui a fonte com todos os leads quando o nome é digitado igual, e registra na auditoria", async () => {
+    const { service, tables, rpcCalls } = fakeService({ lead_pages: [source()], lead_forms: [{ lead_page_id: "S1", form_id: "100001" }], leads: [{ id: "a", lead_page_id: "S1" }, { id: "b", lead_page_id: "S1" }, { id: "c", lead_page_id: "S2" }] });
+    expect(await deleteSource(service, { ...ctx, clientId: CLIENT, sourceId: "S1", confirmName: "página antiga" })).toEqual({ ok: true, leads: 2 });
+    expect(rpcCalls).toHaveLength(1);
+    expect(tables.lead_pages).toEqual([]);
+    expect(tables.leads.map(row => row.id)).toEqual(["c"]);
+    expect(tables.audit_logs[0]).toMatchObject({ action: "lead_source.deleted", metadata: { leads_deleted: 2, title: "Página antiga" } });
+  });
+  it("nome digitado diferente não exclui nada", async () => {
+    const { service, tables, rpcCalls } = fakeService({ lead_pages: [source()], leads: [{ id: "a", lead_page_id: "S1" }] });
+    const result = await deleteSource(service, { ...ctx, clientId: CLIENT, sourceId: "S1", confirmName: "Outra página" });
     expect(result).toMatchObject({ ok: false });
-    expect((result as { message: string }).message).toContain("2 lead(s)");
-    expect((result as { message: string }).message).toContain("Pausar");
+    expect(rpcCalls).toHaveLength(0);
     expect(tables.lead_pages).toHaveLength(1);
-    expect(tables.lead_forms).toHaveLength(1);
-    expect(tables.leads).toHaveLength(2);
+    expect(tables.leads).toHaveLength(1);
   });
   it("fonte de outro cliente não é encontrada", async () => {
     const { service, tables } = fakeService({ lead_pages: [source({ client_id: "outro" })] });
-    expect(await deleteSource(service, { clientId: CLIENT, sourceId: "S1" })).toMatchObject({ ok: false, message: "Fonte de leads não encontrada." });
+    expect(await deleteSource(service, { ...ctx, clientId: CLIENT, sourceId: "S1", confirmName: "Página antiga" })).toMatchObject({ ok: false, message: "Fonte de leads não encontrada." });
     expect(tables.lead_pages).toHaveLength(1);
   });
 });
