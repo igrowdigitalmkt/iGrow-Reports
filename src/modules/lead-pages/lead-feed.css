@@ -369,3 +369,7 @@
 .lead-delete-dialog label { display: grid; gap: 4px; font-size: 13px; }
 .lead-delete-dialog input { padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
 .lead-delete-name { padding: 10px 12px; border-radius: 10px; background: var(--bad-bg); color: var(--bad); font-weight: 650; overflow-wrap: anywhere; }
+
+/* Aviso com ícone: o texto corre ao lado do ícone, sem quebrar em duas linhas */
+.lead-notice-line { display: block; }
+.lead-notice-line > svg { display: inline-block; vertical-align: -2px; margin-right: 8px; }

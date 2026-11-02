@@ -150,7 +150,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
     </section>
 
     <section className="lead-panel" aria-labelledby="lead-sources-title">
-      <header><div><h2 id="lead-sources-title">Fontes de leads conectadas</h2><p>Por onde os leads chegam a este menu. Hoje: Páginas do Facebook, pelos formulários de anúncio. Pausar mantém os leads. Excluir apaga a Página e todos os leads dela.</p></div><Plug size={18} className="lead-muted" /></header>
+      <header><div><h2 id="lead-sources-title">Fontes de leads conectadas</h2><p>Por onde os leads chegam a este menu: Páginas do Facebook (formulários de anúncio) e contas do Instagram (mensagens diretas). Pausar mantém os leads. Excluir apaga a fonte e todos os leads dela.</p></div><Plug size={18} className="lead-muted" /></header>
       {data.sources.length === 0 ? <p className="lead-muted">Nenhuma fonte conectada ainda. Use “Conectar nova página” para escolher a Página do Facebook que recebe os leads dos anúncios.</p>
         : <ul className="lead-source-list">{data.sources.map(source => <li key={source.id}>
           {sourceDraft?.id === source.id ? <form className="lead-form-inline lead-inline-edit" onSubmit={event => { event.preventDefault(); run(() => updateLeadSourceAction({ clientId, sourceId: source.id, title: sourceDraft.title, formId: sourceDraft.formId.trim() || null }), () => setSourceDraft(null)); }}>

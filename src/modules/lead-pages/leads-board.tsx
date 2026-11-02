@@ -163,7 +163,7 @@ function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatu
   copied: string | null; onCopy: (value: string, key: string) => void;
 }) {
   const isMessage = lead.channel !== "form";
-  const origin = originOf(lead) || (isMessage ? "Não confirmada" : lead.formName);
+  const origin = originOf(lead) || (isMessage ? "" : lead.formName);
   const platform = lead.channel === "whatsapp" ? "WhatsApp" : lead.channel === "instagram" ? "Instagram" : platformLabel(lead.platform);
   return <li className={`lead-row has-status is-compact${fresh ? " is-new" : ""}${open ? " is-open" : ""}`}>
     <time className="lead-when" dateTime={lead.createdTime} title={dateTime.format(new Date(lead.createdTime))}><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong></time>
@@ -175,7 +175,7 @@ function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatu
       {lead.email && <span className="lead-chip is-email"><a href={`mailto:${lead.email}`} title={lead.email}><Mail size={14} /><span>{lead.email}</span></a>
         <button type="button" onClick={() => onCopy(lead.email!, `e${lead.id}`)} aria-label="Copiar e-mail">{copied === `e${lead.id}` ? <Check size={13} /> : <Copy size={13} />}</button></span>}
     </div>
-    <div className="lead-origin-cell" title={origin}>{platform && <b>{platform}</b>}<span>{origin}</span></div>
+    <div className="lead-origin-cell" title={origin || "Origem não confirmada"}>{platform && <b>{platform}</b>}<span>{origin}</span></div>
     <div className="lead-status">
       {canUpdate
         ? <Select className={`lead-status-trigger is-${lead.status}`} inline dots={STATUS_COLOR} value={lead.status} onChange={event => onStatus(event.target.value as LeadStatus)} aria-label={`Status de ${lead.name ?? "lead"}`}>{LEAD_STATUSES.map(status => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}</Select>
