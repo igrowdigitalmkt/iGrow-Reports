@@ -22,6 +22,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
   const [data, setData] = useState(initial);
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState("");
+  const [connectingId, setConnectingId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const statusRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
@@ -33,8 +34,8 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
   const [adopt, setAdopt] = useState<{ id: string; code: string } | null>(null);
 
   const formName = (id: string) => forms.find(form => form.id === id)?.name ?? `Formulário …${id.slice(-4)}`;
-  const run = (action: () => Promise<SettingsResult>, after?: (result: Extract<SettingsResult, { ok: true }>) => void, label = "Salvando…") => {
-    setError(""); setNotice(""); setBusy(label);
+  const run = (action: () => Promise<SettingsResult>, after?: (result: Extract<SettingsResult, { ok: true }>) => void, label = "Salvando…", pageId: string | null = null) => {
+    setError(""); setNotice(""); setBusy(label); setConnectingId(pageId);
     startTransition(async () => {
       try {
         const result = await action();
@@ -44,7 +45,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
         else if (result.message) setNotice(result.message);
         after?.(result);
       } catch { setError("Não foi possível concluir agora. Tente de novo em instantes."); }
-      finally { setBusy(""); }
+      finally { setBusy(""); setConnectingId(null); }
     });
   };
   useEffect(() => { if (busy || error || notice) statusRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [busy, error, notice]);
@@ -57,7 +58,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
       setPicker({ pages: result.pages, query: "" });
     }).catch(() => { setPicker(null); setError("Não foi possível buscar as Páginas agora. Tente de novo."); });
   };
-  const connectPage = (page: { id: string; name: string }) => run(() => createLeadSourceAction({ clientId, title: page.name, fbPageId: page.id }), () => setPicker(null), `Conectando “${page.name}” e conferindo na Meta…`);
+  const connectPage = (page: { id: string; name: string }) => run(() => createLeadSourceAction({ clientId, title: page.name, fbPageId: page.id }), () => setPicker(null), `Conectando “${page.name}” e conferindo na Meta…`, page.id);
   const addSource = (form: HTMLFormElement) => {
     const values = new FormData(form);
     run(() => createLeadSourceAction({ clientId, title: String(values.get("title") ?? ""), fbPageId: String(values.get("fbPageId") ?? "").trim(), formId: String(values.get("formId") ?? "").trim() || undefined }), () => form.reset());
@@ -121,7 +122,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
           return shownPages.length === 0 ? <p className="lead-muted">{picker.pages.length ? "Nenhuma Página com esse nome." : "A Meta não liberou nenhuma Página para esta conexão. Use o ID manual abaixo."}</p>
             : <ul className="lead-picker-list">{shownPages.map(page => <li key={page.id}>
               <div><strong>{page.name}</strong><small>{page.category ? `${page.category} · ` : ""}ID {page.id}</small></div>
-              {page.connected ? <span className="lead-badge">Conectada</span> : <button type="button" className="lead-btn is-primary" onClick={() => connectPage(page)} disabled={pending}>{pending ? <><Loader2 size={14} className="lead-spin" aria-hidden="true" />Conectando…</> : "Conectar"}</button>}
+              {page.connected ? <span className="lead-badge">Conectada</span> : <button type="button" className="lead-btn is-primary" onClick={() => connectPage(page)} disabled={pending}>{pending && connectingId === page.id ? <><Loader2 size={14} className="lead-spin" aria-hidden="true" />Conectando…</> : "Conectar"}</button>}
             </li>)}</ul>;
         })()}
       </div>}
