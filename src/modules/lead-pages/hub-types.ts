@@ -9,8 +9,13 @@ export const LEAD_PERIODS = ["all", "today", "7d", "30d"] as const;
 export type LeadPeriod = (typeof LEAD_PERIODS)[number];
 export const PERIOD_LABEL: Record<LeadPeriod, string> = { all: "Todo o período", today: "Hoje", "7d": "Últimos 7 dias", "30d": "Últimos 30 dias" };
 
-export type LeadFilters = { forms: string[]; campaigns: string[]; status: LeadStatus[]; q: string; period: LeadPeriod };
-export const EMPTY_FILTERS: LeadFilters = { forms: [], campaigns: [], status: [], q: "", period: "all" };
+export const LEAD_CHANNELS = ["form", "whatsapp", "instagram"] as const;
+export type LeadChannel = (typeof LEAD_CHANNELS)[number];
+export const CHANNEL_LABEL: Record<LeadChannel, string> = { form: "Formulários", whatsapp: "WhatsApp", instagram: "Instagram Direct" };
+export const isLeadChannel = (value: unknown): value is LeadChannel => typeof value === "string" && (LEAD_CHANNELS as readonly string[]).includes(value);
+
+export type LeadFilters = { forms: string[]; campaigns: string[]; status: LeadStatus[]; q: string; period: LeadPeriod; channel: LeadChannel | "" };
+export const EMPTY_FILTERS: LeadFilters = { forms: [], campaigns: [], status: [], q: "", period: "all", channel: "" };
 
 export type BoardLead = {
   id: string; name: string | null; phone: string | null; email: string | null; status: LeadStatus; statusChangedAt: string | null;
@@ -20,9 +25,10 @@ export type BoardLead = {
   answers: { question: string; answer: string }[]; createdTime: string;
 };
 export type BoardForm = { id: string; name: string; count: number };
+export type BoardChannel = { channel: LeadChannel; count: number };
 export type BoardCampaign = { id: string; name: string; count: number };
 export type LeadsBoardData = {
-  serverTime: string; total: number; today: number; statusCounts: Record<LeadStatus, number>; forms: BoardForm[]; campaigns: BoardCampaign[];
+  serverTime: string; total: number; today: number; statusCounts: Record<LeadStatus, number>; forms: BoardForm[]; campaigns: BoardCampaign[]; channels: BoardChannel[];
   /** Leads que atendem aos filtros (a lista mostra no máximo `shown`). */
   matching: number; leads: BoardLead[];
 };
@@ -44,6 +50,7 @@ export function parseFilters(input: URLSearchParams | Record<string, string | st
     status: [...new Set(get("status").filter(isLeadStatus))],
     q: (get("busca").join(",")).slice(0, 60),
     period: (LEAD_PERIODS as readonly string[]).includes(period ?? "") ? (period as LeadPeriod) : "all",
+    channel: isLeadChannel(get("canal")[0]) ? (get("canal")[0] as LeadChannel) : "",
   };
 }
 
@@ -54,6 +61,7 @@ export function filtersToQuery(filters: LeadFilters): string {
   if (filters.status.length) params.set("status", filters.status.join(","));
   if (filters.q.trim()) params.set("busca", filters.q.trim());
   if (filters.period !== "all") params.set("periodo", filters.period);
+  if (filters.channel) params.set("canal", filters.channel);
   return params.toString();
 }
 

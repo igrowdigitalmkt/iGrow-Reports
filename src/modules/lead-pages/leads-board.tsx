@@ -6,7 +6,7 @@ import { Select } from "@/components/ui/select";
 import { ago, formatPhone } from "./lead-feed-view";
 import type { BoardApi } from "./leads-api";
 import {
-  EMPTY_FILTERS, LEAD_PERIODS, LEAD_STATUSES, PERIOD_LABEL, STATUS_LABEL, platformLabel,
+  CHANNEL_LABEL, EMPTY_FILTERS, LEAD_PERIODS, LEAD_STATUSES, PERIOD_LABEL, STATUS_LABEL, platformLabel,
   type BoardLead, type LeadEvent, type LeadFilters, type LeadStatus, type LeadsBoardData,
 } from "./hub-types";
 import "./lead-feed.css";
@@ -103,7 +103,7 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
     document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
   };
 
-  const filtered = filters.forms.length > 0 || filters.campaigns.length > 0 || filters.status.length > 0 || filters.q.trim() !== "" || filters.period !== "all";
+  const filtered = filters.channel !== "" || filters.forms.length > 0 || filters.campaigns.length > 0 || filters.status.length > 0 || filters.q.trim() !== "" || filters.period !== "all";
   const selectedForm = filters.forms[0] ?? "";
 
   return <section className="leads-board" aria-label="Leads">
@@ -123,6 +123,10 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
       <div><span>Fechados</span><strong>{board.statusCounts.won}</strong></div>
     </div>
 
+    {(board.channels.length > 1 || filters.channel) && <div className="lead-chips lead-channels" role="group" aria-label="Filtrar por canal">
+      <button type="button" className={`lead-chip-status${filters.channel === "" ? " is-on" : ""}`} aria-pressed={filters.channel === ""} onClick={() => setFilters(current => ({ ...current, channel: "" }))}>Todos<b>{board.channels.reduce((sum, item) => sum + item.count, 0)}</b></button>
+      {board.channels.map(item => <button key={item.channel} type="button" className={`lead-chip-status${filters.channel === item.channel ? " is-on" : ""}`} aria-pressed={filters.channel === item.channel} onClick={() => setFilters(current => ({ ...current, channel: item.channel }))}>{CHANNEL_LABEL[item.channel]}<b>{item.count}</b></button>)}
+    </div>}
     <div className="lead-filters">
       <label className="lead-search"><Search size={15} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar por nome, WhatsApp ou e-mail" aria-label="Buscar leads" /></label>
       <Select className="compact-select lead-filter-select" inline aria-label="Fonte" value={selectedForm} onChange={event => setFilters(current => ({ ...current, forms: event.target.value ? [event.target.value] : [] }))}>

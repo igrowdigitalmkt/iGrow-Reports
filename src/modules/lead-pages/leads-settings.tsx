@@ -86,6 +86,16 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
       {notice && <div className="lead-toast is-ok" role="status"><CheckCircle2 size={18} aria-hidden="true" /><div><strong>Pronto</strong><span>{notice}</span></div><button type="button" onClick={() => setNotice("")} aria-label="Fechar aviso"><X size={15} /></button></div>}
     </div>
 
+    <section className="lead-panel" aria-labelledby="lead-channels-title">
+      <header><div><h2 id="lead-channels-title">Canais de leads</h2><p>Os canais por onde os contatos chegam a este menu.</p></div><Plug size={18} className="lead-muted" /></header>
+      <ul className="lead-channel-list">
+        <li><div><strong>Formulários de anúncio</strong><small>Facebook e Instagram: o cadastro preenchido no anúncio.</small></div>
+          {data.sources.some(source => source.active) ? <span className="lead-badge">Ativo</span> : <span className="lead-badge is-off">Sem fonte conectada</span>}</li>
+        <li><div><strong>WhatsApp</strong><small>Conversas que chegam por anúncios que levam ao WhatsApp.</small></div><span className="lead-badge is-off">Em breve</span></li>
+        <li><div><strong>Instagram Direct</strong><small>Mensagens diretas que viram leads.</small></div><span className="lead-badge is-off">Em breve</span></li>
+      </ul>
+    </section>
+
     <section className="lead-panel" aria-labelledby="lead-sources-title">
       <header><div><h2 id="lead-sources-title">Fontes de leads conectadas</h2><p>Por onde os leads chegam a este menu. Hoje: Páginas do Facebook, pelos formulários de anúncio. Pausar mantém os leads; remover só é possível antes de receber o primeiro lead.</p></div><Plug size={18} className="lead-muted" /></header>
       {data.sources.length === 0 ? <p className="lead-muted">Nenhuma fonte conectada ainda. Use “Conectar nova página” para escolher a Página do Facebook que recebe os leads dos anúncios.</p>

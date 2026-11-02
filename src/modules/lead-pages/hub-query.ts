@@ -3,8 +3,8 @@ import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { splitLeadFields } from "./leads";
 import {
-  EMPTY_FILTERS, LEAD_STATUSES, fallbackFormName, isLeadStatus, periodStart, safeSearch,
-  type BoardLead, type LeadEvent, type LeadFilters, type LeadsBoardData, type LeadStatus,
+  EMPTY_FILTERS, LEAD_CHANNELS, LEAD_STATUSES, fallbackFormName, isLeadChannel, isLeadStatus, periodStart, safeSearch,
+  type BoardLead, type LeadChannel, type LeadEvent, type LeadFilters, type LeadsBoardData, type LeadStatus,
 } from "./hub-types";
 
 export type Service = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
@@ -21,7 +21,7 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const pages = await service.from("lead_pages").select("id").eq("client_id", input.clientId);
   if (pages.error) return null;
   const pageIds = (pages.data ?? []).map(page => page.id);
-  const empty: LeadsBoardData = { serverTime: now.toISOString(), total: 0, today: 0, statusCounts: { new: 0, contacted: 0, visit: 0, won: 0, lost: 0 }, forms: [], campaigns: [], matching: 0, leads: [] };
+  const empty: LeadsBoardData = { serverTime: now.toISOString(), total: 0, today: 0, statusCounts: { new: 0, contacted: 0, visit: 0, won: 0, lost: 0 }, forms: [], campaigns: [], channels: [], matching: 0, leads: [] };
   if (!pageIds.length) return empty;
   const restrict = input.restrictFormIds;
   if (restrict && !restrict.length) return empty;
@@ -31,7 +31,7 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const retired = new Set((names.data ?? []).filter(row => /^(ARCHIVED|DELETED)$/i.test(row.status ?? "")).map(row => row.form_id));
   const nameOf = new Map((names.data ?? []).map(row => [row.form_id, row.name]));
 
-  let base = service.from("leads").select("form_id,status,created_time,campaign_id,campaign_name").in("lead_page_id", pageIds).order("created_time", { ascending: false }).limit(AGGREGATE_LIMIT);
+  let base = service.from("leads").select("form_id,status,created_time,campaign_id,campaign_name,channel").in("lead_page_id", pageIds).order("created_time", { ascending: false }).limit(AGGREGATE_LIMIT);
   if (restrict) base = base.in("form_id", restrict);
   const aggregate = await base;
   if (aggregate.error) return null;
@@ -39,11 +39,13 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const todayStart = periodStart("today", now)!;
   const statusCounts = { ...empty.statusCounts };
   const formCounts = new Map<string, number>();
+  const channelCounts = new Map<LeadChannel, number>();
   const campaignCounts = new Map<string, { name: string; count: number }>();
   let today = 0;
   for (const row of aggregate.data ?? []) {
     if (isLeadStatus(row.status)) statusCounts[row.status] += 1;
     if (row.created_time >= todayStart) today += 1;
+    if (isLeadChannel(row.channel)) channelCounts.set(row.channel, (channelCounts.get(row.channel) ?? 0) + 1);
     const key = row.form_id ?? "";
     formCounts.set(key, (formCounts.get(key) ?? 0) + 1);
     if (row.campaign_id) {
@@ -57,12 +59,14 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const forms = [...formIds].filter(id => (!restrict || restrict.includes(id)) && (!retired.has(id) || (formCounts.get(id) ?? 0) > 0)).map(id => ({ id, name: nameOf.get(id) ?? fallbackFormName(id), count: formCounts.get(id) ?? 0 }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
 
+  const channels = LEAD_CHANNELS.filter(channel => channelCounts.has(channel)).map(channel => ({ channel, count: channelCounts.get(channel) ?? 0 }));
   const selectedForms = filters.forms.length ? (restrict ? filters.forms.filter(id => restrict.includes(id)) : filters.forms) : restrict;
-  if (selectedForms && !selectedForms.length) return { ...empty, total: (aggregate.data ?? []).length, today, statusCounts, forms, campaigns };
+  if (selectedForms && !selectedForms.length) return { ...empty, total: (aggregate.data ?? []).length, today, statusCounts, forms, campaigns, channels };
   let list = service.from("leads").select("id,name,phone,email,status,status_changed_at,form_id,channel,field_data,created_time,campaign_id,campaign_name,adset_name,ad_name,platform", { count: "exact" })
     .in("lead_page_id", pageIds).order("created_time", { ascending: false }).limit(LIST_LIMIT);
   if (selectedForms) list = list.in("form_id", selectedForms);
   if (filters.campaigns.length) list = list.in("campaign_id", filters.campaigns);
+  if (filters.channel) list = list.eq("channel", filters.channel);
   if (filters.status.length) list = list.in("status", filters.status);
   const since = periodStart(filters.period, now);
   if (since) list = list.gte("created_time", since);
@@ -80,7 +84,7 @@ export async function queryBoard(service: Service, input: { clientId: string; re
       campaignId: row.campaign_id, campaignName: row.campaign_name, adsetName: row.adset_name, adName: row.ad_name, platform: row.platform,
     };
   });
-  return { serverTime: now.toISOString(), total: (aggregate.data ?? []).length, today, statusCounts, forms, campaigns, matching: result.count ?? leads.length, leads };
+  return { serverTime: now.toISOString(), total: (aggregate.data ?? []).length, today, statusCounts, forms, campaigns, channels, matching: result.count ?? leads.length, leads };
 }
 
 /** Histórico (status e notas) de um lead do cliente; o lead precisa pertencer ao cliente (e ao escopo de formulários, se houver). */

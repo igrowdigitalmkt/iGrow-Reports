@@ -66,12 +66,16 @@ const NOW = new Date("2026-11-02T16:00:00.000Z");
 describe("filtros do menu Leads", () => {
   it("lê só valores válidos e monta a query de volta", () => {
     const filters = parseFilters(new URLSearchParams("formulario=100001,abc&status=won,hack&busca=ana&periodo=7d"));
-    expect(filters).toEqual({ forms: ["100001"], campaigns: [], status: ["won"], q: "ana", period: "7d" });
+    expect(filters).toEqual({ forms: ["100001"], campaigns: [], status: ["won"], q: "ana", period: "7d", channel: "" });
     expect(filtersToQuery(filters)).toBe("formulario=100001&status=won&busca=ana&periodo=7d");
     const withCampaign = parseFilters(new URLSearchParams("campanha=50001,xx"));
     expect(withCampaign.campaigns).toEqual(["50001"]);
     expect(filtersToQuery(withCampaign)).toBe("campanha=50001");
     expect(parseFilters({ periodo: "ontem" })).toEqual(EMPTY_FILTERS);
+    const byChannel = parseFilters(new URLSearchParams("canal=whatsapp"));
+    expect(byChannel.channel).toBe("whatsapp");
+    expect(filtersToQuery(byChannel)).toBe("canal=whatsapp");
+    expect(parseFilters(new URLSearchParams("canal=sms")).channel).toBe("");
   });
   it("busca segura e início dos períodos em horário de Brasília", () => {
     expect(safeSearch(`ana,(x)%"y*`)).toBe("ana x y");
