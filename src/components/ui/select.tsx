@@ -34,6 +34,8 @@ export type SelectProps = {
   inline?: boolean;
   /** Abre a lista alinhada à direita do botão. */
   alignEnd?: boolean;
+  /** Cor de uma bolinha antes do rótulo, por valor da opção (ex.: status). */
+  dots?: Record<string, string>;
 };
 
 export function textOf(node: ReactNode): string {
@@ -82,7 +84,7 @@ export function parseOptions(children: ReactNode): Group[] {
  */
 export function Select({
   children, value, defaultValue, onChange, name = "", id, required, disabled, className = "", title,
-  placeholder, triggerContent, inline, alignEnd, ...aria
+  placeholder, triggerContent, inline, alignEnd, dots, ...aria
 }: SelectProps) {
   const groups = useMemo(() => parseOptions(children), [children]);
   const flat = useMemo(() => groups.flatMap(group => group.options), [groups]);
@@ -208,7 +210,7 @@ export function Select({
         return <div key={`${option.value}-${position}`} id={optionId(position)} role="option" aria-selected={isSelected} aria-disabled={option.disabled || undefined}
           className={`ui-select-option${position === active ? " is-active" : ""}${isSelected ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`}
           onMouseEnter={() => !option.disabled && setActive(position)} onMouseDown={event => event.preventDefault()} onClick={() => choose(position)}>
-          <span>{option.label}</span>{isSelected && <Check size={15} aria-hidden="true" />}
+          <span>{dots?.[option.value] && <i className="ui-select-dot" style={{ background: dots[option.value] }} aria-hidden="true" />}{option.label}</span>{isSelected && <Check size={15} aria-hidden="true" />}
         </div>;
       })}
     </div>)}
@@ -218,7 +220,7 @@ export function Select({
     <button ref={trigger} type="button" id={id} title={title} disabled={disabled} className={`ui-select-trigger ${className}${isPlaceholder && !triggerContent ? " is-placeholder" : ""}`}
       aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined} aria-label={aria["aria-label"]} aria-labelledby={aria["aria-labelledby"]}
       onClick={() => (open ? close(false) : openList())} onKeyDown={onTriggerKey}>
-      {triggerContent ?? <><span>{shown || " "}</span><ChevronDown size={16} aria-hidden="true" /></>}
+      {triggerContent ?? <><span>{selected && dots?.[selected.value] && <i className="ui-select-dot" style={{ background: dots[selected.value] }} aria-hidden="true" />}{shown || " "}</span><ChevronDown size={16} aria-hidden="true" /></>}
     </button>
     <select className="ui-select-native" tabIndex={-1} aria-hidden="true" name={name || undefined} required={required} disabled={disabled}
       value={current} onChange={() => undefined}>{children}</select>

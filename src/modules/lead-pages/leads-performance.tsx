@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { Select } from "@/components/ui/select";
 import type { PerformanceData } from "./hub-performance";
 import "./lead-feed.css";
 
@@ -34,10 +34,9 @@ export function LeadsPerformance({ clientId }: { clientId: string }) {
   const ready = data && data.period === period;
   return <section className="lead-performance" aria-label="Desempenho por campanha">
     <div className="lead-filters">
-      <label className="lead-select"><span className="sr-only">Período</span>
-        <select value={period} onChange={event => { setPeriod(event.target.value); setData(null); }} aria-label="Período">
-          {PERIODS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
-        </select><ChevronDown size={14} /></label>
+      <Select className="compact-select lead-filter-select" inline aria-label="Período" value={period} onChange={event => { setPeriod(event.target.value); setData(null); }}>
+        {PERIODS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+      </Select>
       {ready && <span className="lead-muted">{day(data.dateFrom)} a {day(data.dateTo)}</span>}
     </div>
     {failed && !ready && <p role="alert" className="lead-error">Não foi possível carregar o desempenho agora. Tente de novo em instantes.</p>}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Download, Mail, MessageCircle, Search, Volume2, VolumeX } from "lucide-react";
+import { Select } from "@/components/ui/select";
 import { ago, formatPhone } from "./lead-feed-view";
 import type { BoardApi } from "./leads-api";
 import {
@@ -124,20 +125,17 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
 
     <div className="lead-filters">
       <label className="lead-search"><Search size={15} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar por nome, WhatsApp ou e-mail" aria-label="Buscar leads" /></label>
-      <label className="lead-select"><span className="sr-only">Formulário</span>
-        <select value={selectedForm} onChange={event => setFilters(current => ({ ...current, forms: event.target.value ? [event.target.value] : [] }))} aria-label="Formulário">
-          <option value="">Todos os formulários</option>
-          {board.forms.map(form => <option key={form.id} value={form.id}>{form.name} ({form.count})</option>)}
-        </select><ChevronDown size={14} /></label>
-      {board.campaigns.length > 0 && <label className="lead-select"><span className="sr-only">Campanha</span>
-        <select value={filters.campaigns[0] ?? ""} onChange={event => setFilters(current => ({ ...current, campaigns: event.target.value ? [event.target.value] : [] }))} aria-label="Campanha">
-          <option value="">Todas as campanhas</option>
-          {board.campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name} ({campaign.count})</option>)}
-        </select><ChevronDown size={14} /></label>}
-      <label className="lead-select"><span className="sr-only">Período</span>
-        <select value={filters.period} onChange={event => setFilters(current => ({ ...current, period: event.target.value as LeadFilters["period"] }))} aria-label="Período">
-          {LEAD_PERIODS.map(period => <option key={period} value={period}>{PERIOD_LABEL[period]}</option>)}
-        </select><ChevronDown size={14} /></label>
+      <Select className="compact-select lead-filter-select" inline aria-label="Formulário" value={selectedForm} onChange={event => setFilters(current => ({ ...current, forms: event.target.value ? [event.target.value] : [] }))}>
+        <option value="">Todos os formulários</option>
+        {board.forms.map(form => <option key={form.id} value={form.id}>{form.name} ({form.count})</option>)}
+      </Select>
+      {board.campaigns.length > 0 && <Select className="compact-select lead-filter-select" inline aria-label="Campanha" value={filters.campaigns[0] ?? ""} onChange={event => setFilters(current => ({ ...current, campaigns: event.target.value ? [event.target.value] : [] }))}>
+        <option value="">Todas as campanhas</option>
+        {board.campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name} ({campaign.count})</option>)}
+      </Select>}
+      <Select className="compact-select lead-filter-select" inline aria-label="Período" value={filters.period} onChange={event => setFilters(current => ({ ...current, period: event.target.value as LeadFilters["period"] }))}>
+        {LEAD_PERIODS.map(period => <option key={period} value={period}>{PERIOD_LABEL[period]}</option>)}
+      </Select>
     </div>
     <div className="lead-chips" role="group" aria-label="Filtrar por status">
       {LEAD_STATUSES.map(status => <button key={status} type="button" className={`lead-chip-status${filters.status.includes(status) ? " is-on" : ""}`} data-status={status} aria-pressed={filters.status.includes(status)} onClick={() => toggleStatus(status)}>{STATUS_LABEL[status]}<b>{board.statusCounts[status]}</b></button>)}
@@ -145,41 +143,45 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
     </div>
     {error && <p role="alert" className="lead-error">{error}</p>}
 
-    {board.leads.length ? <ol className="lead-list" aria-label="Leads, do mais recente para o mais antigo">{board.leads.map(lead => <LeadRowItem key={lead.id} lead={lead} now={now} fresh={fresh.has(lead.id)} canUpdate={canUpdate} api={api}
-      open={open === lead.id} onToggle={() => setOpen(current => current === lead.id ? null : lead.id)} onStatus={status => void changeStatus(lead, status)} copied={copied} onCopy={copy} />)}</ol>
+    {board.leads.length ? <div className="lead-table-list"><div className="lead-list-head" aria-hidden="true"><span>Quando</span><span>Nome</span><span>Contato</span><span>Origem</span><span>Status</span></div><ol className="lead-list" aria-label="Leads, do mais recente para o mais antigo">{board.leads.map(lead => <LeadRowItem key={lead.id} lead={lead} now={now} fresh={fresh.has(lead.id)} canUpdate={canUpdate} api={api}
+      open={open === lead.id} onToggle={() => setOpen(current => current === lead.id ? null : lead.id)} onStatus={status => void changeStatus(lead, status)} copied={copied} onCopy={copy} />)}</ol></div>
       : filtered ? <div className="lead-empty"><strong>Nenhum lead com esses filtros</strong><p>Ajuste a busca ou limpe os filtros para ver todos.</p></div>
       : <div className="lead-empty"><i aria-hidden="true" /><strong>Aguardando o primeiro lead</strong><p>Assim que alguém preencher o formulário do anúncio, ele aparece aqui sozinho. Não precisa atualizar a página.</p></div>}
     {board.matching > board.leads.length && <p className="lead-foot">Mostrando os {board.leads.length} mais recentes de {board.matching}. Use os filtros para refinar.</p>}
   </section>;
 }
 
+const STATUS_COLOR: Record<LeadStatus, string> = { new: "var(--accent)", contacted: "var(--warn)", visit: "var(--violet)", won: "var(--good)", lost: "var(--muted)" };
+const originOf = (lead: BoardLead) => [lead.campaignName, lead.adsetName, lead.adName].filter(Boolean).join(" › ");
+
 function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatus, copied, onCopy }: {
   lead: BoardLead; now: number; fresh: boolean; canUpdate: boolean; api: BoardApi; open: boolean; onToggle: () => void; onStatus: (status: LeadStatus) => void;
   copied: string | null; onCopy: (value: string, key: string) => void;
 }) {
-  return <li className={`lead-row has-status${fresh ? " is-new" : ""}`}>
-    <div className="lead-when"><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong><small>{dateTime.format(new Date(lead.createdTime))}</small></div>
-    <div className="lead-name"><span>{lead.name ?? <span className="lead-muted">Sem nome</span>}{fresh && <span className="lead-badge">Novo</span>}</span>
-      <small className="lead-form-name">{lead.formName}</small>
-      {(lead.campaignName || lead.adName) && <small className="lead-origin">{platformLabel(lead.platform) && <b>{platformLabel(lead.platform)}</b>}{[lead.campaignName, lead.adsetName, lead.adName].filter(Boolean).join(" › ")}</small>}
-      {lead.answers.length > 0 && <ul className="lead-answers">{lead.answers.map(item => <li key={item.question}><small>{item.question}</small><span>{item.answer}</span></li>)}</ul>}</div>
+  const origin = originOf(lead) || lead.formName;
+  const platform = platformLabel(lead.platform);
+  return <li className={`lead-row has-status is-compact${fresh ? " is-new" : ""}${open ? " is-open" : ""}`}>
+    <time className="lead-when" dateTime={lead.createdTime} title={dateTime.format(new Date(lead.createdTime))}><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong></time>
+    <div className="lead-name"><span className="lead-name-text" title={lead.name ?? undefined}>{lead.name ?? <span className="lead-muted">Sem nome</span>}</span>{fresh && <span className="lead-badge">Novo</span>}</div>
     <div className="lead-contact">
       {lead.phone ? <span className="lead-chip"><a href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer" aria-label={`Chamar ${lead.name ?? "contato"} no WhatsApp`}><MessageCircle size={14} />{formatPhone(lead.phone)}</a>
         <button type="button" onClick={() => onCopy(lead.phone!, `p${lead.id}`)} aria-label="Copiar WhatsApp">{copied === `p${lead.id}` ? <Check size={13} /> : <Copy size={13} />}</button></span> : <span className="lead-muted">Sem WhatsApp</span>}
-      {lead.email && <span className="lead-chip"><a href={`mailto:${lead.email}`}><Mail size={14} />{lead.email}</a>
+      {lead.email && <span className="lead-chip is-email"><a href={`mailto:${lead.email}`} title={lead.email}><Mail size={14} /><span>{lead.email}</span></a>
         <button type="button" onClick={() => onCopy(lead.email!, `e${lead.id}`)} aria-label="Copiar e-mail">{copied === `e${lead.id}` ? <Check size={13} /> : <Copy size={13} />}</button></span>}
     </div>
+    <div className="lead-origin-cell" title={origin}>{platform && <b>{platform}</b>}<span>{origin}</span></div>
     <div className="lead-status">
       {canUpdate
-        ? <select className="lead-status-select" data-status={lead.status} value={lead.status} onChange={event => onStatus(event.target.value as LeadStatus)} aria-label={`Status de ${lead.name ?? "lead"}`}>{LEAD_STATUSES.map(status => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}</select>
+        ? <Select className={`lead-status-trigger is-${lead.status}`} inline dots={STATUS_COLOR} value={lead.status} onChange={event => onStatus(event.target.value as LeadStatus)} aria-label={`Status de ${lead.name ?? "lead"}`}>{LEAD_STATUSES.map(status => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}</Select>
         : <span className="lead-status-badge" data-status={lead.status}>{STATUS_LABEL[lead.status]}</span>}
-      <button type="button" className="lead-more" onClick={onToggle} aria-expanded={open} aria-label={open ? "Fechar histórico" : "Abrir histórico"}><ChevronDown size={16} /></button>
+      <button type="button" className="lead-more" onClick={onToggle} aria-expanded={open} aria-label={open ? "Fechar detalhes" : "Abrir detalhes"} title="Detalhes, notas e histórico"><ChevronDown size={16} /></button>
     </div>
-    {open && <LeadDetail leadId={lead.id} api={api} canUpdate={canUpdate} />}
+    {open && <LeadDetail lead={lead} api={api} canUpdate={canUpdate} />}
   </li>;
 }
 
-function LeadDetail({ leadId, api, canUpdate }: { leadId: string; api: BoardApi; canUpdate: boolean }) {
+function LeadDetail({ lead, api, canUpdate }: { lead: BoardLead; api: BoardApi; canUpdate: boolean }) {
+  const leadId = lead.id;
   const [events, setEvents] = useState<LeadEvent[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [note, setNote] = useState("");
@@ -193,7 +195,12 @@ function LeadDetail({ leadId, api, canUpdate }: { leadId: string; api: BoardApi;
     setSaving(false);
     if (ok) { setNote(""); void reload(); } else setFailed(true);
   };
+  const facts: [string, string][] = [["Formulário", lead.formName], ["Campanha", lead.campaignName ?? ""], ["Conjunto", lead.adsetName ?? ""], ["Anúncio", lead.adName ?? ""], ["Plataforma", platformLabel(lead.platform) ?? ""], ["Recebido em", dateTime.format(new Date(lead.createdTime))]];
   return <div className="lead-detail">
+    <dl className="lead-facts">
+      {facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+      {lead.answers.map(item => <div key={item.question} className="is-answer"><dt>{item.question}</dt><dd>{item.answer}</dd></div>)}
+    </dl>
     {canUpdate && <form className="lead-note-form" onSubmit={event => { event.preventDefault(); void save(); }}>
       <textarea value={note} onChange={event => setNote(event.target.value)} maxLength={2000} rows={2} placeholder="Escreva uma nota sobre este lead (quem atendeu, o que ficou combinado…)" aria-label="Nova nota" />
       <button type="submit" className="lead-btn is-primary" disabled={!note.trim() || saving}>{saving ? "Salvando…" : "Salvar nota"}</button>
