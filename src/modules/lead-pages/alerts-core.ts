@@ -10,6 +10,8 @@ export type AlertRecipient = {
 export type AlertLead = {
   id: string; name: string | null; phone: string | null; email: string | null; campaignId: string | null; campaignName: string | null; adsetName: string | null; adName: string | null;
   formId: string | null; formName: string; platform: string | null; answers: { question: string; answer: string }[]; createdTime: string;
+  /** Canal do lead (form quando ausente) e primeira mensagem, para leads de WhatsApp. */
+  channel?: "form" | "whatsapp" | "instagram"; firstMessage?: string | null;
 };
 
 /** "(91) 98074-8371", "91980748371", "+55 91 98074-8371" → "+5591980748371"; sem DDI assume Brasil. Inválido → null. */
@@ -77,7 +79,7 @@ const FOOTER = "—\nAviso automático da Groow Ads. Para parar de receber, resp
 
 function origin(lead: AlertLead): string | null {
   const parts = [lead.campaignName, lead.adsetName, lead.adName].filter(Boolean) as string[];
-  const platform = platformLabel(lead.platform);
+  const platform = lead.channel === "whatsapp" ? "WhatsApp" : platformLabel(lead.platform);
   return parts.length ? `${platform ? `${platform} · ` : ""}${clip(parts.join(" › "), 160)}` : platform;
 }
 
@@ -89,7 +91,8 @@ export function formatInstantMessage(input: { clientName: string; lead: AlertLea
   if (lead.email) lines.push(`✉️ ${clip(lead.email, 80)}`);
   const from = origin(lead);
   if (from) lines.push(`📣 ${from}`);
-  if (lead.formName) lines.push(`📝 ${clip(lead.formName, 80)}`);
+  if (lead.channel === "whatsapp") { if (lead.firstMessage) lines.push(`💬 “${clip(lead.firstMessage, 160)}”`); }
+  else if (lead.formName) lines.push(`📝 ${clip(lead.formName, 80)}`);
   for (const item of lead.answers.slice(0, 4)) lines.push(`• ${clip(item.question, 70)} ${clip(item.answer, 100)}`);
   if (lead.phone) lines.push("", `👉 Chamar agora: ${waLink(lead.phone)}`);
   lines.push("", FOOTER);

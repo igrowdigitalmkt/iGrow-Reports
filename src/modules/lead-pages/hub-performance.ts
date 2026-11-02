@@ -20,6 +20,8 @@ export type CampaignPerformance = {
 export type PerformanceData = {
   period: PerformancePeriod; dateFrom: string; dateTo: string; rows: CampaignPerformance[];
   totals: { leads: number; won: number; spend: number | null; currency: string | null; costPerLead: number | null; costPerWon: number | null };
+  /** Leads do período por canal (só os canais com lead). */
+  channels: { channel: "form" | "whatsapp" | "instagram"; count: number }[];
   /** O investimento do período ainda não está completo/confirmado: custos aparecem como indisponíveis, nunca como zero. */
   spendNote: string | null;
 };
@@ -71,7 +73,7 @@ export async function loadPerformance(input: { service: Service; supabase: Supab
   if (pages.error) return null;
   const window = windowOf(range.dateFrom, range.dateTo);
   const leads = pageIds.length
-    ? await input.service.from("leads").select("campaign_id,campaign_name,status").in("lead_page_id", pageIds).gte("created_time", window.from).lte("created_time", window.to).limit(5000)
+    ? await input.service.from("leads").select("campaign_id,campaign_name,status,channel").in("lead_page_id", pageIds).gte("created_time", window.from).lte("created_time", window.to).limit(5000)
     : { data: [] as Row[], error: null };
   if (leads.error) return null;
 
@@ -87,5 +89,8 @@ export async function loadPerformance(input: { service: Service; supabase: Supab
   } catch { spendNote = "Não foi possível ler o investimento agora. Os custos aparecem quando a leitura voltar."; }
   const built = buildPerformance({ rows: (leads.data ?? []) as Row[], spendByCampaign });
   if (!spendNote && built.rows.some(row => row.campaignId && row.spend == null)) spendNote = "Algumas campanhas não têm investimento confirmado neste período (por exemplo, de outra conta de anúncios): o custo delas fica indisponível.";
-  return { period, dateFrom: range.dateFrom, dateTo: range.dateTo, ...built, spendNote };
+  const counts = new Map<string, number>();
+  for (const row of (leads.data ?? []) as { channel?: string }[]) counts.set(row.channel ?? "form", (counts.get(row.channel ?? "form") ?? 0) + 1);
+  const channels = ((["form", "whatsapp", "instagram"] as const).filter(channel => counts.has(channel))).map(channel => ({ channel, count: counts.get(channel) ?? 0 }));
+  return { period, dateFrom: range.dateFrom, dateTo: range.dateTo, ...built, channels, spendNote };
 }

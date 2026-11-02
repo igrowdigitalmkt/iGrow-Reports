@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Select } from "@/components/ui/select";
 import type { PerformanceData } from "./hub-performance";
+import { CHANNEL_LABEL } from "./hub-types";
 import "./lead-feed.css";
 
 const PERIODS = [
@@ -48,6 +49,7 @@ export function LeadsPerformance({ clientId }: { clientId: string }) {
         <div><span>Investimento</span><strong>{money(data.totals.spend, data.totals.currency)}</strong></div>
         <div><span>Custo por lead</span><strong>{money(data.totals.costPerLead, data.totals.currency)}</strong></div>
       </div>
+      {data.channels.length > 1 && <p className="lead-muted" role="note">Por canal: {data.channels.map(item => `${CHANNEL_LABEL[item.channel]} ${item.count}`).join(" · ")}. O custo por lead considera só os leads de campanhas com anúncio identificado.</p>}
       {data.spendNote && <p className="lead-notice-line is-warn">{data.spendNote}</p>}
       {data.rows.length === 0 ? <div className="lead-empty"><strong>Nenhum lead neste período</strong><p>Escolha outro período ou aguarde os próximos cadastros.</p></div>
         : <div className="lead-table-wrap"><table className="lead-table">

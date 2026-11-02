@@ -32,7 +32,7 @@ export async function loadAlertLeads(service: Service, clientId: string, filter:
   const pageIds = (pages.data ?? []).map(page => page.id);
   if (pages.error) return null;
   if (!pageIds.length) return [];
-  let query = service.from("leads").select("id,name,phone,email,form_id,field_data,created_time,campaign_id,campaign_name,adset_name,ad_name,platform").in("lead_page_id", pageIds).order("created_time", { ascending: true }).limit(filter.limit ?? 200);
+  let query = service.from("leads").select("id,name,phone,email,form_id,channel,first_message,field_data,created_time,campaign_id,campaign_name,adset_name,ad_name,platform").in("lead_page_id", pageIds).order("created_time", { ascending: true }).limit(filter.limit ?? 200);
   if (filter.leadId) query = query.eq("id", filter.leadId);
   if (filter.after) query = query.gt("created_time", filter.after.toISOString());
   if (filter.until) query = query.lte("created_time", filter.until.toISOString());
@@ -42,7 +42,7 @@ export async function loadAlertLeads(service: Service, clientId: string, filter:
   return (rows.data ?? []).map(row => {
     const { fields, answers } = splitLeadFields(row.field_data);
     return { id: row.id, name: row.name ?? fields.name, phone: row.phone ?? fields.phone, email: row.email ?? fields.email, campaignId: row.campaign_id, campaignName: row.campaign_name,
-      adsetName: row.adset_name, adName: row.ad_name, formId: row.form_id, formName: row.form_id ? (nameOf.get(row.form_id) ?? fallbackFormName(row.form_id)) : "", platform: row.platform, answers, createdTime: row.created_time };
+      adsetName: row.adset_name, adName: row.ad_name, formId: row.form_id, formName: row.form_id ? (nameOf.get(row.form_id) ?? fallbackFormName(row.form_id)) : "", platform: row.platform, answers, createdTime: row.created_time, channel: row.channel, firstMessage: row.first_message };
   });
 }
 

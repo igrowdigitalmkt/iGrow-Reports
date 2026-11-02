@@ -1,7 +1,7 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { validWebhookToken } from "@/modules/whatsapp-qr/server";
 import { LEAD_INSTANCE } from "@/modules/lead-pages/wa-session";
-import { captureWhatsAppLead } from "@/modules/lead-pages/wa-capture";
+import { captureWhatsAppLead, resolveWaAdNames } from "@/modules/lead-pages/wa-capture";
 import { notifyNewLead } from "@/modules/lead-pages/alerts-send";
 import { runAfter } from "@/modules/lead-pages/run-after";
 
@@ -29,7 +29,9 @@ export async function POST(request: Request) {
       const result = await captureWhatsAppLead(service, session, body).catch(() => ({ created: null, reason: "error" as const }));
       if (result.reason === "error") return Response.json({ error: "Tente de novo." }, { status: 503 });
       const created = result.created;
-      if (created) runAfter(async () => { await notifyNewLead(service, created).catch(() => undefined); });
+      const adId = result.adId ?? null;
+      // Primeiro completa o anúncio (para o aviso já sair com a campanha), depois avisa a equipe.
+      if (created) runAfter(async () => { if (adId) await resolveWaAdNames(service, { agencyId: session.agency_id, leadId: created, adId }).catch(() => undefined); await notifyNewLead(service, created).catch(() => undefined); });
     }
   }
   return Response.json({ ok: true });
