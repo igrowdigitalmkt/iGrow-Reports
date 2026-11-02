@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Copy, KeyRound, Link2, Pencil, Plug, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { AlertTriangle, Check, CheckCircle2, Copy, KeyRound, Link2, Loader2, Pencil, Plug, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import {
   adoptLeadLinkCodeAction, createLeadLinkAction, createLeadSourceAction, deleteLeadLinkAction, deleteLeadSourceAction, getLeadLinkCodeAction, listAvailableLeadPagesAction, rotateLeadLinkAction,
   setLeadSourceActiveAction, syncLeadSourceAction, updateLeadLinkAction, updateLeadSourceAction, type SettingsResult, type SettingsSnapshot,
@@ -20,7 +21,9 @@ type SourceDraft = { id: string; title: string; formId: string };
 export function LeadsSettings({ clientId, initial, forms }: { clientId: string; initial: SettingsSnapshot; forms: BoardForm[] }) {
   const [data, setData] = useState(initial);
   const [pending, startTransition] = useTransition();
+  const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
+  const statusRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const [shown, setShown] = useState<{ code: string; title: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -30,16 +33,21 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
   const [adopt, setAdopt] = useState<{ id: string; code: string } | null>(null);
 
   const formName = (id: string) => forms.find(form => form.id === id)?.name ?? `Formulário …${id.slice(-4)}`;
-  const run = (action: () => Promise<SettingsResult>, after?: (result: Extract<SettingsResult, { ok: true }>) => void) => {
-    setError(""); setNotice("");
+  const run = (action: () => Promise<SettingsResult>, after?: (result: Extract<SettingsResult, { ok: true }>) => void, label = "Salvando…") => {
+    setError(""); setNotice(""); setBusy(label);
     startTransition(async () => {
-      const result = await action();
-      if (!result.ok) { setError(result.message); return; }
-      setData({ sources: result.sources, links: result.links });
-      if (result.message) setNotice(result.message);
-      after?.(result);
+      try {
+        const result = await action();
+        if (!result.ok) { setError(result.message); return; }
+        setData({ sources: result.sources, links: result.links });
+        if (result.warning) setError(result.warning);
+        else if (result.message) setNotice(result.message);
+        after?.(result);
+      } catch { setError("Não foi possível concluir agora. Tente de novo em instantes."); }
+      finally { setBusy(""); }
     });
   };
+  useEffect(() => { if (busy || error || notice) statusRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [busy, error, notice]);
   const copy = async (value: string, key: string) => { try { await navigator.clipboard.writeText(value); setCopied(key); setTimeout(() => setCopied(current => current === key ? null : current), 1800); } catch { setError("O navegador não deixou copiar. Selecione o link e copie manualmente."); } };
 
   const openPicker = () => {
@@ -49,7 +57,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
       setPicker({ pages: result.pages, query: "" });
     }).catch(() => { setPicker(null); setError("Não foi possível buscar as Páginas agora. Tente de novo."); });
   };
-  const connectPage = (page: { id: string; name: string }) => run(() => createLeadSourceAction({ clientId, title: page.name, fbPageId: page.id }), () => setPicker(null));
+  const connectPage = (page: { id: string; name: string }) => run(() => createLeadSourceAction({ clientId, title: page.name, fbPageId: page.id }), () => setPicker(null), `Conectando “${page.name}” e conferindo na Meta…`);
   const addSource = (form: HTMLFormElement) => {
     const values = new FormData(form);
     run(() => createLeadSourceAction({ clientId, title: String(values.get("title") ?? ""), fbPageId: String(values.get("fbPageId") ?? "").trim(), formId: String(values.get("formId") ?? "").trim() || undefined }), () => form.reset());
@@ -71,8 +79,11 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
   };
 
   return <div className="leads-settings">
-    {error && <p role="alert" className="lead-error">{error}</p>}
-    {notice && <p role="status" className="lead-notice-line">{notice}</p>}
+    <div ref={statusRef} className="lead-status-stack" aria-live="polite">
+      {busy && <div className="lead-toast is-busy" role="status"><Loader2 size={18} className="lead-spin" aria-hidden="true" /><div><strong>Aguarde</strong><span>{busy}</span></div></div>}
+      {error && <div className="lead-toast is-error" role="alert"><AlertTriangle size={18} aria-hidden="true" /><div><strong>Não foi possível concluir</strong><span>{error}</span></div><button type="button" onClick={() => setError("")} aria-label="Fechar aviso"><X size={15} /></button></div>}
+      {notice && <div className="lead-toast is-ok" role="status"><CheckCircle2 size={18} aria-hidden="true" /><div><strong>Pronto</strong><span>{notice}</span></div><button type="button" onClick={() => setNotice("")} aria-label="Fechar aviso"><X size={15} /></button></div>}
+    </div>
 
     <section className="lead-panel" aria-labelledby="lead-sources-title">
       <header><div><h2 id="lead-sources-title">Páginas conectadas</h2><p>Páginas do Facebook cujos formulários de lead alimentam este menu. Pausar mantém os leads; remover só é possível antes de receber o primeiro lead.</p></div><Plug size={18} className="lead-muted" /></header>
@@ -90,7 +101,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
               {source.syncError ? <small className="lead-source-error">{source.syncError}</small> : source.lastSyncedAt ? <small className="lead-source-ok">Conexão com a Meta em ordem.</small> : null}
             </div>
             <div className="lead-source-actions">
-              <button type="button" className="lead-btn" disabled={pending} onClick={() => run(() => syncLeadSourceAction({ clientId, sourceId: source.id }))}><RefreshCw size={14} />Verificar conexão</button>
+              <button type="button" className="lead-btn" disabled={pending} onClick={() => run(() => syncLeadSourceAction({ clientId, sourceId: source.id }), undefined, `Conferindo “${source.title}” na Meta…`)}><RefreshCw size={14} />Verificar conexão</button>
               <button type="button" className="lead-btn" disabled={pending} onClick={() => { setNotice(""); setError(""); setSourceDraft({ id: source.id, title: source.title, formId: source.formId ?? "" }); }}><Pencil size={14} />Editar</button>
               <button type="button" className="lead-btn" disabled={pending} onClick={() => run(() => setLeadSourceActiveAction({ clientId, sourceId: source.id, active: !source.active }))}>{source.active ? "Pausar" : "Reativar"}</button>
               <button type="button" className="lead-btn is-danger" disabled={pending} onClick={() => { if (window.confirm(`Remover a Página “${source.title}”? Só é possível se ela nunca recebeu leads.`)) run(() => deleteLeadSourceAction({ clientId, sourceId: source.id })); }}><Trash2 size={14} />Remover</button>
@@ -98,7 +109,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
           </>}
         </li>)}</ul>}
       {picker === null && <div className="lead-form-actions"><button type="button" className="lead-btn is-primary" onClick={openPicker} disabled={pending}><Plus size={14} />Conectar nova página</button></div>}
-      {picker === "loading" && <p className="lead-muted" role="status">Buscando as Páginas disponíveis na Meta…</p>}
+      {picker === "loading" && <div className="lead-picker is-loading" role="status"><Loader2 size={20} className="lead-spin" aria-hidden="true" /><div><strong>Buscando suas Páginas na Meta…</strong><small>Estamos usando a conexão que você já fez. Pode levar alguns segundos.</small></div></div>}
       {picker && picker !== "loading" && <div className="lead-picker">
         <div className="lead-picker-head">
           <label className="lead-picker-search"><Search size={14} aria-hidden="true" /><input value={picker.query} onChange={event => setPicker({ ...picker, query: event.target.value })} placeholder="Buscar Página pelo nome" aria-label="Buscar Página" autoFocus /></label>
@@ -110,7 +121,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
           return shownPages.length === 0 ? <p className="lead-muted">{picker.pages.length ? "Nenhuma Página com esse nome." : "A Meta não liberou nenhuma Página para esta conexão. Use o ID manual abaixo."}</p>
             : <ul className="lead-picker-list">{shownPages.map(page => <li key={page.id}>
               <div><strong>{page.name}</strong><small>{page.category ? `${page.category} · ` : ""}ID {page.id}</small></div>
-              {page.connected ? <span className="lead-badge">Conectada</span> : <button type="button" className="lead-btn is-primary" onClick={() => connectPage(page)} disabled={pending}>{pending ? "Conectando…" : "Conectar"}</button>}
+              {page.connected ? <span className="lead-badge">Conectada</span> : <button type="button" className="lead-btn is-primary" onClick={() => connectPage(page)} disabled={pending}>{pending ? <><Loader2 size={14} className="lead-spin" aria-hidden="true" />Conectando…</> : "Conectar"}</button>}
             </li>)}</ul>;
         })()}
       </div>}

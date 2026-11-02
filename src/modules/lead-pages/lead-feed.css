@@ -316,3 +316,22 @@
 .lead-manual { margin-top: 4px; }
 .lead-manual summary { width: fit-content; color: var(--muted); font-size: 13px; cursor: pointer; }
 .lead-manual[open] summary { margin-bottom: 10px; }
+
+/* ---------- Avisos em destaque (carregando, erro, pronto) ---------- */
+.lead-status-stack { position: sticky; top: 12px; z-index: 20; display: grid; gap: 8px; }
+.lead-status-stack:empty { display: none; }
+.lead-toast { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid; border-radius: 12px; box-shadow: 0 6px 20px rgb(0 0 0 / .1); font-size: 14px; }
+.lead-toast > div { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.lead-toast strong { font-size: 14px; }
+.lead-toast span { overflow-wrap: anywhere; line-height: 1.45; }
+.lead-toast button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+.lead-toast button:hover { background: rgb(0 0 0 / .08); }
+.lead-toast.is-busy { border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: var(--accent-bg); color: var(--accent-text); }
+.lead-toast.is-error { border-color: color-mix(in srgb, var(--bad) 45%, transparent); background: var(--bad-bg); color: var(--bad); }
+.lead-toast.is-ok { border-color: color-mix(in srgb, var(--good) 45%, transparent); background: var(--good-bg); color: var(--good); }
+.lead-spin { flex: none; animation: lead-spin .9s linear infinite; }
+@keyframes lead-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lead-spin { animation-duration: 2.4s; } }
+.lead-picker.is-loading { display: flex; align-items: center; gap: 14px; padding: 18px; border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-bg); color: var(--accent-text); }
+.lead-picker.is-loading > div { display: grid; gap: 2px; }
+.lead-picker.is-loading small { color: inherit; opacity: .8; }

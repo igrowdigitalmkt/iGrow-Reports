@@ -6,7 +6,7 @@ import { appSecretsFromEnv } from "./graph-proof";
 import { splitLeadFields, toFetchedLead, type LeadPage } from "./leads";
 import { notifyNewLead } from "./alerts-send";
 import { saveLead } from "./store";
-import { leadsTokenCandidates, tokenForPage } from "./leads-tokens";
+import { explainMetaFailure, leadsTokenCandidates, tokenForPage } from "./leads-tokens";
 import type { Service } from "./hub-query";
 
 const MAX_FORMS = 25;
@@ -31,7 +31,7 @@ export async function syncLeadSource(service: Service, source: { id: string; fbP
     const found = await tokenForPage(tokens, { pageId: source.fbPageId, apiVersion: config.apiVersion, appSecrets: secrets });
     if (!found) {
       const page = await graphCall({ token, apiVersion: config.apiVersion, appSecrets: secrets, path: `${encodeURIComponent(source.fbPageId)}?fields=access_token` });
-      const message = `A Meta não liberou o acesso à Página (${page.code}). ${page.message}`.trim(); await finish(message); return { ok: false, message };
+      const message = explainMetaFailure(page.code, page.message); await finish(message); return { ok: false, message };
     }
     const base = { token: found.token, apiVersion: config.apiVersion, appSecrets: secrets };
     const pageToken = found.pageToken;

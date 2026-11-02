@@ -8,19 +8,19 @@ import { authorizeLeadsClient } from "./hub-access";
 import { adoptLinkCode, createLink, createSource, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
 import { addLeadNote, changeLeadStatus } from "./hub-query";
 import { syncLeadSource } from "./hub-sync";
-import { leadsTokenCandidates, tokenForPage } from "./leads-tokens";
+import { explainMetaFailure, leadsTokenCandidates, tokenForPage } from "./leads-tokens";
 import { listMetaPages, type MetaPageOption } from "./pages-directory";
 import { LEAD_STATUSES } from "./hub-types";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; message: string };
 export type SettingsSnapshot = { sources: SourceView[]; links: LinkView[] };
-export type SettingsResult = (SettingsSnapshot & { ok: true; message?: string; code?: string }) | { ok: false; message: string };
+export type SettingsResult = (SettingsSnapshot & { ok: true; message?: string; warning?: string; code?: string }) | { ok: false; message: string };
 
 const clientId = z.uuid();
 const leadId = z.uuid();
 const NO_ACCESS = { ok: false as const, message: "Você não tem permissão para esta ação." };
 
-async function snapshot(access: Extract<Awaited<ReturnType<typeof authorizeLeadsClient>>, { allowed: true }>, extra: { message?: string; code?: string } = {}): Promise<SettingsResult> {
+async function snapshot(access: Extract<Awaited<ReturnType<typeof authorizeLeadsClient>>, { allowed: true }>, extra: { message?: string; warning?: string; code?: string } = {}): Promise<SettingsResult> {
   const [sources, links] = await Promise.all([listSources(access.service, access.clientId), listLinks(access.service, access.clientId)]);
   if (!sources || !links) return { ok: false, message: "Não foi possível carregar as configurações." };
   return { ok: true, sources, links, ...extra };
@@ -73,7 +73,7 @@ export async function createLeadSourceAction(input: unknown): Promise<SettingsRe
   const created = await createSource(access.service, { agencyId: access.agencyId, clientId: access.clientId, title: parsed.data.title, fbPageId: parsed.data.fbPageId, formId: parsed.data.formId ?? null, userId: access.userId });
   if (!created.ok) return created;
   const connected = await connectAndSync(access, created.id);
-  return snapshot(access, { message: connected.message });
+  return snapshot(access, connected.failed ? { warning: connected.message } : { message: connected.message });
 }
 
 export async function setLeadSourceActiveAction(input: unknown): Promise<SettingsResult> {
@@ -92,24 +92,24 @@ export async function syncLeadSourceAction(input: unknown): Promise<SettingsResu
   const access = await authorizeLeadsClient(parsed.data.clientId);
   if (!access.allowed || !access.canManage) return NO_ACCESS;
   const result = await connectAndSync(access, parsed.data.sourceId);
-  return snapshot(access, { message: result.message });
+  return snapshot(access, result.failed ? { warning: result.message } : { message: result.message });
 }
 
-async function connectAndSync(access: Extract<Awaited<ReturnType<typeof authorizeLeadsClient>>, { allowed: true }>, sourceId: string): Promise<{ message: string }> {
+async function connectAndSync(access: Extract<Awaited<ReturnType<typeof authorizeLeadsClient>>, { allowed: true }>, sourceId: string): Promise<{ message: string; failed?: boolean }> {
   const { data: source } = await access.service.from("lead_pages").select("id,fb_page_id,slug,title,form_id").eq("id", sourceId).eq("client_id", access.clientId).maybeSingle();
-  if (!source) return { message: "Fonte de leads não encontrada." };
+  if (!source) return { message: "Fonte de leads não encontrada.", failed: true };
   const config = getMetaApiConfig();
   const tokens = await leadsTokenCandidates(access.service, access.agencyId);
-  if (!tokens.length || !config) return { message: "Ainda não há conexão com a Meta neste ambiente. Conecte a Meta em Integrações." };
+  if (!tokens.length || !config) return { message: "Ainda não há conexão com a Meta neste ambiente. Conecte a Meta em Integrações.", failed: true };
   const found = await tokenForPage(tokens, { pageId: source.fb_page_id, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
-  const subscribed = await subscribePageToLeadgen({ pageId: source.fb_page_id, token: found?.token ?? tokens[0], apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
+  const subscribed = await subscribePageToLeadgen({ pageId: source.fb_page_id, token: found?.token ?? tokens[0], pageToken: found?.pageToken, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
   if (!subscribed.ok) {
-    const message = `A Meta não liberou a Página (${subscribed.code}). ${subscribed.message}`.trim();
+    const message = explainMetaFailure(subscribed.code, subscribed.message);
     await access.service.from("lead_pages").update({ last_synced_at: new Date().toISOString(), sync_error: message.slice(0, 500) }).eq("id", source.id);
-    return { message };
+    return { message, failed: true };
   }
   const synced = await syncLeadSource(access.service, { id: source.id, fbPageId: source.fb_page_id, slug: source.slug, title: source.title, formId: source.form_id });
-  return { message: synced.ok ? `Conectado. ${synced.forms} formulário(s) e ${synced.leads} lead(s) conferidos na Meta.` : synced.message };
+  return synced.ok ? { message: `Conectado. ${synced.forms} formulário(s) e ${synced.leads} lead(s) conferidos na Meta.` } : { message: synced.message, failed: true };
 }
 
 export async function createLeadLinkAction(input: unknown): Promise<SettingsResult> {
