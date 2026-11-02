@@ -29,7 +29,7 @@ export async function renameWorkspaceAction(input: unknown): Promise<{ ok: true;
   const context = await requireAgencyContext();
   if (context.role !== "owner" && context.role !== "admin") return { ok: false, message: "Somente proprietário ou administrador pode mudar o nome." };
   const name = parsed.data.name.replace(/s+/g, " ");
-  const { data, error } = await context.supabase.from("agencies").update({ name, updated_at: new Date().toISOString() }).eq("id", context.agency.id).select("id");
+  const { data, error } = await context.supabase.from("agencies").update({ name }).eq("id", context.agency.id).select("id");
   if (error || !data?.length) return { ok: false, message: "Não foi possível salvar o nome agora. Tente de novo." };
   revalidatePath("/", "layout");
   return { ok: true, name };
