@@ -31,7 +31,10 @@ export async function POST(request: Request) {
   const service = createSupabaseServiceClient();
   const token = process.env.META_LEADS_ACCESS_TOKEN?.trim();
   const config = getMetaApiConfig();
-  if (!service || !token || !config) return new Response("Retry", { status: 503 });
+  if (!service || !token || !config) {
+    console.error("leadgen: configuração incompleta", { banco: !!service, tokenDeLeads: !!token, versaoDaApi: !!config });
+    return new Response("Retry", { status: 503 });
+  }
   const result = await processLeadgenEvents(events, {
     findPages: (pageId, formId) => findLeadPages(service, pageId, formId),
     fetchLead: leadgenId => fetchLead({ leadgenId, token, apiVersion: config.apiVersion, appSecret: appSecret() }),

@@ -82,7 +82,8 @@ export async function fetchLead(input: { leadgenId: string; token: string; apiVe
   const url = `https://graph.facebook.com/${input.apiVersion}/${encodeURIComponent(input.leadgenId)}?fields=id,created_time,ad_id,adset_id,campaign_id,form_id,field_data${proof}`;
   const response = await (input.fetchImpl ?? fetch)(url, { headers: { Authorization: `Bearer ${input.token}` }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
-  if (!response.ok || !body || body.error) throw new Error(`Graph ${response.status}`);
+  // Só o código do erro (nunca o token nem dados do lead): suficiente para diagnosticar permissão, token vencido ou limite de uso.
+  if (!response.ok || !body || body.error) { const error = body?.error as { code?: unknown; error_subcode?: unknown } | undefined; throw new Error(`Graph ${response.status} código=${String(error?.code ?? "-")} subcódigo=${String(error?.error_subcode ?? "-")}`); }
   return {
     leadgenId: text(body.id) ?? input.leadgenId, formId: text(body.form_id), adId: text(body.ad_id), adsetId: text(body.adset_id), campaignId: text(body.campaign_id),
     createdTime: text(body.created_time) ? new Date(String(body.created_time)).toISOString() : null, fieldData: Array.isArray(body.field_data) ? body.field_data : [],
@@ -108,7 +109,7 @@ export async function processLeadgenEvents(events: LeadgenEvent[], deps: {
       const lead = await deps.fetchLead(event.leadgenId);
       const fields = parseLeadFields(lead.fieldData);
       for (const page of pages) { await deps.save(page, { ...lead, formId: lead.formId ?? event.formId, adId: lead.adId ?? event.adId, adsetId: lead.adsetId ?? event.adsetId, createdTime: lead.createdTime ?? event.createdTime }, fields); saved += 1; }
-    } catch { retry = true; }
+    } catch (error) { retry = true; console.error("leadgen: falha ao processar aviso", event.leadgenId, error instanceof Error ? error.message : "erro"); }
   }
   return { saved, ignored, retry };
 }
