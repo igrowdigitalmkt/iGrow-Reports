@@ -1,5 +1,5 @@
-export const META_LOGIN_APP_ID = "28432983606382926";
-export const META_LOGIN_CONFIG_ID = "1662561831866536";
+export const META_LOGIN_APP_ID = "1403140724038533";
+export const META_LOGIN_CONFIG_ID = "1103854562383352";
 
 export function selectedMetaAccounts<T extends { id: string }>(accounts: T[], selected?: string[]) {
   if (!selected) return accounts;
