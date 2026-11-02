@@ -18,6 +18,7 @@ export default function PrivacyPage() {
       <li><strong>Destinatários de relatórios:</strong> nome e telefone das pessoas indicadas pelo cliente para receber relatórios, com o registro da autorização de recebimento (data e origem) e de eventuais descadastros.</li>
       <li><strong>Envios de relatórios pelo WhatsApp:</strong> destinatário, relatório, horário e a situação informada pelo WhatsApp (enviado, entregue, lido ou falha).</li>
       <li><strong>Conversas do WhatsApp:</strong> quando um espaço de trabalho conecta um número à plataforma (pela API oficial do WhatsApp, com ou sem coexistência com o aplicativo, ou pela conexão por QR Code), guardamos as mensagens trocadas por esse número a partir da conexão: telefone e nome de perfil do contato, nome do grupo e de quem escreveu, texto, tipo de mensagem (foto, vídeo, áudio, documento, localização, contato), nome do arquivo, data e hora, e a situação de entrega e leitura. Os arquivos de foto, vídeo e áudio não são copiados para a plataforma. Não buscamos o histórico anterior à conexão.</li>
+      <li><strong>Leads dos anúncios e dos canais de contato:</strong> quando o cliente conecta uma Página do Facebook, um número de WhatsApp ou, quando disponível, uma conta profissional do Instagram, guardamos os contatos que chegam por esses canais: nome, telefone ou usuário, e-mail e respostas do formulário do anúncio, a primeira mensagem recebida, a origem do anúncio e as anotações e o andamento (status) registrados pela equipe. Não guardamos o restante das conversas desses canais.</li>
       <li><strong>Credenciais de integração:</strong> tokens de acesso da Meta e do WhatsApp, guardados criptografados e usados apenas pelo servidor.</li>
       <li><strong>Registros técnicos:</strong> data e hora de acessos e operações, para segurança e auditoria.</li>
     </ul>
@@ -27,6 +28,7 @@ export default function PrivacyPage() {
       <li>Exibir os resultados das campanhas no painel e gerar relatórios em PDF.</li>
       <li>Enviar os relatórios pelo WhatsApp somente a destinatários com autorização registrada.</li>
       <li>Mostrar à equipe do espaço de trabalho, na caixa de entrada do WhatsApp, as conversas dos números conectados, para que acompanhe e responda os clientes. Só veem as conversas os membros com acesso à área WhatsApp, definido por proprietários e administradores.</li>
+      <li>Mostrar ao cliente e à equipe, no menu Leads, os contatos recebidos pelos anúncios e pelos canais conectados, acompanhar o atendimento e avisar a equipe sobre novos contatos.</li>
       <li>Registrar pedidos de descadastro feitos por resposta no WhatsApp (como PARAR).</li>
       <li>Avisar sobre saldo baixo, pagamentos pendentes e outras situações que afetam a veiculação.</li>
       <li>Manter a segurança, investigar falhas e cumprir obrigações legais.</li>
@@ -47,6 +49,7 @@ export default function PrivacyPage() {
       <li>Dados detalhados de conjuntos e anúncios: 180 dias. Totais diários por campanha e conta: enquanto o cliente estiver ativo, para permitir comparações de períodos.</li>
       <li>Relatórios gerados e histórico de envios: enquanto o cliente estiver ativo no espaço de trabalho.</li>
       <li>Conversas do WhatsApp: enquanto o espaço de trabalho estiver ativo. Ao remover um número oficial da plataforma, as conversas dele são apagadas junto. Também podem ser apagadas a pedido do espaço de trabalho ou do titular.</li>
+      <li>Leads: enquanto a fonte estiver conectada ao cliente. Ao excluir uma fonte na plataforma, todos os leads dela são apagados junto, com notas e histórico. Também podem ser apagados a pedido do cliente ou do titular.</li>
       <li>Autorizações e descadastros de destinatários: pelo tempo necessário para comprovar o consentimento.</li>
       <li>Após o encerramento do contrato ou um pedido de exclusão, os dados são apagados ou anonimizados, salvo o que a lei exigir manter.</li>
     </ul>
