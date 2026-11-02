@@ -94,7 +94,7 @@ function unavailableReason(data: AnalyticsDashboardData, metric: AnalyticsMetric
   if (["reach", "frequency", "unique_clicks", "unique_inline_link_clicks", "unique_inline_link_click_ctr", "unique_ctr", "unique_outbound_clicks"].includes(metric.key)
     && data.selectedAccountIds.length > 1) return "A Meta não retornou os valores necessários para estimar este indicador entre contas.";
   if (metric.unit === "currency" && !data.currency) return "As contas selecionadas usam moedas diferentes. Filtre contas da mesma moeda para ver este total. O investimento de cada conta aparece separadamente abaixo.";
-  if (data.coverage.status !== "complete") return "O período ainda tem dados sem coleta. Atualize os dados para completar a análise.";
+  if (data.coverage.status !== "complete") return "Faltam dados neste período. Atualize os dados para completar a análise.";
   return "A Meta não retornou este indicador para o escopo selecionado, ou não há resultados para calcular a taxa/custo.";
 }
 
@@ -154,7 +154,7 @@ function normalizeEssentialMetrics(data: AnalyticsDashboardData): AnalyticsDashb
 function makeObservations(data: AnalyticsDashboardData) {
   const observations: { title: string; text: string }[] = [];
   if (data.coverage.status === "empty") {
-    return [{ title: "Este período ainda precisa de dados", text: "Não há coleta concluída para as datas e contas selecionadas." }];
+    return [{ title: "Este período ainda precisa de dados", text: "Ainda não há dados atualizados para as datas e contas selecionadas." }];
   }
   const campaigns = data.campaigns
     .filter((campaign) => (campaign.values.spend ?? 0) > 0)
@@ -641,7 +641,7 @@ export function ClientAnalyticsDashboard({
 
   function applyCampaignScope() {
     setError(""); setNotice("");
-    if (navigating || data.coverage.status !== "complete" || hierarchyLoading) { setError("A seleção só pode ser aplicada quando a coleta do período estiver completa."); return; }
+    if (navigating || data.coverage.status !== "complete" || hierarchyLoading) { setError("A seleção só pode ser aplicada quando os dados do período estiverem completos."); return; }
     if (!draftEntityKeys.length) { setError("Selecione ao menos uma campanha, conjunto ou anúncio."); return; }
     const nextKeys = [...draftEntityKeys];
     if (selectedLeaves.length === allLeaves.length) {
@@ -889,17 +889,17 @@ export function ClientAnalyticsDashboard({
       <RefreshCw size={17} className="analytics-spin" /><p>{collectingComparison
         ? "Atualizando o período anterior para comparação."
         : analyticsReady
-          ? "Atualizando os dados do período. Os números atuais continuam visíveis até a coleta terminar."
-          : "Atualizando os dados do período. Os resultados aparecem quando a coleta terminar."}</p>
+          ? "Atualizando os dados do período. Os números atuais continuam visíveis até a atualização terminar."
+          : "Atualizando os dados do período. Os resultados aparecem quando a atualização terminar."}</p>
     </div>}
     {tab !== "reports" && !analyticsReady && <div className="analytics-coverage-banner analytics-coverage-blocker" role="status">
       <div><span className="analytics-coverage-icon"><Layers3 size={17} /></span><p>
         <strong>{navigating ? "Aguardando o período selecionado" : "Aguardando a análise completa"}</strong>
         <span>{navigating
-          ? "Nenhum resultado será exibido até a navegação e a coleta terminarem."
+          ? "Nenhum resultado será exibido até a navegação e a atualização terminarem."
           : scopedData.coverage.status === "complete"
-            ? "Os dias já foram coletados. Estamos aguardando a confirmação dos totais deste período. A análise será exibida por inteiro quando estiver pronta."
-            : `A coleta confirmou ${scopedData.coverage.coveredDays} de ${scopedData.coverage.totalDays} dias. O dashboard permanece bloqueado até confirmar 100% do período.`}</span>
+            ? "Os dias já foram atualizados. Estamos confirmando os totais deste período. A análise aparece por inteiro quando estiver pronta."
+            : `Já temos ${scopedData.coverage.coveredDays} de ${scopedData.coverage.totalDays} dias deste período. Os resultados aparecem quando todos os dias estiverem completos.`}</span>
         {!navigating && autoRetry.phase !== "idle" && <span className="analytics-retry-status" aria-live="polite">
           {autoRetry.phase === "running" && <><RefreshCw size={13} className="analytics-spin" /> Consultando agora…</>}
           {autoRetry.phase === "waiting" && autoRetry.nextAt && <>Próxima tentativa automática às {retryClock.format(autoRetry.nextAt)}{autoRetry.lastAt ? ` · última às ${retryClock.format(autoRetry.lastAt)}` : ""}.</>}
@@ -1277,7 +1277,7 @@ export function ClientAnalyticsDashboard({
     {!summaryView && !metaVisible && !googleVisible && <section className="analytics-card platform-empty" style={{ order: 10 }}><p>Nenhuma plataforma selecionada. Use o botão de plataformas no topo para escolher o que exibir.</p></section>}
 
     {tab !== "reports" && <footer className="analytics-data-footer" style={{ order: 100 }}><span><Check size={12} />Dados da plataforma · calendário local de cada conta</span>
-      <span>Sem estimativas para datas não coletadas</span></footer>}
+      <span>Sem estimativas para dias ainda não atualizados</span></footer>}
     <Dialog open={customizing} onOpenChange={setCustomizing} title="Personalizar relatório" description={`Indicadores, cabeçalho e comentários usados ${dash.in} e no PDF.`}>
       <div className="analytics-customize">
         <section><h3>Modelo de análise</h3>

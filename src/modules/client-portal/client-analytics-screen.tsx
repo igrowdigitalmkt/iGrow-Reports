@@ -74,10 +74,10 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
   data = await getFreshClientAnalytics({ supabase, agencyId: access.agencyId, clientId,
     dateFrom: range.dateFrom, dateTo: range.dateTo, accountIds, initial: data });
   if (data.coverage.status !== "complete") {
-    data.warnings.push("Os resultados deste período ficam bloqueados até a coleta confirmar todos os dias e contas selecionadas.");
+    data.warnings.push("Os resultados deste período aparecem quando todos os dias e contas selecionadas estiverem atualizados.");
   }
   if (data.coverage.previousStatus !== "complete") {
-    data.warnings.push("A comparação anterior permanece indisponível até a cobertura desse período também ficar completa.");
+    data.warnings.push("A comparação com o período anterior aparece quando os dados dele também estiverem completos.");
   }
   // Contas separadas (padrão): cada conta selecionada com os próprios números, lidos e confirmados como uma conta só.
   const accountViews = query.separar === "1" && data.selectedAccountIds.length > 1 && data.coverage.status === "complete"
