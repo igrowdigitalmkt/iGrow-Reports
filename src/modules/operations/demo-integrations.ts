@@ -7,7 +7,7 @@ const names = ["Aurora Studio", "Verde & Grão", "Órbita Fit", "Casa Nativa", "
 export const demoMetaClients: ClientItem[] = names.map((name, index) => ({ id: `d4000000-0000-4000-8000-00000000000${index + 1}`, name, notes: null, archived_at: null, updated_at: at }));
 
 const connection = (index: number) => ({
-  id: `d5000000-0000-4000-8000-00000000000${index + 1}`, clientId: demoMetaClients[index].id, label: null,
+  id: `d5000000-0000-4000-8000-00000000000${index + 1}`, clientId: demoMetaClients[index].id, sourceConnectionId: null, label: null,
   scopes: ["ads_read", "ads_management", "business_management", "read_insights", "pages_show_list", "pages_read_engagement", "instagram_basic", "public_profile"],
   connectedAt: "2026-09-12T14:20:00.000Z", lastAccountsSyncAt: at,
 });
@@ -22,7 +22,7 @@ export const demoMetaSnapshot: MetaAdminSnapshot = {
     account(1, 0, "Aurora Studio · Principal"), account(2, 0, "Aurora Studio · Lançamentos"),
     account(3, 1, "Verde & Grão"), account(4, 2, "Órbita Fit"), account(5, 4, "Escola Horizonte · Matrículas"),
   ].filter(item => item.connectionId !== connection(2).id),
-  links: [], mappings: [],
+  agencyLogins: [], links: [], mappings: [],
   integration: { connectionStatus: "connected", healthStatus: "healthy", lastCheckedAt: at, lastSuccessAt: at, lastErrorAt: null },
   serverReadiness: { oauthReady: true, databaseReady: true, serviceRoleConfigured: true, encryptionConfigured: true, apiVersion: "v26.0", ready: true },
 };

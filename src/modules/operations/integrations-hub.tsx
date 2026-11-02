@@ -105,11 +105,11 @@ export function IntegrationsHub({ demo, agencyId, clients, metaSnapshot, initial
       </div>
     </section>
 
-    {demo && <Sheet open={panel === "meta"} onOpenChange={open => setPanel(open ? "meta" : null)} title="Meta Ads" description="Cada cliente tem a própria conexão. Escolha o cliente e as contas de anúncio.">
+    {demo && <Sheet open={panel === "meta"} onOpenChange={open => setPanel(open ? "meta" : null)} title="Meta Ads" description="Conecte a conta empresarial uma vez; em cada cliente, escolha as contas de anúncio dele.">
       <MetaIntegrationManager demo agencyId="demo" clients={demoMetaClients} snapshot={demoMetaSnapshot} canManage={false} />
     </Sheet>}
     {live && <>
-      <Sheet open={panel === "meta"} onOpenChange={open => setPanel(open ? "meta" : null)} title="Meta Ads" description="Cada cliente tem a própria conexão. Escolha o cliente e as contas de anúncio.">
+      <Sheet open={panel === "meta"} onOpenChange={open => setPanel(open ? "meta" : null)} title="Meta Ads" description="Conecte a conta empresarial uma vez; em cada cliente, escolha as contas de anúncio dele.">
         {metaSnapshot && <MetaIntegrationManager agencyId={agencyId!} clients={activeClients} initialClientId={initialMetaClientId} snapshot={metaSnapshot} canManage={canManage} />}
       </Sheet>
       <Sheet open={panel === "google"} onOpenChange={open => setPanel(open ? "google" : null)} title="Google Ads" description="Conecte a conta do Google, informe o gerente e vincule cada conta de anúncios a um cliente.">

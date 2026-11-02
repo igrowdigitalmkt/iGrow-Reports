@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { ClientItem } from "@/modules/clients/schema";
 import { ConnectedCard, DisconnectButton } from "@/components/ui/connected-card";
 import { disconnectMetaClientAction, syncMetaAccounts } from "./actions";
-import { FacebookLogin } from "./facebook-login";
+import { AgencyLogins, ClientAccountPicker } from "./agency-logins";
 import type { MetaAdminSnapshot } from "./types";
 
 // Meta connection per client: list of clients with their state, details of the chosen one.
@@ -92,6 +92,7 @@ export function MetaIntegrationManager({
 
   return (
     <section className="panel meta-manager">
+      {!demo && loginReady && <AgencyLogins agencyId={agencyId} apiVersion={snapshot.serverReadiness.apiVersion!} logins={snapshot.agencyLogins} canManage={canManage} />}
       {!allReady && (
         <div className="meta-alert">
           <CircleAlert size={16} />
@@ -181,7 +182,7 @@ export function MetaIntegrationManager({
                 </>
               ) : (
                 <div className="meta-empty-state">
-                  <p>Entre com o Facebook de quem administra os anúncios deste cliente e escolha as contas que o Groow Ads vai ler. Você pode conectar uma ou várias contas do mesmo Portfólio Empresarial.</p>
+                  <p>Escolha, entre as contas empresariais conectadas, as contas de anúncio que o Groow Ads vai ler para este cliente. Você pode marcar uma ou várias, de um ou mais portfólios.</p>
                 </div>
               )}
 
@@ -190,8 +191,8 @@ export function MetaIntegrationManager({
               ) : canManage ? (
                 <div className="meta-actions">
                   {loginReady ? (
-                    <FacebookLogin key={clientId} agencyId={agencyId} clientId={clientId} apiVersion={snapshot.serverReadiness.apiVersion!} compact
-                      label={connected ? "Adicionar ou trocar contas" : "Conectar com a Meta"} variant={connected ? "secondary" : "default"} />
+                    <ClientAccountPicker key={clientId} clientId={clientId} clientName={selectedClient.name} logins={snapshot.agencyLogins} connected={connected}
+                      currentAccountIds={accounts.map(account => account.externalId)} />
                   ) : (
                     <p className="meta-inline-note">O login com a Meta aguarda a configuração do Groow Ads. As conexões existentes continuam funcionando.</p>
                   )}

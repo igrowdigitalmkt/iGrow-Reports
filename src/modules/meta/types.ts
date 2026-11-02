@@ -31,9 +31,18 @@ export type MetaIntegrationStatus = {
   lastErrorAt: string | null;
 };
 
+export type MetaAgencyLogin = {
+  id: string;
+  label: string | null;
+  scopes: string[];
+  connectedAt: string | null;
+  clientCount: number;
+};
+
 export type MetaClientConnection = {
   id: string;
   clientId: string;
+  sourceConnectionId: string | null;
   label: string | null;
   scopes: string[];
   connectedAt: string | null;
@@ -55,5 +64,6 @@ export type MetaAdminSnapshot = {
   mappings: ClientMetricMapping[];
   integration: MetaIntegrationStatus | null;
   connections: MetaClientConnection[];
+  agencyLogins: MetaAgencyLogin[];
   serverReadiness: MetaServerReadiness;
 };

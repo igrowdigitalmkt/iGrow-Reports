@@ -390,10 +390,16 @@ export async function loadAccessToken(
   integrationId: string,
   connectionId: string,
 ) {
+  // Conexão de cliente ligada a um login da agência usa o token desse login.
+  let tokenConnectionId = connectionId;
+  try {
+    const { data: link } = await service.from("meta_connections").select("source_connection_id").eq("agency_id", agencyId).eq("id", connectionId).maybeSingle();
+    if (link?.source_connection_id) tokenConnectionId = link.source_connection_id;
+  } catch { /* sem vínculo legível: usa a própria credencial */ }
   const { data, error } = await service.rpc("get_integration_secret", {
     p_agency_id: agencyId,
     p_integration_id: integrationId,
-    p_secret_kind: connectionTokenKind(connectionId),
+    p_secret_kind: connectionTokenKind(tokenConnectionId),
   }).single();
 
   if (error || !data) {
@@ -408,7 +414,7 @@ export async function loadAccessToken(
     ciphertextB64: data.ciphertext_b64,
     authTagB64: data.auth_tag_b64,
   };
-  return decryptServerSecret(envelope, secretAad(agencyId, integrationId, connectionId));
+  return decryptServerSecret(envelope, secretAad(agencyId, integrationId, tokenConnectionId));
 }
 
 /**
@@ -418,6 +424,11 @@ export async function loadAccessToken(
 export async function disconnectMetaForClient(input: { agencyId: string; clientId: string }) {
   const { service, apiVersion } = operationalDependencies();
   const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+  if (connection.source_connection_id) {
+    // O token é do login da agência: só soltamos este cliente, sem revogar nada.
+    await service.from("meta_connections").update({ connected_at: null, source_connection_id: null }).eq("agency_id", input.agencyId).eq("id", connection.id);
+    return { revoked: false };
+  }
   let revoked = false;
   try {
     const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
@@ -549,7 +560,7 @@ async function getStoredConnection(
 
   const { data: connections, error: connectionError } = await service
     .from("meta_connections")
-    .select("id,external_user_id,metadata")
+    .select("id,external_user_id,metadata,source_connection_id")
     .eq("agency_id", agencyId)
     .eq("integration_id", integration.id)
     .eq("client_id", clientId)
@@ -590,6 +601,8 @@ export async function connectMetaForClient(input: {
   actorId: string;
   accessToken: string;
   selectedAccountIds?: string[];
+  /** Login da agência que guarda o token; quando informado, o cliente não guarda token próprio. */
+  sourceConnectionId?: string;
 }) {
   const { service, apiVersion } = operationalDependencies();
   const client = new MetaClient({
@@ -650,6 +663,7 @@ export async function connectMetaForClient(input: {
     integration_id: integration.id,
     client_id: input.clientId,
     external_user_id: identity.id,
+    source_connection_id: input.sourceConnectionId ?? null,
     scopes: grantedScopes,
     metadata: { identity_name: identity.name ?? null, ...(input.selectedAccountIds ? { selected_account_ids: input.selectedAccountIds } : {}) },
     connected_at: now,
@@ -668,13 +682,18 @@ export async function connectMetaForClient(input: {
     throw new MetaSetupError("Não foi possível registrar a conexão Meta do cliente.");
   }
 
-  await storeAccessToken(
-    service,
-    input.agencyId,
-    integration.id,
-    connection.id,
-    input.accessToken,
-  );
+  if (input.sourceConnectionId) {
+    // Credencial própria antiga deste cliente deixa de valer: o login da agência passa a ser a fonte.
+    await service.rpc("delete_integration_secret", { p_agency_id: input.agencyId, p_integration_id: integration.id, p_secret_kind: connectionTokenKind(connection.id) });
+  } else {
+    await storeAccessToken(
+      service,
+      input.agencyId,
+      integration.id,
+      connection.id,
+      input.accessToken,
+    );
+  }
   const synced = await syncAccounts(
     service,
     input.agencyId,
@@ -708,6 +727,102 @@ export async function connectMetaForClient(input: {
     scopes: grantedScopes,
     healthStatus: accounts.length ? "healthy" as const : "degraded" as const,
   };
+}
+
+/** Registra (ou renova) o login de uma conta empresarial da agência: um token que enxerga os portfólios desse usuário do Facebook. */
+export async function connectMetaAgencyLogin(input: { agencyId: string; actorId: string; accessToken: string }) {
+  const { service, apiVersion } = operationalDependencies();
+  const client = new MetaClient({ accessToken: input.accessToken, apiVersion });
+  const [identity, permissions] = await Promise.all([client.validateConnection(), client.listPermissions()]);
+  const grantedScopes = permissions.filter(permission => permission.status === "granted").map(permission => permission.permission);
+  const accounts = await client.listAdAccountsDetailed().catch(() => []);
+  const now = new Date().toISOString();
+  const { data: integration, error: integrationError } = await service.from("integrations").upsert({
+    agency_id: input.agencyId, provider: "meta", connection_status: "connected", health_status: "healthy",
+    last_checked_at: now, last_success_at: now, last_error_at: null, last_error_code: null, created_by: input.actorId, updated_at: now,
+  }, { onConflict: "agency_id,provider" }).select("id").single();
+  if (integrationError || !integration) throw new MetaSetupError("Não foi possível registrar a integração Meta.");
+
+  const { data: existing, error: existingError } = await service.from("meta_connections").select("id")
+    .eq("agency_id", input.agencyId).eq("integration_id", integration.id).is("client_id", null).eq("external_user_id", identity.id).limit(1);
+  if (existingError) throw new MetaSetupError("Não foi possível consultar as conexões da conta empresarial.");
+  const payload = {
+    agency_id: input.agencyId, integration_id: integration.id, client_id: null, label: (identity.name ?? "Conta do Facebook").slice(0, 120),
+    external_user_id: identity.id, scopes: grantedScopes, metadata: { identity_name: identity.name ?? null }, connected_at: now, updated_at: now,
+  };
+  const query = existing?.[0]
+    ? service.from("meta_connections").update(payload).eq("agency_id", input.agencyId).eq("id", existing[0].id)
+    : service.from("meta_connections").insert(payload);
+  const { data: login, error: loginError } = await query.select("id").single();
+  if (loginError || !login) throw new MetaSetupError("Não foi possível registrar a conexão da conta empresarial.");
+  await storeAccessToken(service, input.agencyId, integration.id, login.id, input.accessToken);
+  await service.from("audit_logs").insert({ agency_id: input.agencyId, actor_id: input.actorId, action: "meta.agency_login_connected", entity_id: integration.id, metadata: { account_count: accounts.length, granted_scopes: grantedScopes } });
+  const portfolios = new Set(accounts.map(account => account.business?.id).filter(Boolean));
+  return { id: login.id, name: identity.name ?? null, scopes: grantedScopes, accountCount: accounts.length, portfolioCount: portfolios.size };
+}
+
+async function loadAgencyLogin(service: SupabaseClient<Database>, agencyId: string, connectionId: string) {
+  const { data: login } = await service.from("meta_connections").select("id,integration_id,client_id,connected_at")
+    .eq("agency_id", agencyId).eq("id", connectionId).maybeSingle();
+  if (!login || login.client_id !== null || !login.connected_at) throw new MetaSetupError("Esta conta empresarial não está conectada. Conecte-a novamente.");
+  return login;
+}
+
+export type AgencyLoginAccount = { id: string; name: string; currency: string; businessId: string | null; businessName: string | null; supported: boolean; takenBy: string | null };
+
+/** Contas de anúncio que um login da agência enxerga, marcando as que já pertencem a outro cliente. */
+export async function listAgencyLoginAccounts(input: { agencyId: string; connectionId: string; forClientId: string }): Promise<AgencyLoginAccount[]> {
+  const { service, apiVersion } = operationalDependencies();
+  const login = await loadAgencyLogin(service, input.agencyId, input.connectionId);
+  const token = await loadAccessToken(service, input.agencyId, login.integration_id, login.id);
+  const accounts = await new MetaClient({ accessToken: token, apiVersion }).listAdAccountsDetailed();
+  const owners = new Map<string, string>();
+  if (accounts.length) {
+    const { data: owned } = await service.from("meta_ad_accounts").select("external_id,meta_connection_id").eq("agency_id", input.agencyId).in("external_id", accounts.map(account => account.id));
+    const connectionIds = [...new Set((owned ?? []).map(row => row.meta_connection_id))];
+    const { data: connections } = connectionIds.length ? await service.from("meta_connections").select("id,client_id").eq("agency_id", input.agencyId).in("id", connectionIds) : { data: [] as { id: string; client_id: string | null }[] };
+    const clientOf = new Map((connections ?? []).map(row => [row.id, row.client_id]));
+    const clientIds = [...new Set([...clientOf.values()].filter((id): id is string => !!id && id !== input.forClientId))];
+    const { data: clients } = clientIds.length ? await service.from("clients").select("id,name").eq("agency_id", input.agencyId).in("id", clientIds) : { data: [] as { id: string; name: string }[] };
+    const nameOf = new Map((clients ?? []).map(row => [row.id, row.name]));
+    for (const row of owned ?? []) {
+      const clientId = clientOf.get(row.meta_connection_id);
+      if (clientId && clientId !== input.forClientId) owners.set(row.external_id, nameOf.get(clientId) ?? "outro cliente");
+    }
+  }
+  return accounts.map(account => ({
+    id: account.id, name: account.name, currency: account.currency, businessId: account.business?.id ?? null, businessName: account.business?.name ?? null,
+    supported: hasBusinessPortfolio(account), takenBy: owners.get(account.id) ?? null,
+  })).sort((a, b) => (a.businessName ?? "").localeCompare(b.businessName ?? "", "pt-BR") || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+/** O cliente escolhe os ativos dele dentro de um login da agência; o token continua só no login. */
+export async function linkClientToAgencyLogin(input: { agencyId: string; clientId: string; actorId: string; connectionId: string; selectedAccountIds: string[] }) {
+  const { service } = operationalDependencies();
+  const login = await loadAgencyLogin(service, input.agencyId, input.connectionId);
+  const token = await loadAccessToken(service, input.agencyId, login.integration_id, login.id);
+  return connectMetaForClient({ agencyId: input.agencyId, clientId: input.clientId, actorId: input.actorId, accessToken: token, selectedAccountIds: input.selectedAccountIds, sourceConnectionId: login.id });
+}
+
+/** Desconecta uma conta empresarial: revoga o acesso, apaga o token e solta os clientes que dependiam dela (o histórico fica). */
+export async function disconnectMetaAgencyLogin(input: { agencyId: string; connectionId: string }) {
+  const { service, apiVersion } = operationalDependencies();
+  const { data: login } = await service.from("meta_connections").select("id,integration_id,client_id").eq("agency_id", input.agencyId).eq("id", input.connectionId).maybeSingle();
+  if (!login || login.client_id !== null) throw new MetaSetupError("Conexão da conta empresarial não encontrada.");
+  let revoked = false;
+  try {
+    const token = await loadAccessToken(service, input.agencyId, login.integration_id, login.id);
+    const response = await fetch(`https://graph.facebook.com/${apiVersion}/me/permissions`, {
+      method: "DELETE", cache: "no-store", signal: AbortSignal.timeout(15000),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ access_token: token }),
+    });
+    revoked = response.ok;
+  } catch { /* O token local é apagado de qualquer forma. */ }
+  const { error } = await service.rpc("delete_integration_secret", { p_agency_id: input.agencyId, p_integration_id: login.integration_id, p_secret_kind: connectionTokenKind(login.id) });
+  if (error) throw new MetaSetupError("Não foi possível apagar a credencial Meta.");
+  await service.from("meta_connections").update({ connected_at: null }).eq("agency_id", input.agencyId).eq("id", login.id);
+  const { data: released } = await service.from("meta_connections").update({ connected_at: null, source_connection_id: null }).eq("agency_id", input.agencyId).eq("source_connection_id", login.id).select("id");
+  return { revoked, releasedClients: released?.length ?? 0 };
 }
 
 export async function syncMetaAccountsForClient(input: {

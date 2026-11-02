@@ -55,7 +55,7 @@ type IntegrationSecretRow = {
 };
 type MetaConnectionRow = {
   id: string; agency_id: string; integration_id: string; client_id: string | null;
-  label: string | null; external_user_id: string | null;
+  label: string | null; external_user_id: string | null; source_connection_id: string | null;
   scopes: string[]; metadata: Json; connected_at: string | null;
   last_accounts_sync_at: string | null; created_at: string; updated_at: string;
 };

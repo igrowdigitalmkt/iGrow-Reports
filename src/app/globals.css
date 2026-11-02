@@ -1213,3 +1213,19 @@ table:not(.no-row-hover) tbody tr:hover > td, table:not(.no-row-hover) tbody tr:
 .status-switch.is-pending { opacity: .75; cursor: progress; animation: status-pending 1s ease-in-out infinite; }
 @keyframes status-pending { 50% { box-shadow: 0 0 0 4px var(--accent-bg); } }
 @media (prefers-reduced-motion: reduce) { .status-switch.is-pending { animation: none; } }
+
+/* Meta: contas empresariais da agência e escolha de contas por cliente */
+.meta-logins { display: grid; gap: 12px; margin-bottom: 18px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-raised); }
+.meta-logins > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.meta-logins h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 15px; }
+.meta-logins p { margin: 0; color: var(--muted); font-size: 13px; max-width: 62ch; }
+.meta-login-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.meta-picker { display: grid; gap: 12px; }
+.meta-picker-bar { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.meta-picker-bar label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.meta-picker-panel { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); }
+.meta-picker-group { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.meta-picker-group legend { padding: 0; font-size: 13px; font-weight: 600; }
+.meta-picker-group legend small { margin-left: 6px; color: var(--muted); font-weight: 400; }
+.meta-link-button { width: fit-content; padding: 0; border: 0; background: none; color: var(--accent-text); font-size: 12.5px; cursor: pointer; }
+.meta-picker-actions { display: flex; justify-content: flex-end; gap: 8px; }

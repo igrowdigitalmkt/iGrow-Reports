@@ -9,7 +9,7 @@ import { MetaApiError, MetaClient, hasBusinessPortfolio } from "./client";
 import { getMetaApiConfig } from "@/lib/env";
 import { META_LOGIN_APP_ID } from "./login-config";
 import { validateCollectionRange } from "./collection";
-import { collectMetaClientInsights, connectMetaForClient, disconnectMetaForClient, MetaSetupError, syncMetaAccountsForClient } from "./server";
+import { collectMetaClientInsights, connectMetaAgencyLogin, connectMetaForClient, disconnectMetaAgencyLogin, disconnectMetaForClient, linkClientToAgencyLogin, listAgencyLoginAccounts, MetaSetupError, syncMetaAccountsForClient, type AgencyLoginAccount } from "./server";
 
 const accountLinkSchema = z.object({
   agencyId: z.uuid(),
@@ -153,6 +153,71 @@ export async function disconnectMetaClientAction(input: unknown): Promise<MetaAd
   } catch (error) {
     return { error: safeMetaOperationError(error) };
   }
+}
+
+async function exchangeForLongLivedToken(shortLived: string): Promise<string | null> {
+  const secret = process.env.META_APP_SECRET?.trim();
+  const api = getMetaApiConfig();
+  if (!secret || !api) return null;
+  const exchange = await fetch(`https://graph.facebook.com/${api.apiVersion}/oauth/access_token`, {
+    method: "POST", cache: "no-store", signal: AbortSignal.timeout(20000),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "fb_exchange_token", client_id: META_LOGIN_APP_ID, client_secret: secret, fb_exchange_token: shortLived }),
+  });
+  const exchanged = await exchange.json().catch(() => null) as { access_token?: string } | null;
+  return exchange.ok && exchanged?.access_token ? exchanged.access_token : null;
+}
+
+/** Conecta uma conta empresarial (login do Facebook) da agência: vale para todos os clientes, que só escolhem os ativos deles. */
+export async function connectMetaAgencyLoginAction(input: unknown): Promise<MetaAdminActionResult & { name?: string | null; accountCount?: number; portfolioCount?: number }> {
+  const context = await requireAgencyContext();
+  if (context.role !== "owner" && context.role !== "admin") return { error: "Somente proprietário ou administrador pode conectar contas empresariais." };
+  const parsed = z.object({ agencyId: z.uuid(), accessToken: z.string().trim().min(20).max(8192) }).safeParse(input);
+  if (!parsed.success || parsed.data.agencyId !== context.agency.id) return { error: "Credencial ou espaço de trabalho inválido." };
+  try {
+    const longLived = await exchangeForLongLivedToken(parsed.data.accessToken);
+    if (!longLived) return { error: "A Meta não confirmou a autorização. Conecte novamente." };
+    const result = await connectMetaAgencyLogin({ agencyId: context.agency.id, actorId: context.user.id, accessToken: longLived });
+    revalidatePath("/integracoes");
+    return { success: true, name: result.name, accountCount: result.accountCount, portfolioCount: result.portfolioCount };
+  } catch (error) { return { error: safeMetaOperationError(error) }; }
+}
+
+export async function listAgencyLoginAccountsAction(input: unknown): Promise<{ error: string } | { accounts: AgencyLoginAccount[] }> {
+  const context = await requireAgencyContext();
+  if (context.role !== "owner" && context.role !== "admin") return { error: "Somente proprietário ou administrador pode escolher contas." };
+  const parsed = z.object({ clientId: z.uuid(), connectionId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { error: "Pedido inválido." };
+  const { data: client } = await context.supabase.from("clients").select("id").eq("agency_id", context.agency.id).eq("id", parsed.data.clientId).is("archived_at", null).maybeSingle();
+  if (!client) return { error: "Cliente indisponível neste espaço de trabalho." };
+  try { return { accounts: await listAgencyLoginAccounts({ agencyId: context.agency.id, connectionId: parsed.data.connectionId, forClientId: parsed.data.clientId }) }; }
+  catch (error) { return { error: safeMetaOperationError(error) }; }
+}
+
+export async function linkClientAccountsAction(input: unknown): Promise<MetaAdminActionResult & { accountCount?: number }> {
+  const context = await requireAgencyContext();
+  if (context.role !== "owner" && context.role !== "admin") return { error: "Somente proprietário ou administrador pode escolher contas." };
+  const parsed = z.object({ clientId: z.uuid(), connectionId: z.uuid(), selectedAccountIds: z.array(z.string().regex(/^act_\d+$/)).min(1).max(500) }).safeParse(input);
+  if (!parsed.success) return { error: "Escolha ao menos uma conta de anúncios." };
+  const { data: client } = await context.supabase.from("clients").select("id").eq("agency_id", context.agency.id).eq("id", parsed.data.clientId).is("archived_at", null).maybeSingle();
+  if (!client) return { error: "Cliente indisponível neste espaço de trabalho." };
+  try {
+    const result = await linkClientToAgencyLogin({ agencyId: context.agency.id, clientId: parsed.data.clientId, actorId: context.user.id, connectionId: parsed.data.connectionId, selectedAccountIds: parsed.data.selectedAccountIds });
+    revalidatePath("/integracoes"); revalidatePath("/clientes"); revalidatePath(`/cliente/${parsed.data.clientId}`);
+    return { success: true, accountCount: result.accountCount };
+  } catch (error) { return { error: safeMetaOperationError(error) }; }
+}
+
+export async function disconnectMetaAgencyLoginAction(input: unknown): Promise<MetaAdminActionResult & { releasedClients?: number }> {
+  const context = await requireAgencyContext();
+  if (context.role !== "owner" && context.role !== "admin") return { error: "Somente proprietário ou administrador pode desconectar contas empresariais." };
+  const parsed = z.object({ connectionId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { error: "Pedido inválido." };
+  try {
+    const result = await disconnectMetaAgencyLogin({ agencyId: context.agency.id, connectionId: parsed.data.connectionId });
+    revalidatePath("/integracoes"); revalidatePath("/clientes");
+    return { success: true, releasedClients: result.releasedClients };
+  } catch (error) { return { error: safeMetaOperationError(error) }; }
 }
 
 export async function previewMetaLoginAccounts(input: unknown) {

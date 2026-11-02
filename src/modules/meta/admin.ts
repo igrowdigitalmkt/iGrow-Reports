@@ -33,9 +33,8 @@ export async function getMetaAdminSnapshot(
       .maybeSingle(),
     supabase
       .from("meta_connections")
-      .select("id,client_id,label,scopes,connected_at,last_accounts_sync_at")
+      .select("id,client_id,label,scopes,connected_at,last_accounts_sync_at,source_connection_id")
       .eq("agency_id", agencyId)
-      .not("client_id", "is", null)
       // Conexão desligada (token apagado) não conta como conectada.
       .not("connected_at", "is", null)
       .order("created_at"),
@@ -64,6 +63,7 @@ export async function getMetaAdminSnapshot(
       mappings: [],
       integration: null,
       connections: [],
+      agencyLogins: [],
       serverReadiness: {
         databaseReady: false,
         serviceRoleConfigured: !!privileged,
@@ -107,11 +107,19 @@ export async function getMetaAdminSnapshot(
           lastErrorAt: integrationResult.data.last_error_at,
         }
       : null,
+    agencyLogins: (connectionResult.data ?? []).filter((row) => !row.client_id).map((row) => ({
+      id: row.id,
+      label: row.label,
+      scopes: row.scopes,
+      connectedAt: row.connected_at,
+      clientCount: (connectionResult.data ?? []).filter((item) => item.source_connection_id === row.id).length,
+    })),
     connections: (connectionResult.data ?? [])
       .filter((row) => row.client_id)
       .map((row) => ({
         id: row.id,
         clientId: row.client_id as string,
+        sourceConnectionId: row.source_connection_id ?? null,
         label: row.label,
         scopes: row.scopes,
         connectedAt: row.connected_at,

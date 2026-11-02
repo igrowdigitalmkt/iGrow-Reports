@@ -394,6 +394,11 @@ export class MetaClient {
     return account;
   }
 
+  /** Todas as contas de anúncio que a conexão enxerga (de todos os portfólios), com o nome do portfólio. */
+  async listAdAccountsDetailed(): Promise<MetaAdAccount[]> {
+    return this.getAll<MetaAdAccount>("me/adaccounts", { fields: "id,account_id,name,currency,timezone_name,account_status,business{id,name}", limit: "200" });
+  }
+
   async listAdAccounts(systemUserId?: string): Promise<MetaAdAccount[]> {
     const params = {
       fields: "id,account_id,name,currency,timezone_name,account_status,business{id}",
