@@ -1,6 +1,6 @@
 # Desenho: canal WhatsApp em Leads (etapa 3)
 
-Estado: **proposta para aprovação** (2/11/2026). Nada deste documento está implementado. Distingue sempre: o que já existe no código, o que é proposta e o que depende de decisão do responsável.
+Estado: **proposta para aprovação** (2/11/2026; atualizada após a decisão de usar número por QR Code). Nada deste documento está implementado. Distingue sempre: o que já existe no código, o que é proposta e o que depende de decisão do responsável.
 
 ## 1. Objetivo
 
@@ -24,6 +24,16 @@ Um cliente que recebe conversas de WhatsApp dos anúncios (Click-to-WhatsApp) pr
 | Situação hoje | Conexão por número existe | QR é único por agência |
 
 Recomendação: **atribuição de anúncio só com número oficial**. Com QR, o lead entra por regra manual ou "todo contato novo", sempre marcado como "origem não confirmada".
+
+## 3.1 Decisão (2/11/2026): números dos clientes por QR Code
+
+O responsável informou que os clientes usam o WhatsApp no celular (QR Code). Consequências no desenho:
+
+- **A conexão por QR atual é uma só por agência** ("Seu WhatsApp", instância `igrow-<agência>`) e toda a caixa, o envio de relatórios e os alertas dependem dela (cerca de 30 pontos do código usam o nome dessa instância). **Não** vamos transformar a caixa em multi-número: o risco para o que já funciona é alto.
+- **Sessão de captação por cliente (escolhida):** uma instância Evolution própria para cada número de cliente (`igrow-lead-<id>`), usada **somente para detectar contatos novos**. Webhook próprio (`/api/webhooks/evolution/leads`) que aceita só mensagens recebidas, cria o lead e **não grava a conversa na caixa**. O cliente continua atendendo no próprio celular; a plataforma guarda só telefone, nome do perfil e a primeira mensagem (curta).
+- **Atribuição de anúncio é incerta no QR.** Padrão passa a ser **todo contato novo vira lead** (com a origem marcada como "não confirmada" e, quando o aparelho informar o anúncio, preenchida). A opção "só anúncio" fica para número oficial.
+- **"Abrir conversa"** abre o contato no WhatsApp (link do telefone), já que a conversa mora no celular do cliente.
+- Pontos de atenção: número por QR é não oficial (risco de bloqueio, nunca para disparos em massa); cada sessão consome recursos da VPS do Evolution; se o celular do cliente ficar offline por muito tempo, a sessão cai e a tela mostra "reconectar".
 
 ## 4. Quando uma conversa vira lead
 
@@ -54,20 +64,20 @@ A caixa do WhatsApp tem módulo próprio de permissão (`whatsapp`). Leads é ou
 
 ## 8. Etapas de implementação
 
-1. **3a. Vínculo e configuração:** número ↔ cliente e tela do canal (sem criar leads). Migração aditiva.
-2. **3b. Qualificação manual:** "Virar lead" na caixa e em Leads; o lead aparece no canal WhatsApp.
-3. **3c. Automática por anúncio (número oficial):** ler `referral` no webhook, criar o lead, resolver os nomes na Graph API, deduplicar.
-4. **3d. QR e "todo contato novo":** ler `externalAdReply` quando existir; modo opcional.
+1. **3a. Sessão de captação por cliente:** tabela de sessões (cliente, instância, estado, modo, números ignorados), tela de conexão por QR/código dentro de Leads › Configurações › Canais, webhook próprio com validação por token. Não cria leads ainda. Migração aditiva.
+2. **3b. Captação:** mensagem recebida de contato novo → lead no canal WhatsApp (regras de grupo, ignorados, janela de 30 dias e deduplicação por telefone). "Adicionar lead" manual.
+3. **3c. Telas do canal:** linha com mensagem inicial, selo "origem não confirmada", "Abrir conversa" e estado da sessão.
+4. **3d. Anúncio, quando o aparelho informar** (`externalAdReply`), com nomes resolvidos pela Graph API; número oficial com `referral` fica como evolução.
 5. **3e. Alertas e desempenho por canal.**
 
-Cada etapa é publicada e validada isoladamente. A homologação com mensagens reais depende de um número oficial com anúncio Click-to-WhatsApp ativo.
+Cada etapa é publicada e validada isoladamente. A homologação real depende de um celular de cliente conectado.
 
-## 9. Decisões que dependem do responsável
+## 9. Decisões
 
-1. Os clientes usarão **número oficial (API)** ou **WhatsApp Business no celular (QR)**? Define o que é atribuível.
-2. Padrão de qualificação: **só anúncio** (recomendado) ou **todo contato novo**?
-3. Um número por cliente é suficiente (recomendado), ou um cliente pode ter mais de um número?
-4. Quem só tem acesso a Leads pode ver a **primeira mensagem** do contato?
+1. **Decidido:** números dos clientes por **QR Code**.
+2. **Adotado como padrão (revogável):** todo contato novo vira lead, com origem "não confirmada" quando não houver anúncio; grupos e números ignorados nunca viram lead.
+3. **Adotado:** um número por cliente nesta primeira versão.
+4. **Adotado:** quem vê Leads vê telefone, nome e a primeira mensagem (como no formulário).
 
 ## 10. Riscos
 
