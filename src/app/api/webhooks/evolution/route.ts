@@ -5,6 +5,7 @@ import { isRecentQrMessage } from "@/modules/whatsapp/recent-policy";
 import { recordInboxMessage, recordInboxReaction, syncQrChatStates, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { parseQrChatStates } from "@/modules/whatsapp-qr/chat-state";
 import { bindQrPeerLinks, canonicalQrPeers, qrPeerLinks } from "@/modules/whatsapp-qr/peer-identity";
+import { optOutAlertRecipients } from "@/modules/lead-pages/alerts-send";
 import { isOptOutText, OPT_OUT_REPLY, parseIncomingMessage, parseIncomingRead, parseMessageReceipt } from "@/modules/whatsapp-qr/opt-out";
 import { qrGroupSubject, replyFromInstance, validWebhookToken } from "@/modules/whatsapp-qr/server";
 import { clearQrInboxForLostSession } from "@/modules/whatsapp-qr/session-lifecycle";
@@ -161,6 +162,7 @@ export async function POST(request: Request) {
 
   const message = parseIncomingMessage(body);
   if (!message || !isOptOutText(message.text)) return Response.json({ ok: true });
+  await optOutAlertRecipients(service, agencyId, message.phone).catch(() => 0);
   const { data: count, error } = await service.rpc("service_recipient_opt_out", {
     p_agency_id: agencyId, p_phone: message.phone, p_source: "Resposta de descadastro no WhatsApp",
   });

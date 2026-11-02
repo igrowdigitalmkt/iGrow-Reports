@@ -3,6 +3,7 @@ import { authorizeWorkerRequest } from "@/modules/integrations/worker-auth";
 import { runDueAutomations } from "@/modules/automations/runner";
 import { createQrSender } from "@/modules/whatsapp-qr/server";
 import { sendOfficialPdf } from "@/modules/automations/official-sender";
+import { runDueLeadAlerts } from "@/modules/lead-pages/alerts-send";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -24,7 +25,10 @@ export async function GET(request: Request) {
       appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? null,
     });
     console.info("report-automations", summary);
-    return Response.json(summary, { headers });
+    // Resumos de leads nos horários configurados (mesmo agendador de poucos minutos); uma falha aqui nunca derruba os agendamentos de relatório.
+    const leadAlerts = await runDueLeadAlerts(service).catch(() => null);
+    if (leadAlerts) console.info("lead-alerts", leadAlerts);
+    return Response.json({ ...summary, leadAlerts }, { headers });
   } catch {
     console.error("report-automations-failed");
     return Response.json({ error: "Não foi possível executar os agendamentos." }, { status: 500, headers });

@@ -78,4 +78,10 @@ export function platformLabel(platform: string | null): string | null {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
+/** +5586999990001 → (86) 99999-0001; outros formatos aparecem como chegaram. */
+export function formatPhone(phone: string): string {
+  const match = /^\+55(\d{2})(9?\d{4})(\d{4})$/.exec(phone);
+  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : phone;
+}
+
 export const fallbackFormName = (formId: string | null) => formId ? `Formulário …${formId.slice(-4)}` : "Sem formulário";

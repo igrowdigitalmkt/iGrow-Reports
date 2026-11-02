@@ -148,7 +148,7 @@ export type LeadPage = { id: string; slug: string; title: string; fbPageId: stri
 export async function processLeadgenEvents(events: LeadgenEvent[], deps: {
   findPages: (pageId: string, formId: string | null) => Promise<LeadPage[]>;
   fetchLead: (leadgenId: string) => Promise<FetchedLead>;
-  save: (page: LeadPage, lead: FetchedLead, fields: LeadFields) => Promise<void>;
+  save: (page: LeadPage, lead: FetchedLead, fields: LeadFields) => Promise<unknown>;
 }): Promise<{ saved: number; ignored: number; retry: boolean }> {
   let saved = 0, ignored = 0, retry = false;
   for (const event of events) {

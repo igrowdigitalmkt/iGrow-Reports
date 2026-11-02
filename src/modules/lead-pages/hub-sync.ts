@@ -4,6 +4,7 @@ import { getMetaApiConfig } from "@/lib/env";
 import { graphCall } from "./graph-call";
 import { appSecretsFromEnv } from "./graph-proof";
 import { splitLeadFields, toFetchedLead, type LeadPage } from "./leads";
+import { notifyNewLead } from "./alerts-send";
 import { saveLead } from "./store";
 import type { Service } from "./hub-query";
 
@@ -38,17 +39,21 @@ export async function syncLeadSource(service: Service, source: { id: string; fbP
 
     const target: LeadPage = { id: source.id, slug: source.slug, title: source.title, fbPageId: source.fbPageId, formId: source.formId };
     let imported = 0;
+    const created: string[] = [];
     for (const form of forms) {
       const leads = await graphCall({ ...pageBase, path: `${form.id}/leads?fields=id,created_time,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform,field_data&limit=${LEADS_PER_FORM}` });
       if (!leads.ok) { const message = `Não foi possível ler os leads de "${form.name}" (${leads.code}). ${leads.message}`.trim(); await finish(message); return { ok: false, message }; }
       for (const item of Array.isArray(leads.body?.data) ? leads.body.data as Record<string, unknown>[] : []) {
         const lead = toFetchedLead(item, String(item.id ?? ""));
         if (!lead.leadgenId || lead.leadgenId.length < 5) continue;
-        await saveLead(service, target, { ...lead, formId: lead.formId ?? form.id }, splitLeadFields(lead.fieldData).fields);
+        const id = await saveLead(service, target, { ...lead, formId: lead.formId ?? form.id }, splitLeadFields(lead.fieldData).fields);
+        if (id) created.push(id);
         imported += 1;
       }
     }
     await finish(null);
+    // Lead recente que o aviso em tempo real deixou passar também gera alerta (os antigos são ignorados pela regra de 60 minutos).
+    for (const id of created) await notifyNewLead(service, id).catch(() => undefined);
     return { ok: true, forms: forms.length, leads: imported };
   } catch {
     await finish("A Meta não respondeu a tempo. Tente de novo em instantes.");

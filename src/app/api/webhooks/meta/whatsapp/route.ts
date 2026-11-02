@@ -4,6 +4,7 @@ import { parseCloudMessages } from "@/modules/whatsapp/inbox-parse";
 import { parseCloudReactions } from "@/modules/whatsapp/inbox-reactions";
 import { recordInboxMessage, recordInboxReaction, updateInboxStatus } from "@/modules/whatsapp/inbox-store";
 import { whatsAppAppSecret } from "@/modules/whatsapp/server";
+import { optOutAlertRecipients } from "@/modules/lead-pages/alerts-send";
 import { isOptOutText } from "@/modules/whatsapp-qr/opt-out";
 import type { Json } from "@/types/database";
 
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
     if (!number?.id) continue;
     await recordInboxMessage(service, { agencyId: number.agencyId, connectionId: number.id, message });
     if (message.direction === "in" && message.kind === "text" && message.body && isOptOutText(message.body)) {
+      await optOutAlertRecipients(service, number.agencyId, `+${message.remoteId}`).catch(() => 0);
       await service.rpc("service_recipient_opt_out", { p_agency_id: number.agencyId, p_phone: `+${message.remoteId}`, p_source: "Resposta de descadastro no WhatsApp (API oficial)" });
     }
   }

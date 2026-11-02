@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy, Download, Mail, MessageCircle, Volume2, VolumeX } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
+import { formatPhone } from "./hub-types";
 import type { LeadFeed, LeadItem } from "./store";
 import "./lead-feed.css";
 
@@ -19,11 +20,7 @@ export function ago(milliseconds: number): string {
   return `há ${Math.floor(minutes / 1440)} d`;
 }
 
-/** +5586999990001 → (86) 99999-0001; outros formatos aparecem como chegaram. */
-export function formatPhone(phone: string): string {
-  const match = /^\+55(\d{2})(9?\d{4})(\d{4})$/.exec(phone);
-  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : phone;
-}
+export { formatPhone };
 const whatsappLink = (phone: string) => `https://wa.me/${phone.replace(/\D/g, "")}`;
 const csvCell = (value: string | null) => `"${(value ?? "").replace(/"/g, '""')}"`;
 

@@ -150,12 +150,12 @@
 .lead-source-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .lead-form-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; align-items: end; padding-top: 14px; border-top: 1px solid var(--border); }
 .lead-form-inline label { display: grid; gap: 6px; font-size: 13px; color: var(--secondary); }
-.lead-form-inline input:not([type="checkbox"]) { height: 38px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-raised); color: var(--text); font-size: 14px; }
+.lead-form-inline input:not([type="checkbox"]):not([type="radio"]):not([type="time"]) { height: 38px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-raised); color: var(--text); font-size: 14px; }
 .lead-form-inline input:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
 .lead-form-inline fieldset { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
 .lead-form-inline legend { padding: 0 6px; font-size: 13px; color: var(--secondary); }
 .lead-check { display: flex !important; align-items: center; gap: 8px; }
-.lead-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.lead-check input { width: 16px; height: 16px; padding: 0; accent-color: var(--accent); }
 .lead-newlink { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 12px; background: var(--accent-bg); }
 .lead-newlink > div { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .lead-newlink code { flex: 1 1 260px; min-width: 0; padding: 8px 10px; border-radius: 8px; background: var(--surface); font-size: 13px; overflow-wrap: anywhere; }
@@ -178,3 +178,27 @@
 .lead-performance .lead-kpis > div { padding: 14px 18px; }
 .lead-performance .lead-kpis strong { font-size: 26px; }
 @media (max-width: 900px) { .lead-performance .lead-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- Alertas de lead por WhatsApp ---------- */
+.leads-alerts { display: grid; gap: 16px; }
+.lead-notice-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lead-notice-line a { color: inherit; text-decoration: underline; font-weight: 600; }
+.lead-add { justify-self: start; }
+.lead-alert-item { align-items: flex-start !important; }
+.lead-alert-item .lead-source-main small { display: flex; align-items: center; gap: 6px; }
+.lead-deliveries { display: grid; gap: 3px; margin: 6px 0 0; padding: 0; list-style: none; }
+.lead-deliveries li { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 12px; color: var(--muted); }
+.lead-deliveries b { font-weight: 600; }
+.lead-deliveries li[data-status="sent"] b { color: var(--good); }
+.lead-deliveries li[data-status="failed"] b { color: var(--bad); }
+.lead-deliveries em { font-style: normal; color: var(--bad); overflow-wrap: anywhere; }
+.lead-alert-form fieldset { align-content: start; }
+.lead-schedule { display: grid; gap: 10px; padding: 10px 0 2px 24px; }
+.lead-times { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lead-time-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px 0 10px; border: 1px solid var(--accent); border-radius: 999px; background: var(--accent-bg); color: var(--accent-text); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.lead-time-chip button { display: grid; place-items: center; width: 18px; height: 18px; border: 0; border-radius: 50%; background: transparent; color: inherit; }
+.lead-time-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.lead-time-add input { height: 36px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-raised); color: var(--text); font-size: 14px; }
+.lead-days { display: flex; flex-wrap: wrap; gap: 6px; }
+.lead-consent { grid-column: 1 / -1; }
+.lead-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }

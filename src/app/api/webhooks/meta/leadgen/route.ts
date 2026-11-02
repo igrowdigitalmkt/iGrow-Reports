@@ -2,7 +2,9 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getMetaApiConfig } from "@/lib/env";
 import { fetchLead, parseLeadgenEvents, processLeadgenEvents } from "@/modules/lead-pages/leads";
 import { findLeadPages, saveLead } from "@/modules/lead-pages/store";
+import { notifyNewLead } from "@/modules/lead-pages/alerts-send";
 import { appSecretsFromEnv } from "@/modules/lead-pages/graph-proof";
+import { runAfter } from "@/modules/lead-pages/run-after";
 import { validWebhookSignature } from "@/modules/whatsapp/webhook";
 
 export const runtime = "nodejs";
@@ -37,10 +39,13 @@ export async function POST(request: Request) {
     console.error("leadgen: configuração incompleta", { banco: !!service, tokenDeLeads: !!token, versaoDaApi: !!config });
     return new Response("Retry", { status: 503 });
   }
+  const created: string[] = [];
   const result = await processLeadgenEvents(events, {
     findPages: (pageId, formId) => findLeadPages(service, pageId, formId),
     fetchLead: leadgenId => fetchLead({ leadgenId, token, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() }),
-    save: (page, lead, fields) => saveLead(service, page, lead, fields),
+    save: async (page, lead, fields) => { const id = await saveLead(service, page, lead, fields); if (id) created.push(id); },
   });
+  // Alertas de lead novo (WhatsApp): depois de responder à Meta, para não atrasar o aviso.
+  if (created.length) runAfter(async () => { for (const id of created) await notifyNewLead(service, id).catch(() => undefined); });
   return new Response(result.retry ? "Retry" : "OK", { status: result.retry ? 503 : 200 });
 }
