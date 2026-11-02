@@ -1,0 +1,60 @@
+/* Página privada de acompanhamento de leads. Usa só os tokens da plataforma (claro e escuro). */
+.lead-page { min-height: 100dvh; max-width: 980px; margin: 0 auto; padding: 22px 20px 48px; background: var(--bg); color: var(--text); }
+.lead-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 26px; }
+.lead-header .brand-wordmark { height: 26px; width: auto; }
+.lead-live { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); border-radius: 999px; background: var(--good-bg); color: var(--good); font-size: 13px; font-weight: 600; }
+.lead-live i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: lead-pulse 1.6s ease-in-out infinite; }
+.lead-live.is-offline { border-color: color-mix(in srgb, var(--warn) 40%, transparent); background: var(--warn-bg); color: var(--warn); }
+.lead-live.is-offline i { animation: none; }
+@keyframes lead-pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 22%, transparent); } }
+
+.lead-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.lead-hero h1 { margin: 0; font-size: 28px; font-weight: 650; letter-spacing: -.03em; }
+.lead-hero p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.lead-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.lead-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 13.5px; font-weight: 500; }
+.lead-btn:hover:not(:disabled) { background: var(--surface-hover); }
+.lead-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); color: var(--accent-text); }
+.lead-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.lead-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.lead-kpis > div { display: grid; gap: 4px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.lead-kpis span { color: var(--muted); font-size: 13px; }
+.lead-kpis strong { font-size: 38px; font-weight: 650; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+
+.lead-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.lead-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 16px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); transition: background .4s ease, border-color .4s ease; }
+.lead-row.is-new { border-color: var(--accent); background: var(--accent-bg); animation: lead-in .5s ease-out; }
+@keyframes lead-in { from { opacity: 0; transform: translateY(-8px); } }
+.lead-when { display: grid; line-height: 1.3; }
+.lead-when strong { font-size: 14px; font-weight: 600; }
+.lead-when small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lead-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.lead-badge { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; }
+.lead-contact { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.lead-chip { display: inline-flex; align-items: center; max-width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); font-size: 13.5px; }
+.lead-chip a { display: inline-flex; align-items: center; gap: 7px; min-width: 0; padding: 7px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.lead-chip a:hover { color: var(--accent-text); }
+.lead-chip button { display: grid; place-items: center; width: 30px; align-self: stretch; border: 0; border-left: 1px solid var(--border); border-radius: 0 10px 10px 0; background: transparent; color: var(--muted); }
+.lead-chip button:hover { background: var(--surface-hover); color: var(--text); }
+.lead-muted { color: var(--muted); font-weight: 400; font-size: 13.5px; }
+
+.lead-empty { display: grid; justify-items: center; gap: 8px; padding: 56px 20px; border: 1px dashed var(--border-strong); border-radius: 18px; background: var(--surface); text-align: center; }
+.lead-empty i { width: 14px; height: 14px; margin-bottom: 8px; border-radius: 50%; background: var(--good); animation: lead-pulse 1.6s ease-in-out infinite; }
+.lead-empty strong { font-size: 18px; }
+.lead-empty p { max-width: 420px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.lead-foot { margin: 16px 0 0; color: var(--muted); font-size: 12.5px; text-align: center; }
+
+.lead-notice { display: grid; place-items: center; min-height: 100dvh; padding: 24px; background: var(--bg); color: var(--text); text-align: center; }
+.lead-notice > div { display: grid; justify-items: center; gap: 12px; max-width: 420px; }
+.lead-notice h1 { margin: 0; font-size: 22px; font-weight: 650; }
+.lead-notice p { margin: 0; color: var(--muted); line-height: 1.5; }
+
+@media (max-width: 720px) {
+  .lead-page { padding: 16px 14px 40px; }
+  .lead-hero h1 { font-size: 23px; }
+  .lead-kpis strong { font-size: 30px; }
+  .lead-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 14px; }
+  .lead-when { display: flex; align-items: baseline; gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .lead-live i, .lead-empty i, .lead-row.is-new { animation: none; } }
