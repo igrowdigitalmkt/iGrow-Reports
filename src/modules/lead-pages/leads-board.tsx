@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AtSign, Check, ChevronDown, Copy, Download, Mail, MessageCircle, Search, Volume2, VolumeX } from "lucide-react";
+import { AtSign, Check, ChevronDown, Copy, Download, Mail, MessageCircle, Search, Trash2, Volume2, VolumeX } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { Dialog } from "@/components/ui/dialog";
 import { ago, formatPhone } from "./lead-feed-view";
 import type { BoardApi } from "./leads-api";
 import {
@@ -17,10 +18,10 @@ const clock = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", 
 const whatsappLink = (phone: string) => `https://wa.me/${phone.replace(/\D/g, "")}`;
 const csvCell = (value: string | null) => `"${(value ?? "").replace(/"/g, '""')}"`;
 
-type Props = { initial: LeadsBoardData; api: BoardApi; canUpdate: boolean };
+type Props = { initial: LeadsBoardData; api: BoardApi; canUpdate: boolean; /** Só no painel de quem administra: devolve a mensagem de erro, ou null quando excluiu. */ onDeleteLead?: (leadId: string) => Promise<string | null> };
 
 /** Painel de leads: filtros, funil, lista ao vivo e histórico por lead. Igual no menu do cliente, no portal e no link compartilhado. */
-export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props) {
+export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDeleteLead }: Props) {
   const [board, setBoard] = useState(initial);
   const [canUpdate, setCanUpdate] = useState(canUpdateInitial);
   const [filters, setFilters] = useState<LeadFilters>(EMPTY_FILTERS);
@@ -83,6 +84,17 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
   const first = useRef(true);
   useEffect(() => { if (first.current) { first.current = false; return; } void load(filters, false); }, [filters, load]);
 
+  const removeLead = async (lead: BoardLead): Promise<boolean> => {
+    if (!onDeleteLead) return false;
+    setError("");
+    const failure = await onDeleteLead(lead.id).catch(() => "Não foi possível excluir agora. Nada foi apagado.");
+    if (failure) { setError(failure); return false; }
+    setOpen(null);
+    setBoard(current => ({ ...current, leads: current.leads.filter(item => item.id !== lead.id), total: Math.max(0, current.total - 1), matching: Math.max(0, current.matching - 1),
+      statusCounts: { ...current.statusCounts, [lead.status]: Math.max(0, current.statusCounts[lead.status] - 1) } }));
+    void load(filtersRef.current);
+    return true;
+  };
   const toggleStatus = (status: LeadStatus) => setFilters(current => ({ ...current, status: current.status.includes(status) ? current.status.filter(item => item !== status) : [...current.status, status] }));
   const copy = async (value: string, key: string) => {
     try { await navigator.clipboard.writeText(value); setCopied(key); setTimeout(() => setCopied(current => current === key ? null : current), 1600); } catch { /* sem permissão da área de transferência */ }
@@ -148,7 +160,7 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
     {error && <p role="alert" className="lead-error">{error}</p>}
 
     {board.leads.length ? <div className="lead-table-list"><div className="lead-list-head" aria-hidden="true"><span>Quando</span><span>Nome</span><span>Contato</span><span>Origem</span><span>Status</span></div><ol className="lead-list" aria-label="Leads, do mais recente para o mais antigo">{board.leads.map(lead => <LeadRowItem key={lead.id} lead={lead} now={now} fresh={fresh.has(lead.id)} canUpdate={canUpdate} api={api}
-      open={open === lead.id} onToggle={() => setOpen(current => current === lead.id ? null : lead.id)} onStatus={status => void changeStatus(lead, status)} copied={copied} onCopy={copy} />)}</ol></div>
+      open={open === lead.id} onToggle={() => setOpen(current => current === lead.id ? null : lead.id)} onStatus={status => void changeStatus(lead, status)} onDelete={onDeleteLead ? () => removeLead(lead) : undefined} copied={copied} onCopy={copy} />)}</ol></div>
       : filtered ? <div className="lead-empty"><strong>Nenhum lead com esses filtros</strong><p>Ajuste a busca ou limpe os filtros para ver todos.</p></div>
       : <div className="lead-empty"><i aria-hidden="true" /><strong>Aguardando o primeiro lead</strong><p>Assim que um novo contato chegar pelos seus anúncios, ele aparece aqui sozinho. Não precisa atualizar a página.</p></div>}
     {board.matching > board.leads.length && <p className="lead-foot">Mostrando os {board.leads.length} mais recentes de {board.matching}. Use os filtros para refinar.</p>}
@@ -158,7 +170,8 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
 const STATUS_COLOR: Record<LeadStatus, string> = { new: "var(--accent)", contacted: "var(--warn)", visit: "var(--violet)", won: "var(--good)", lost: "var(--muted)" };
 const originOf = (lead: BoardLead) => [lead.campaignName, lead.adsetName, lead.adName].filter(Boolean).join(" › ");
 
-function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatus, copied, onCopy }: {
+function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatus, onDelete, copied, onCopy }: {
+  onDelete?: () => Promise<boolean>;
   lead: BoardLead; now: number; fresh: boolean; canUpdate: boolean; api: BoardApi; open: boolean; onToggle: () => void; onStatus: (status: LeadStatus) => void;
   copied: string | null; onCopy: (value: string, key: string) => void;
 }) {
@@ -182,11 +195,13 @@ function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatu
         : <span className="lead-status-badge" data-status={lead.status}>{STATUS_LABEL[lead.status]}</span>}
       <button type="button" className="lead-more" onClick={onToggle} aria-expanded={open} aria-label={open ? "Fechar detalhes" : "Abrir detalhes"} title="Detalhes, notas e histórico"><ChevronDown size={16} /></button>
     </div>
-    {open && <LeadDetail lead={lead} api={api} canUpdate={canUpdate} />}
+    {open && <LeadDetail lead={lead} api={api} canUpdate={canUpdate} onDelete={onDelete} />}
   </li>;
 }
 
-function LeadDetail({ lead, api, canUpdate }: { lead: BoardLead; api: BoardApi; canUpdate: boolean }) {
+function LeadDetail({ lead, api, canUpdate, onDelete }: { lead: BoardLead; api: BoardApi; canUpdate: boolean; onDelete?: () => Promise<boolean> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const leadId = lead.id;
   const [events, setEvents] = useState<LeadEvent[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -211,6 +226,15 @@ function LeadDetail({ lead, api, canUpdate }: { lead: BoardLead; api: BoardApi; 
       </dl>
       {lead.channel === "instagram" && lead.handle && <a className="lead-btn" href={`https://ig.me/m/${lead.handle}`} target="_blank" rel="noreferrer"><MessageCircle size={14} aria-hidden="true" />Abrir conversa</a>}
       {lead.channel === "whatsapp" && lead.phone && <a className="lead-btn" href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer"><MessageCircle size={14} aria-hidden="true" />Abrir conversa</a>}
+      {onDelete && <div className="lead-delete-row"><button type="button" className="lead-btn is-danger" onClick={() => setConfirming(true)}><Trash2 size={14} aria-hidden="true" />Excluir lead</button></div>}
+      {onDelete && <Dialog open={confirming} onOpenChange={open => { if (!deleting) setConfirming(open); }} title="Excluir este lead?" description={lead.name ?? lead.handle ?? lead.phone ?? "Lead sem nome"}>
+        <div className="lead-delete-dialog">
+          <p>O lead, as notas e o histórico dele serão <strong>excluídos para sempre</strong>. Isso não pode ser desfeito.</p>
+          <p className="lead-muted">{lead.channel === "form" ? "Ele não será importado de novo da Meta. " : "A conversa no próprio aplicativo não é afetada; se a pessoa mandar uma nova mensagem, nasce um novo lead. "}Quem só vê pelo link não tem acesso a esta opção.</p>
+          <div className="lead-form-actions"><button type="button" className="lead-btn" onClick={() => setConfirming(false)} disabled={deleting}>Cancelar</button>
+            <button type="button" className="lead-btn is-danger" disabled={deleting} onClick={async () => { setDeleting(true); const ok = await onDelete(); setDeleting(false); if (!ok) setConfirming(false); }}>{deleting ? "Excluindo…" : "Excluir lead"}</button></div>
+        </div>
+      </Dialog>}
       {canUpdate && <form className="lead-note-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <textarea value={note} onChange={event => setNote(event.target.value)} maxLength={2000} rows={2} placeholder="Escreva uma nota (quem atendeu, o que ficou combinado…)" aria-label="Nova nota" />
         <button type="submit" className="lead-btn is-primary" disabled={!note.trim() || saving}>{saving ? "Salvando…" : "Salvar nota"}</button>

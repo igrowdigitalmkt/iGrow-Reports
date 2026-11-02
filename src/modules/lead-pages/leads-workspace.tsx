@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { sessionApi } from "./leads-api";
 import { LeadsBoard } from "./leads-board";
+import { deleteLeadAction } from "./hub-actions";
 import { LeadsAlerts } from "./leads-alerts";
 import { LeadsPerformance } from "./leads-performance";
 import { LeadsSettings } from "./leads-settings";
@@ -24,7 +25,7 @@ export function LeadsWorkspace({ clientId, clientName, initial, canUpdate, setti
       {settings && <button type="button" role="tab" aria-selected={tab === "settings"} className={tab === "settings" ? "is-active" : undefined} onClick={() => setTab("settings")}>Configurações</button>}
     </div>
     {/* O painel continua montado ao abrir Configurações: filtros e atualização ao vivo não se perdem. */}
-    <div hidden={tab !== "leads"}><LeadsBoard initial={initial} api={api} canUpdate={canUpdate} /></div>
+    <div hidden={tab !== "leads"}><LeadsBoard initial={initial} api={api} canUpdate={canUpdate} onDeleteLead={settings ? async leadId => { const result = await deleteLeadAction({ clientId, leadId }); return result.ok ? null : result.message; } : undefined} /></div>
     {tab === "performance" && <LeadsPerformance clientId={clientId} />}
     {alerts && tab === "alerts" && <LeadsAlerts clientId={clientId} initial={alerts} campaigns={initial.campaigns} forms={initial.forms} />}
     {settings && tab === "settings" && <LeadsSettings clientId={clientId} initial={settings} forms={initial.forms} />}

@@ -14,6 +14,9 @@ export async function findLeadPages(service: Service, pageId: string, formId: st
 
 /** Grava o lead uma única vez por página (o aviso da Meta pode chegar repetido). */
 export async function saveLead(service: Service, page: LeadPage, lead: FetchedLead, fields: LeadFields): Promise<string | null> {
+  // Lead de formulário que a equipe já excluiu não volta numa nova conferência com a Meta.
+  const deleted = await service.from("lead_tombstones").select("leadgen_id").eq("lead_page_id", page.id).eq("leadgen_id", lead.leadgenId).maybeSingle();
+  if (deleted?.data) return null;
   const { data: inserted, error } = await service.from("leads").upsert({
     lead_page_id: page.id, leadgen_id: lead.leadgenId, name: fields.name, phone: fields.phone, email: fields.email,
     field_data: lead.fieldData as never, form_id: lead.formId, ad_id: lead.adId, adset_id: lead.adsetId, campaign_id: lead.campaignId,

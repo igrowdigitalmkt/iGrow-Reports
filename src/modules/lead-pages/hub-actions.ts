@@ -5,7 +5,7 @@ import { getMetaApiConfig } from "@/lib/env";
 import { subscribePageToLeadgen } from "./connect";
 import { appSecretsFromEnv } from "./graph-proof";
 import { authorizeLeadsClient } from "./hub-access";
-import { adoptLinkCode, createLink, createInstagramSource, createSource, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
+import { adoptLinkCode, createLink, createInstagramSource, createSource, deleteLead, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
 import { addLeadNote, changeLeadStatus } from "./hub-query";
 import { syncLeadSource } from "./hub-sync";
 import { explainMetaFailure, leadsTokenCandidates, tokenForPage } from "./leads-tokens";
@@ -35,6 +35,16 @@ export async function setLeadStatusAction(input: unknown): Promise<ActionResult>
   if (!access.allowed || !access.canUpdate) return NO_ACCESS;
   const result = await changeLeadStatus(access.service, { clientId: access.clientId, leadId: parsed.data.leadId, restrictFormIds: null, status: parsed.data.status, actor: access.actor, userId: access.userId });
   return result === "ok" || result === "same" ? { ok: true } : { ok: false, message: result === "not_found" ? "Lead não encontrado." : "Não foi possível salvar. Tente de novo." };
+}
+
+/** Exclui um lead (e as notas e o histórico dele). Só proprietário ou administrador; links e portal nunca excluem. */
+export async function deleteLeadAction(input: unknown): Promise<ActionResult> {
+  const parsed = z.object({ clientId, leadId }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  const result = await deleteLead(access.service, { agencyId: access.agencyId, clientId: access.clientId, userId: access.userId, leadId: parsed.data.leadId });
+  return result === "ok" ? { ok: true, message: "Lead excluído." } : { ok: false, message: result === "not_found" ? "Lead não encontrado." : "Não foi possível excluir agora. Nada foi apagado." };
 }
 
 export async function addLeadNoteAction(input: unknown): Promise<ActionResult> {

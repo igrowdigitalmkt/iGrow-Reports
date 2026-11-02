@@ -373,3 +373,5 @@
 /* Aviso com ícone: o texto corre ao lado do ícone, sem quebrar em duas linhas */
 .lead-notice-line { display: block; }
 .lead-notice-line > svg { display: inline-block; vertical-align: -2px; margin-right: 8px; }
+
+.lead-delete-row { display: flex; justify-content: flex-start; }

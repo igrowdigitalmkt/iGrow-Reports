@@ -130,6 +130,15 @@ export async function updateSource(service: Service, input: { clientId: string; 
   return !error;
 }
 
+/** Exclui um lead do cliente com notas e histórico (de uma vez, no banco). Registra na auditoria sem dados pessoais. */
+export async function deleteLead(service: Service, input: { agencyId: string; clientId: string; userId: string | null; leadId: string }): Promise<"ok" | "not_found" | "error"> {
+  const removed = await service.rpc("delete_lead", { p_client_id: input.clientId, p_lead_id: input.leadId });
+  if (removed.error) return "error";
+  if (removed.data !== true) return "not_found";
+  await service.from("audit_logs").insert({ agency_id: input.agencyId, actor_id: input.userId, action: "lead.deleted", entity_id: input.leadId, metadata: { client_id: input.clientId } });
+  return "ok";
+}
+
 /** Confere o nome digitado com o da fonte: ignora maiúsculas, espaços nas pontas e repetidos. */
 export const sameSourceName = (typed: string, title: string) => typed.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR") === title.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
 
