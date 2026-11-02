@@ -38,6 +38,8 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 
 - **Instagram Direct como canal de leads:** migrações `202611100001_delete_lead_source` e `202611110001_lead_instagram` aplicadas em produção (não reaplicar). Fonte `kind=instagram` por conta profissional, webhook `/api/webhooks/meta/instagram` (mesmo token de verificação dos leads; configurar no app o produto Instagram › Webhooks › campo `messages`), lead por pessoa e por conta com @ e primeira mensagem. **Homologado em 2/11/2026 com uma mensagem real** (lead com @, nome e primeira mensagem). Hoje só entregam avisos perfis de quem tem função no app (permissão em modo de teste; funções do app se atribuem no Gerenciador de Negócios); o acesso avançado depende da revisão da Meta. Exclusão de fonte com todos os leads exige digitar o nome. Guia do pedido de revisão: `docs/REVISAO_META_INSTAGRAM_MENSAGENS.md`.
 
+- **Excluir leads:** migrações `202611120001_delete_lead` e `202611130001_delete_leads_bulk` aplicadas em produção (não reaplicar). Exclusão individual e em lote (até 200; com 10 ou mais exige digitar EXCLUIR), só proprietário/administrador; apaga notas e histórico; leads de formulário da Meta ficam em `lead_tombstones` (só o id) para não voltarem na conferência. Implementado e testado; não homologado na tela.
+
 ## Pendências (ordem sugerida)
 1. Validar com dados reais do Google: seção no painel do Colégio Crescer, PDF com Meta+Google, mensagem de WhatsApp; depois pausar a campanha de teste e desvincular a conta do cliente.
 2. Testar "Desconectar" do Google e reconectar (fluxo do usuário novo) e o "Desconectar" da Meta num cliente sem importância (não testado em produção).

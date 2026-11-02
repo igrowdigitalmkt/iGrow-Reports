@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { adoptLinkCode, createLink, deleteLead, deleteLink, deleteSource, readLinkCode, rotateLinkCode, sameSourceName, updateLink, updateSource } from "@/modules/lead-pages/hub-admin";
+import { adoptLinkCode, createLink, deleteLead, deleteLeads, deleteLink, deleteSource, readLinkCode, rotateLinkCode, sameSourceName, updateLink, updateSource } from "@/modules/lead-pages/hub-admin";
 import { accessCodeMatches, hashAccessCode } from "@/modules/lead-pages/leads";
 import type { Service } from "@/modules/lead-pages/hub-query";
 
@@ -40,6 +40,7 @@ function fakeService(seed: Record<string, Row[]>) {
   // Mesmo efeito da função do banco: apaga leads, histórico, formulários e a fonte; devolve quantos leads saíram.
   const rpc = async (name: string, args: Row) => {
     rpcCalls.push({ name, args });
+    if (name === "delete_leads") { const wanted = args.p_lead_ids as string[]; const hit = (tables.leads ?? []).filter(row => wanted.includes(row.id as string)); tables.leads = (tables.leads ?? []).filter(row => !wanted.includes(row.id as string)); return { data: hit.length, error: null }; }
     if (name === "delete_lead") { const hit = (tables.leads ?? []).some(row => row.id === args.p_lead_id); tables.leads = (tables.leads ?? []).filter(row => row.id !== args.p_lead_id); return { data: hit, error: null }; }
     const sourceId = args.p_source_id;
     const leadIds = (tables.leads ?? []).filter(row => row.lead_page_id === sourceId).map(row => row.id);
@@ -169,6 +170,22 @@ describe("excluir lead", () => {
   it("lead que não é do cliente não existe para quem pede", async () => {
     const { service, tables } = fakeService({ leads: [] });
     expect(await deleteLead(service, { ...ctx, leadId: "x" })).toBe("not_found");
+    expect(tables.audit_logs ?? []).toEqual([]);
+  });
+
+  it("exclui vários leads de uma vez, ignora repetidos e registra uma vez na auditoria", async () => {
+    const { service, tables, rpcCalls } = fakeService({ leads: [{ id: "a" }, { id: "b" }, { id: "c" }] });
+    expect(await deleteLeads(service, { ...ctx, leadIds: ["a", "b", "a", "z"] })).toEqual({ ok: true, count: 2 });
+    expect(rpcCalls[0]!.args.p_lead_ids).toEqual(["a", "b", "z"]);
+    expect(tables.leads.map(row => row.id)).toEqual(["c"]);
+    expect(tables.audit_logs).toHaveLength(1);
+    expect(tables.audit_logs[0]).toMatchObject({ action: "lead.deleted_bulk", metadata: { count: 2 } });
+  });
+  it("lista vazia não chama o banco; nada encontrado não vai para a auditoria", async () => {
+    const { service, tables, rpcCalls } = fakeService({ leads: [] });
+    expect(await deleteLeads(service, { ...ctx, leadIds: [] })).toEqual({ ok: true, count: 0 });
+    expect(rpcCalls).toHaveLength(0);
+    expect(await deleteLeads(service, { ...ctx, leadIds: ["x"] })).toEqual({ ok: true, count: 0 });
     expect(tables.audit_logs ?? []).toEqual([]);
   });
 });

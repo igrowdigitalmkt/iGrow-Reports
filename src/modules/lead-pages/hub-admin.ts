@@ -139,6 +139,17 @@ export async function deleteLead(service: Service, input: { agencyId: string; cl
   return "ok";
 }
 
+/** Exclui vários leads do cliente (até 200) com notas e histórico. Devolve quantos saíram. */
+export async function deleteLeads(service: Service, input: { agencyId: string; clientId: string; userId: string | null; leadIds: string[] }): Promise<{ ok: true; count: number } | { ok: false }> {
+  const ids = [...new Set(input.leadIds)].slice(0, 200);
+  if (!ids.length) return { ok: true, count: 0 };
+  const removed = await service.rpc("delete_leads", { p_client_id: input.clientId, p_lead_ids: ids });
+  if (removed.error) return { ok: false };
+  const count = typeof removed.data === "number" ? removed.data : 0;
+  if (count > 0) await service.from("audit_logs").insert({ agency_id: input.agencyId, actor_id: input.userId, action: "lead.deleted_bulk", entity_id: input.clientId, metadata: { client_id: input.clientId, count } });
+  return { ok: true, count };
+}
+
 /** Confere o nome digitado com o da fonte: ignora maiúsculas, espaços nas pontas e repetidos. */
 export const sameSourceName = (typed: string, title: string) => typed.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR") === title.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
 

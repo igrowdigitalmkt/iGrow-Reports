@@ -5,7 +5,7 @@ import { getMetaApiConfig } from "@/lib/env";
 import { subscribePageToLeadgen } from "./connect";
 import { appSecretsFromEnv } from "./graph-proof";
 import { authorizeLeadsClient } from "./hub-access";
-import { adoptLinkCode, createLink, createInstagramSource, createSource, deleteLead, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
+import { adoptLinkCode, createLink, createInstagramSource, createSource, deleteLead, deleteLeads, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
 import { addLeadNote, changeLeadStatus } from "./hub-query";
 import { syncLeadSource } from "./hub-sync";
 import { explainMetaFailure, leadsTokenCandidates, tokenForPage } from "./leads-tokens";
@@ -45,6 +45,17 @@ export async function deleteLeadAction(input: unknown): Promise<ActionResult> {
   if (!access.allowed || !access.canManage) return NO_ACCESS;
   const result = await deleteLead(access.service, { agencyId: access.agencyId, clientId: access.clientId, userId: access.userId, leadId: parsed.data.leadId });
   return result === "ok" ? { ok: true, message: "Lead excluído." } : { ok: false, message: result === "not_found" ? "Lead não encontrado." : "Não foi possível excluir agora. Nada foi apagado." };
+}
+
+/** Exclui vários leads de uma vez (até 200). Só proprietário ou administrador. */
+export async function deleteLeadsAction(input: unknown): Promise<ActionResult> {
+  const parsed = z.object({ clientId, leadIds: z.array(leadId).min(1).max(200) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Escolha de 1 a 200 leads." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  const result = await deleteLeads(access.service, { agencyId: access.agencyId, clientId: access.clientId, userId: access.userId, leadIds: parsed.data.leadIds });
+  if (!result.ok) return { ok: false, message: "Não foi possível excluir agora. Nada foi apagado." };
+  return result.count > 0 ? { ok: true, message: result.count === 1 ? "1 lead excluído." : `${result.count} leads excluídos.` } : { ok: false, message: "Os leads escolhidos não foram encontrados." };
 }
 
 export async function addLeadNoteAction(input: unknown): Promise<ActionResult> {

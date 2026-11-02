@@ -609,6 +609,7 @@ export type Database = {
       };
       revoke_agency_invitation: { Args: { p_invitation_id: string }; Returns: undefined };
       set_agency_member_role: { Args: { p_agency_id: string; p_user_id: string; p_role: AgencyRole }; Returns: undefined };
+      delete_leads: { Args: { p_client_id: string; p_lead_ids: string[] }; Returns: number };
       delete_lead: { Args: { p_client_id: string; p_lead_id: string }; Returns: boolean };
       delete_lead_source: { Args: { p_client_id: string; p_source_id: string }; Returns: number };
       remove_agency_member: { Args: { p_agency_id: string; p_user_id: string }; Returns: undefined };

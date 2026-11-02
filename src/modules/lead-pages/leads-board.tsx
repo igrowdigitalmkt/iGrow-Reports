@@ -18,10 +18,10 @@ const clock = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", 
 const whatsappLink = (phone: string) => `https://wa.me/${phone.replace(/\D/g, "")}`;
 const csvCell = (value: string | null) => `"${(value ?? "").replace(/"/g, '""')}"`;
 
-type Props = { initial: LeadsBoardData; api: BoardApi; canUpdate: boolean; /** Só no painel de quem administra: devolve a mensagem de erro, ou null quando excluiu. */ onDeleteLead?: (leadId: string) => Promise<string | null> };
+type Props = { initial: LeadsBoardData; api: BoardApi; canUpdate: boolean; /** Só no painel de quem administra: devolve a mensagem de erro, ou null quando excluiu. */ onDeleteLead?: (leadId: string) => Promise<string | null>; /** Exclusão em lote (até 200): devolve a mensagem de erro, ou null quando excluiu. */ onDeleteLeads?: (leadIds: string[]) => Promise<string | null> };
 
 /** Painel de leads: filtros, funil, lista ao vivo e histórico por lead. Igual no menu do cliente, no portal e no link compartilhado. */
-export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDeleteLead }: Props) {
+export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDeleteLead, onDeleteLeads }: Props) {
   const [board, setBoard] = useState(initial);
   const [canUpdate, setCanUpdate] = useState(canUpdateInitial);
   const [filters, setFilters] = useState<LeadFilters>(EMPTY_FILTERS);
@@ -33,6 +33,10 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDelete
   const [now, setNow] = useState(() => new Date(initial.serverTime).getTime());
   const [open, setOpen] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkWord, setBulkWord] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [error, setError] = useState("");
   const known = useRef(new Set(initial.leads.map(lead => lead.id)));
   const filtersRef = useRef(filters);
@@ -84,6 +88,27 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDelete
   const first = useRef(true);
   useEffect(() => { if (first.current) { first.current = false; return; } void load(filters, false); }, [filters, load]);
 
+  // Só o que ainda está na lista continua selecionado (a lista se atualiza sozinha).
+  const visibleIds = board.leads.map(item => item.id);
+  const chosen = visibleIds.filter(id => selected.has(id));
+  const allChosen = visibleIds.length > 0 && chosen.length === visibleIds.length;
+  const needsWord = chosen.length >= 10;
+  const toggleOne = (id: string, on: boolean) => setSelected(current => { const next = new Set(current); if (on) next.add(id); else next.delete(id); return next; });
+  const removeChosen = async () => {
+    if (!onDeleteLeads || !chosen.length) return;
+    setBulkBusy(true); setError("");
+    const failure = await onDeleteLeads(chosen).catch(() => "Não foi possível excluir agora. Nada foi apagado.");
+    setBulkBusy(false);
+    if (failure) { setError(failure); setBulkOpen(false); return; }
+    const gone = new Set(chosen);
+    setBoard(current => {
+      const counts = { ...current.statusCounts };
+      for (const item of current.leads) if (gone.has(item.id)) counts[item.status] = Math.max(0, counts[item.status] - 1);
+      return { ...current, leads: current.leads.filter(item => !gone.has(item.id)), total: Math.max(0, current.total - gone.size), matching: Math.max(0, current.matching - gone.size), statusCounts: counts };
+    });
+    setSelected(new Set()); setBulkOpen(false); setBulkWord(""); setOpen(null);
+    void load(filtersRef.current);
+  };
   const removeLead = async (lead: BoardLead): Promise<boolean> => {
     if (!onDeleteLead) return false;
     setError("");
@@ -159,8 +184,21 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDelete
     </div>
     {error && <p role="alert" className="lead-error">{error}</p>}
 
+    {onDeleteLeads && board.leads.length > 0 && <div className="lead-bulk" role="group" aria-label="Seleção de leads">
+      <label className="lead-bulk-all"><input type="checkbox" checked={allChosen} onChange={event => setSelected(event.target.checked ? new Set(visibleIds) : new Set())} />{chosen.length ? `${chosen.length} selecionado(s)` : "Selecionar todos"}</label>
+      {chosen.length > 0 && <><button type="button" className="lead-btn is-danger" onClick={() => { setBulkWord(""); setBulkOpen(true); }}><Trash2 size={14} aria-hidden="true" />Excluir {chosen.length === 1 ? "1 lead" : `${chosen.length} leads`}</button>
+        <button type="button" className="lead-link-btn" onClick={() => setSelected(new Set())}>Limpar seleção</button></>}
+    </div>}
+    {onDeleteLeads && <Dialog open={bulkOpen} onOpenChange={open => { if (!bulkBusy) setBulkOpen(open); }} title={chosen.length === 1 ? "Excluir 1 lead?" : `Excluir ${chosen.length} leads?`} description="Esta ação não pode ser desfeita.">
+      <form className="lead-delete-dialog" onSubmit={event => { event.preventDefault(); if (!needsWord || bulkWord.trim().toUpperCase() === "EXCLUIR") void removeChosen(); }}>
+        <p>Os leads escolhidos, com as notas e o histórico, serão <strong>excluídos para sempre</strong>. Leads de formulário não serão importados de novo da Meta.</p>
+        {needsWord && <label>Para confirmar, digite <strong>EXCLUIR</strong><input value={bulkWord} onChange={event => setBulkWord(event.target.value)} autoComplete="off" placeholder="EXCLUIR" aria-label="Digite EXCLUIR para confirmar" disabled={bulkBusy} /></label>}
+        <div className="lead-form-actions"><button type="button" className="lead-btn" onClick={() => setBulkOpen(false)} disabled={bulkBusy}>Cancelar</button>
+          <button type="submit" className="lead-btn is-danger" disabled={bulkBusy || !chosen.length || (needsWord && bulkWord.trim().toUpperCase() !== "EXCLUIR")}>{bulkBusy ? "Excluindo…" : "Excluir leads"}</button></div>
+      </form>
+    </Dialog>}
     {board.leads.length ? <div className="lead-table-list"><div className="lead-list-head" aria-hidden="true"><span>Quando</span><span>Nome</span><span>Contato</span><span>Origem</span><span>Status</span></div><ol className="lead-list" aria-label="Leads, do mais recente para o mais antigo">{board.leads.map(lead => <LeadRowItem key={lead.id} lead={lead} now={now} fresh={fresh.has(lead.id)} canUpdate={canUpdate} api={api}
-      open={open === lead.id} onToggle={() => setOpen(current => current === lead.id ? null : lead.id)} onStatus={status => void changeStatus(lead, status)} onDelete={onDeleteLead ? () => removeLead(lead) : undefined} copied={copied} onCopy={copy} />)}</ol></div>
+      open={open === lead.id} onToggle={() => setOpen(current => current === lead.id ? null : lead.id)} onStatus={status => void changeStatus(lead, status)} onDelete={onDeleteLead ? () => removeLead(lead) : undefined} selectable={!!onDeleteLeads} selected={selected.has(lead.id)} onSelect={on => toggleOne(lead.id, on)} copied={copied} onCopy={copy} />)}</ol></div>
       : filtered ? <div className="lead-empty"><strong>Nenhum lead com esses filtros</strong><p>Ajuste a busca ou limpe os filtros para ver todos.</p></div>
       : <div className="lead-empty"><i aria-hidden="true" /><strong>Aguardando o primeiro lead</strong><p>Assim que um novo contato chegar pelos seus anúncios, ele aparece aqui sozinho. Não precisa atualizar a página.</p></div>}
     {board.matching > board.leads.length && <p className="lead-foot">Mostrando os {board.leads.length} mais recentes de {board.matching}. Use os filtros para refinar.</p>}
@@ -170,8 +208,8 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDelete
 const STATUS_COLOR: Record<LeadStatus, string> = { new: "var(--accent)", contacted: "var(--warn)", visit: "var(--violet)", won: "var(--good)", lost: "var(--muted)" };
 const originOf = (lead: BoardLead) => [lead.campaignName, lead.adsetName, lead.adName].filter(Boolean).join(" › ");
 
-function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatus, onDelete, copied, onCopy }: {
-  onDelete?: () => Promise<boolean>;
+function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatus, onDelete, selectable, selected, onSelect, copied, onCopy }: {
+  onDelete?: () => Promise<boolean>; selectable?: boolean; selected?: boolean; onSelect?: (on: boolean) => void;
   lead: BoardLead; now: number; fresh: boolean; canUpdate: boolean; api: BoardApi; open: boolean; onToggle: () => void; onStatus: (status: LeadStatus) => void;
   copied: string | null; onCopy: (value: string, key: string) => void;
 }) {
@@ -179,7 +217,8 @@ function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatu
   const origin = originOf(lead) || (isMessage ? "" : lead.formName);
   const platform = lead.channel === "whatsapp" ? "WhatsApp" : lead.channel === "instagram" ? "Instagram" : platformLabel(lead.platform);
   return <li className={`lead-row has-status is-compact${fresh ? " is-new" : ""}${open ? " is-open" : ""}`}>
-    <time className="lead-when" dateTime={lead.createdTime} title={dateTime.format(new Date(lead.createdTime))}><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong></time>
+    <div className="lead-when-wrap">{selectable && <input type="checkbox" className="lead-select-box" checked={!!selected} onChange={event => onSelect?.(event.target.checked)} aria-label={`Selecionar ${lead.name ?? lead.handle ?? "lead"}`} />}
+      <time className="lead-when" dateTime={lead.createdTime} title={dateTime.format(new Date(lead.createdTime))}><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong></time></div>
     <div className="lead-name"><span className="lead-name-text" title={lead.name ?? undefined}>{lead.name ?? <span className="lead-muted">Sem nome</span>}</span>{fresh && <span className="lead-badge">Novo</span>}</div>
     <div className="lead-contact">
       {!lead.phone && lead.handle ? <span className="lead-chip"><a href={`https://instagram.com/${lead.handle}`} target="_blank" rel="noreferrer" aria-label={`Abrir o perfil de ${lead.handle} no Instagram`}><AtSign size={14} />{lead.handle}</a>

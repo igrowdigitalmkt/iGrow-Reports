@@ -375,3 +375,9 @@
 .lead-notice-line > svg { display: inline-block; vertical-align: -2px; margin-right: 8px; }
 
 .lead-delete-row { display: flex; justify-content: flex-start; }
+
+/* Seleção e exclusão em lote */
+.lead-bulk { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 36px; }
+.lead-bulk-all { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.lead-when-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lead-select-box, .lead-bulk-all input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex: none; }
