@@ -342,3 +342,21 @@
 .lead-channel-list li > div { display: grid; gap: 2px; min-width: 0; }
 .lead-channel-list small { color: var(--muted); font-size: 12.5px; }
 .lead-channels { margin-bottom: 2px; }
+
+/* Canal WhatsApp (sessão por QR Code) */
+.lead-channel-list li.lead-channel-wide { display: block; }
+.lead-wa { display: grid; gap: 12px; }
+.lead-wa-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.lead-wa-head > div { display: grid; gap: 2px; min-width: 0; }
+.lead-wa-head small { color: var(--muted); font-size: 12.5px; }
+.lead-wa-stage { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); }
+.lead-wa-stage h4 { margin: 0 0 4px; font-size: 14px; }
+.lead-wa-stage p { margin: 0 0 8px; font-size: 13px; }
+.lead-wa-qr { display: grid; place-items: center; width: 190px; height: 190px; border-radius: 12px; background: #fff; }
+.lead-wa-qr img { width: 100%; height: 100%; object-fit: contain; }
+.lead-wa-code { padding: 14px 18px; border-radius: 12px; background: var(--surface); font: 600 24px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
+.lead-wa-rules { display: grid; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); }
+.lead-wa-rules label { display: grid; gap: 4px; font-size: 13px; }
+.lead-wa-rules select, .lead-wa-rules textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; }
+.lead-link-btn { width: fit-content; padding: 0; border: 0; background: none; color: var(--accent-text); font-size: 13px; cursor: pointer; }
+.lead-wa-safety { font-size: 12px; }

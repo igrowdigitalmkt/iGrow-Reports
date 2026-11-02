@@ -8,6 +8,7 @@ import {
   setLeadSourceActiveAction, syncLeadSourceAction, updateLeadLinkAction, updateLeadSourceAction, type SettingsResult, type SettingsSnapshot,
 } from "./hub-actions";
 import type { BoardForm } from "./hub-types";
+import { LeadsWhatsApp } from "./leads-whatsapp";
 import "./lead-feed.css";
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -91,7 +92,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
       <ul className="lead-channel-list">
         <li><div><strong>Formulários de anúncio</strong><small>Facebook e Instagram: o cadastro preenchido no anúncio.</small></div>
           {data.sources.some(source => source.active) ? <span className="lead-badge">Ativo</span> : <span className="lead-badge is-off">Sem fonte conectada</span>}</li>
-        <li><div><strong>WhatsApp</strong><small>Conversas que chegam por anúncios que levam ao WhatsApp.</small></div><span className="lead-badge is-off">Em breve</span></li>
+        <li className="lead-channel-wide"><LeadsWhatsApp clientId={clientId} onMessage={(kind, text) => { if (kind === "error") { setError(text); setNotice(""); } else { setNotice(text); setError(""); } }} /></li>
         <li><div><strong>Instagram Direct</strong><small>Mensagens diretas que viram leads.</small></div><span className="lead-badge is-off">Em breve</span></li>
       </ul>
     </section>

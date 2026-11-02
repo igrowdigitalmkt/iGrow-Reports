@@ -121,6 +121,7 @@ type LeadRow = { id: string; lead_page_id: string; leadgen_id: string; name: str
 type LeadFormRow = { lead_page_id: string; form_id: string; name: string; status: string | null; updated_at: string };
 type LeadEventRow = { id: string; lead_id: string; kind: "status" | "note"; status: "new" | "contacted" | "visit" | "won" | "lost" | null; body: string | null; actor: string; created_by: string | null; created_at: string };
 type LeadShareLinkRow = { id: string; agency_id: string; client_id: string; name: string; access_hash: string; form_ids: string[] | null; can_update: boolean; active: boolean; last_opened_at: string | null; created_by: string | null; created_at: string; revoked_at: string | null; code_encrypted: Json | null };
+type LeadWhatsAppSessionRow = { id: string; agency_id: string; client_id: string; qualify_mode: "all" | "ads" | "manual"; ignored_numbers: string[]; active: boolean; connected_phone: string | null; last_event_at: string | null; created_by: string | null; created_at: string; updated_at: string };
 type LeadAlertRecipientRow = { id: string; agency_id: string; client_id: string; name: string; phone: string; mode: "instant" | "scheduled"; send_times: string[]; weekdays: number[]; timezone: string; campaign_ids: string[] | null; form_ids: string[] | null; active: boolean; consent_confirmed_at: string; consent_by: string | null; opted_out_at: string | null; removed_at: string | null; last_digest_at: string | null; created_by: string | null; created_at: string; updated_at: string };
 type LeadAlertDeliveryRow = { id: string; recipient_id: string; lead_id: string | null; kind: "instant" | "digest" | "test"; slot: string | null; status: "sent" | "failed" | "skipped"; error: string | null; lead_count: number; created_at: string };
 type ClientGoogleAccountRow = { agency_id: string; client_id: string; google_ad_account_id: string; active: boolean; created_by: string | null; created_at: string; updated_at: string };
@@ -373,6 +374,7 @@ export type Database = {
       lead_alert_deliveries: Table<LeadAlertDeliveryRow, Pick<LeadAlertDeliveryRow, "recipient_id" | "kind" | "status"> & Partial<LeadAlertDeliveryRow>, Partial<LeadAlertDeliveryRow>>;
       lead_forms: Table<LeadFormRow, Pick<LeadFormRow, "lead_page_id" | "form_id" | "name"> & Partial<LeadFormRow>, Partial<LeadFormRow>>;
       lead_events: Table<LeadEventRow, Pick<LeadEventRow, "lead_id" | "kind" | "actor"> & Partial<LeadEventRow>, Partial<LeadEventRow>>;
+      lead_whatsapp_sessions: Table<LeadWhatsAppSessionRow, Pick<LeadWhatsAppSessionRow, "agency_id" | "client_id"> & Partial<LeadWhatsAppSessionRow>, Partial<LeadWhatsAppSessionRow>>;
       lead_share_links: Table<LeadShareLinkRow, Pick<LeadShareLinkRow, "agency_id" | "client_id" | "name" | "access_hash"> & Partial<LeadShareLinkRow>, Partial<LeadShareLinkRow>>;
       leads: Table<LeadRow, Pick<LeadRow, "lead_page_id" | "leadgen_id"> & Partial<LeadRow>, Partial<LeadRow>>;
       google_ad_accounts: Table<GoogleAdAccountRow, Pick<GoogleAdAccountRow, "agency_id" | "google_connection_id" | "customer_id" | "name"> & Partial<GoogleAdAccountRow>, Partial<GoogleAdAccountRow>>;

@@ -10,6 +10,8 @@ import { addLeadNote, changeLeadStatus } from "./hub-query";
 import { syncLeadSource } from "./hub-sync";
 import { explainMetaFailure, leadsTokenCandidates, tokenForPage } from "./leads-tokens";
 import { listMetaPages, type MetaPageOption } from "./pages-directory";
+import { EvolutionError } from "@/modules/whatsapp-qr/evolution";
+import { disconnectLeadWaSession, getLeadWaView, startLeadWaSession, updateLeadWaSettings, type LeadWaView } from "./wa-session";
 import { LEAD_STATUSES } from "./hub-types";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; message: string };
@@ -50,6 +52,50 @@ export async function loadLeadSettingsAction(input: unknown): Promise<SettingsRe
   const access = await authorizeLeadsClient(parsed.data.clientId);
   if (!access.allowed || !access.canManage) return NO_ACCESS;
   return snapshot(access);
+}
+
+export type LeadWaResult = { ok: true; view: LeadWaView; qr?: string | null; pairingCode?: string | null; message?: string } | { ok: false; message: string };
+
+/** Estado da sessão de WhatsApp do cliente (canal de leads por QR Code). */
+export async function loadLeadWhatsAppAction(input: unknown): Promise<LeadWaResult> {
+  const parsed = z.object({ clientId }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  try { return { ok: true, view: await getLeadWaView(access.service, access.clientId) }; }
+  catch (error) { return { ok: false, message: error instanceof EvolutionError ? error.message : "Não foi possível consultar o WhatsApp agora." }; }
+}
+
+export async function startLeadWhatsAppAction(input: unknown): Promise<LeadWaResult> {
+  const parsed = z.object({ clientId, phone: z.string().trim().min(8).max(30).optional() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  try {
+    const result = await startLeadWaSession(access.service, { agencyId: access.agencyId, clientId: access.clientId, userId: access.userId, phone: parsed.data.phone });
+    const view = await getLeadWaView(access.service, access.clientId);
+    return result.connected ? { ok: true, view } : { ok: true, view, qr: result.qr, pairingCode: result.pairingCode };
+  } catch (error) { return { ok: false, message: error instanceof EvolutionError ? error.message : "Não foi possível falar com o WhatsApp agora." }; }
+}
+
+export async function disconnectLeadWhatsAppAction(input: unknown): Promise<LeadWaResult> {
+  const parsed = z.object({ clientId }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  try {
+    await disconnectLeadWaSession(access.service, access.clientId);
+    return { ok: true, view: await getLeadWaView(access.service, access.clientId), message: "WhatsApp desconectado." };
+  } catch (error) { return { ok: false, message: error instanceof EvolutionError ? error.message : "Não foi possível desconectar agora." }; }
+}
+
+export async function updateLeadWhatsAppAction(input: unknown): Promise<LeadWaResult> {
+  const parsed = z.object({ clientId, qualifyMode: z.enum(["all", "ads", "manual"]), ignoredNumbers: z.array(z.string().trim().max(30)).max(200) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Confira os dados informados." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  if (!await updateLeadWaSettings(access.service, { clientId: access.clientId, qualifyMode: parsed.data.qualifyMode, ignoredNumbers: parsed.data.ignoredNumbers })) return { ok: false, message: "Conecte o WhatsApp deste cliente antes de salvar as regras." };
+  return { ok: true, view: await getLeadWaView(access.service, access.clientId), message: "Regras salvas." };
 }
 
 /** Páginas que a conexão com a Meta enxerga, marcando as que já estão conectadas a este cliente. */
