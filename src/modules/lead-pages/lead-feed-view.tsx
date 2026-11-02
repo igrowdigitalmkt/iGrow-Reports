@@ -115,7 +115,7 @@ export function LeadFeedView({ slug, code, initial }: { slug: string; code: stri
       <div><span>Total de cadastros</span><strong>{feed.total}</strong></div>
     </section>
     {feed.leads.length ? <ol className="lead-list" aria-label="Cadastros recebidos, do mais recente para o mais antigo">{feed.leads.map(row)}</ol>
-      : <div className="lead-empty"><i aria-hidden="true" /><strong>Aguardando o primeiro cadastro</strong><p>Assim que alguém preencher o formulário do anúncio, ele aparece aqui sozinho. Não precisa atualizar a página.</p></div>}
+      : <div className="lead-empty"><i aria-hidden="true" /><strong>Aguardando o primeiro cadastro</strong><p>Assim que um novo contato chegar pelos seus anúncios, ele aparece aqui sozinho. Não precisa atualizar a página.</p></div>}
     {feed.total > feed.leads.length && <p className="lead-foot">Mostrando os {feed.leads.length} cadastros mais recentes de {feed.total}.</p>}
     <footer className="lead-foot">Página privada. Não compartilhe este endereço: ele dá acesso aos contatos recebidos.</footer>
   </main>;

@@ -8,7 +8,7 @@ import type { Service } from "./hub-query";
 
 /** Gestão das fontes de leads (Páginas do Facebook) e dos links compartilhados de um cliente. Só o servidor chama, depois de autorizar. */
 
-export type SourceView = { id: string; title: string; fbPageId: string; formId: string | null; active: boolean; lastSyncedAt: string | null; syncError: string | null; leadCount: number; lastLeadAt: string | null };
+export type SourceView = { id: string; title: string; fbPageId: string; formId: string | null; active: boolean; lastSyncedAt: string | null; syncError: string | null; leadCount: number; lastLeadAt: string | null; formCount: number; archivedFormCount: number };
 export type LinkView = { id: string; name: string; formIds: string[] | null; canUpdate: boolean; active: boolean; lastOpenedAt: string | null; createdAt: string };
 
 export async function listSources(service: Service, clientId: string): Promise<SourceView[] | null> {
@@ -16,13 +16,16 @@ export async function listSources(service: Service, clientId: string): Promise<S
   if (error) return null;
   const rows = data ?? [];
   const stats = await Promise.all(rows.map(async row => {
-    const [count, last] = await Promise.all([
+    const [count, last, forms] = await Promise.all([
       service.from("leads").select("id", { count: "exact", head: true }).eq("lead_page_id", row.id),
       service.from("leads").select("created_time").eq("lead_page_id", row.id).order("created_time", { ascending: false }).limit(1).maybeSingle(),
+      service.from("lead_forms").select("form_id,status").eq("lead_page_id", row.id),
     ]);
-    return { count: count.count ?? 0, last: last.data?.created_time ?? null };
+    const scoped = (forms.data ?? []).filter(form => !row.form_id || form.form_id === row.form_id);
+    const archived = scoped.filter(form => /^(ARCHIVED|DELETED)$/i.test(form.status ?? "")).length;
+    return { count: count.count ?? 0, last: last.data?.created_time ?? null, forms: scoped.length - archived, archived };
   }));
-  return rows.map((row, index) => ({ id: row.id, title: row.title, fbPageId: row.fb_page_id, formId: row.form_id, active: row.active, lastSyncedAt: row.last_synced_at, syncError: row.sync_error, leadCount: stats[index]!.count, lastLeadAt: stats[index]!.last }));
+  return rows.map((row, index) => ({ id: row.id, title: row.title, fbPageId: row.fb_page_id, formId: row.form_id, active: row.active, lastSyncedAt: row.last_synced_at, syncError: row.sync_error, leadCount: stats[index]!.count, lastLeadAt: stats[index]!.last, formCount: stats[index]!.forms, archivedFormCount: stats[index]!.archived }));
 }
 
 export async function createSource(service: Service, input: { agencyId: string; clientId: string; title: string; fbPageId: string; formId: string | null; userId: string | null }): Promise<{ ok: true; id: string } | { ok: false; message: string }> {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { BellRing, Clock, Plus, Send, TriangleAlert, X } from "lucide-react";
+import { BellRing, CheckCircle2, Clock, Plus, Send, TriangleAlert, X } from "lucide-react";
 import { removeAlertRecipientAction, saveAlertRecipientAction, sendAlertTestAction, setAlertRecipientActiveAction, type AlertsResult } from "./alerts-actions";
 import type { AlertRecipientView, AlertsSnapshot } from "./alerts-admin";
 import { WEEKDAY_NAMES } from "./alerts-core";
@@ -20,7 +20,7 @@ const EMPTY_DRAFT: Draft = { name: "", phone: "", mode: "instant", times: [], we
 const describeDays = (days: number[]) => days.length === 7 ? "todos os dias" : days.join(",") === "1,2,3,4,5" ? "dias úteis" : days.map(day => WEEKDAY_NAMES[day]).join(", ");
 const describeRule = (item: AlertRecipientView) => item.mode === "instant" ? "Na hora, a cada lead novo" : `Resumo às ${item.sendTimes.join(", ")} (${describeDays(item.weekdays)})`;
 
-/** Alertas de lead novo por WhatsApp: quem recebe, de quais campanhas/formulários e se é na hora ou em horários fixos. */
+/** Alertas de lead novo por WhatsApp: quem recebe, de quais campanhas e fontes e se é na hora ou em horários fixos. */
 export function LeadsAlerts({ clientId, initial, campaigns, forms }: { clientId: string; initial: AlertsSnapshot; campaigns: BoardCampaign[]; forms: BoardForm[] }) {
   const [data, setData] = useState(initial);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -48,6 +48,7 @@ export function LeadsAlerts({ clientId, initial, campaigns, forms }: { clientId:
     campaignIds: draft.campaignIds.length ? draft.campaignIds : null, formIds: draft.formIds.length ? draft.formIds : null, consent: draft.consent }), { close: true }); };
 
   return <div className="leads-alerts">
+    {data.sender === "connected" && <p className="lead-notice-line" role="status"><CheckCircle2 size={14} />{data.recipients.some(item => item.active && !item.removedAt && !item.optedOutAt) ? "Avisos por WhatsApp ativos: enviados pelo WhatsApp conectado da Groow." : "WhatsApp conectado, mas ninguém está ativo para receber os avisos. Adicione ou ative uma pessoa abaixo."}</p>}
     {data.sender !== "connected" && <p className="lead-notice-line is-warn" role="status"><TriangleAlert size={14} />{data.sender === "not_configured" ? "O envio por WhatsApp não está configurado neste ambiente." : <>O WhatsApp da Groow não está conectado. <Link href="/integracoes">Conecte por QR Code em Integrações</Link> para os alertas serem enviados.</>}</p>}
     {error && <p role="alert" className="lead-error">{error}</p>}
     {notice && <p role="status" className="lead-notice-line">{notice}</p>}
@@ -61,7 +62,7 @@ export function LeadsAlerts({ clientId, initial, campaigns, forms }: { clientId:
               {item.optedOutAt ? <span className="lead-badge is-off">Pediu para parar</span> : !item.active ? <span className="lead-badge is-off">Pausado</span> : <span className="lead-badge">Ativo</span>}</strong>
             <small>{formatPhone(item.phone)}</small>
             <small>{item.mode === "instant" ? <BellRing size={12} /> : <Clock size={12} />} {describeRule(item)}</small>
-            <small>{item.campaignIds?.length ? `${item.campaignIds.length} campanha(s)` : "Todas as campanhas"} · {item.formIds?.length ? `${item.formIds.length} formulário(s)` : "todos os formulários"}</small>
+            <small>{item.campaignIds?.length ? `${item.campaignIds.length} campanha(s)` : "Todas as campanhas"} · {item.formIds?.length ? `${item.formIds.length} fonte(s)` : "todas as fontes"}</small>
             {item.deliveries.length > 0 && <ul className="lead-deliveries" aria-label={`Últimos envios para ${item.name}`}>{item.deliveries.map(delivery => <li key={delivery.id} data-status={delivery.status}>
               <span>{dateTime.format(new Date(delivery.createdAt))}</span><span>{KIND_LABEL[delivery.kind]}{delivery.kind === "digest" && delivery.status === "sent" ? ` (${delivery.leadCount})` : ""}</span><b>{STATUS_LABEL[delivery.status]}</b>{delivery.error && <em>{delivery.error}</em>}</li>)}</ul>}
           </div>
@@ -97,7 +98,7 @@ export function LeadsAlerts({ clientId, initial, campaigns, forms }: { clientId:
           {campaigns.length === 0 ? <span className="lead-muted">As campanhas aparecem aqui quando chegarem leads com origem.</span>
             : campaigns.map(campaign => <label key={campaign.id} className="lead-check"><input type="checkbox" checked={draft.campaignIds.includes(campaign.id)} onChange={() => setDraft({ ...draft, campaignIds: toggle(draft.campaignIds, campaign.id) })} />{campaign.name} <span className="lead-muted">({campaign.count})</span></label>)}
         </fieldset>
-        {forms.length > 0 && <fieldset><legend>Formulários <span className="lead-muted">(nenhum marcado = todos)</span></legend>
+        {forms.length > 0 && <fieldset><legend>Fontes <span className="lead-muted">(nenhum marcado = todos)</span></legend>
           {forms.map(form => <label key={form.id} className="lead-check"><input type="checkbox" checked={draft.formIds.includes(form.id)} onChange={() => setDraft({ ...draft, formIds: toggle(draft.formIds, form.id) })} />{form.name}</label>)}</fieldset>}
 
         <label className="lead-check lead-consent"><input type="checkbox" checked={draft.consent} onChange={event => setDraft({ ...draft, consent: event.target.checked })} />{draft.id ? "Se trocar o número, confirmo que a pessoa concordou em receber os alertas." : "Confirmo que esta pessoa concordou em receber os alertas de lead neste WhatsApp."}</label>

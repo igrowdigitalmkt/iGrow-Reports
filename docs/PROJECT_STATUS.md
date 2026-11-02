@@ -30,6 +30,10 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 - Vercel: `GOOGLE_ADS_CLIENT_ID` e `GOOGLE_ADS_CLIENT_SECRET` cadastrados; `NEXT_PUBLIC_APP_URL` existente.
 - Google Ads: gerente `592-657-6842` (sem contas vinculadas); conta `744-464-3364` (iGrow Digital) acessada diretamente, com campanha de teste "Website traffic-Search-1" ativa, R$ 10/dia. Para teste, essa conta foi vinculada ao cliente **Colégio Crescer** — desvincular após o teste.
 
+## Meta e Leads (2/11/2026)
+- **Conta empresarial (login da agência):** migração `202611070001_meta_agency_logins` aplicada em produção (não reaplicar). Um login da Meta por conta empresarial (`meta_connections` com `client_id` nulo, token no cofre); cada cliente tem sua linha com `source_connection_id` e escolhe as contas de anúncio dele. `loadAccessToken` resolve o token do login. Login oficial agora no app Groow Ads (`login-config.ts`); exige `META_APP_SECRET` do mesmo app na Vercel. Publicado; homologação com a Meta real ainda pendente.
+- **Leads:** Páginas escolhidas pela conexão Meta (sem digitar ID); token da Página obtido da lista de Páginas; avisos de carregando/erro/pronto; fontes e textos neutros; aviso quando a Página não tem formulário ativo; estado dos avisos por WhatsApp. Próximos: filtro por canal, canal WhatsApp e Instagram Direct (campo `leads.channel` já existe).
+
 ## Pendências (ordem sugerida)
 1. Validar com dados reais do Google: seção no painel do Colégio Crescer, PDF com Meta+Google, mensagem de WhatsApp; depois pausar a campanha de teste e desvincular a conta do cliente.
 2. Testar "Desconectar" do Google e reconectar (fluxo do usuário novo) e o "Desconectar" da Meta num cliente sem importância (não testado em produção).

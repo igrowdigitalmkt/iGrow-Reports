@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useEffect, useRef } from "react";
-import { AlertTriangle, Check, CheckCircle2, Copy, KeyRound, Link2, Loader2, Pencil, Plug, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Copy, KeyRound, Link2, Loader2, Pencil, Plug, Plus, RefreshCw, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import {
   adoptLeadLinkCodeAction, createLeadLinkAction, createLeadSourceAction, deleteLeadLinkAction, deleteLeadSourceAction, getLeadLinkCodeAction, listAvailableLeadPagesAction, rotateLeadLinkAction,
   setLeadSourceActiveAction, syncLeadSourceAction, updateLeadLinkAction, updateLeadSourceAction, type SettingsResult, type SettingsSnapshot,
@@ -87,8 +87,8 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
     </div>
 
     <section className="lead-panel" aria-labelledby="lead-sources-title">
-      <header><div><h2 id="lead-sources-title">Páginas conectadas</h2><p>Páginas do Facebook cujos formulários de lead alimentam este menu. Pausar mantém os leads; remover só é possível antes de receber o primeiro lead.</p></div><Plug size={18} className="lead-muted" /></header>
-      {data.sources.length === 0 ? <p className="lead-muted">Nenhuma Página conectada ainda. Cadastre abaixo a Página que recebe os leads do anúncio.</p>
+      <header><div><h2 id="lead-sources-title">Fontes de leads conectadas</h2><p>Por onde os leads chegam a este menu. Hoje: Páginas do Facebook, pelos formulários de anúncio. Pausar mantém os leads; remover só é possível antes de receber o primeiro lead.</p></div><Plug size={18} className="lead-muted" /></header>
+      {data.sources.length === 0 ? <p className="lead-muted">Nenhuma fonte conectada ainda. Use “Conectar nova página” para escolher a Página do Facebook que recebe os leads dos anúncios.</p>
         : <ul className="lead-source-list">{data.sources.map(source => <li key={source.id}>
           {sourceDraft?.id === source.id ? <form className="lead-form-inline lead-inline-edit" onSubmit={event => { event.preventDefault(); run(() => updateLeadSourceAction({ clientId, sourceId: source.id, title: sourceDraft.title, formId: sourceDraft.formId.trim() || null }), () => setSourceDraft(null)); }}>
             <label>Nome<input value={sourceDraft.title} onChange={event => setSourceDraft({ ...sourceDraft, title: event.target.value })} required minLength={2} maxLength={160} disabled={pending} /></label>
@@ -97,9 +97,13 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
           </form> : <>
             <div className="lead-source-main">
               <strong>{source.title}{!source.active && <span className="lead-badge is-off">Pausada</span>}</strong>
-              <small>Página {source.fbPageId}{source.formId ? ` · formulário ${source.formId}` : " · todos os formulários"}</small>
+              <small>Página {source.fbPageId}{source.formId ? ` · formulário ${source.formId}` : " · todos os formulários"} · {source.lastSyncedAt ? `${source.formCount} formulário(s) ativo(s)${source.archivedFormCount ? `, ${source.archivedFormCount} arquivado(s)` : ""}` : "ainda não conferida"}</small>
               <small>{source.leadCount} lead(s) · último lead: {when(source.lastLeadAt)} · conferido na Meta: {when(source.lastSyncedAt)}</small>
               {source.syncError ? <small className="lead-source-error">{source.syncError}</small> : source.lastSyncedAt ? <small className="lead-source-ok">Conexão com a Meta em ordem.</small> : null}
+              {!source.syncError && source.lastSyncedAt && source.formCount === 0 && <p className="lead-notice-line is-warn" role="status"><TriangleAlert size={14} />{source.archivedFormCount > 0
+                ? `Esta Página só tem formulários arquivados na Meta (${source.archivedFormCount}). Nenhum formulário ativo para receber leads. Reative um formulário ou crie um novo no Gerenciador de Anúncios.`
+                : source.formId ? "O formulário informado não foi encontrado nesta Página. Confira o ID do formulário ou a Página escolhida."
+                  : "Nenhum formulário de anúncio encontrado nesta Página. Confira se é a Página certa ou crie um formulário instantâneo no Gerenciador de Anúncios; os leads aparecem aqui assim que houver um."}</p>}
             </div>
             <div className="lead-source-actions">
               <button type="button" className="lead-btn" disabled={pending} onClick={() => run(() => syncLeadSourceAction({ clientId, sourceId: source.id }), undefined, `Conferindo “${source.title}” na Meta…`)}><RefreshCw size={14} />Verificar conexão</button>
@@ -146,7 +150,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
         : <ul className="lead-source-list">{data.links.map(link => <li key={link.id}>
           {linkDraft?.id === link.id ? <form className="lead-form-inline lead-inline-edit" onSubmit={event => { event.preventDefault(); run(() => updateLeadLinkAction({ clientId, linkId: link.id, name: linkDraft.name, formIds: linkDraft.formIds.length ? linkDraft.formIds : null, canUpdate: linkDraft.canUpdate }), () => setLinkDraft(null)); }}>
             <label>Nome do link<input value={linkDraft.name} onChange={event => setLinkDraft({ ...linkDraft, name: event.target.value })} required minLength={2} maxLength={80} disabled={pending} /></label>
-            {forms.length > 0 && <fieldset><legend>Formulários visíveis <span className="lead-muted">(nenhum marcado = todos)</span></legend>
+            {forms.length > 0 && <fieldset><legend>Fontes visíveis <span className="lead-muted">(nenhum marcado = todos)</span></legend>
               {forms.map(form => <label key={form.id} className="lead-check"><input type="checkbox" checked={linkDraft.formIds.includes(form.id)} onChange={() => setLinkDraft({ ...linkDraft, formIds: linkDraft.formIds.includes(form.id) ? linkDraft.formIds.filter(id => id !== form.id) : [...linkDraft.formIds, form.id] })} />{form.name}</label>)}</fieldset>}
             <label className="lead-check"><input type="checkbox" checked={linkDraft.canUpdate} onChange={event => setLinkDraft({ ...linkDraft, canUpdate: event.target.checked })} />Permitir mudar status e escrever notas</label>
             <div className="lead-form-actions"><button type="button" className="lead-btn" onClick={() => setLinkDraft(null)} disabled={pending}>Cancelar</button><button type="submit" className="lead-btn is-primary" disabled={pending}>Salvar</button></div>
@@ -170,7 +174,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
         </li>)}</ul>}
       <form className="lead-form-inline" onSubmit={event => { event.preventDefault(); addLink(event.currentTarget); }}>
         <label>Nome do link<input name="name" required minLength={2} maxLength={80} placeholder="Ex.: Equipe comercial" disabled={pending} /></label>
-        {forms.length > 0 && <fieldset><legend>Formulários visíveis <span className="lead-muted">(nenhum marcado = todos)</span></legend>
+        {forms.length > 0 && <fieldset><legend>Fontes visíveis <span className="lead-muted">(nenhum marcado = todos)</span></legend>
           {forms.map(form => <label key={form.id} className="lead-check"><input type="checkbox" name="forms" value={form.id} disabled={pending} />{form.name}</label>)}</fieldset>}
         <label className="lead-check"><input type="checkbox" name="canUpdate" disabled={pending} />Permitir mudar status e escrever notas</label>
         <button type="submit" className="lead-btn is-primary" disabled={pending}>Criar link</button>

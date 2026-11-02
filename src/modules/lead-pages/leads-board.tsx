@@ -146,7 +146,7 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
     {board.leads.length ? <div className="lead-table-list"><div className="lead-list-head" aria-hidden="true"><span>Quando</span><span>Nome</span><span>Contato</span><span>Origem</span><span>Status</span></div><ol className="lead-list" aria-label="Leads, do mais recente para o mais antigo">{board.leads.map(lead => <LeadRowItem key={lead.id} lead={lead} now={now} fresh={fresh.has(lead.id)} canUpdate={canUpdate} api={api}
       open={open === lead.id} onToggle={() => setOpen(current => current === lead.id ? null : lead.id)} onStatus={status => void changeStatus(lead, status)} copied={copied} onCopy={copy} />)}</ol></div>
       : filtered ? <div className="lead-empty"><strong>Nenhum lead com esses filtros</strong><p>Ajuste a busca ou limpe os filtros para ver todos.</p></div>
-      : <div className="lead-empty"><i aria-hidden="true" /><strong>Aguardando o primeiro lead</strong><p>Assim que alguém preencher o formulário do anúncio, ele aparece aqui sozinho. Não precisa atualizar a página.</p></div>}
+      : <div className="lead-empty"><i aria-hidden="true" /><strong>Aguardando o primeiro lead</strong><p>Assim que um novo contato chegar pelos seus anúncios, ele aparece aqui sozinho. Não precisa atualizar a página.</p></div>}
     {board.matching > board.leads.length && <p className="lead-foot">Mostrando os {board.leads.length} mais recentes de {board.matching}. Use os filtros para refinar.</p>}
   </section>;
 }

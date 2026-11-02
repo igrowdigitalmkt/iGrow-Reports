@@ -16,7 +16,7 @@ export function LeadsWorkspace({ clientId, clientName, initial, canUpdate, setti
   const [tab, setTab] = useState<"leads" | "performance" | "alerts" | "settings">("leads");
   const api = useMemo(() => sessionApi(clientId), [clientId]);
   return <div className="leads-workspace">
-    <div className="page-heading"><div><h1>Leads</h1><p>{clientName} · cadastros dos formulários dos anúncios</p></div></div>
+    <div className="page-heading"><div><h1>Leads</h1><p>{clientName} · contatos que chegam dos seus anúncios</p></div></div>
     <div className="lead-tabs" role="tablist" aria-label="Seções de Leads">
       <button type="button" role="tab" aria-selected={tab === "leads"} className={tab === "leads" ? "is-active" : undefined} onClick={() => setTab("leads")}>Leads</button>
       <button type="button" role="tab" aria-selected={tab === "performance"} className={tab === "performance" ? "is-active" : undefined} onClick={() => setTab("performance")}>Desempenho</button>
