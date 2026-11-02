@@ -301,3 +301,18 @@
   .lead-detail .lead-note-form { grid-template-columns: minmax(0, 1fr); }
   .lead-detail .lead-note-form .lead-btn { justify-self: end; }
 }
+
+/* ---------- Conectar nova página (busca pela conexão com a Meta) ---------- */
+.lead-picker { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); }
+.lead-picker-head { display: flex; gap: 8px; align-items: center; }
+.lead-picker-search { display: flex; flex: 1; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--muted); }
+.lead-picker-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; }
+.lead-picker-list { display: grid; gap: 4px; max-height: 320px; margin: 0; padding: 0; overflow-y: auto; list-style: none; scrollbar-width: thin; }
+.lead-picker-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 10px; }
+.lead-picker-list li:hover { background: var(--surface-hover); }
+.lead-picker-list li > div { display: grid; min-width: 0; }
+.lead-picker-list strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.lead-picker-list small { color: var(--muted); font-size: 12px; }
+.lead-manual { margin-top: 4px; }
+.lead-manual summary { width: fit-content; color: var(--muted); font-size: 13px; cursor: pointer; }
+.lead-manual[open] summary { margin-bottom: 10px; }

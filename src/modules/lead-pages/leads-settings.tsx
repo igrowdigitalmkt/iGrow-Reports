@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Copy, KeyRound, Link2, Pencil, Plug, RefreshCw, Trash2 } from "lucide-react";
+import { Check, Copy, KeyRound, Link2, Pencil, Plug, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import {
-  adoptLeadLinkCodeAction, createLeadLinkAction, createLeadSourceAction, deleteLeadLinkAction, deleteLeadSourceAction, getLeadLinkCodeAction, rotateLeadLinkAction,
+  adoptLeadLinkCodeAction, createLeadLinkAction, createLeadSourceAction, deleteLeadLinkAction, deleteLeadSourceAction, getLeadLinkCodeAction, listAvailableLeadPagesAction, rotateLeadLinkAction,
   setLeadSourceActiveAction, syncLeadSourceAction, updateLeadLinkAction, updateLeadSourceAction, type SettingsResult, type SettingsSnapshot,
 } from "./hub-actions";
 import type { BoardForm } from "./hub-types";
@@ -26,6 +26,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
   const [copied, setCopied] = useState<string | null>(null);
   const [linkDraft, setLinkDraft] = useState<LinkDraft | null>(null);
   const [sourceDraft, setSourceDraft] = useState<SourceDraft | null>(null);
+  const [picker, setPicker] = useState<{ pages: { id: string; name: string; category: string | null; connected: boolean }[]; query: string } | "loading" | null>(null);
   const [adopt, setAdopt] = useState<{ id: string; code: string } | null>(null);
 
   const formName = (id: string) => forms.find(form => form.id === id)?.name ?? `Formulário …${id.slice(-4)}`;
@@ -41,6 +42,14 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
   };
   const copy = async (value: string, key: string) => { try { await navigator.clipboard.writeText(value); setCopied(key); setTimeout(() => setCopied(current => current === key ? null : current), 1800); } catch { setError("O navegador não deixou copiar. Selecione o link e copie manualmente."); } };
 
+  const openPicker = () => {
+    setError(""); setNotice(""); setPicker("loading");
+    void listAvailableLeadPagesAction({ clientId }).then(result => {
+      if (!result.ok) { setPicker(null); setError(result.message); return; }
+      setPicker({ pages: result.pages, query: "" });
+    }).catch(() => { setPicker(null); setError("Não foi possível buscar as Páginas agora. Tente de novo."); });
+  };
+  const connectPage = (page: { id: string; name: string }) => run(() => createLeadSourceAction({ clientId, title: page.name, fbPageId: page.id }), () => setPicker(null));
   const addSource = (form: HTMLFormElement) => {
     const values = new FormData(form);
     run(() => createLeadSourceAction({ clientId, title: String(values.get("title") ?? ""), fbPageId: String(values.get("fbPageId") ?? "").trim(), formId: String(values.get("formId") ?? "").trim() || undefined }), () => form.reset());
@@ -88,12 +97,32 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
             </div>
           </>}
         </li>)}</ul>}
+      {picker === null && <div className="lead-form-actions"><button type="button" className="lead-btn is-primary" onClick={openPicker} disabled={pending}><Plus size={14} />Conectar nova página</button></div>}
+      {picker === "loading" && <p className="lead-muted" role="status">Buscando as Páginas disponíveis na Meta…</p>}
+      {picker && picker !== "loading" && <div className="lead-picker">
+        <div className="lead-picker-head">
+          <label className="lead-picker-search"><Search size={14} aria-hidden="true" /><input value={picker.query} onChange={event => setPicker({ ...picker, query: event.target.value })} placeholder="Buscar Página pelo nome" aria-label="Buscar Página" autoFocus /></label>
+          <button type="button" className="lead-btn" onClick={() => setPicker(null)} disabled={pending}>Fechar</button>
+        </div>
+        {(() => {
+          const term = picker.query.trim().toLocaleLowerCase("pt-BR");
+          const shownPages = picker.pages.filter(page => !term || page.name.toLocaleLowerCase("pt-BR").includes(term));
+          return shownPages.length === 0 ? <p className="lead-muted">{picker.pages.length ? "Nenhuma Página com esse nome." : "A Meta não liberou nenhuma Página para esta conexão. Use o ID manual abaixo."}</p>
+            : <ul className="lead-picker-list">{shownPages.map(page => <li key={page.id}>
+              <div><strong>{page.name}</strong><small>{page.category ? `${page.category} · ` : ""}ID {page.id}</small></div>
+              {page.connected ? <span className="lead-badge">Conectada</span> : <button type="button" className="lead-btn is-primary" onClick={() => connectPage(page)} disabled={pending}>{pending ? "Conectando…" : "Conectar"}</button>}
+            </li>)}</ul>;
+        })()}
+      </div>}
+      <details className="lead-manual">
+        <summary>Informar o ID da Página manualmente</summary>
       <form className="lead-form-inline" onSubmit={event => { event.preventDefault(); addSource(event.currentTarget); }}>
         <label>Nome<input name="title" required minLength={2} maxLength={160} placeholder="Ex.: Página de captação do cliente" disabled={pending} /></label>
         <label>ID da Página do Facebook<input name="fbPageId" required inputMode="numeric" pattern="[0-9]{5,30}" placeholder="Somente números" disabled={pending} /></label>
         <label>ID do formulário <span className="lead-muted">(opcional)</span><input name="formId" inputMode="numeric" pattern="[0-9]{5,30}" placeholder="Em branco = todos" disabled={pending} /></label>
         <button type="submit" className="lead-btn is-primary" disabled={pending}>{pending ? "Conectando…" : "Conectar Página"}</button>
       </form>
+      </details>
     </section>
 
     <section className="lead-panel" aria-labelledby="lead-links-title">

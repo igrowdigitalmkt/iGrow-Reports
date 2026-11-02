@@ -8,6 +8,7 @@ import { authorizeLeadsClient } from "./hub-access";
 import { adoptLinkCode, createLink, createSource, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
 import { addLeadNote, changeLeadStatus } from "./hub-query";
 import { syncLeadSource } from "./hub-sync";
+import { listMetaPages, type MetaPageOption } from "./pages-directory";
 import { LEAD_STATUSES } from "./hub-types";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; message: string };
@@ -48,6 +49,18 @@ export async function loadLeadSettingsAction(input: unknown): Promise<SettingsRe
   const access = await authorizeLeadsClient(parsed.data.clientId);
   if (!access.allowed || !access.canManage) return NO_ACCESS;
   return snapshot(access);
+}
+
+/** Páginas que a conexão com a Meta enxerga, marcando as que já estão conectadas a este cliente. */
+export async function listAvailableLeadPagesAction(input: unknown): Promise<{ ok: true; pages: (MetaPageOption & { connected: boolean })[] } | { ok: false; message: string }> {
+  const parsed = z.object({ clientId }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  const [result, sources] = await Promise.all([listMetaPages(), listSources(access.service, access.clientId)]);
+  if (!result.ok) return result;
+  const connected = new Set((sources ?? []).map(source => source.fbPageId));
+  return { ok: true, pages: result.pages.map(page => ({ ...page, connected: connected.has(page.id) })) };
 }
 
 /** Cadastra uma Página do Facebook como fonte de leads do cliente, inscreve no app e já confere a Meta. */
