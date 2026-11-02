@@ -2,11 +2,11 @@
  * Secoes do menu do cliente. Cada uma tem um endereco real (/clientes/ID/dashboard...), mas a troca entre elas e feita no
  * navegador (history.pushState), sem recarregar: a selecao de campanhas, o escopo e os rascunhos vivem no mesmo componente.
  */
-export type ClientSection = "summary" | "overview" | "campaigns" | "metrics" | "reports";
+export type ClientSection = "summary" | "overview" | "campaigns" | "leads" | "metrics" | "reports";
 
 /** Segmento de URL de cada secao ("" = Visao geral). `overview` e o Dashboard (todos os dados de campanhas). */
 export const SECTION_SLUGS: Record<ClientSection, string> = {
-  summary: "", overview: "dashboard", campaigns: "campanhas", metrics: "metricas", reports: "relatorios",
+  summary: "", overview: "dashboard", campaigns: "campanhas", leads: "leads", metrics: "metricas", reports: "relatorios",
 };
 export const VALID_SECTION_SLUGS = Object.values(SECTION_SLUGS).filter(Boolean);
 
@@ -30,7 +30,7 @@ export function clientSectionPath(base: string, section: ClientSection) {
  * Secoes com pagina propria (rota estatica, componentes de servidor proprios): Campanhas. Entrar nelas ou sair delas NAO usa
  * history.pushState, e sim a navegacao do Next.js, para que o conteudo do servidor seja realmente trocado.
  */
-export const ROUTED_SECTIONS: readonly ClientSection[] = ["campaigns"];
+export const ROUTED_SECTIONS: readonly ClientSection[] = ["campaigns", "leads"];
 
 const CLIENT_BASE = /^((?:\/demo)?\/clientes\/[^/]+)(?:\/([^/]+))?(?:\/.*)?$/;
 

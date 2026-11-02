@@ -1,4 +1,4 @@
-import { requestWithProof } from "./graph-proof";
+import { graphCall } from "./graph-call";
 
 /**
  * Inscreve a Página do Facebook no app para receber o evento `leadgen` (equivalente a POST /{página}/subscribed_apps no Explorador da
@@ -9,16 +9,8 @@ export type ConnectResult =
   | { ok: false; step: "page_token" | "subscribe" | "confirm"; status: number; code: string; message: string };
 
 export async function subscribePageToLeadgen(input: { pageId: string; token: string; apiVersion: string; appSecrets?: string[]; fetchImpl?: typeof fetch }): Promise<ConnectResult> {
-  const call = async (path: string, token: string, init: { method?: string; body?: Record<string, string> } = {}) => {
-    const response = await requestWithProof(input.appSecrets ?? [], token, proof => (input.fetchImpl ?? fetch)(
-      `https://graph.facebook.com/${input.apiVersion}/${path}${proof ? `${path.includes("?") ? "&" : "?"}${proof}` : ""}`, {
-        method: init.method ?? "GET", headers: { Authorization: `Bearer ${token}`, ...(init.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
-        body: init.body ? new URLSearchParams(init.body).toString() : undefined, cache: "no-store", signal: AbortSignal.timeout(15_000),
-      }));
-    const body = await response.json().catch(() => null) as Record<string, unknown> | null;
-    const error = body?.error as { code?: unknown; error_subcode?: unknown; message?: unknown } | undefined;
-    return { ok: response.ok && !error, status: response.status, body, code: error ? `${String(error.code ?? "-")}/${String(error.error_subcode ?? "-")}` : "-", message: typeof error?.message === "string" ? error.message.slice(0, 300) : "" };
-  };
+  const call = (path: string, token: string, init: { method?: "GET" | "POST"; body?: Record<string, string> } = {}) =>
+    graphCall({ path, token, apiVersion: input.apiVersion, appSecrets: input.appSecrets, method: init.method, body: init.body, fetchImpl: input.fetchImpl });
 
   const page = await call(`${encodeURIComponent(input.pageId)}?fields=access_token`, input.token);
   const pageToken = typeof page.body?.access_token === "string" ? page.body.access_token : null;

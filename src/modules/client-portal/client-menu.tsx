@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { MouseEvent } from "react";
-import { ArrowLeft, ChartNoAxesCombined, FileText, Home, Layers3, Megaphone, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ChartNoAxesCombined, FileText, Home, Layers3, Megaphone, UserRoundCheck, type LucideIcon } from "lucide-react";
 import { activeClientSection, clientSectionPath, ROUTED_SECTIONS, type ClientSection } from "./client-sections";
 
 const ITEMS: { section: ClientSection; label: string; icon: LucideIcon }[] = [
   { section: "summary", label: "Visão geral", icon: Home },
   { section: "overview", label: "Dashboard", icon: ChartNoAxesCombined },
   { section: "campaigns", label: "Campanhas", icon: Megaphone },
+  { section: "leads", label: "Leads", icon: UserRoundCheck },
   { section: "metrics", label: "Todas as métricas", icon: Layers3 },
   { section: "reports", label: "Relatórios", icon: FileText },
 ];
@@ -21,7 +22,7 @@ const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 
  * propria: entrar nela ou sair dela usa a navegacao normal do Next.js (o conteudo do servidor e trocado, o menu continua montado).
  * A demonstracao oculta Campanhas (`hideCampaigns`): a gestao operacional depende de contas reais da Meta.
  */
-export function ClientMenu({ clientName, demo = false, hideCampaigns = false }: { clientName: string; demo?: boolean; hideCampaigns?: boolean }) {
+export function ClientMenu({ clientName, demo = false, hideCampaigns = false, hideLeads = false }: { clientName: string; demo?: boolean; hideCampaigns?: boolean; hideLeads?: boolean }) {
   const pathname = usePathname();
   const parsed = activeClientSection(pathname);
   const current = parsed?.section ?? "summary";
@@ -43,7 +44,7 @@ export function ClientMenu({ clientName, demo = false, hideCampaigns = false }: 
       <span className="client-menu-identity"><strong title={clientName}>{clientName}</strong><Link href={clientsHref}><ArrowLeft size={12} />Todos os clientes</Link></span>
     </div>
     <ul className="client-menu-list">
-      {ITEMS.filter(item => !(hideCampaigns && item.section === "campaigns")).map(({ section, label, icon: Icon }) => <li key={section}>
+      {ITEMS.filter(item => !(hideCampaigns && item.section === "campaigns") && !((hideLeads || demo) && item.section === "leads")).map(({ section, label, icon: Icon }) => <li key={section}>
         {/* A busca (periodo, contas) so acompanha entre secoes analiticas: a gestao de Campanhas tem os proprios filtros. */}
         <Link href={clientSectionPath(base, section)} prefetch={false} onClick={event => open(event, section)} aria-current={current === section ? "page" : undefined} className="client-menu-item">
           <Icon size={20} strokeWidth={1.92} /><span>{label}</span>

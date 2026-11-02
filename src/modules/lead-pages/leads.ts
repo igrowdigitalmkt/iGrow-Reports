@@ -122,8 +122,13 @@ export async function fetchLead(input: { leadgenId: string; token: string; apiVe
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
   // Só o código do erro (nunca o token nem dados do lead): suficiente para diagnosticar permissão, token vencido ou limite de uso.
   if (!response.ok || !body || body.error) { const error = body?.error as { code?: unknown; error_subcode?: unknown } | undefined; throw new Error(`Graph ${response.status} código=${String(error?.code ?? "-")} subcódigo=${String(error?.error_subcode ?? "-")}`); }
+  return toFetchedLead(body, input.leadgenId);
+}
+
+/** Lead no formato da Graph API (`/{lead}` ou item de `/{formulário}/leads`) → formato interno. */
+export function toFetchedLead(body: Record<string, unknown>, fallbackId: string): FetchedLead {
   return {
-    leadgenId: text(body.id) ?? input.leadgenId, formId: text(body.form_id), adId: text(body.ad_id), adsetId: text(body.adset_id), campaignId: text(body.campaign_id),
+    leadgenId: text(body.id) ?? fallbackId, formId: text(body.form_id), adId: text(body.ad_id), adsetId: text(body.adset_id), campaignId: text(body.campaign_id),
     createdTime: text(body.created_time) ? new Date(String(body.created_time)).toISOString() : null, fieldData: Array.isArray(body.field_data) ? body.field_data : [],
   };
 }

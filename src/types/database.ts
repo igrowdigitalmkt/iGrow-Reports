@@ -116,8 +116,11 @@ type ClientProfileRow = {
 type GoogleConnectionRow = { id: string; agency_id: string; integration_id: string; login_customer_id: string | null; google_email: string | null; scopes: string[]; connected_at: string | null; last_accounts_sync_at: string | null; created_at: string; updated_at: string };
 type GoogleAdAccountRow = { id: string; agency_id: string; google_connection_id: string; customer_id: string; name: string; currency: string; timezone_name: string; status: string | null; archived_at: string | null; login_customer_id: string | null; created_at: string; updated_at: string };
 type GoogleAccountCreditRow = { id: string; agency_id: string; google_ad_account_id: string; amount: number; currency: string; deposited_on: string; note: string | null; created_by: string | null; created_at: string; removed_at: string | null; removed_by: string | null };
-type LeadPageRow = { id: string; agency_id: string; client_id: string | null; slug: string; title: string; fb_page_id: string; form_id: string | null; access_hash: string; active: boolean; created_at: string; updated_at: string };
-type LeadRow = { id: string; lead_page_id: string; leadgen_id: string; name: string | null; phone: string | null; email: string | null; field_data: Json; form_id: string | null; ad_id: string | null; adset_id: string | null; campaign_id: string | null; created_time: string; received_at: string };
+type LeadPageRow = { id: string; agency_id: string; client_id: string | null; slug: string; title: string; fb_page_id: string; form_id: string | null; access_hash: string; active: boolean; created_at: string; updated_at: string; last_synced_at: string | null; sync_error: string | null };
+type LeadRow = { id: string; lead_page_id: string; leadgen_id: string; name: string | null; phone: string | null; email: string | null; field_data: Json; form_id: string | null; ad_id: string | null; adset_id: string | null; campaign_id: string | null; created_time: string; received_at: string; channel: "form" | "whatsapp" | "instagram"; status: "new" | "contacted" | "visit" | "won" | "lost"; status_changed_at: string | null };
+type LeadFormRow = { lead_page_id: string; form_id: string; name: string; status: string | null; updated_at: string };
+type LeadEventRow = { id: string; lead_id: string; kind: "status" | "note"; status: "new" | "contacted" | "visit" | "won" | "lost" | null; body: string | null; actor: string; created_by: string | null; created_at: string };
+type LeadShareLinkRow = { id: string; agency_id: string; client_id: string; name: string; access_hash: string; form_ids: string[] | null; can_update: boolean; active: boolean; last_opened_at: string | null; created_by: string | null; created_at: string; revoked_at: string | null };
 type ClientGoogleAccountRow = { agency_id: string; client_id: string; google_ad_account_id: string; active: boolean; created_by: string | null; created_at: string; updated_at: string };
 type ReportSettingsRow = { agency_id: string; pdf_layout: "classic" | "modern"; updated_by: string | null; updated_at: string };
 type AiSettingsRow = {
@@ -364,6 +367,9 @@ export type Database = {
       google_connections: Table<GoogleConnectionRow, Pick<GoogleConnectionRow, "agency_id" | "integration_id"> & Partial<GoogleConnectionRow>, Partial<GoogleConnectionRow>>;
       google_account_credits: Table<GoogleAccountCreditRow, Pick<GoogleAccountCreditRow, "agency_id" | "google_ad_account_id" | "amount" | "currency" | "deposited_on"> & Partial<GoogleAccountCreditRow>, Partial<GoogleAccountCreditRow>>;
       lead_pages: Table<LeadPageRow, Pick<LeadPageRow, "agency_id" | "slug" | "title" | "fb_page_id" | "access_hash"> & Partial<LeadPageRow>, Partial<LeadPageRow>>;
+      lead_forms: Table<LeadFormRow, Pick<LeadFormRow, "lead_page_id" | "form_id" | "name"> & Partial<LeadFormRow>, Partial<LeadFormRow>>;
+      lead_events: Table<LeadEventRow, Pick<LeadEventRow, "lead_id" | "kind" | "actor"> & Partial<LeadEventRow>, Partial<LeadEventRow>>;
+      lead_share_links: Table<LeadShareLinkRow, Pick<LeadShareLinkRow, "agency_id" | "client_id" | "name" | "access_hash"> & Partial<LeadShareLinkRow>, Partial<LeadShareLinkRow>>;
       leads: Table<LeadRow, Pick<LeadRow, "lead_page_id" | "leadgen_id"> & Partial<LeadRow>, Partial<LeadRow>>;
       google_ad_accounts: Table<GoogleAdAccountRow, Pick<GoogleAdAccountRow, "agency_id" | "google_connection_id" | "customer_id" | "name"> & Partial<GoogleAdAccountRow>, Partial<GoogleAdAccountRow>>;
       client_google_accounts: Table<ClientGoogleAccountRow, Pick<ClientGoogleAccountRow, "agency_id" | "client_id" | "google_ad_account_id"> & Partial<ClientGoogleAccountRow>, Partial<ClientGoogleAccountRow>>;

@@ -26,8 +26,8 @@ describe("secoes do menu do cliente", () => {
     const base = `/clientes/${ID}`;
     expect(clientSectionPath(base, "summary")).toBe(base);
     expect(clientSectionPath(base, "overview")).toBe(`${base}/dashboard`);
-    expect(VALID_SECTION_SLUGS).toEqual(["dashboard", "campanhas", "metricas", "relatorios"]);
-    expect(Object.keys(SECTION_SLUGS)).toHaveLength(5);
+    expect(VALID_SECTION_SLUGS).toEqual(["dashboard", "campanhas", "leads", "metricas", "relatorios"]);
+    expect(Object.keys(SECTION_SLUGS)).toHaveLength(6);
   });
 
   it("a barra principal recolhe em qualquer pagina de cliente, e so nelas", () => {

@@ -123,7 +123,10 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
     />
   </>;
   if (frame === "workspace") return content;
-  return <ClientPortalShell title={access.client.name} hideHeading
+  // Menu Leads no portal só aparece para o cliente que tem Página de formulários conectada.
+  const leadsService = createSupabaseServiceClient();
+  const hasLeads = leadsService ? ((await leadsService.from("lead_pages").select("id", { count: "exact", head: true }).eq("client_id", clientId).eq("active", true)).count ?? 0) > 0 : false;
+  return <ClientPortalShell title={access.client.name} hideHeading leadsHref={hasLeads ? `/cliente/${clientId}/leads` : undefined}
     description="Resultados das campanhas do período selecionado."
     userEmail={user.email} agencyMode={agencyMode} showClientSwitcher={!agencyMode && accesses.length > 1}>
     {content}

@@ -14,6 +14,8 @@ type ClientPortalShellProps = {
   agencyMode?: boolean;
   /** The page renders its own heading (the analytics dashboard does). */
   hideHeading?: boolean;
+  /** Endereço do menu Leads do cliente, quando ele tem formulários conectados. */
+  leadsHref?: string;
 };
 
 export function ClientPortalShell({
@@ -24,6 +26,7 @@ export function ClientPortalShell({
   showClientSwitcher = false,
   agencyMode = false,
   hideHeading = false,
+  leadsHref,
 }: ClientPortalShellProps) {
   return (
     <main className="client-portal">
@@ -36,6 +39,11 @@ export function ClientPortalShell({
             {agencyMode && (
               <Link href="/clientes" className="client-topbar-link">
                 <ArrowLeft size={14} /> Voltar aos clientes
+              </Link>
+            )}
+            {leadsHref && (
+              <Link href={leadsHref} className="client-topbar-link">
+                Leads
               </Link>
             )}
             {showClientSwitcher && (

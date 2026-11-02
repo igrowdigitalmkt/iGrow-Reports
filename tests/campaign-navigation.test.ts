@@ -16,7 +16,7 @@ describe("menu do cliente e barra principal", () => {
     expect(read("src/components/layout/app-shell.tsx")).not.toMatch(/key:\s*"campanhas"/);
     expect(read("src/modules/client-portal/client-menu.tsx")).toMatch(/section:\s*"campaigns",\s*label:\s*"Campanhas"/);
     expect(SECTION_SLUGS.campaigns).toBe("campanhas");
-    expect(ROUTED_SECTIONS).toEqual(["campaigns"]);
+    expect(ROUTED_SECTIONS).toEqual(["campaigns", "leads"]);
   });
   it("reconhece a seção ativa também nas páginas internas de Campanhas (menu continua com Campanhas ativo)", () => {
     const base = `/clientes/${ID}`;
