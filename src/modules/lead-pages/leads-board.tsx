@@ -263,9 +263,11 @@ function LeadDetail({ lead, api, canUpdate, onDelete }: { lead: BoardLead; api: 
         {lead.firstMessage && <div className="is-answer"><dt>Primeira mensagem</dt><dd>{lead.firstMessage}</dd></div>}
         {lead.answers.map(item => <div key={item.question} className="is-answer"><dt>{item.question}</dt><dd>{item.answer}</dd></div>)}
       </dl>
+      <div className="lead-detail-actions">
       {lead.channel === "instagram" && lead.handle && <a className="lead-btn" href={`https://ig.me/m/${lead.handle}`} target="_blank" rel="noreferrer"><MessageCircle size={14} aria-hidden="true" />Abrir conversa</a>}
       {lead.channel === "whatsapp" && lead.phone && <a className="lead-btn" href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer"><MessageCircle size={14} aria-hidden="true" />Abrir conversa</a>}
-      {onDelete && <div className="lead-delete-row"><button type="button" className="lead-btn is-danger" onClick={() => setConfirming(true)}><Trash2 size={14} aria-hidden="true" />Excluir lead</button></div>}
+      {onDelete && <button type="button" className="lead-btn is-danger" onClick={() => setConfirming(true)}><Trash2 size={14} aria-hidden="true" />Excluir lead</button>}
+      </div>
       {onDelete && <Dialog open={confirming} onOpenChange={open => { if (!deleting) setConfirming(open); }} title="Excluir este lead?" description={lead.name ?? lead.handle ?? lead.phone ?? "Lead sem nome"}>
         <div className="lead-delete-dialog">
           <p>O lead, as notas e o histórico dele serão <strong>excluídos para sempre</strong>. Isso não pode ser desfeito.</p>
