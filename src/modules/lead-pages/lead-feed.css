@@ -360,3 +360,5 @@
 .lead-wa-rules select, .lead-wa-rules textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; }
 .lead-link-btn { width: fit-content; padding: 0; border: 0; background: none; color: var(--accent-text); font-size: 13px; cursor: pointer; }
 .lead-wa-safety { font-size: 12px; }
+
+.lead-detail-main > a.lead-btn { justify-self: start; text-decoration: none; }

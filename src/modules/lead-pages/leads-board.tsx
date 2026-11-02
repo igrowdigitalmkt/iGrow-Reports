@@ -108,7 +108,7 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
 
   return <section className="leads-board" aria-label="Leads">
     <div className="lead-hero">
-      <div><p>Cadastros que chegam dos anúncios, em tempo real. Atualizado às {clock.format(updatedAt)}.</p></div>
+      <div><p>Contatos que chegam em tempo real. Atualizado às {clock.format(updatedAt)}.</p></div>
       <div className="lead-tools">
         <span className={`lead-live${online ? "" : " is-offline"}`} role="status" aria-live="polite"><i aria-hidden="true" />{online ? "Ao vivo" : "Reconectando…"}</span>
         <button type="button" className="lead-btn" onClick={() => setSound(value => !value)} aria-pressed={sound} title="Toca um aviso quando um cadastro chega (mantenha esta página aberta)">{sound ? <Volume2 size={15} /> : <VolumeX size={15} />}Aviso sonoro {sound ? "ligado" : "desligado"}</button>
@@ -163,7 +163,7 @@ function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatu
   copied: string | null; onCopy: (value: string, key: string) => void;
 }) {
   const isWhatsApp = lead.channel === "whatsapp";
-  const origin = originOf(lead) || (isWhatsApp ? "Origem não confirmada" : lead.formName);
+  const origin = originOf(lead) || (isWhatsApp ? "Não confirmada" : lead.formName);
   const platform = isWhatsApp ? "WhatsApp" : platformLabel(lead.platform);
   return <li className={`lead-row has-status is-compact${fresh ? " is-new" : ""}${open ? " is-open" : ""}`}>
     <time className="lead-when" dateTime={lead.createdTime} title={dateTime.format(new Date(lead.createdTime))}><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong></time>
