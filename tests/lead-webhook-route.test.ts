@@ -63,3 +63,14 @@ describe("webhook leadgen", () => {
     expect((await post(body, sign(body))).status).toBe(503);
   });
 });
+
+describe("webhook leadgen com o segredo do app do WhatsApp", () => {
+  it("aceita a assinatura feita com WHATSAPP_APP_SECRET quando META_APP_SECRET é de outro app", async () => {
+    vi.stubEnv("WHATSAPP_APP_SECRET", "segredo-do-whatsapp");
+    findLeadPages.mockResolvedValue([]);
+    const signature = `sha256=${createHmac("sha256", "segredo-do-whatsapp").update(body).digest("hex")}`;
+    expect((await post(body, signature)).status).toBe(200);
+    expect((await post(body, sign(body))).status).toBe(200);
+    expect((await post(body, `sha256=${"0".repeat(64)}`)).status).toBe(401);
+  });
+});

@@ -69,7 +69,7 @@ describe("leitura do lead na Graph API", () => {
   const ok = (body: unknown, status = 200) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
   it("envia o token no cabeçalho, assina com appsecret_proof e normaliza a resposta", async () => {
     const fetchImpl = ok({ id: "9988776655", created_time: "2026-11-02T13:00:00+0000", form_id: "55", ad_id: "7", campaign_id: "9", field_data: [{ name: "email", values: ["a@b.co"] }] });
-    const lead = await fetchLead({ leadgenId: "9988776655", token: "TOKEN", apiVersion: "v25.0", appSecret: "segredo", fetchImpl: fetchImpl as never });
+    const lead = await fetchLead({ leadgenId: "9988776655", token: "TOKEN", apiVersion: "v25.0", appSecrets: ["segredo"], fetchImpl: fetchImpl as never });
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toContain("https://graph.facebook.com/v25.0/9988776655?fields=");
     expect(url).toContain(`appsecret_proof=${createHmac("sha256", "segredo").update("TOKEN").digest("hex")}`);

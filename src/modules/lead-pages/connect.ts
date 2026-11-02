@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { requestWithProof } from "./graph-proof";
 
 /**
  * Inscreve a Página do Facebook no app para receber o evento `leadgen` (equivalente a POST /{página}/subscribed_apps no Explorador da
@@ -8,16 +8,13 @@ export type ConnectResult =
   | { ok: true; subscribed: { app: string; fields: string[] }[] }
   | { ok: false; step: "page_token" | "subscribe" | "confirm"; status: number; code: string; message: string };
 
-const proof = (token: string, secret?: string) => secret ? `appsecret_proof=${createHmac("sha256", secret).update(token).digest("hex")}` : "";
-
-export async function subscribePageToLeadgen(input: { pageId: string; token: string; apiVersion: string; appSecret?: string; fetchImpl?: typeof fetch }): Promise<ConnectResult> {
+export async function subscribePageToLeadgen(input: { pageId: string; token: string; apiVersion: string; appSecrets?: string[]; fetchImpl?: typeof fetch }): Promise<ConnectResult> {
   const call = async (path: string, token: string, init: { method?: string; body?: Record<string, string> } = {}) => {
-    const query = proof(token, input.appSecret);
-    const url = `https://graph.facebook.com/${input.apiVersion}/${path}${path.includes("?") ? "&" : "?"}${query}`;
-    const response = await (input.fetchImpl ?? fetch)(url, {
-      method: init.method ?? "GET", headers: { Authorization: `Bearer ${token}`, ...(init.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
-      body: init.body ? new URLSearchParams(init.body).toString() : undefined, cache: "no-store", signal: AbortSignal.timeout(15_000),
-    });
+    const response = await requestWithProof(input.appSecrets ?? [], token, proof => (input.fetchImpl ?? fetch)(
+      `https://graph.facebook.com/${input.apiVersion}/${path}${proof ? `${path.includes("?") ? "&" : "?"}${proof}` : ""}`, {
+        method: init.method ?? "GET", headers: { Authorization: `Bearer ${token}`, ...(init.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
+        body: init.body ? new URLSearchParams(init.body).toString() : undefined, cache: "no-store", signal: AbortSignal.timeout(15_000),
+      }));
     const body = await response.json().catch(() => null) as Record<string, unknown> | null;
     const error = body?.error as { code?: unknown; error_subcode?: unknown; message?: unknown } | undefined;
     return { ok: response.ok && !error, status: response.status, body, code: error ? `${String(error.code ?? "-")}/${String(error.error_subcode ?? "-")}` : "-", message: typeof error?.message === "string" ? error.message.slice(0, 300) : "" };

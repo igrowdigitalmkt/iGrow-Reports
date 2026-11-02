@@ -2,11 +2,11 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getMetaApiConfig } from "@/lib/env";
 import { fetchLead, parseLeadgenEvents, processLeadgenEvents } from "@/modules/lead-pages/leads";
 import { findLeadPages, saveLead } from "@/modules/lead-pages/store";
+import { appSecretsFromEnv } from "@/modules/lead-pages/graph-proof";
 import { validWebhookSignature } from "@/modules/whatsapp/webhook";
 
 export const runtime = "nodejs";
 
-const appSecret = () => process.env.META_APP_SECRET?.trim() || process.env.WHATSAPP_APP_SECRET?.trim() || undefined;
 const verifyToken = () => process.env.META_LEADS_WEBHOOK_VERIFY_TOKEN?.trim() || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim() || undefined;
 
 // A Meta confirma o endereço uma vez, com um GET que traz o token de verificação.
@@ -22,7 +22,9 @@ export async function GET(request: Request) {
 // Leads novos da Meta (Lead Ads). Assinatura conferida primeiro; falha temporária devolve 503 para a Meta repetir o aviso mais tarde.
 export async function POST(request: Request) {
   const raw = await request.text();
-  if (!validWebhookSignature(raw, request.headers.get("x-hub-signature-256"), appSecret())) return new Response("Invalid signature", { status: 401 });
+  // O aviso é assinado com o segredo do app que o enviou (WhatsApp e Meta podem ser apps diferentes): vale qualquer segredo configurado.
+  const signature = request.headers.get("x-hub-signature-256");
+  if (!appSecretsFromEnv().some(secret => validWebhookSignature(raw, signature, secret))) return new Response("Invalid signature", { status: 401 });
   let payload: unknown;
   try { payload = JSON.parse(raw); } catch { return new Response("Bad request", { status: 400 }); }
   const events = parseLeadgenEvents(payload);
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
   }
   const result = await processLeadgenEvents(events, {
     findPages: (pageId, formId) => findLeadPages(service, pageId, formId),
-    fetchLead: leadgenId => fetchLead({ leadgenId, token, apiVersion: config.apiVersion, appSecret: appSecret() }),
+    fetchLead: leadgenId => fetchLead({ leadgenId, token, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() }),
     save: (page, lead, fields) => saveLead(service, page, lead, fields),
   });
   return new Response(result.retry ? "Retry" : "OK", { status: result.retry ? 503 : 200 });

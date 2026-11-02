@@ -1,4 +1,5 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { requestWithProof } from "./graph-proof";
 
 /**
  * Páginas de acompanhamento de leads (formulário instantâneo da Meta / Lead Ads).
@@ -77,10 +78,10 @@ export function accessCodeMatches(code: string | null | undefined, storedHash: s
 export type FetchedLead = { leadgenId: string; formId: string | null; adId: string | null; adsetId: string | null; campaignId: string | null; createdTime: string | null; fieldData: unknown[] };
 
 /** Busca os dados de um lead. Lança erro quando a Meta recusa ou não responde: o webhook devolve 503 e a Meta tenta de novo depois. */
-export async function fetchLead(input: { leadgenId: string; token: string; apiVersion: string; appSecret?: string; fetchImpl?: typeof fetch }): Promise<FetchedLead> {
-  const proof = input.appSecret ? `&appsecret_proof=${createHmac("sha256", input.appSecret).update(input.token).digest("hex")}` : "";
-  const url = `https://graph.facebook.com/${input.apiVersion}/${encodeURIComponent(input.leadgenId)}?fields=id,created_time,ad_id,adset_id,campaign_id,form_id,field_data${proof}`;
-  const response = await (input.fetchImpl ?? fetch)(url, { headers: { Authorization: `Bearer ${input.token}` }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
+export async function fetchLead(input: { leadgenId: string; token: string; apiVersion: string; appSecrets?: string[]; fetchImpl?: typeof fetch }): Promise<FetchedLead> {
+  const response = await requestWithProof(input.appSecrets ?? [], input.token, proof => (input.fetchImpl ?? fetch)(
+    `https://graph.facebook.com/${input.apiVersion}/${encodeURIComponent(input.leadgenId)}?fields=id,created_time,ad_id,adset_id,campaign_id,form_id,field_data${proof ? `&${proof}` : ""}`,
+    { headers: { Authorization: `Bearer ${input.token}` }, cache: "no-store", signal: AbortSignal.timeout(10_000) }));
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
   // Só o código do erro (nunca o token nem dados do lead): suficiente para diagnosticar permissão, token vencido ou limite de uso.
   if (!response.ok || !body || body.error) { const error = body?.error as { code?: unknown; error_subcode?: unknown } | undefined; throw new Error(`Graph ${response.status} código=${String(error?.code ?? "-")} subcódigo=${String(error?.error_subcode ?? "-")}`); }
