@@ -3,7 +3,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { AGENCY_COOKIE, requireUserSession } from "./context";
+import { revalidatePath } from "next/cache";
+import { AGENCY_COOKIE, requireAgencyContext, requireUserSession } from "./context";
 
 export async function selectAgencyAction(formData: FormData) {
   const { supabase, user } = await requireUserSession();
@@ -20,3 +21,16 @@ export async function selectAgencyAction(formData: FormData) {
   redirect("/");
 }
 
+
+/** Renomeia o espaço de trabalho (só proprietário ou administrador; o banco confere de novo pela política de acesso). */
+export async function renameWorkspaceAction(input: unknown): Promise<{ ok: true; name: string } | { ok: false; message: string }> {
+  const parsed = z.object({ name: z.string().trim().min(2, "Use ao menos 2 letras.").max(120, "Use no máximo 120 letras.") }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Nome inválido." };
+  const context = await requireAgencyContext();
+  if (context.role !== "owner" && context.role !== "admin") return { ok: false, message: "Somente proprietário ou administrador pode mudar o nome." };
+  const name = parsed.data.name.replace(/s+/g, " ");
+  const { data, error } = await context.supabase.from("agencies").update({ name, updated_at: new Date().toISOString() }).eq("id", context.agency.id).select("id");
+  if (error || !data?.length) return { ok: false, message: "Não foi possível salvar o nome agora. Tente de novo." };
+  revalidatePath("/", "layout");
+  return { ok: true, name };
+}

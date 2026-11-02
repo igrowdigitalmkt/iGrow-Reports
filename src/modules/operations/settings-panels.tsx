@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { ArrowUpRight, Monitor, Moon, Settings2, ShieldCheck, Sun } from "lucide-react";
 import type { WorkspaceIdentity } from "@/components/layout/app-shell";
 import { cn } from "@/lib/utils";
 import { AiSettingsPanel } from "@/modules/ai/ai-settings-panel";
 import { logoutAction } from "@/modules/auth/actions";
+import { renameWorkspaceAction } from "@/modules/agencies/actions";
 import { ProfilePanel } from "@/modules/profile/profile-panel";
 import { PdfLayoutPanel } from "@/modules/reports/pdf-layout-panel";
 
@@ -24,10 +26,32 @@ export const SETTINGS_SECTIONS: { key: SettingsSectionKey; label: string; adminO
 
 type PanelProps = { identity: WorkspaceIdentity; demo: boolean; agencyId?: string; canAdmin: boolean };
 
-function WorkspacePanel({ identity, demo }: { identity: WorkspaceIdentity; demo: boolean }) {
+function WorkspaceNameEditor({ name }: { name: string }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const [shown, setShown] = useState(name);
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+  const save = () => startTransition(async () => {
+    setError("");
+    const result = await renameWorkspaceAction({ name: value });
+    if (!result.ok) { setError(result.message); return; }
+    setShown(result.name); setValue(result.name); setEditing(false); router.refresh();
+  });
+  if (!editing) return <><span>{shown}</span><button type="button" className="button button-secondary button-sm" style={{ marginLeft: 12 }} onClick={() => { setValue(shown); setEditing(true); }}>Editar</button></>;
+  return <form className="flex gap-2 items-center flex-wrap justify-end" onSubmit={event => { event.preventDefault(); save(); }}>
+    <input className="input" value={value} onChange={event => setValue(event.target.value)} maxLength={120} minLength={2} required autoFocus aria-label="Nome do espaço de trabalho" disabled={pending} />
+    <button type="submit" className="button button-primary button-sm" disabled={pending || value.trim().length < 2}>{pending ? "Salvando…" : "Salvar"}</button>
+    <button type="button" className="button button-secondary button-sm" onClick={() => { setEditing(false); setError(""); }} disabled={pending}>Cancelar</button>
+    {error && <p role="alert" className="meta-feedback error" style={{ flexBasis: "100%", margin: 0 }}>{error}</p>}
+  </form>;
+}
+
+function WorkspacePanel({ identity, demo, canAdmin }: { identity: WorkspaceIdentity; demo: boolean; canAdmin: boolean }) {
   return <section className="panel settings-panel">
     <div className="panel-heading"><div><h2>Espaço de trabalho e acesso</h2><p>{demo ? "Contexto demonstrativo" : "Contexto autenticado da sua sessão"}</p></div><ShieldCheck size={18} className="muted" /></div>
-    <dl className="settings-fields"><div><dt>Espaço de trabalho</dt><dd>{identity.agencyName}</dd></div><div><dt>Usuário</dt><dd>{identity.userName}</dd></div><div><dt>Perfil</dt><dd>{identity.roleLabel}</dd></div><div><dt>Fuso horário</dt><dd className="font-mono text-sm">{identity.timezone}</dd></div></dl>
+    <dl className="settings-fields"><div><dt>Espaço de trabalho</dt><dd>{!demo && canAdmin ? <WorkspaceNameEditor name={identity.agencyName} /> : identity.agencyName}</dd></div><div><dt>Usuário</dt><dd>{identity.userName}</dd></div><div><dt>Perfil</dt><dd>{identity.roleLabel}</dd></div><div><dt>Fuso horário</dt><dd className="font-mono text-sm">{identity.timezone}</dd></div></dl>
     {demo ? <Link className="button button-secondary" href="/entrar">Entrar no meu espaço<ArrowUpRight size={15} /></Link> : <div className="flex gap-3 flex-wrap"><Link className="button button-secondary" href="/selecionar-espaco">Trocar espaço de trabalho</Link><form action={logoutAction}><button className="button button-secondary" type="submit">Sair da conta</button></form></div>}
   </section>;
 }
@@ -45,7 +69,7 @@ function AppearancePanel() {
 /** Um painel de configurações (usado no popup de Configurações). */
 export function SettingsPanel({ section, identity, demo, agencyId, canAdmin }: PanelProps & { section: SettingsSectionKey }) {
   if (section === "perfil") return <ProfilePanel name={identity.userName} email={identity.email ?? (demo ? "silvio@igrow.com.br" : "")} avatarUrl={identity.avatarUrl ?? null} demo={demo} />;
-  if (section === "espaco") return <WorkspacePanel identity={identity} demo={demo} />;
+  if (section === "espaco") return <WorkspacePanel identity={identity} demo={demo} canAdmin={canAdmin} />;
   if (section === "aparencia") return <AppearancePanel />;
   if (!demo && agencyId && canAdmin) return section === "pdf" ? <PdfLayoutPanel agencyId={agencyId} /> : <AiSettingsPanel agencyId={agencyId} />;
   return null;
