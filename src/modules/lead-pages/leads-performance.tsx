@@ -51,7 +51,7 @@ export function LeadsPerformance({ clientId }: { clientId: string }) {
       {data.spendNote && <p className="lead-notice-line is-warn">{data.spendNote}</p>}
       {data.rows.length === 0 ? <div className="lead-empty"><strong>Nenhum lead neste período</strong><p>Escolha outro período ou aguarde os próximos cadastros.</p></div>
         : <div className="lead-table-wrap"><table className="lead-table">
-          <thead><tr><th scope="col">Campanha</th><th scope="col">Leads</th><th scope="col">Contatados</th><th scope="col">Visitas</th><th scope="col">Fechados</th><th scope="col">Investimento</th><th scope="col">Custo por lead</th><th scope="col">Custo por fechado</th></tr></thead>
+          <thead><tr><th scope="col">Campanha</th><th scope="col">Leads</th><th scope="col">Contatados</th><th scope="col">Agendados</th><th scope="col">Fechados</th><th scope="col">Investimento</th><th scope="col">Custo por lead</th><th scope="col">Custo por fechado</th></tr></thead>
           <tbody>{data.rows.map(row => <tr key={row.campaignId ?? "none"}>
             <th scope="row">{row.name}</th><td>{row.leads}</td><td>{row.inProgress}</td><td>{row.visits}</td><td>{row.won}</td>
             <td>{money(row.spend, row.currency)}</td><td>{money(row.costPerLead, row.currency)}</td><td>{money(row.costPerWon, row.currency)}</td></tr>)}</tbody>

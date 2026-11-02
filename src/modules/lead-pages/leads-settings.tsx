@@ -89,7 +89,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
           </>}
         </li>)}</ul>}
       <form className="lead-form-inline" onSubmit={event => { event.preventDefault(); addSource(event.currentTarget); }}>
-        <label>Nome<input name="title" required minLength={2} maxLength={160} placeholder="Ex.: Página da RM Imobiliária" disabled={pending} /></label>
+        <label>Nome<input name="title" required minLength={2} maxLength={160} placeholder="Ex.: Página de captação do cliente" disabled={pending} /></label>
         <label>ID da Página do Facebook<input name="fbPageId" required inputMode="numeric" pattern="[0-9]{5,30}" placeholder="Somente números" disabled={pending} /></label>
         <label>ID do formulário <span className="lead-muted">(opcional)</span><input name="formId" inputMode="numeric" pattern="[0-9]{5,30}" placeholder="Em branco = todos" disabled={pending} /></label>
         <button type="submit" className="lead-btn is-primary" disabled={pending}>{pending ? "Conectando…" : "Conectar Página"}</button>

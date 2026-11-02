@@ -2,7 +2,7 @@
 
 export const LEAD_STATUSES = ["new", "contacted", "visit", "won", "lost"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
-export const STATUS_LABEL: Record<LeadStatus, string> = { new: "Novo", contacted: "Contatado", visit: "Visita agendada", won: "Fechado", lost: "Perdido" };
+export const STATUS_LABEL: Record<LeadStatus, string> = { new: "Novo", contacted: "Contatado", visit: "Agendado", won: "Fechado", lost: "Perdido" };
 export const isLeadStatus = (value: unknown): value is LeadStatus => typeof value === "string" && (LEAD_STATUSES as readonly string[]).includes(value);
 
 export const LEAD_PERIODS = ["all", "today", "7d", "30d"] as const;

@@ -53,7 +53,7 @@ export function LeadsAlerts({ clientId, initial, campaigns, forms }: { clientId:
     {notice && <p role="status" className="lead-notice-line">{notice}</p>}
 
     <section className="lead-panel" aria-labelledby="alerts-title">
-      <header><div><h2 id="alerts-title">Alertas de lead novo</h2><p>Avise corretores e equipe por WhatsApp quando um lead chegar, na hora ou em um resumo nos horários que você escolher.</p></div><BellRing size={18} className="lead-muted" /></header>
+      <header><div><h2 id="alerts-title">Alertas de lead novo</h2><p>Avise sua equipe por WhatsApp quando um lead chegar, na hora ou em um resumo nos horários que você escolher.</p></div><BellRing size={18} className="lead-muted" /></header>
       {data.recipients.length === 0 ? <p className="lead-muted">Ninguém recebe alertas ainda. Adicione a primeira pessoa abaixo.</p>
         : <ul className="lead-source-list">{data.recipients.map(item => <li key={item.id} className="lead-alert-item">
           <div className="lead-source-main">
@@ -78,7 +78,7 @@ export function LeadsAlerts({ clientId, initial, campaigns, forms }: { clientId:
     {draft && <section className="lead-panel" aria-labelledby="alert-form-title">
       <header><div><h2 id="alert-form-title">{draft.id ? "Editar pessoa" : "Nova pessoa"}</h2></div><button type="button" className="lead-more" onClick={() => setDraft(null)} aria-label="Fechar formulário"><X size={16} /></button></header>
       <form className="lead-form-inline lead-alert-form" onSubmit={event => { event.preventDefault(); save(); }}>
-        <label>Nome<input value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} required minLength={2} maxLength={80} placeholder="Ex.: João (corretor)" disabled={pending} /></label>
+        <label>Nome<input value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} required minLength={2} maxLength={80} placeholder="Ex.: Maria (atendimento)" disabled={pending} /></label>
         <label>WhatsApp<input value={draft.phone} onChange={event => setDraft({ ...draft, phone: event.target.value })} required inputMode="tel" placeholder="(91) 98074-8371" disabled={pending} /></label>
 
         <fieldset><legend>Quando avisar</legend>
