@@ -197,18 +197,23 @@ function LeadDetail({ lead, api, canUpdate }: { lead: BoardLead; api: BoardApi; 
   };
   const facts: [string, string][] = [["Formulário", lead.formName], ["Campanha", lead.campaignName ?? ""], ["Conjunto", lead.adsetName ?? ""], ["Anúncio", lead.adName ?? ""], ["Plataforma", platformLabel(lead.platform) ?? ""], ["Recebido em", dateTime.format(new Date(lead.createdTime))]];
   return <div className="lead-detail">
-    <dl className="lead-facts">
-      {facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
-      {lead.answers.map(item => <div key={item.question} className="is-answer"><dt>{item.question}</dt><dd>{item.answer}</dd></div>)}
-    </dl>
-    {canUpdate && <form className="lead-note-form" onSubmit={event => { event.preventDefault(); void save(); }}>
-      <textarea value={note} onChange={event => setNote(event.target.value)} maxLength={2000} rows={2} placeholder="Escreva uma nota sobre este lead (quem atendeu, o que ficou combinado…)" aria-label="Nova nota" />
-      <button type="submit" className="lead-btn is-primary" disabled={!note.trim() || saving}>{saving ? "Salvando…" : "Salvar nota"}</button>
-    </form>}
-    {failed && <p role="alert" className="lead-error">Não foi possível carregar ou salvar o histórico.</p>}
-    {events === null ? <p className="lead-muted">Carregando histórico…</p> : events.length === 0 ? <p className="lead-muted">Ainda não há notas nem mudanças de status.</p>
-      : <ul className="lead-timeline">{events.map(event => <li key={event.id}>
-        <span className="lead-timeline-dot" data-status={event.status ?? "note"} aria-hidden="true" />
-        <div><strong>{event.kind === "status" && event.status ? `Status: ${STATUS_LABEL[event.status]}` : "Nota"}</strong>{event.body && <p>{event.body}</p>}<small>{event.actor} · {dateTime.format(new Date(event.createdAt))}</small></div></li>)}</ul>}
+    <div className="lead-detail-main">
+      <dl className="lead-facts">
+        {facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+        {lead.answers.map(item => <div key={item.question} className="is-answer"><dt>{item.question}</dt><dd>{item.answer}</dd></div>)}
+      </dl>
+      {canUpdate && <form className="lead-note-form" onSubmit={event => { event.preventDefault(); void save(); }}>
+        <textarea value={note} onChange={event => setNote(event.target.value)} maxLength={2000} rows={2} placeholder="Escreva uma nota (quem atendeu, o que ficou combinado…)" aria-label="Nova nota" />
+        <button type="submit" className="lead-btn is-primary" disabled={!note.trim() || saving}>{saving ? "Salvando…" : "Salvar nota"}</button>
+      </form>}
+    </div>
+    <aside className="lead-history" aria-label="Histórico do lead">
+      <h4>Histórico</h4>
+      {failed && <p role="alert" className="lead-error">Não foi possível carregar ou salvar o histórico.</p>}
+      {events === null ? <p className="lead-muted">Carregando histórico…</p> : events.length === 0 ? <p className="lead-muted">Ainda não há notas nem mudanças de status.</p>
+        : <ul className="lead-timeline">{events.map(event => <li key={event.id}>
+          <span className="lead-timeline-dot" data-status={event.status ?? "note"} aria-hidden="true" />
+          <div><strong>{event.kind === "status" && event.status ? STATUS_LABEL[event.status] : "Nota"}</strong><small>{event.actor} · {dateTime.format(new Date(event.createdAt))}</small>{event.body && <p>{event.body}</p>}</div></li>)}</ul>}
+    </aside>
   </div>;
 }
