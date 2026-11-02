@@ -26,8 +26,9 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const restrict = input.restrictFormIds;
   if (restrict && !restrict.length) return empty;
 
-  const names = await service.from("lead_forms").select("form_id,name").in("lead_page_id", pageIds);
+  const names = await service.from("lead_forms").select("form_id,name,status").in("lead_page_id", pageIds);
   if (names.error) return null;
+  const retired = new Set((names.data ?? []).filter(row => /^(ARCHIVED|DELETED)$/i.test(row.status ?? "")).map(row => row.form_id));
   const nameOf = new Map((names.data ?? []).map(row => [row.form_id, row.name]));
 
   let base = service.from("leads").select("form_id,status,created_time,campaign_id,campaign_name").in("lead_page_id", pageIds).order("created_time", { ascending: false }).limit(AGGREGATE_LIMIT);
@@ -53,7 +54,7 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const campaigns = [...campaignCounts].map(([id, value]) => ({ id, name: value.name, count: value.count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
   // Formulários conhecidos (mesmo sem lead) + os que já têm lead; os do escopo do link, se houver.
   const formIds = new Set([...nameOf.keys(), ...[...formCounts.keys()].filter(Boolean)]);
-  const forms = [...formIds].filter(id => !restrict || restrict.includes(id)).map(id => ({ id, name: nameOf.get(id) ?? fallbackFormName(id), count: formCounts.get(id) ?? 0 }))
+  const forms = [...formIds].filter(id => (!restrict || restrict.includes(id)) && (!retired.has(id) || (formCounts.get(id) ?? 0) > 0)).map(id => ({ id, name: nameOf.get(id) ?? fallbackFormName(id), count: formCounts.get(id) ?? 0 }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
 
   const selectedForms = filters.forms.length ? (restrict ? filters.forms.filter(id => restrict.includes(id)) : filters.forms) : restrict;

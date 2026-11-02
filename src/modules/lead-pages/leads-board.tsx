@@ -96,7 +96,7 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
     else void load(filtersRef.current);
   };
   const exportCsv = () => {
-    const rows = [["Data", "Nome", "WhatsApp", "E-mail", "Status", "Formulário", "Campanha", "Conjunto", "Anúncio", "Plataforma", "Respostas"], ...board.leads.map(lead => [dateTime.format(new Date(lead.createdTime)), lead.name, lead.phone, lead.email, STATUS_LABEL[lead.status], lead.formName, lead.campaignName, lead.adsetName, lead.adName, platformLabel(lead.platform), lead.answers.map(item => `${item.question} ${item.answer}`).join(" | ")])];
+    const rows = [["Data", "Nome", "WhatsApp", "E-mail", "Status", "Fonte", "Campanha", "Conjunto", "Anúncio", "Plataforma", "Respostas"], ...board.leads.map(lead => [dateTime.format(new Date(lead.createdTime)), lead.name, lead.phone, lead.email, STATUS_LABEL[lead.status], lead.formName, lead.campaignName, lead.adsetName, lead.adName, platformLabel(lead.platform), lead.answers.map(item => `${item.question} ${item.answer}`).join(" | ")])];
     const csv = "﻿" + rows.map(row => row.map(cell => csvCell(cell)).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -125,8 +125,8 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
 
     <div className="lead-filters">
       <label className="lead-search"><Search size={15} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar por nome, WhatsApp ou e-mail" aria-label="Buscar leads" /></label>
-      <Select className="compact-select lead-filter-select" inline aria-label="Formulário" value={selectedForm} onChange={event => setFilters(current => ({ ...current, forms: event.target.value ? [event.target.value] : [] }))}>
-        <option value="">Todos os formulários</option>
+      <Select className="compact-select lead-filter-select" inline aria-label="Fonte" value={selectedForm} onChange={event => setFilters(current => ({ ...current, forms: event.target.value ? [event.target.value] : [] }))}>
+        <option value="">Todas as fontes</option>
         {board.forms.map(form => <option key={form.id} value={form.id}>{form.name} ({form.count})</option>)}
       </Select>
       {board.campaigns.length > 0 && <Select className="compact-select lead-filter-select" inline aria-label="Campanha" value={filters.campaigns[0] ?? ""} onChange={event => setFilters(current => ({ ...current, campaigns: event.target.value ? [event.target.value] : [] }))}>
@@ -195,7 +195,7 @@ function LeadDetail({ lead, api, canUpdate }: { lead: BoardLead; api: BoardApi; 
     setSaving(false);
     if (ok) { setNote(""); void reload(); } else setFailed(true);
   };
-  const facts: [string, string][] = [["Formulário", lead.formName], ["Campanha", lead.campaignName ?? ""], ["Conjunto", lead.adsetName ?? ""], ["Anúncio", lead.adName ?? ""], ["Plataforma", platformLabel(lead.platform) ?? ""], ["Recebido em", dateTime.format(new Date(lead.createdTime))]];
+  const facts: [string, string][] = [["Fonte", lead.formName], ["Campanha", lead.campaignName ?? ""], ["Conjunto", lead.adsetName ?? ""], ["Anúncio", lead.adName ?? ""], ["Plataforma", platformLabel(lead.platform) ?? ""], ["Recebido em", dateTime.format(new Date(lead.createdTime))]];
   return <div className="lead-detail">
     <div className="lead-detail-main">
       <dl className="lead-facts">

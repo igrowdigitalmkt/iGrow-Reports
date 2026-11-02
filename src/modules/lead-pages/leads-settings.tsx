@@ -112,7 +112,7 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
           </form> : <>
             <div className="lead-source-main">
               <strong>{link.name}{!link.active && <span className="lead-badge is-off">Desativado</span>}</strong>
-              <small>{link.formIds?.length ? link.formIds.map(formName).join(", ") : "Todos os formulários"} · {link.canUpdate ? "pode atualizar status e notas" : "somente visualização"} · última abertura: {when(link.lastOpenedAt)}</small>
+              <small>{link.formIds?.length ? link.formIds.map(formName).join(", ") : "Todas as fontes"} · {link.canUpdate ? "pode atualizar status e notas" : "somente visualização"} · última abertura: {when(link.lastOpenedAt)}</small>
               {adopt?.id === link.id && <form className="lead-adopt" onSubmit={event => { event.preventDefault(); run(() => adoptLeadLinkCodeAction({ clientId, linkId: link.id, code: adopt.code }), () => { setAdopt(null); void copy(linkUrl(adopt.code), link.id); }); }}>
                 <small>Este link é anterior à cópia. Cole o código atual (a parte final do endereço) para guardá-lo, ou gere um novo código.</small>
                 <div><input value={adopt.code} onChange={event => setAdopt({ ...adopt, code: event.target.value })} placeholder="Código do link" aria-label="Código do link" disabled={pending} />
