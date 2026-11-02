@@ -130,3 +130,28 @@ describe("telefone na tela", () => {
     expect(formatPhone("+14155550123")).toBe("+14155550123");
   });
 });
+
+describe("formulário com perguntas próprias", () => {
+  it("reconhece e-mail, contato e nome pelo conteúdo e devolve as demais respostas", async () => {
+    const { splitLeadFields, prettyQuestion } = await import("@/modules/lead-pages/leads");
+    const result = splitLeadFields([
+      { name: "qual_o_seu_nome?", values: ["Ana Souza"] }, { name: "qual_o_seu_contato?", values: ["(86) 99999-0001"] }, { name: "seu_melhor_email", values: ["Ana@Exemplo.com"] },
+      { name: "você_tem_interesse_em_visitar_o_apartamento?", values: ["Sim, sábado"] },
+    ]);
+    expect(result.fields).toEqual({ name: "Ana Souza", phone: "86999990001", email: "ana@exemplo.com" });
+    expect(result.answers).toEqual([{ question: "Você tem interesse em visitar o apartamento?", answer: "Sim, sábado" }]);
+    expect(prettyQuestion("qual_o_seu_contato?")).toBe("Qual o seu contato?");
+  });
+  it("não confunde a resposta de teste da Meta com contato e mantém tudo como resposta", async () => {
+    const { splitLeadFields } = await import("@/modules/lead-pages/leads");
+    const result = splitLeadFields([{ name: "qual_o_seu_contato?", values: ["<test lead: dummy data for qual_o_seu_contato?>"] }]);
+    expect(result.fields).toEqual({ name: null, phone: null, email: null });
+    expect(result.answers).toHaveLength(1);
+  });
+  it("campos padrão da Meta continuam sendo usados e não repetem como resposta", async () => {
+    const { splitLeadFields } = await import("@/modules/lead-pages/leads");
+    const result = splitLeadFields([{ name: "full_name", values: ["Ana"] }, { name: "phone_number", values: ["+5586999990001"] }, { name: "email", values: ["a@b.co"] }, { name: "cidade", values: ["Teresina"] }]);
+    expect(result.fields).toEqual({ name: "Ana", phone: "+5586999990001", email: "a@b.co" });
+    expect(result.answers).toEqual([{ question: "Cidade", answer: "Teresina" }]);
+  });
+});

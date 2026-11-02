@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { accessCodeMatches, type FetchedLead, type LeadFields, type LeadPage } from "./leads";
+import { accessCodeMatches, splitLeadFields, type FetchedLead, type LeadFields, type LeadPage } from "./leads";
 
 type Service = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 
@@ -22,7 +22,7 @@ export async function saveLead(service: Service, page: LeadPage, lead: FetchedLe
   if (error) throw new Error("leads");
 }
 
-export type LeadItem = { id: string; name: string | null; phone: string | null; email: string | null; createdTime: string; receivedAt: string };
+export type LeadItem = { id: string; name: string | null; phone: string | null; email: string | null; answers: { question: string; answer: string }[]; createdTime: string; receivedAt: string };
 export type LeadFeed = { title: string; total: number; today: number; leads: LeadItem[]; serverTime: string };
 
 /** Início do dia de hoje no horário de Brasília (UTC−3, sem horário de verão), em ISO UTC. */
@@ -40,13 +40,14 @@ export async function openLeadPage(service: Service, slug: string, code: string 
 
 export async function loadLeadFeed(service: Service, page: { id: string; title: string }, now = new Date(), limit = 200): Promise<LeadFeed | null> {
   const [list, total, today] = await Promise.all([
-    service.from("leads").select("id,name,phone,email,created_time,received_at").eq("lead_page_id", page.id).order("created_time", { ascending: false }).limit(limit),
+    service.from("leads").select("id,name,phone,email,field_data,created_time,received_at").eq("lead_page_id", page.id).order("created_time", { ascending: false }).limit(limit),
     service.from("leads").select("id", { count: "exact", head: true }).eq("lead_page_id", page.id),
     service.from("leads").select("id", { count: "exact", head: true }).eq("lead_page_id", page.id).gte("created_time", startOfTodayBrasilia(now)),
   ]);
   if (list.error || total.error || today.error) return null;
   return {
     title: page.title, total: total.count ?? 0, today: today.count ?? 0, serverTime: now.toISOString(),
-    leads: (list.data ?? []).map(row => ({ id: row.id, name: row.name, phone: row.phone, email: row.email, createdTime: row.created_time, receivedAt: row.received_at })),
+    // Nome, WhatsApp e e-mail guardados na gravação; para leads antigos ou formulários com perguntas próprias, são reconhecidos de novo a partir das respostas.
+    leads: (list.data ?? []).map(row => { const { fields, answers } = splitLeadFields(row.field_data); return { id: row.id, name: row.name ?? fields.name, phone: row.phone ?? fields.phone, email: row.email ?? fields.email, answers, createdTime: row.created_time, receivedAt: row.received_at }; }),
   };
 }

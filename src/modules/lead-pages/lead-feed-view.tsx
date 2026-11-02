@@ -82,7 +82,7 @@ export function LeadFeedView({ slug, code, initial }: { slug: string; code: stri
     try { await navigator.clipboard.writeText(value); setCopied(key); setTimeout(() => setCopied(current => current === key ? null : current), 1600); } catch { /* sem permissão da área de transferência */ }
   };
   const exportCsv = () => {
-    const rows = [["Data", "Nome", "WhatsApp", "E-mail"], ...feed.leads.map(lead => [dateTime.format(new Date(lead.createdTime)), lead.name, lead.phone, lead.email])];
+    const rows = [["Data", "Nome", "WhatsApp", "E-mail", "Respostas"], ...feed.leads.map(lead => [dateTime.format(new Date(lead.createdTime)), lead.name, lead.phone, lead.email, lead.answers.map(item => `${item.question} ${item.answer}`).join(" | ")])];
     const csv = "﻿" + rows.map(row => row.map(cell => csvCell(cell)).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = `cadastros-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -91,7 +91,8 @@ export function LeadFeedView({ slug, code, initial }: { slug: string; code: stri
 
   const row = (lead: LeadItem) => <li key={lead.id} className={`lead-row${fresh.has(lead.id) ? " is-new" : ""}`}>
     <div className="lead-when"><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong><small>{dateTime.format(new Date(lead.createdTime))}</small></div>
-    <div className="lead-name">{lead.name ?? <span className="lead-muted">Sem nome</span>}{fresh.has(lead.id) && <span className="lead-badge">Novo</span>}</div>
+    <div className="lead-name"><span>{lead.name ?? <span className="lead-muted">Sem nome</span>}{fresh.has(lead.id) && <span className="lead-badge">Novo</span>}</span>
+      {lead.answers.length > 0 && <ul className="lead-answers">{lead.answers.map(item => <li key={item.question}><small>{item.question}</small><span>{item.answer}</span></li>)}</ul>}</div>
     <div className="lead-contact">
       {lead.phone ? <span className="lead-chip"><a href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer" aria-label={`Chamar ${lead.name ?? "contato"} no WhatsApp`}><MessageCircle size={14} />{formatPhone(lead.phone)}</a>
         <button type="button" onClick={() => void copy(lead.phone!, `p${lead.id}`)} aria-label="Copiar WhatsApp">{copied === `p${lead.id}` ? <Check size={13} /> : <Copy size={13} />}</button></span> : <span className="lead-muted">Sem WhatsApp</span>}

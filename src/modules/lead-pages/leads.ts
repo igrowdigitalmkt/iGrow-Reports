@@ -37,20 +37,50 @@ const text = (value: unknown): string | null => (typeof value === "string" || ty
 
 export type LeadFields = { name: string | null; phone: string | null; email: string | null };
 
-/** Campos do formulário (`field_data`) → nome, WhatsApp e e-mail. Os demais campos ficam guardados na íntegra em `field_data`. */
-export function parseLeadFields(fieldData: unknown): LeadFields {
-  const values = new Map<string, string>();
-  if (Array.isArray(fieldData)) {
-    for (const item of fieldData) {
-      const name = text((item as { name?: unknown })?.name)?.toLowerCase();
-      const first = Array.isArray((item as { values?: unknown })?.values) ? text(((item as { values: unknown[] }).values)[0]) : null;
-      if (name && first) values.set(name, first);
-    }
-  }
-  const pick = (...keys: string[]) => keys.map(key => values.get(key)).find(Boolean) ?? null;
+/** Pares (chave, primeiro valor) do `field_data`, preservando a ordem do formulário. */
+function entriesOf(fieldData: unknown): { key: string; label: string; value: string }[] {
+  if (!Array.isArray(fieldData)) return [];
+  return fieldData.flatMap(item => {
+    const label = text((item as { name?: unknown })?.name);
+    const first = Array.isArray((item as { values?: unknown })?.values) ? text(((item as { values: unknown[] }).values)[0]) : null;
+    return label && first ? [{ key: label.toLowerCase(), label, value: first }] : [];
+  });
+}
+
+const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+const PHONE_KEY = /(whats|telefone|celular|fone|phone|contato)/i;
+
+/**
+ * Campos do formulário (`field_data`) → nome, WhatsApp e e-mail. Primeiro os campos padrão da Meta (full_name, phone_number, email); se o
+ * formulário usa perguntas próprias, reconhece pelo conteúdo (e-mail pelo formato; telefone por uma pergunta de contato com número válido;
+ * nome por uma pergunta com "nome"). As demais respostas aparecem em `leadAnswers`.
+ */
+export function parseLeadFields(fieldData: unknown): LeadFields { return splitLeadFields(fieldData).fields; }
+
+export function splitLeadFields(fieldData: unknown): { fields: LeadFields; answers: { question: string; answer: string }[] } {
+  const entries = entriesOf(fieldData);
+  const values = new Map(entries.map(entry => [entry.key, entry.value]));
+  const used = new Set<string>();
+  const pick = (...keys: string[]) => { const key = keys.find(candidate => values.get(candidate)); if (key) used.add(key); return key ? values.get(key)! : null; };
   const fullName = pick("full_name", "nome_completo", "nome", "name");
   const joined = [pick("first_name", "primeiro_nome"), pick("last_name", "sobrenome")].filter(Boolean).join(" ");
-  return { name: fullName ?? (joined || null), phone: normalizePhone(pick("phone_number", "phone", "telefone", "whatsapp", "celular")), email: pick("email", "e-mail", "e_mail")?.toLowerCase() ?? null };
+  let name = fullName ?? (joined || null);
+  let phone = normalizePhone(pick("phone_number", "phone", "telefone", "whatsapp", "celular"));
+  let email = pick("email", "e-mail", "e_mail")?.toLowerCase() ?? null;
+
+  const spare = entries.filter(entry => !used.has(entry.key));
+  if (!email) { const found = spare.find(entry => EMAIL.test(entry.value)); if (found) { email = found.value.toLowerCase(); used.add(found.key); } }
+  if (!phone) { const found = spare.find(entry => PHONE_KEY.test(entry.key) && normalizePhone(entry.value)); if (found) { phone = normalizePhone(found.value); used.add(found.key); } }
+  if (!name) { const found = spare.find(entry => /(^|[^a-z])(nome|name)([^a-z]|$)/i.test(entry.key) && !EMAIL.test(entry.value) && !normalizePhone(entry.value)); if (found) { name = found.value; used.add(found.key); } }
+
+  const answers = entries.filter(entry => !used.has(entry.key)).map(entry => ({ question: prettyQuestion(entry.label), answer: entry.value.slice(0, 300) }));
+  return { fields: { name, phone, email }, answers };
+}
+
+/** "você_tem_interesse_em_visitar?" → "Você tem interesse em visitar?" */
+export function prettyQuestion(label: string): string {
+  const spaced = label.replace(/_+/g, " ").trim();
+  return spaced ? spaced[0]!.toUpperCase() + spaced.slice(1) : label;
 }
 
 /** "p:+5586999999999" → "+5586999999999"; mantém só dígitos e o "+" inicial. Vazio vira null. */
