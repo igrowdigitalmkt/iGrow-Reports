@@ -179,3 +179,8 @@ Ver `docs/LANCAMENTO_V1.md` (checklist de produção) e `docs/SUSPENSAO_E_MONITO
 - **Envio:** WhatsApp da organização conectado por QR Code (`createQrSender`); sem conexão registra a falha com o motivo. Cadastro exige confirmação de consentimento; resposta PARAR ao número da Groow desativa a pessoa (WhatsApp QR e API oficial). Botão "Enviar teste" (1 por minuto).
 - **Tela:** aba **Alertas** do menu Leads (proprietário e administrador). 
 - **Estado:** implementado e testado (unitário); publicado. Homologação real: teste no número do proprietário (autorizado em 05/11/2026) pendente do uso da tela.
+
+## Menu Leads — gestão completa de links e fontes (06/11/2026)
+- **Migração `202611060001_lead_manage` aplicada em produção em 06/11/2026 (não reaplicar):** direito de exclusão (service_role) em `lead_share_links`, `lead_forms` e `lead_pages`, e coluna opcional `lead_share_links.code_encrypted` (código do link criptografado com a chave do servidor, AES-256-GCM, para "Copiar link"). O acesso por link continua conferido só pelo hash.
+- **Links:** copiar, editar (nome, formulários visíveis, permissão), ativar/desativar, novo código (invalida o endereço antigo) e excluir (definitivo; leads não são tocados). Link criado antes da cópia (ex.: o original da RM) continua funcionando sem mudança; "Copiar link" pede o código atual UMA vez (conferido com o hash) e passa a guardá-lo.
+- **Fontes:** editar nome/formulário, pausar/reativar, verificar conexão e remover — remover só vale para fonte que nunca recebeu leads (senão orienta a pausar); leads nunca são apagados por estas telas.

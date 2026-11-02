@@ -5,7 +5,7 @@ import { getMetaApiConfig } from "@/lib/env";
 import { subscribePageToLeadgen } from "./connect";
 import { appSecretsFromEnv } from "./graph-proof";
 import { authorizeLeadsClient } from "./hub-access";
-import { createLink, createSource, listLinks, listSources, setSourceActive, updateLink, type LinkView, type SourceView } from "./hub-admin";
+import { adoptLinkCode, createLink, createSource, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
 import { addLeadNote, changeLeadStatus } from "./hub-query";
 import { syncLeadSource } from "./hub-sync";
 import { LEAD_STATUSES } from "./hub-types";
@@ -107,11 +107,72 @@ export async function createLeadLinkAction(input: unknown): Promise<SettingsResu
   return snapshot(access, { code: created.code, message: "Link criado. Copie agora: por segurança, o código não aparece de novo." });
 }
 
+/** Edita um link: nome, formulários visíveis, permissão de atualizar e ativo/desativado. O código e o endereço não mudam. */
 export async function updateLeadLinkAction(input: unknown): Promise<SettingsResult> {
-  const parsed = z.object({ clientId, linkId: z.uuid(), active: z.boolean().optional(), canUpdate: z.boolean().optional() }).safeParse(input);
+  const parsed = z.object({
+    clientId, linkId: z.uuid(), active: z.boolean().optional(), canUpdate: z.boolean().optional(), name: z.string().trim().min(2).max(80).optional(),
+    formIds: z.array(z.string().regex(/^[0-9]{5,30}$/)).max(50).nullable().optional(),
+  }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Confira o nome do link (2 a 80 letras)." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  if (!await updateLink(access.service, { clientId: access.clientId, linkId: parsed.data.linkId, active: parsed.data.active, canUpdate: parsed.data.canUpdate, name: parsed.data.name, formIds: parsed.data.formIds })) return { ok: false, message: "Não foi possível alterar o link." };
+  return snapshot(access, parsed.data.name !== undefined || parsed.data.formIds !== undefined ? { message: "Link atualizado." } : {});
+}
+
+/** Exclui o link para sempre (os leads não são tocados). */
+export async function deleteLeadLinkAction(input: unknown): Promise<SettingsResult> {
+  const parsed = z.object({ clientId, linkId: z.uuid() }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "Pedido inválido." };
   const access = await authorizeLeadsClient(parsed.data.clientId);
   if (!access.allowed || !access.canManage) return NO_ACCESS;
-  if (!await updateLink(access.service, { clientId: access.clientId, linkId: parsed.data.linkId, active: parsed.data.active, canUpdate: parsed.data.canUpdate })) return { ok: false, message: "Não foi possível alterar o link." };
-  return snapshot(access);
+  return await deleteLink(access.service, { clientId: access.clientId, linkId: parsed.data.linkId }) ? snapshot(access, { message: "Link excluído. O endereço antigo deixou de funcionar." }) : { ok: false, message: "Não foi possível excluir o link." };
+}
+
+/** Gera um código novo para o link (o endereço antigo deixa de valer) e devolve o novo código para copiar. */
+export async function rotateLeadLinkAction(input: unknown): Promise<SettingsResult> {
+  const parsed = z.object({ clientId, linkId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  const rotated = await rotateLinkCode(access.service, { clientId: access.clientId, linkId: parsed.data.linkId });
+  return rotated.ok ? snapshot(access, { message: "Novo código gerado. O endereço antigo deixou de funcionar.", code: rotated.code }) : { ok: false, message: "Não foi possível gerar o novo código." };
+}
+
+/** Devolve o código guardado do link (só para quem administra) para copiar o endereço de novo. */
+export async function getLeadLinkCodeAction(input: unknown): Promise<{ ok: true; code: string } | { ok: false; message: string; needsCode?: boolean }> {
+  const parsed = z.object({ clientId, linkId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  const code = await readLinkCode(access.service, { clientId: access.clientId, linkId: parsed.data.linkId });
+  return code ? { ok: true, code } : { ok: false, needsCode: true, message: "Este link foi criado antes da cópia e o código não está guardado. Informe o código atual ou gere um novo." };
+}
+
+/** Link antigo: guarda o código atual (conferido com o hash) para poder copiar o endereço, sem mudar nada. */
+export async function adoptLeadLinkCodeAction(input: unknown): Promise<SettingsResult> {
+  const parsed = z.object({ clientId, linkId: z.uuid(), code: z.string().trim().min(16).max(128) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Informe o código do link." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  return await adoptLinkCode(access.service, { clientId: access.clientId, linkId: parsed.data.linkId, code: parsed.data.code }) ? snapshot(access, { message: "Código guardado. Agora você pode copiar o link quando quiser.", code: parsed.data.code }) : { ok: false, message: "Esse código não confere com o deste link." };
+}
+
+/** Edita nome e formulário de uma fonte (a Página do Facebook não muda). */
+export async function updateLeadSourceAction(input: unknown): Promise<SettingsResult> {
+  const parsed = z.object({ clientId, sourceId: z.uuid(), title: z.string().trim().min(2).max(160), formId: z.string().trim().regex(/^[0-9]{5,30}$/).nullable() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Confira o nome (2 a 160 letras) e o ID do formulário (só números)." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  return await updateSource(access.service, { clientId: access.clientId, sourceId: parsed.data.sourceId, title: parsed.data.title, formId: parsed.data.formId }) ? snapshot(access, { message: "Fonte atualizada." }) : { ok: false, message: "Não foi possível salvar." };
+}
+
+/** Remove a fonte só se nunca recebeu leads; senão orienta a pausar (leads nunca são apagados). */
+export async function deleteLeadSourceAction(input: unknown): Promise<SettingsResult> {
+  const parsed = z.object({ clientId, sourceId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  const removed = await deleteSource(access.service, { clientId: access.clientId, sourceId: parsed.data.sourceId });
+  return removed.ok ? snapshot(access, { message: "Fonte removida." }) : removed;
 }

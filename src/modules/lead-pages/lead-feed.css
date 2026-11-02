@@ -202,3 +202,11 @@
 .lead-days { display: flex; flex-wrap: wrap; gap: 6px; }
 .lead-consent { grid-column: 1 / -1; }
 .lead-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- Gestão de links e fontes ---------- */
+.lead-btn.is-danger { color: var(--bad); }
+.lead-btn.is-danger:hover:not(:disabled) { border-color: var(--bad); background: var(--bad-bg); }
+.lead-source-list > li > .lead-inline-edit { width: 100%; padding-top: 0; border-top: 0; }
+.lead-adopt { display: grid; gap: 6px; margin-top: 6px; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 10px; }
+.lead-adopt > div { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.lead-adopt input { flex: 1 1 220px; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 13px; }
