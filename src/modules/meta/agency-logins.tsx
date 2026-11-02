@@ -80,7 +80,9 @@ export function AgencyLogins({ agencyId, apiVersion, logins, canManage }: { agen
 /** Escolha das contas de anúncio de um cliente dentro de uma conta empresarial já conectada. */
 export function ClientAccountPicker({ clientId, clientName, logins, currentAccountIds, connected }: { clientId: string; clientName: string; logins: MetaAgencyLogin[]; currentAccountIds: string[]; connected: boolean }) {
   const router = useRouter();
-  const [loginId, setLoginId] = useState(logins[0]?.id ?? "");
+  const [chosenLoginId, setLoginId] = useState("");
+  // A conta escolhida vale só se ainda existir; senão usa a primeira (a lista pode chegar depois da tela abrir).
+  const loginId = logins.some(login => login.id === chosenLoginId) ? chosenLoginId : logins[0]?.id ?? "";
   const [accounts, setAccounts] = useState<AgencyLoginAccount[] | null>(null);
   const [selected, setSelected] = useState<string[]>(currentAccountIds);
   const [search, setSearch] = useState("");
