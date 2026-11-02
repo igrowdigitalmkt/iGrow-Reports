@@ -6,6 +6,7 @@ import { appSecretsFromEnv } from "./graph-proof";
 import { splitLeadFields, toFetchedLead, type LeadPage } from "./leads";
 import { notifyNewLead } from "./alerts-send";
 import { saveLead } from "./store";
+import { leadsTokenCandidates, tokenForPage } from "./leads-tokens";
 import type { Service } from "./hub-query";
 
 const MAX_FORMS = 25;
@@ -19,15 +20,21 @@ export type SyncResult = { ok: true; forms: number; leads: number } | { ok: fals
  * últimos leads de cada um (o que já existe é ignorado). Só leitura na Meta. O erro é guardado na fonte para aparecer na tela.
  */
 export async function syncLeadSource(service: Service, source: { id: string; fbPageId: string; slug: string; title: string; formId: string | null }): Promise<SyncResult> {
-  const token = process.env.META_LEADS_ACCESS_TOKEN?.trim();
   const config = getMetaApiConfig();
+  const { data: owner } = await service.from("lead_pages").select("agency_id").eq("id", source.id).maybeSingle();
+  const tokens = await leadsTokenCandidates(service, owner?.agency_id);
+  const token = tokens[0];
   const finish = async (error: string | null) => { await service.from("lead_pages").update({ last_synced_at: new Date().toISOString(), sync_error: error?.slice(0, 500) ?? null }).eq("id", source.id); };
-  if (!token || !config) { await finish("Falta configurar o token de leads (META_LEADS_ACCESS_TOKEN) neste ambiente."); return { ok: false, message: "Token de leads não configurado." }; }
-  const base = { token, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() };
+  if (!token || !config) { await finish("Ainda não há conexão com a Meta neste ambiente. Conecte a Meta em Integrações."); return { ok: false, message: "Token de leads não configurado." }; }
+  const secrets = appSecretsFromEnv();
   try {
-    const page = await graphCall({ ...base, path: `${encodeURIComponent(source.fbPageId)}?fields=access_token` });
-    const pageToken = typeof page.body?.access_token === "string" ? page.body.access_token : null;
-    if (!page.ok || !pageToken) { const message = `A Meta não liberou o acesso à Página (${page.code}). ${page.message}`.trim(); await finish(message); return { ok: false, message }; }
+    const found = await tokenForPage(tokens, { pageId: source.fbPageId, apiVersion: config.apiVersion, appSecrets: secrets });
+    if (!found) {
+      const page = await graphCall({ token, apiVersion: config.apiVersion, appSecrets: secrets, path: `${encodeURIComponent(source.fbPageId)}?fields=access_token` });
+      const message = `A Meta não liberou o acesso à Página (${page.code}). ${page.message}`.trim(); await finish(message); return { ok: false, message };
+    }
+    const base = { token: found.token, apiVersion: config.apiVersion, appSecrets: secrets };
+    const pageToken = found.pageToken;
     const pageBase = { ...base, token: pageToken };
 
     const formsResponse = await graphCall({ ...pageBase, path: `${encodeURIComponent(source.fbPageId)}/leadgen_forms?fields=id,name,status&limit=${MAX_FORMS}` });

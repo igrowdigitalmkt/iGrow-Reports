@@ -5,6 +5,7 @@ import { findLeadPages, saveLead } from "@/modules/lead-pages/store";
 import { notifyNewLead } from "@/modules/lead-pages/alerts-send";
 import { appSecretsFromEnv } from "@/modules/lead-pages/graph-proof";
 import { runAfter } from "@/modules/lead-pages/run-after";
+import { leadsTokenCandidates } from "@/modules/lead-pages/leads-tokens";
 import { validWebhookSignature } from "@/modules/whatsapp/webhook";
 
 export const runtime = "nodejs";
@@ -33,16 +34,22 @@ export async function POST(request: Request) {
   if (!events.length) return new Response("OK", { status: 200 });
 
   const service = createSupabaseServiceClient();
-  const token = process.env.META_LEADS_ACCESS_TOKEN?.trim();
   const config = getMetaApiConfig();
-  if (!service || !token || !config) {
-    console.error("leadgen: configuração incompleta", { banco: !!service, tokenDeLeads: !!token, versaoDaApi: !!config });
+  const tokens = service ? await leadsTokenCandidates(service) : [];
+  if (!service || !tokens.length || !config) {
+    console.error("leadgen: configuração incompleta", { banco: !!service, tokenDeLeads: tokens.length > 0, versaoDaApi: !!config });
     return new Response("Retry", { status: 503 });
   }
   const created: string[] = [];
   const result = await processLeadgenEvents(events, {
     findPages: (pageId, formId) => findLeadPages(service, pageId, formId),
-    fetchLead: leadgenId => fetchLead({ leadgenId, token, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() }),
+    fetchLead: async leadgenId => {
+      let failure: unknown = new Error("sem credencial");
+      for (const token of tokens) {
+        try { return await fetchLead({ leadgenId, token, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() }); } catch (error) { failure = error; }
+      }
+      throw failure;
+    },
     save: async (page, lead, fields) => { const id = await saveLead(service, page, lead, fields); if (id) created.push(id); },
   });
   // Alertas de lead novo (WhatsApp): depois de responder à Meta, para não atrasar o aviso.

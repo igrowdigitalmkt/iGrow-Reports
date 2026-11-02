@@ -8,6 +8,7 @@ import { authorizeLeadsClient } from "./hub-access";
 import { adoptLinkCode, createLink, createSource, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
 import { addLeadNote, changeLeadStatus } from "./hub-query";
 import { syncLeadSource } from "./hub-sync";
+import { leadsTokenCandidates, tokenForPage } from "./leads-tokens";
 import { listMetaPages, type MetaPageOption } from "./pages-directory";
 import { LEAD_STATUSES } from "./hub-types";
 
@@ -57,7 +58,7 @@ export async function listAvailableLeadPagesAction(input: unknown): Promise<{ ok
   if (!parsed.success) return { ok: false, message: "Pedido inválido." };
   const access = await authorizeLeadsClient(parsed.data.clientId);
   if (!access.allowed || !access.canManage) return NO_ACCESS;
-  const [result, sources] = await Promise.all([listMetaPages(), listSources(access.service, access.clientId)]);
+  const [result, sources] = await Promise.all([leadsTokenCandidates(access.service, access.agencyId).then(listMetaPages), listSources(access.service, access.clientId)]);
   if (!result.ok) return result;
   const connected = new Set((sources ?? []).map(source => source.fbPageId));
   return { ok: true, pages: result.pages.map(page => ({ ...page, connected: connected.has(page.id) })) };
@@ -97,10 +98,11 @@ export async function syncLeadSourceAction(input: unknown): Promise<SettingsResu
 async function connectAndSync(access: Extract<Awaited<ReturnType<typeof authorizeLeadsClient>>, { allowed: true }>, sourceId: string): Promise<{ message: string }> {
   const { data: source } = await access.service.from("lead_pages").select("id,fb_page_id,slug,title,form_id").eq("id", sourceId).eq("client_id", access.clientId).maybeSingle();
   if (!source) return { message: "Fonte de leads não encontrada." };
-  const token = process.env.META_LEADS_ACCESS_TOKEN?.trim();
   const config = getMetaApiConfig();
-  if (!token || !config) return { message: "Falta configurar o token de leads (META_LEADS_ACCESS_TOKEN) neste ambiente." };
-  const subscribed = await subscribePageToLeadgen({ pageId: source.fb_page_id, token, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
+  const tokens = await leadsTokenCandidates(access.service, access.agencyId);
+  if (!tokens.length || !config) return { message: "Ainda não há conexão com a Meta neste ambiente. Conecte a Meta em Integrações." };
+  const found = await tokenForPage(tokens, { pageId: source.fb_page_id, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
+  const subscribed = await subscribePageToLeadgen({ pageId: source.fb_page_id, token: found?.token ?? tokens[0], apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
   if (!subscribed.ok) {
     const message = `A Meta não liberou a Página (${subscribed.code}). ${subscribed.message}`.trim();
     await access.service.from("lead_pages").update({ last_synced_at: new Date().toISOString(), sync_error: message.slice(0, 500) }).eq("id", source.id);
