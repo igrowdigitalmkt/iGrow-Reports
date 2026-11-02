@@ -162,8 +162,9 @@ function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatu
   lead: BoardLead; now: number; fresh: boolean; canUpdate: boolean; api: BoardApi; open: boolean; onToggle: () => void; onStatus: (status: LeadStatus) => void;
   copied: string | null; onCopy: (value: string, key: string) => void;
 }) {
-  const origin = originOf(lead) || lead.formName;
-  const platform = platformLabel(lead.platform);
+  const isWhatsApp = lead.channel === "whatsapp";
+  const origin = originOf(lead) || (isWhatsApp ? "Origem não confirmada" : lead.formName);
+  const platform = isWhatsApp ? "WhatsApp" : platformLabel(lead.platform);
   return <li className={`lead-row has-status is-compact${fresh ? " is-new" : ""}${open ? " is-open" : ""}`}>
     <time className="lead-when" dateTime={lead.createdTime} title={dateTime.format(new Date(lead.createdTime))}><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong></time>
     <div className="lead-name"><span className="lead-name-text" title={lead.name ?? undefined}>{lead.name ?? <span className="lead-muted">Sem nome</span>}</span>{fresh && <span className="lead-badge">Novo</span>}</div>
@@ -199,13 +200,15 @@ function LeadDetail({ lead, api, canUpdate }: { lead: BoardLead; api: BoardApi; 
     setSaving(false);
     if (ok) { setNote(""); void reload(); } else setFailed(true);
   };
-  const facts: [string, string][] = [["Fonte", lead.formName], ["Campanha", lead.campaignName ?? ""], ["Conjunto", lead.adsetName ?? ""], ["Anúncio", lead.adName ?? ""], ["Plataforma", platformLabel(lead.platform) ?? ""], ["Recebido em", dateTime.format(new Date(lead.createdTime))]];
+  const facts: [string, string][] = [[lead.channel === "whatsapp" ? "Canal" : "Fonte", lead.formName], ["Campanha", lead.campaignName ?? ""], ["Conjunto", lead.adsetName ?? ""], ["Anúncio", lead.adName ?? ""], ["Plataforma", platformLabel(lead.platform) ?? ""], ["Recebido em", dateTime.format(new Date(lead.createdTime))]];
   return <div className="lead-detail">
     <div className="lead-detail-main">
       <dl className="lead-facts">
         {facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+        {lead.firstMessage && <div className="is-answer"><dt>Primeira mensagem</dt><dd>{lead.firstMessage}</dd></div>}
         {lead.answers.map(item => <div key={item.question} className="is-answer"><dt>{item.question}</dt><dd>{item.answer}</dd></div>)}
       </dl>
+      {lead.channel === "whatsapp" && lead.phone && <a className="lead-btn" href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer"><MessageCircle size={14} aria-hidden="true" />Abrir conversa</a>}
       {canUpdate && <form className="lead-note-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <textarea value={note} onChange={event => setNote(event.target.value)} maxLength={2000} rows={2} placeholder="Escreva uma nota (quem atendeu, o que ficou combinado…)" aria-label="Nova nota" />
         <button type="submit" className="lead-btn is-primary" disabled={!note.trim() || saving}>{saving ? "Salvando…" : "Salvar nota"}</button>

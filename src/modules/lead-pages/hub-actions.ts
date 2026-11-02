@@ -143,7 +143,7 @@ export async function syncLeadSourceAction(input: unknown): Promise<SettingsResu
 
 async function connectAndSync(access: Extract<Awaited<ReturnType<typeof authorizeLeadsClient>>, { allowed: true }>, sourceId: string): Promise<{ message: string; failed?: boolean }> {
   const { data: source } = await access.service.from("lead_pages").select("id,fb_page_id,slug,title,form_id").eq("id", sourceId).eq("client_id", access.clientId).maybeSingle();
-  if (!source) return { message: "Fonte de leads não encontrada.", failed: true };
+  if (!source || !source.fb_page_id) return { message: "Fonte de leads não encontrada.", failed: true };
   const config = getMetaApiConfig();
   const tokens = await leadsTokenCandidates(access.service, access.agencyId);
   if (!tokens.length || !config) return { message: "Ainda não há conexão com a Meta neste ambiente. Conecte a Meta em Integrações.", failed: true };

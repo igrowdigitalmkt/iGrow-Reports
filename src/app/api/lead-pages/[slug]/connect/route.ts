@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const config = getMetaApiConfig();
   if (!service || !token || !config) return Response.json({ ok: false, message: "Falta configurar META_LEADS_ACCESS_TOKEN ou a versão da API da Meta neste ambiente." }, { status: 503, headers });
   const { data: page } = await service.from("lead_pages").select("fb_page_id,active").eq("slug", slug).eq("agency_id", context.agency.id).maybeSingle();
-  if (!page || !page.active) return Response.json({ ok: false, message: "Página de leads não encontrada nesta organização." }, { status: 404, headers });
+  if (!page || !page.active || !page.fb_page_id) return Response.json({ ok: false, message: "Página de leads não encontrada nesta organização." }, { status: 404, headers });
   const result = await subscribePageToLeadgen({ pageId: page.fb_page_id, token, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
   return Response.json(result.ok
     ? { ok: true, pageId: page.fb_page_id, subscribed: result.subscribed, message: "Página inscrita no app para receber leads (leadgen)." }

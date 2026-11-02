@@ -12,7 +12,7 @@ export type SourceView = { id: string; title: string; fbPageId: string; formId: 
 export type LinkView = { id: string; name: string; formIds: string[] | null; canUpdate: boolean; active: boolean; lastOpenedAt: string | null; createdAt: string };
 
 export async function listSources(service: Service, clientId: string): Promise<SourceView[] | null> {
-  const { data, error } = await service.from("lead_pages").select("id,title,fb_page_id,form_id,active,last_synced_at,sync_error").eq("client_id", clientId).order("created_at");
+  const { data, error } = await service.from("lead_pages").select("id,title,fb_page_id,form_id,active,last_synced_at,sync_error").eq("client_id", clientId).eq("kind", "facebook").order("created_at");
   if (error) return null;
   const rows = data ?? [];
   const stats = await Promise.all(rows.map(async row => {
@@ -25,7 +25,7 @@ export async function listSources(service: Service, clientId: string): Promise<S
     const archived = scoped.filter(form => /^(ARCHIVED|DELETED)$/i.test(form.status ?? "")).length;
     return { count: count.count ?? 0, last: last.data?.created_time ?? null, forms: scoped.length - archived, archived };
   }));
-  return rows.map((row, index) => ({ id: row.id, title: row.title, fbPageId: row.fb_page_id, formId: row.form_id, active: row.active, lastSyncedAt: row.last_synced_at, syncError: row.sync_error, leadCount: stats[index]!.count, lastLeadAt: stats[index]!.last, formCount: stats[index]!.forms, archivedFormCount: stats[index]!.archived }));
+  return rows.map((row, index) => ({ id: row.id, title: row.title, fbPageId: row.fb_page_id ?? "", formId: row.form_id, active: row.active, lastSyncedAt: row.last_synced_at, syncError: row.sync_error, leadCount: stats[index]!.count, lastLeadAt: stats[index]!.last, formCount: stats[index]!.forms, archivedFormCount: stats[index]!.archived }));
 }
 
 export async function createSource(service: Service, input: { agencyId: string; clientId: string; title: string; fbPageId: string; formId: string | null; userId: string | null }): Promise<{ ok: true; id: string } | { ok: false; message: string }> {

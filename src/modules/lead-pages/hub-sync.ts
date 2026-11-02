@@ -70,7 +70,7 @@ export async function syncLeadSource(service: Service, source: { id: string; fbP
 
 /** Conferência discreta quando alguém abre a tela: só fontes sem conferência recente, sem travar a página. */
 export async function syncStaleSources(service: Service, clientId: string, now = new Date()): Promise<void> {
-  const { data } = await service.from("lead_pages").select("id,fb_page_id,slug,title,form_id,last_synced_at").eq("client_id", clientId).eq("active", true);
+  const { data } = await service.from("lead_pages").select("id,fb_page_id,slug,title,form_id,last_synced_at").eq("client_id", clientId).eq("kind", "facebook").eq("active", true);
   const stale = (data ?? []).filter(row => !row.last_synced_at || now.getTime() - new Date(row.last_synced_at).getTime() > SYNC_INTERVAL_MS);
-  for (const row of stale) await syncLeadSource(service, { id: row.id, fbPageId: row.fb_page_id, slug: row.slug, title: row.title, formId: row.form_id });
+  for (const row of stale) if (row.fb_page_id) await syncLeadSource(service, { id: row.id, fbPageId: row.fb_page_id, slug: row.slug, title: row.title, formId: row.form_id });
 }

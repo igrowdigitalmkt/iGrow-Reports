@@ -62,7 +62,7 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const channels = LEAD_CHANNELS.filter(channel => channelCounts.has(channel)).map(channel => ({ channel, count: channelCounts.get(channel) ?? 0 }));
   const selectedForms = filters.forms.length ? (restrict ? filters.forms.filter(id => restrict.includes(id)) : filters.forms) : restrict;
   if (selectedForms && !selectedForms.length) return { ...empty, total: (aggregate.data ?? []).length, today, statusCounts, forms, campaigns, channels };
-  let list = service.from("leads").select("id,name,phone,email,status,status_changed_at,form_id,channel,field_data,created_time,campaign_id,campaign_name,adset_name,ad_name,platform", { count: "exact" })
+  let list = service.from("leads").select("id,name,phone,email,status,status_changed_at,form_id,channel,first_message,field_data,created_time,campaign_id,campaign_name,adset_name,ad_name,platform", { count: "exact" })
     .in("lead_page_id", pageIds).order("created_time", { ascending: false }).limit(LIST_LIMIT);
   if (selectedForms) list = list.in("form_id", selectedForms);
   if (filters.campaigns.length) list = list.in("campaign_id", filters.campaigns);
@@ -79,8 +79,8 @@ export async function queryBoard(service: Service, input: { clientId: string; re
     const { fields, answers } = splitLeadFields(row.field_data);
     return {
       id: row.id, name: row.name ?? fields.name, phone: row.phone ?? fields.phone, email: row.email ?? fields.email, answers,
-      status: isLeadStatus(row.status) ? row.status : "new", statusChangedAt: row.status_changed_at, formId: row.form_id, channel: row.channel,
-      formName: row.form_id ? (nameOf.get(row.form_id) ?? fallbackFormName(row.form_id)) : fallbackFormName(null), createdTime: row.created_time,
+      status: isLeadStatus(row.status) ? row.status : "new", statusChangedAt: row.status_changed_at, formId: row.form_id, channel: row.channel, firstMessage: row.first_message,
+      formName: row.channel === "whatsapp" ? "WhatsApp" : row.form_id ? (nameOf.get(row.form_id) ?? fallbackFormName(row.form_id)) : fallbackFormName(null), createdTime: row.created_time,
       campaignId: row.campaign_id, campaignName: row.campaign_name, adsetName: row.adset_name, adName: row.ad_name, platform: row.platform,
     };
   });

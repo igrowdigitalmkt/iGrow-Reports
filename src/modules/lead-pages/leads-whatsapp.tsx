@@ -114,7 +114,7 @@ export function LeadsWhatsApp({ clientId, onMessage }: { clientId: string; onMes
           <select value={mode} onChange={event => setMode(event.target.value as LeadWaMode)} disabled={!!busy}>{(Object.keys(MODE_LABEL) as LeadWaMode[]).map(key => <option key={key} value={key}>{MODE_LABEL[key]}</option>)}</select></label>
         <label>Números que nunca viram lead <span className="lead-muted">(um por linha: equipe, fornecedores…)</span>
           <textarea value={ignored} onChange={event => setIgnored(event.target.value)} rows={3} placeholder="(86) 99999-9999" disabled={!!busy} /></label>
-        <p className="lead-muted">A criação automática de leads por WhatsApp ainda não está ativa: por enquanto o Groow Ads só confere a conexão e guarda estas regras.</p>
+        <p className="lead-muted">Só mensagens recebidas de contatos individuais contam. Quem já é lead (últimos 30 dias ou em atendimento), o próprio número e os números acima não geram outro lead. Mensagens de antes da conexão não entram.</p>
         <div className="lead-form-actions"><button type="button" className="lead-btn is-primary" onClick={() => void saveRules()} disabled={!!busy}>Salvar regras</button></div>
       </div>}
       {connected && <div className="lead-form-actions"><button type="button" className="lead-btn is-danger" onClick={() => void disconnect()} disabled={!!busy}><Smartphone size={14} aria-hidden="true" />Desconectar WhatsApp</button></div>}

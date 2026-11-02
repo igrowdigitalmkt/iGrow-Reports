@@ -9,7 +9,7 @@ type Service = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 export async function findLeadPages(service: Service, pageId: string, formId: string | null): Promise<LeadPage[]> {
   const { data, error } = await service.from("lead_pages").select("id,slug,title,fb_page_id,form_id").eq("fb_page_id", pageId).eq("active", true);
   if (error) throw new Error("lead_pages");
-  return (data ?? []).filter(row => !row.form_id || row.form_id === formId).map(row => ({ id: row.id, slug: row.slug, title: row.title, fbPageId: row.fb_page_id, formId: row.form_id }));
+  return (data ?? []).filter(row => row.fb_page_id && (!row.form_id || row.form_id === formId)).map(row => ({ id: row.id, slug: row.slug, title: row.title, fbPageId: row.fb_page_id as string, formId: row.form_id }));
 }
 
 /** Grava o lead uma única vez por página (o aviso da Meta pode chegar repetido). */
