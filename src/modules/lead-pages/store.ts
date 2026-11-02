@@ -7,7 +7,7 @@ type Service = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 
 /** Páginas ativas que recebem os leads desta Página do Facebook (e, se a página restringe a um formulário, só desse formulário). */
 export async function findLeadPages(service: Service, pageId: string, formId: string | null): Promise<LeadPage[]> {
-  const { data, error } = await service.from("lead_pages").select("id,slug,title,fb_page_id,form_id").eq("fb_page_id", pageId).eq("active", true);
+  const { data, error } = await service.from("lead_pages").select("id,slug,title,fb_page_id,form_id").eq("fb_page_id", pageId).eq("kind", "facebook").eq("active", true);
   if (error) throw new Error("lead_pages");
   return (data ?? []).filter(row => row.fb_page_id && (!row.form_id || row.form_id === formId)).map(row => ({ id: row.id, slug: row.slug, title: row.title, fbPageId: row.fb_page_id as string, formId: row.form_id }));
 }

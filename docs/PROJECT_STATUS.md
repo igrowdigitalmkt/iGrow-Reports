@@ -36,6 +36,8 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 
 - **Leads por WhatsApp (QR):** migrações `202611080001_lead_whatsapp_sessions` e `202611090001_lead_whatsapp_leads` aplicadas em produção (não reaplicar). Sessão de captação por cliente (instância Evolution `igrow-lead-<id>`, webhook `/api/webhooks/evolution/leads`), regras (todo contato novo / só anúncio / manual, números ignorados, janela de 30 dias), lead no canal `whatsapp` com primeira mensagem, nomes do anúncio pela Graph API quando o aparelho informa, canal nos alertas e no Desempenho. Homologado em 2/11/2026 com uma mensagem real (lead criado). Desenho: `docs/DESENHO_LEADS_WHATSAPP.md`. Pendente: homologar anúncio Click-to-WhatsApp real; Instagram Direct.
 
+- **Instagram Direct como canal de leads:** migrações `202611100001_delete_lead_source` e `202611110001_lead_instagram` aplicadas em produção (não reaplicar). Fonte `kind=instagram` por conta profissional, webhook `/api/webhooks/meta/instagram` (mesmo token de verificação dos leads; configurar no app o produto Instagram › Webhooks › campo `messages`), lead por pessoa e por conta com @ e primeira mensagem. Implementado e testado só com dados simulados; **não homologado com mensagem real**. Exclusão de fonte com todos os leads exige digitar o nome. Guia do pedido de revisão: `docs/REVISAO_META_INSTAGRAM_MENSAGENS.md`.
+
 ## Pendências (ordem sugerida)
 1. Validar com dados reais do Google: seção no painel do Colégio Crescer, PDF com Meta+Google, mensagem de WhatsApp; depois pausar a campanha de teste e desvincular a conta do cliente.
 2. Testar "Desconectar" do Google e reconectar (fluxo do usuário novo) e o "Desconectar" da Meta num cliente sem importância (não testado em produção).

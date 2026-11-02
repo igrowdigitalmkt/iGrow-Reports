@@ -19,7 +19,7 @@ export const EMPTY_FILTERS: LeadFilters = { forms: [], campaigns: [], status: []
 
 export type BoardLead = {
   id: string; name: string | null; phone: string | null; email: string | null; status: LeadStatus; statusChangedAt: string | null;
-  formId: string | null; formName: string; channel: "form" | "whatsapp" | "instagram"; firstMessage: string | null;
+  formId: string | null; formName: string; channel: "form" | "whatsapp" | "instagram"; firstMessage: string | null; handle: string | null;
   /** Origem do anúncio, quando a Meta informou (nomes) e a plataforma ("fb", "ig"…). */
   campaignId: string | null; campaignName: string | null; adsetName: string | null; adName: string | null; platform: string | null;
   answers: { question: string; answer: string }[]; createdTime: string;

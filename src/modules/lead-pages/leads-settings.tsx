@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useEffect, useRef } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, KeyRound, Link2, Loader2, Pencil, Plug, Plus, RefreshCw, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  adoptLeadLinkCodeAction, createLeadLinkAction, createLeadSourceAction, deleteLeadLinkAction, deleteLeadSourceAction, getLeadLinkCodeAction, listAvailableLeadPagesAction, rotateLeadLinkAction,
+  adoptLeadLinkCodeAction, createLeadLinkAction, createLeadSourceAction, deleteLeadLinkAction, deleteLeadSourceAction, connectInstagramAction, getLeadLinkCodeAction, listAvailableLeadPagesAction, listInstagramAccountsAction, type InstagramAccountOption, rotateLeadLinkAction,
   setLeadSourceActiveAction, syncLeadSourceAction, updateLeadLinkAction, updateLeadSourceAction, type SettingsResult, type SettingsSnapshot,
 } from "./hub-actions";
 import type { BoardForm } from "./hub-types";
@@ -54,6 +54,15 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
   useEffect(() => { if (busy || error || notice) statusRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [busy, error, notice]);
   const copy = async (value: string, key: string) => { try { await navigator.clipboard.writeText(value); setCopied(key); setTimeout(() => setCopied(current => current === key ? null : current), 1800); } catch { setError("O navegador não deixou copiar. Selecione o link e copie manualmente."); } };
 
+  const [igPicker, setIgPicker] = useState<{ accounts: InstagramAccountOption[]; query: string } | "loading" | null>(null);
+  const openIgPicker = () => {
+    setError(""); setNotice(""); setIgPicker("loading");
+    void listInstagramAccountsAction({ clientId }).then(result => {
+      if (!result.ok) { setIgPicker(null); setError(result.message); return; }
+      setIgPicker({ accounts: result.accounts, query: "" });
+    }).catch(() => { setIgPicker(null); setError("Não foi possível buscar as contas do Instagram agora. Tente de novo."); });
+  };
+  const connectIg = (account: InstagramAccountOption) => run(() => connectInstagramAction({ clientId, igAccountId: account.igId }), () => setIgPicker(null), `Conectando ${account.username ? `@${account.username}` : "a conta"} e assinando as mensagens…`, account.igId);
   const openPicker = () => {
     setError(""); setNotice(""); setPicker("loading");
     void listAvailableLeadPagesAction({ clientId }).then(result => {
@@ -116,7 +125,27 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
         <li><div><strong>Formulários de anúncio</strong><small>Facebook e Instagram: o cadastro preenchido no anúncio.</small></div>
           {data.sources.some(source => source.active) ? <span className="lead-badge">Ativo</span> : <span className="lead-badge is-off">Sem fonte conectada</span>}</li>
         <li className="lead-channel-wide"><LeadsWhatsApp clientId={clientId} onMessage={(kind, text) => { if (kind === "error") { setError(text); setNotice(""); } else { setNotice(text); setError(""); } }} /></li>
-        <li><div><strong>Instagram Direct</strong><small>Mensagens diretas que viram leads.</small></div><span className="lead-badge is-off">Em breve</span></li>
+        <li className="lead-channel-wide"><div className="lead-wa">
+          <div className="lead-wa-head"><div><strong>Instagram Direct</strong><small>Quem manda uma mensagem direta para a conta profissional do cliente vira lead, com o usuário e a primeira mensagem. A conversa continua no Instagram.</small></div>
+            {data.sources.some(source => source.kind === "instagram" && source.active) ? <span className="lead-badge">Ativo</span> : <span className="lead-badge is-off">Sem conta conectada</span>}</div>
+          {igPicker === null && <div className="lead-form-actions"><button type="button" className="lead-btn is-primary" onClick={openIgPicker} disabled={pending}><Plus size={14} aria-hidden="true" />Conectar conta do Instagram</button></div>}
+          {igPicker === "loading" && <div className="lead-picker is-loading" role="status"><Loader2 size={20} className="lead-spin" aria-hidden="true" /><div><strong>Buscando as contas do Instagram na Meta…</strong><small>Usamos a conexão que você já fez. Pode levar alguns segundos.</small></div></div>}
+          {igPicker && igPicker !== "loading" && <div className="lead-picker">
+            <div className="lead-picker-head">
+              <label className="lead-picker-search"><Search size={14} aria-hidden="true" /><input value={igPicker.query} onChange={event => setIgPicker({ ...igPicker, query: event.target.value })} placeholder="Buscar conta pelo usuário ou Página" aria-label="Buscar conta do Instagram" autoFocus /></label>
+              <button type="button" className="lead-btn" onClick={() => setIgPicker(null)} disabled={pending}>Fechar</button>
+            </div>
+            {(() => {
+              const term = igPicker.query.trim().toLocaleLowerCase("pt-BR");
+              const shown = igPicker.accounts.filter(item => !term || `${item.username ?? ""} ${item.name ?? ""} ${item.pageName}`.toLocaleLowerCase("pt-BR").includes(term));
+              return shown.length === 0 ? <p className="lead-muted">{igPicker.accounts.length ? "Nenhuma conta com esse nome." : "A Meta não mostrou nenhuma conta profissional do Instagram ligada às suas Páginas. Confira se a conta é profissional e está ligada à Página do cliente."}</p>
+                : <ul className="lead-picker-list">{shown.map(item => <li key={item.igId}>
+                  <div><strong>{item.username ? `@${item.username}` : item.name ?? "Conta do Instagram"}</strong><small>Página {item.pageName} · ID {item.igId}</small></div>
+                  {item.connected ? <span className="lead-badge">Conectada</span> : <button type="button" className="lead-btn is-primary" onClick={() => connectIg(item)} disabled={pending}>{pending && connectingId === item.igId ? <><Loader2 size={14} className="lead-spin" aria-hidden="true" />Conectando…</> : "Conectar"}</button>}
+                </li>)}</ul>;
+            })()}
+          </div>}
+        </div></li>
       </ul>
     </section>
 
@@ -126,15 +155,15 @@ export function LeadsSettings({ clientId, initial, forms }: { clientId: string; 
         : <ul className="lead-source-list">{data.sources.map(source => <li key={source.id}>
           {sourceDraft?.id === source.id ? <form className="lead-form-inline lead-inline-edit" onSubmit={event => { event.preventDefault(); run(() => updateLeadSourceAction({ clientId, sourceId: source.id, title: sourceDraft.title, formId: sourceDraft.formId.trim() || null }), () => setSourceDraft(null)); }}>
             <label>Nome<input value={sourceDraft.title} onChange={event => setSourceDraft({ ...sourceDraft, title: event.target.value })} required minLength={2} maxLength={160} disabled={pending} /></label>
-            <label>ID do formulário <span className="lead-muted">(vazio = todos)</span><input value={sourceDraft.formId} onChange={event => setSourceDraft({ ...sourceDraft, formId: event.target.value })} inputMode="numeric" pattern="[0-9]{5,30}" disabled={pending} /></label>
+            {data.sources.find(item => item.id === sourceDraft.id)?.kind !== "instagram" && <label>ID do formulário <span className="lead-muted">(vazio = todos)</span><input value={sourceDraft.formId} onChange={event => setSourceDraft({ ...sourceDraft, formId: event.target.value })} inputMode="numeric" pattern="[0-9]{5,30}" disabled={pending} /></label>}
             <div className="lead-form-actions"><button type="button" className="lead-btn" onClick={() => setSourceDraft(null)} disabled={pending}>Cancelar</button><button type="submit" className="lead-btn is-primary" disabled={pending}>Salvar</button></div>
           </form> : <>
             <div className="lead-source-main">
               <strong>{source.title}{!source.active && <span className="lead-badge is-off">Pausada</span>}</strong>
-              <small>Página {source.fbPageId}{source.formId ? ` · formulário ${source.formId}` : " · todos os formulários"} · {source.lastSyncedAt ? `${source.formCount} formulário(s) ativo(s)${source.archivedFormCount ? `, ${source.archivedFormCount} arquivado(s)` : ""}` : "ainda não conferida"}</small>
+              {source.kind === "instagram" ? <small>Instagram Direct{source.igUsername ? ` · @${source.igUsername}` : ""} · Página {source.fbPageId}</small> : <small>Página {source.fbPageId}{source.formId ? ` · formulário ${source.formId}` : " · todos os formulários"} · {source.lastSyncedAt ? `${source.formCount} formulário(s) ativo(s)${source.archivedFormCount ? `, ${source.archivedFormCount} arquivado(s)` : ""}` : "ainda não conferida"}</small>}
               <small>{source.leadCount} lead(s) · último lead: {when(source.lastLeadAt)} · conferido na Meta: {when(source.lastSyncedAt)}</small>
               {source.syncError ? <small className="lead-source-error">{source.syncError}</small> : source.lastSyncedAt ? <small className="lead-source-ok">Conexão com a Meta em ordem.</small> : null}
-              {!source.syncError && source.lastSyncedAt && source.formCount === 0 && <p className="lead-notice-line is-warn" role="status"><TriangleAlert size={14} />{source.archivedFormCount > 0
+              {source.kind === "facebook" && !source.syncError && source.lastSyncedAt && source.formCount === 0 && <p className="lead-notice-line is-warn" role="status"><TriangleAlert size={14} />{source.archivedFormCount > 0
                 ? `Esta Página só tem formulários arquivados na Meta (${source.archivedFormCount}). Nenhum formulário ativo para receber leads. Reative um formulário ou crie um novo no Gerenciador de Anúncios.`
                 : source.formId ? "O formulário informado não foi encontrado nesta Página. Confira o ID do formulário ou a Página escolhida."
                   : "Nenhum formulário de anúncio encontrado nesta Página. Confira se é a Página certa ou crie um formulário instantâneo no Gerenciador de Anúncios; os leads aparecem aqui assim que houver um."}</p>}

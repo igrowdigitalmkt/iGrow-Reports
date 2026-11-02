@@ -5,11 +5,11 @@ import { getMetaApiConfig } from "@/lib/env";
 import { subscribePageToLeadgen } from "./connect";
 import { appSecretsFromEnv } from "./graph-proof";
 import { authorizeLeadsClient } from "./hub-access";
-import { adoptLinkCode, createLink, createSource, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
+import { adoptLinkCode, createLink, createInstagramSource, createSource, deleteLink, deleteSource, listLinks, listSources, readLinkCode, rotateLinkCode, setSourceActive, updateLink, updateSource, type LinkView, type SourceView } from "./hub-admin";
 import { addLeadNote, changeLeadStatus } from "./hub-query";
 import { syncLeadSource } from "./hub-sync";
 import { explainMetaFailure, leadsTokenCandidates, tokenForPage } from "./leads-tokens";
-import { listMetaPages, type MetaPageOption } from "./pages-directory";
+import { listMetaInstagramAccounts, listMetaPages, type MetaInstagramOption, type MetaPageOption } from "./pages-directory";
 import { EvolutionError } from "@/modules/whatsapp-qr/evolution";
 import { disconnectLeadWaSession, getLeadWaView, startLeadWaSession, updateLeadWaSettings, type LeadWaView } from "./wa-session";
 import { LEAD_STATUSES } from "./hub-types";
@@ -110,6 +110,39 @@ export async function listAvailableLeadPagesAction(input: unknown): Promise<{ ok
   return { ok: true, pages: result.pages.map(page => ({ ...page, connected: connected.has(page.id) })) };
 }
 
+export type InstagramAccountOption = MetaInstagramOption & { connected: boolean };
+
+/** Contas do Instagram que a conexão com a Meta enxerga, marcando as já conectadas. */
+export async function listInstagramAccountsAction(input: unknown): Promise<{ ok: true; accounts: InstagramAccountOption[] } | { ok: false; message: string }> {
+  const parsed = z.object({ clientId }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  const [result, taken] = await Promise.all([
+    leadsTokenCandidates(access.service, access.agencyId).then(listMetaInstagramAccounts),
+    access.service.from("lead_pages").select("ig_account_id").eq("kind", "instagram"),
+  ]);
+  if (!result.ok) return result;
+  const connected = new Set((taken.data ?? []).map(row => row.ig_account_id));
+  return { ok: true, accounts: result.accounts.map(account => ({ ...account, connected: connected.has(account.igId) })) };
+}
+
+/** Conecta uma conta do Instagram ao cliente: confere na Meta que a conta existe, cadastra a fonte e assina as mensagens. */
+export async function connectInstagramAction(input: unknown): Promise<SettingsResult> {
+  const parsed = z.object({ clientId, igAccountId: z.string().regex(/^[0-9]{5,30}$/) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pedido inválido." };
+  const access = await authorizeLeadsClient(parsed.data.clientId);
+  if (!access.allowed || !access.canManage) return NO_ACCESS;
+  const listed = await listMetaInstagramAccounts(await leadsTokenCandidates(access.service, access.agencyId));
+  if (!listed.ok) return listed;
+  const account = listed.accounts.find(item => item.igId === parsed.data.igAccountId);
+  if (!account) return { ok: false, message: "A Meta não mostra esta conta do Instagram para a conexão atual." };
+  const created = await createInstagramSource(access.service, { agencyId: access.agencyId, clientId: access.clientId, userId: access.userId, title: account.username ? `@${account.username}` : account.name ?? account.pageName, fbPageId: account.pageId, igAccountId: account.igId, igUsername: account.username });
+  if (!created.ok) return created;
+  const connected = await connectAndSync(access, created.id);
+  return snapshot(access, connected.failed ? { warning: connected.message } : { message: connected.message });
+}
+
 /** Cadastra uma Página do Facebook como fonte de leads do cliente, inscreve no app e já confere a Meta. */
 export async function createLeadSourceAction(input: unknown): Promise<SettingsResult> {
   const parsed = z.object({ clientId, title: z.string().trim().min(2).max(160), fbPageId: z.string().trim().regex(/^[0-9]{5,30}$/, "O ID da Página tem só números."), formId: z.string().trim().regex(/^[0-9]{5,30}$/).optional() }).safeParse(input);
@@ -142,17 +175,25 @@ export async function syncLeadSourceAction(input: unknown): Promise<SettingsResu
 }
 
 async function connectAndSync(access: Extract<Awaited<ReturnType<typeof authorizeLeadsClient>>, { allowed: true }>, sourceId: string): Promise<{ message: string; failed?: boolean }> {
-  const { data: source } = await access.service.from("lead_pages").select("id,fb_page_id,slug,title,form_id").eq("id", sourceId).eq("client_id", access.clientId).maybeSingle();
+  const { data: source } = await access.service.from("lead_pages").select("id,kind,ig_username,fb_page_id,slug,title,form_id").eq("id", sourceId).eq("client_id", access.clientId).maybeSingle();
   if (!source || !source.fb_page_id) return { message: "Fonte de leads não encontrada.", failed: true };
   const config = getMetaApiConfig();
   const tokens = await leadsTokenCandidates(access.service, access.agencyId);
   if (!tokens.length || !config) return { message: "Ainda não há conexão com a Meta neste ambiente. Conecte a Meta em Integrações.", failed: true };
   const found = await tokenForPage(tokens, { pageId: source.fb_page_id, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
-  const subscribed = await subscribePageToLeadgen({ pageId: source.fb_page_id, token: found?.token ?? tokens[0], pageToken: found?.pageToken, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
+  // A assinatura substitui a lista de campos: repete os que as outras fontes da mesma Página (Facebook e Instagram) usam.
+  const siblings = await access.service.from("lead_pages").select("kind").eq("fb_page_id", source.fb_page_id).eq("active", true).in("kind", ["facebook", "instagram"]);
+  const kinds = new Set<string>([source.kind, ...(siblings.data ?? []).map(row => row.kind)]);
+  const fields = [...(kinds.has("facebook") ? ["leadgen"] : []), ...(kinds.has("instagram") ? ["messages"] : [])];
+  const subscribed = await subscribePageToLeadgen({ pageId: source.fb_page_id, token: found?.token ?? tokens[0], pageToken: found?.pageToken, fields, apiVersion: config.apiVersion, appSecrets: appSecretsFromEnv() });
   if (!subscribed.ok) {
     const message = explainMetaFailure(subscribed.code, subscribed.message);
     await access.service.from("lead_pages").update({ last_synced_at: new Date().toISOString(), sync_error: message.slice(0, 500) }).eq("id", source.id);
     return { message, failed: true };
+  }
+  if (source.kind === "instagram") {
+    await access.service.from("lead_pages").update({ last_synced_at: new Date().toISOString(), sync_error: null }).eq("id", source.id);
+    return { message: `Conectado. ${source.ig_username ? `A conta @${source.ig_username}` : "A conta do Instagram"} passa a receber as mensagens do Direct como leads.` };
   }
   const synced = await syncLeadSource(access.service, { id: source.id, fbPageId: source.fb_page_id, slug: source.slug, title: source.title, formId: source.form_id });
   return synced.ok ? { message: `Conectado. ${synced.forms} formulário(s) e ${synced.leads} lead(s) conferidos na Meta.` } : { message: synced.message, failed: true };

@@ -8,7 +8,7 @@ export type ConnectResult =
   | { ok: true; subscribed: { app: string; fields: string[] }[] }
   | { ok: false; step: "page_token" | "subscribe" | "confirm"; status: number; code: string; message: string };
 
-export async function subscribePageToLeadgen(input: { pageId: string; token: string; pageToken?: string; apiVersion: string; appSecrets?: string[]; fetchImpl?: typeof fetch }): Promise<ConnectResult> {
+export async function subscribePageToLeadgen(input: { pageId: string; token: string; pageToken?: string; /** Campos do evento a assinar (padrão: leadgen). Quem assina de novo precisa repetir os que já usa. */ fields?: string[]; apiVersion: string; appSecrets?: string[]; fetchImpl?: typeof fetch }): Promise<ConnectResult> {
   const call = (path: string, token: string, init: { method?: "GET" | "POST"; body?: Record<string, string> } = {}) =>
     graphCall({ path, token, apiVersion: input.apiVersion, appSecrets: input.appSecrets, method: init.method, body: init.body, fetchImpl: input.fetchImpl });
 
@@ -16,7 +16,7 @@ export async function subscribePageToLeadgen(input: { pageId: string; token: str
   const pageToken = input.pageToken ?? (typeof page?.body?.access_token === "string" ? page.body.access_token : null);
   if (!pageToken || (page && !page.ok)) return { ok: false, step: "page_token", status: page?.status ?? 0, code: page?.code ?? "-", message: page?.message || "A Meta não devolveu o acesso da Página: confira se o usuário do sistema tem esta Página e as permissões de leads." };
 
-  const subscribe = await call(`${encodeURIComponent(input.pageId)}/subscribed_apps`, pageToken, { method: "POST", body: { subscribed_fields: "leadgen" } });
+  const subscribe = await call(`${encodeURIComponent(input.pageId)}/subscribed_apps`, pageToken, { method: "POST", body: { subscribed_fields: (input.fields?.length ? input.fields : ["leadgen"]).join(",") } });
   if (!subscribe.ok || subscribe.body?.success !== true) return { ok: false, step: "subscribe", status: subscribe.status, code: subscribe.code, message: subscribe.message || "A Meta não aceitou a inscrição da Página." };
 
   const confirm = await call(`${encodeURIComponent(input.pageId)}/subscribed_apps`, pageToken);

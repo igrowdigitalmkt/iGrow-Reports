@@ -8,11 +8,11 @@ import type { Service } from "./hub-query";
 
 /** Gestão das fontes de leads (Páginas do Facebook) e dos links compartilhados de um cliente. Só o servidor chama, depois de autorizar. */
 
-export type SourceView = { id: string; title: string; fbPageId: string; formId: string | null; active: boolean; lastSyncedAt: string | null; syncError: string | null; leadCount: number; lastLeadAt: string | null; formCount: number; archivedFormCount: number };
+export type SourceView = { id: string; kind: "facebook" | "instagram"; igUsername: string | null; title: string; fbPageId: string; formId: string | null; active: boolean; lastSyncedAt: string | null; syncError: string | null; leadCount: number; lastLeadAt: string | null; formCount: number; archivedFormCount: number };
 export type LinkView = { id: string; name: string; formIds: string[] | null; canUpdate: boolean; active: boolean; lastOpenedAt: string | null; createdAt: string };
 
 export async function listSources(service: Service, clientId: string): Promise<SourceView[] | null> {
-  const { data, error } = await service.from("lead_pages").select("id,title,fb_page_id,form_id,active,last_synced_at,sync_error").eq("client_id", clientId).eq("kind", "facebook").order("created_at");
+  const { data, error } = await service.from("lead_pages").select("id,kind,ig_username,title,fb_page_id,form_id,active,last_synced_at,sync_error").eq("client_id", clientId).in("kind", ["facebook", "instagram"]).order("created_at");
   if (error) return null;
   const rows = data ?? [];
   const stats = await Promise.all(rows.map(async row => {
@@ -25,11 +25,11 @@ export async function listSources(service: Service, clientId: string): Promise<S
     const archived = scoped.filter(form => /^(ARCHIVED|DELETED)$/i.test(form.status ?? "")).length;
     return { count: count.count ?? 0, last: last.data?.created_time ?? null, forms: scoped.length - archived, archived };
   }));
-  return rows.map((row, index) => ({ id: row.id, title: row.title, fbPageId: row.fb_page_id ?? "", formId: row.form_id, active: row.active, lastSyncedAt: row.last_synced_at, syncError: row.sync_error, leadCount: stats[index]!.count, lastLeadAt: stats[index]!.last, formCount: stats[index]!.forms, archivedFormCount: stats[index]!.archived }));
+  return rows.map((row, index) => ({ id: row.id, kind: row.kind === "instagram" ? "instagram" as const : "facebook" as const, igUsername: row.ig_username, title: row.title, fbPageId: row.fb_page_id ?? "", formId: row.form_id, active: row.active, lastSyncedAt: row.last_synced_at, syncError: row.sync_error, leadCount: stats[index]!.count, lastLeadAt: stats[index]!.last, formCount: stats[index]!.forms, archivedFormCount: stats[index]!.archived }));
 }
 
 export async function createSource(service: Service, input: { agencyId: string; clientId: string; title: string; fbPageId: string; formId: string | null; userId: string | null }): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
-  const existing = await service.from("lead_pages").select("id,form_id").eq("client_id", input.clientId).eq("fb_page_id", input.fbPageId);
+  const existing = await service.from("lead_pages").select("id,form_id").eq("client_id", input.clientId).eq("kind", "facebook").eq("fb_page_id", input.fbPageId);
   if ((existing.data ?? []).some(row => (row.form_id ?? null) === input.formId)) return { ok: false, message: "Esta Página já está cadastrada para este cliente." };
   // `slug` e `access_hash` são do modelo original (página única); cada fonte nova recebe valores próprios que nunca são usados como link.
   const slug = `fonte-${randomBytes(6).toString("hex")}`;
@@ -37,6 +37,18 @@ export async function createSource(service: Service, input: { agencyId: string; 
     agency_id: input.agencyId, client_id: input.clientId, slug, title: input.title.trim().slice(0, 160), fb_page_id: input.fbPageId, form_id: input.formId, access_hash: hashAccessCode(generateAccessCode()),
   }).select("id").single();
   return error || !data ? { ok: false, message: "Não foi possível cadastrar a Página. Confira o ID e tente de novo." } : { ok: true, id: data.id };
+}
+
+/** Conecta uma conta profissional do Instagram (e a Página dela) como fonte de leads do cliente. */
+export async function createInstagramSource(service: Service, input: { agencyId: string; clientId: string; userId: string | null; title: string; fbPageId: string; igAccountId: string; igUsername: string | null }): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  const existing = await service.from("lead_pages").select("id,client_id").eq("kind", "instagram").eq("ig_account_id", input.igAccountId).maybeSingle();
+  if (existing.data) return { ok: false, message: existing.data.client_id === input.clientId ? "Esta conta do Instagram já está conectada a este cliente." : "Esta conta do Instagram já está conectada a outro cliente." };
+  const slug = `instagram-${randomBytes(6).toString("hex")}`;
+  const { data, error } = await service.from("lead_pages").insert({
+    agency_id: input.agencyId, client_id: input.clientId, kind: "instagram", fb_page_id: input.fbPageId, ig_account_id: input.igAccountId, ig_username: input.igUsername,
+    slug, title: input.title.trim().slice(0, 160), access_hash: hashAccessCode(generateAccessCode()),
+  }).select("id").single();
+  return error || !data ? { ok: false, message: "Não foi possível conectar a conta do Instagram." } : { ok: true, id: data.id };
 }
 
 export async function setSourceActive(service: Service, input: { clientId: string; sourceId: string; active: boolean }): Promise<boolean> {

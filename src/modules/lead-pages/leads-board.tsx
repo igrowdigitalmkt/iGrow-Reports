@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Copy, Download, Mail, MessageCircle, Search, Volume2, VolumeX } from "lucide-react";
+import { AtSign, Check, ChevronDown, Copy, Download, Mail, MessageCircle, Search, Volume2, VolumeX } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { ago, formatPhone } from "./lead-feed-view";
 import type { BoardApi } from "./leads-api";
@@ -162,14 +162,15 @@ function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatu
   lead: BoardLead; now: number; fresh: boolean; canUpdate: boolean; api: BoardApi; open: boolean; onToggle: () => void; onStatus: (status: LeadStatus) => void;
   copied: string | null; onCopy: (value: string, key: string) => void;
 }) {
-  const isWhatsApp = lead.channel === "whatsapp";
-  const origin = originOf(lead) || (isWhatsApp ? "Não confirmada" : lead.formName);
-  const platform = isWhatsApp ? "WhatsApp" : platformLabel(lead.platform);
+  const isMessage = lead.channel !== "form";
+  const origin = originOf(lead) || (isMessage ? "Não confirmada" : lead.formName);
+  const platform = lead.channel === "whatsapp" ? "WhatsApp" : lead.channel === "instagram" ? "Instagram" : platformLabel(lead.platform);
   return <li className={`lead-row has-status is-compact${fresh ? " is-new" : ""}${open ? " is-open" : ""}`}>
     <time className="lead-when" dateTime={lead.createdTime} title={dateTime.format(new Date(lead.createdTime))}><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong></time>
     <div className="lead-name"><span className="lead-name-text" title={lead.name ?? undefined}>{lead.name ?? <span className="lead-muted">Sem nome</span>}</span>{fresh && <span className="lead-badge">Novo</span>}</div>
     <div className="lead-contact">
-      {lead.phone ? <span className="lead-chip"><a href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer" aria-label={`Chamar ${lead.name ?? "contato"} no WhatsApp`}><MessageCircle size={14} />{formatPhone(lead.phone)}</a>
+      {!lead.phone && lead.handle ? <span className="lead-chip"><a href={`https://instagram.com/${lead.handle}`} target="_blank" rel="noreferrer" aria-label={`Abrir o perfil de ${lead.handle} no Instagram`}><AtSign size={14} />{lead.handle}</a>
+        <button type="button" onClick={() => onCopy(`@${lead.handle!}`, `h${lead.id}`)} aria-label="Copiar usuário">{copied === `h${lead.id}` ? <Check size={13} /> : <Copy size={13} />}</button></span> : lead.phone ? <span className="lead-chip"><a href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer" aria-label={`Chamar ${lead.name ?? "contato"} no WhatsApp`}><MessageCircle size={14} />{formatPhone(lead.phone)}</a>
         <button type="button" onClick={() => onCopy(lead.phone!, `p${lead.id}`)} aria-label="Copiar WhatsApp">{copied === `p${lead.id}` ? <Check size={13} /> : <Copy size={13} />}</button></span> : <span className="lead-muted">Sem WhatsApp</span>}
       {lead.email && <span className="lead-chip is-email"><a href={`mailto:${lead.email}`} title={lead.email}><Mail size={14} /><span>{lead.email}</span></a>
         <button type="button" onClick={() => onCopy(lead.email!, `e${lead.id}`)} aria-label="Copiar e-mail">{copied === `e${lead.id}` ? <Check size={13} /> : <Copy size={13} />}</button></span>}
@@ -200,7 +201,7 @@ function LeadDetail({ lead, api, canUpdate }: { lead: BoardLead; api: BoardApi; 
     setSaving(false);
     if (ok) { setNote(""); void reload(); } else setFailed(true);
   };
-  const facts: [string, string][] = [[lead.channel === "whatsapp" ? "Canal" : "Fonte", lead.formName], ["Campanha", lead.campaignName ?? ""], ["Conjunto", lead.adsetName ?? ""], ["Anúncio", lead.adName ?? ""], ["Plataforma", platformLabel(lead.platform) ?? ""], ["Recebido em", dateTime.format(new Date(lead.createdTime))]];
+  const facts: [string, string][] = [[lead.channel !== "form" ? "Canal" : "Fonte", lead.formName], ["Campanha", lead.campaignName ?? ""], ["Conjunto", lead.adsetName ?? ""], ["Anúncio", lead.adName ?? ""], ["Plataforma", platformLabel(lead.platform) ?? ""], ["Recebido em", dateTime.format(new Date(lead.createdTime))]];
   return <div className="lead-detail">
     <div className="lead-detail-main">
       <dl className="lead-facts">
@@ -208,6 +209,7 @@ function LeadDetail({ lead, api, canUpdate }: { lead: BoardLead; api: BoardApi; 
         {lead.firstMessage && <div className="is-answer"><dt>Primeira mensagem</dt><dd>{lead.firstMessage}</dd></div>}
         {lead.answers.map(item => <div key={item.question} className="is-answer"><dt>{item.question}</dt><dd>{item.answer}</dd></div>)}
       </dl>
+      {lead.channel === "instagram" && lead.handle && <a className="lead-btn" href={`https://ig.me/m/${lead.handle}`} target="_blank" rel="noreferrer"><MessageCircle size={14} aria-hidden="true" />Abrir conversa</a>}
       {lead.channel === "whatsapp" && lead.phone && <a className="lead-btn" href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer"><MessageCircle size={14} aria-hidden="true" />Abrir conversa</a>}
       {canUpdate && <form className="lead-note-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <textarea value={note} onChange={event => setNote(event.target.value)} maxLength={2000} rows={2} placeholder="Escreva uma nota (quem atendeu, o que ficou combinado…)" aria-label="Nova nota" />
