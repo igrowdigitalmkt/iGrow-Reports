@@ -73,8 +73,15 @@ export function splitLeadFields(fieldData: unknown): { fields: LeadFields; answe
   if (!phone) { const found = spare.find(entry => PHONE_KEY.test(entry.key) && normalizePhone(entry.value)); if (found) { phone = normalizePhone(found.value); used.add(found.key); } }
   if (!name) { const found = spare.find(entry => /(^|[^a-z])(nome|name)([^a-z]|$)/i.test(entry.key) && !EMAIL.test(entry.value) && !normalizePhone(entry.value)); if (found) { name = found.value; used.add(found.key); } }
 
-  const answers = entries.filter(entry => !used.has(entry.key)).map(entry => ({ question: prettyQuestion(entry.label), answer: entry.value.slice(0, 300) }));
+  const answers = entries.filter(entry => !used.has(entry.key)).map(entry => ({ question: prettyQuestion(entry.label), answer: prettyAnswer(entry.value).slice(0, 300) }));
   return { fields: { name, phone, email }, answers };
+}
+
+/** Opção guardada pela Meta em formato de código ("construir_para_morar") → "Construir para morar". Texto digitado pela pessoa nunca é alterado. */
+export function prettyAnswer(value: string): string {
+  if (!/^[\p{L}\p{N}_-]+$/u.test(value) || !value.includes("_")) return value;
+  const spaced = value.replace(/_+/g, " ").trim();
+  return spaced ? spaced[0]!.toUpperCase() + spaced.slice(1) : value;
 }
 
 /** "você_tem_interesse_em_visitar?" → "Você tem interesse em visitar?" */

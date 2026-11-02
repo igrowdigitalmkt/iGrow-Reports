@@ -155,3 +155,14 @@ describe("formulário com perguntas próprias", () => {
     expect(result.answers).toEqual([{ question: "Cidade", answer: "Teresina" }]);
   });
 });
+
+describe("respostas em formato de código", () => {
+  it("opções da Meta ganham texto legível; texto digitado não muda", async () => {
+    const { prettyAnswer, splitLeadFields } = await import("@/modules/lead-pages/leads");
+    expect(prettyAnswer("construir_para_morar")).toBe("Construir para morar");
+    expect(prettyAnswer("Quero morar_aqui, sábado")).toBe("Quero morar_aqui, sábado");
+    expect(prettyAnswer("sim")).toBe("sim");
+    expect(splitLeadFields([{ name: "qual_é_seu_interesse_no_empreendimento?", values: ["construir_para_morar"] }]).answers)
+      .toEqual([{ question: "Qual é seu interesse no empreendimento?", answer: "Construir para morar" }]);
+  });
+});
