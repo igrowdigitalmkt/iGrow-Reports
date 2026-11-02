@@ -3,6 +3,7 @@ import { loadLeadEvents, queryBoard } from "@/modules/lead-pages/hub-query";
 import { syncStaleSources } from "@/modules/lead-pages/hub-sync";
 import { parseFilters } from "@/modules/lead-pages/hub-types";
 import { after } from "next/server";
+import { loadPerformance } from "@/modules/lead-pages/hub-performance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
     if (!UUID.test(history)) return Response.json({ error: "bad_request" }, { status: 400, headers });
     const events = await loadLeadEvents(access.service, { clientId: access.clientId, leadId: history, restrictFormIds: access.restrictFormIds });
     return events ? Response.json({ events }, { headers }) : Response.json({ error: "not_found" }, { status: 404, headers });
+  }
+  const performance = url.searchParams.get("desempenho");
+  if (performance) {
+    if (!access.supabase) return Response.json({ error: "forbidden" }, { status: 403, headers });
+    const data = await loadPerformance({ service: access.service, supabase: access.supabase, clientId: access.clientId, period: performance });
+    return data ? Response.json(data, { headers }) : Response.json({ error: "unavailable" }, { status: 503, headers });
   }
   const board = await queryBoard(access.service, { clientId: access.clientId, restrictFormIds: access.restrictFormIds, filters: parseFilters(url.searchParams) });
   if (!board) return Response.json({ error: "unavailable" }, { status: 503, headers });

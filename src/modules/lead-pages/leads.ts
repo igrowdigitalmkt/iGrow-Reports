@@ -112,12 +112,16 @@ export function accessCodeMatches(code: string | null | undefined, storedHash: s
 
 // --- Leitura do lead na Graph API -----------------------------------------------------------------------------------------------
 
-export type FetchedLead = { leadgenId: string; formId: string | null; adId: string | null; adsetId: string | null; campaignId: string | null; createdTime: string | null; fieldData: unknown[] };
+export type FetchedLead = {
+  leadgenId: string; formId: string | null; adId: string | null; adsetId: string | null; campaignId: string | null; createdTime: string | null; fieldData: unknown[];
+  /** Origem do anúncio (nomes e plataforma), quando a Meta informa. */
+  adName: string | null; adsetName: string | null; campaignName: string | null; platform: string | null; isOrganic: boolean | null;
+};
 
 /** Busca os dados de um lead. Lança erro quando a Meta recusa ou não responde: o webhook devolve 503 e a Meta tenta de novo depois. */
 export async function fetchLead(input: { leadgenId: string; token: string; apiVersion: string; appSecrets?: string[]; fetchImpl?: typeof fetch }): Promise<FetchedLead> {
   const response = await requestWithProof(input.appSecrets ?? [], input.token, proof => (input.fetchImpl ?? fetch)(
-    `https://graph.facebook.com/${input.apiVersion}/${encodeURIComponent(input.leadgenId)}?fields=id,created_time,ad_id,adset_id,campaign_id,form_id,field_data${proof ? `&${proof}` : ""}`,
+    `https://graph.facebook.com/${input.apiVersion}/${encodeURIComponent(input.leadgenId)}?fields=id,created_time,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform,field_data${proof ? `&${proof}` : ""}`,
     { headers: { Authorization: `Bearer ${input.token}` }, cache: "no-store", signal: AbortSignal.timeout(10_000) }));
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
   // Só o código do erro (nunca o token nem dados do lead): suficiente para diagnosticar permissão, token vencido ou limite de uso.
@@ -130,6 +134,8 @@ export function toFetchedLead(body: Record<string, unknown>, fallbackId: string)
   return {
     leadgenId: text(body.id) ?? fallbackId, formId: text(body.form_id), adId: text(body.ad_id), adsetId: text(body.adset_id), campaignId: text(body.campaign_id),
     createdTime: text(body.created_time) ? new Date(String(body.created_time)).toISOString() : null, fieldData: Array.isArray(body.field_data) ? body.field_data : [],
+    adName: text(body.ad_name)?.slice(0, 300) ?? null, adsetName: text(body.adset_name)?.slice(0, 300) ?? null, campaignName: text(body.campaign_name)?.slice(0, 300) ?? null,
+    platform: text(body.platform)?.slice(0, 30) ?? null, isOrganic: typeof body.is_organic === "boolean" ? body.is_organic : null,
   };
 }
 

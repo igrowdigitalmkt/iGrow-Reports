@@ -85,7 +85,7 @@ describe("leitura do lead na Graph API", () => {
 
 describe("processamento dos avisos", () => {
   const page: LeadPage = { id: "p1", slug: "leads-cadastro-rmimobiliaria", title: "RM", fbPageId: "111222333", formId: null };
-  const lead: FetchedLead = { leadgenId: "9988776655", formId: null, adId: null, adsetId: null, campaignId: "9", createdTime: null, fieldData: [{ name: "full_name", values: ["Ana"] }, { name: "phone_number", values: ["+5586999990000"] }] };
+  const lead: FetchedLead = { leadgenId: "9988776655", formId: null, adId: null, adsetId: null, campaignId: "9", createdTime: null, adName: null, adsetName: null, campaignName: null, platform: null, isOrganic: null, fieldData: [{ name: "full_name", values: ["Ana"] }, { name: "phone_number", values: ["+5586999990000"] }] };
   const events = parseLeadgenEvents(webhook([change({ leadgen_id: "9988776655", form_id: "55", ad_id: "7", created_time: 1_790_000_000 })]));
 
   it("grava o lead com nome e telefone, completando form, anúncio e hora com o aviso", async () => {
@@ -128,6 +128,18 @@ describe("telefone na tela", () => {
     expect(formatPhone("+5586999990001")).toBe("(86) 99999-0001");
     expect(formatPhone("+558633334444")).toBe("(86) 3333-4444");
     expect(formatPhone("+14155550123")).toBe("+14155550123");
+  });
+});
+
+describe("origem do lead (Graph API)", () => {
+  it("lê campanha, conjunto, anúncio, plataforma e se é orgânico, e pede esses campos", async () => {
+    const { toFetchedLead } = await import("@/modules/lead-pages/leads");
+    expect(toFetchedLead({ id: "1809871194478333", form_id: "55", campaign_id: "9", campaign_name: "Terras", adset_id: "8", adset_name: "Público A", ad_id: "7", ad_name: "Vídeo 1", platform: "ig", is_organic: false, field_data: [] }, "x"))
+      .toMatchObject({ campaignName: "Terras", adsetName: "Público A", adName: "Vídeo 1", platform: "ig", isOrganic: false });
+    expect(toFetchedLead({ id: "1" }, "x")).toMatchObject({ campaignName: null, platform: null, isOrganic: null });
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ id: "1809871194478333", campaign_name: "Terras", field_data: [] })));
+    await fetchLead({ leadgenId: "1809871194478333", token: "t", apiVersion: "v25.0", fetchImpl: fetchImpl as never });
+    expect((fetchImpl.mock.calls[0] as unknown as [string])[0]).toContain("campaign_name");
   });
 });
 

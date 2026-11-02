@@ -161,3 +161,20 @@
 .lead-newlink code { flex: 1 1 260px; min-width: 0; padding: 8px 10px; border-radius: 8px; background: var(--surface); font-size: 13px; overflow-wrap: anywhere; }
 .lead-notice-line { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--good-bg); color: var(--good); font-size: 13px; overflow-wrap: anywhere; }
 .lead-badge.is-off { margin-left: 8px; background: var(--surface-hover); color: var(--muted); }
+
+/* ---------- Origem do lead e aba Desempenho ---------- */
+.lead-origin { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 400; overflow-wrap: anywhere; }
+.lead-origin b { padding: 1px 7px; border-radius: 999px; background: var(--surface-hover); color: var(--secondary); font-size: 11px; font-weight: 600; }
+.lead-performance { display: grid; gap: 14px; }
+.lead-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.lead-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.lead-table th, .lead-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.lead-table thead th { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.lead-table th:first-child, .lead-table td:first-child { text-align: left; white-space: normal; min-width: 220px; font-weight: 600; }
+.lead-table tbody tr:last-child > * { border-bottom: 0; }
+.lead-table tbody tr:hover { background: var(--row-hover, var(--surface-hover)); }
+.lead-notice-line.is-warn { background: var(--warn-bg); color: var(--warn); }
+.lead-performance .lead-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+.lead-performance .lead-kpis > div { padding: 14px 18px; }
+.lead-performance .lead-kpis strong { font-size: 26px; }
+@media (max-width: 900px) { .lead-performance .lead-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

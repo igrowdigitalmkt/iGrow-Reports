@@ -21,7 +21,7 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const pages = await service.from("lead_pages").select("id").eq("client_id", input.clientId);
   if (pages.error) return null;
   const pageIds = (pages.data ?? []).map(page => page.id);
-  const empty: LeadsBoardData = { serverTime: now.toISOString(), total: 0, today: 0, statusCounts: { new: 0, contacted: 0, visit: 0, won: 0, lost: 0 }, forms: [], matching: 0, leads: [] };
+  const empty: LeadsBoardData = { serverTime: now.toISOString(), total: 0, today: 0, statusCounts: { new: 0, contacted: 0, visit: 0, won: 0, lost: 0 }, forms: [], campaigns: [], matching: 0, leads: [] };
   if (!pageIds.length) return empty;
   const restrict = input.restrictFormIds;
   if (restrict && !restrict.length) return empty;
@@ -30,7 +30,7 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   if (names.error) return null;
   const nameOf = new Map((names.data ?? []).map(row => [row.form_id, row.name]));
 
-  let base = service.from("leads").select("form_id,status,created_time").in("lead_page_id", pageIds).order("created_time", { ascending: false }).limit(AGGREGATE_LIMIT);
+  let base = service.from("leads").select("form_id,status,created_time,campaign_id,campaign_name").in("lead_page_id", pageIds).order("created_time", { ascending: false }).limit(AGGREGATE_LIMIT);
   if (restrict) base = base.in("form_id", restrict);
   const aggregate = await base;
   if (aggregate.error) return null;
@@ -38,23 +38,30 @@ export async function queryBoard(service: Service, input: { clientId: string; re
   const todayStart = periodStart("today", now)!;
   const statusCounts = { ...empty.statusCounts };
   const formCounts = new Map<string, number>();
+  const campaignCounts = new Map<string, { name: string; count: number }>();
   let today = 0;
   for (const row of aggregate.data ?? []) {
     if (isLeadStatus(row.status)) statusCounts[row.status] += 1;
     if (row.created_time >= todayStart) today += 1;
     const key = row.form_id ?? "";
     formCounts.set(key, (formCounts.get(key) ?? 0) + 1);
+    if (row.campaign_id) {
+      const current = campaignCounts.get(row.campaign_id);
+      campaignCounts.set(row.campaign_id, { name: current?.name ?? row.campaign_name ?? `Campanha …${row.campaign_id.slice(-4)}`, count: (current?.count ?? 0) + 1 });
+    }
   }
+  const campaigns = [...campaignCounts].map(([id, value]) => ({ id, name: value.name, count: value.count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
   // Formulários conhecidos (mesmo sem lead) + os que já têm lead; os do escopo do link, se houver.
   const formIds = new Set([...nameOf.keys(), ...[...formCounts.keys()].filter(Boolean)]);
   const forms = [...formIds].filter(id => !restrict || restrict.includes(id)).map(id => ({ id, name: nameOf.get(id) ?? fallbackFormName(id), count: formCounts.get(id) ?? 0 }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
 
   const selectedForms = filters.forms.length ? (restrict ? filters.forms.filter(id => restrict.includes(id)) : filters.forms) : restrict;
-  if (selectedForms && !selectedForms.length) return { ...empty, total: (aggregate.data ?? []).length, today, statusCounts, forms };
-  let list = service.from("leads").select("id,name,phone,email,status,status_changed_at,form_id,channel,field_data,created_time", { count: "exact" })
+  if (selectedForms && !selectedForms.length) return { ...empty, total: (aggregate.data ?? []).length, today, statusCounts, forms, campaigns };
+  let list = service.from("leads").select("id,name,phone,email,status,status_changed_at,form_id,channel,field_data,created_time,campaign_id,campaign_name,adset_name,ad_name,platform", { count: "exact" })
     .in("lead_page_id", pageIds).order("created_time", { ascending: false }).limit(LIST_LIMIT);
   if (selectedForms) list = list.in("form_id", selectedForms);
+  if (filters.campaigns.length) list = list.in("campaign_id", filters.campaigns);
   if (filters.status.length) list = list.in("status", filters.status);
   const since = periodStart(filters.period, now);
   if (since) list = list.gte("created_time", since);
@@ -69,9 +76,10 @@ export async function queryBoard(service: Service, input: { clientId: string; re
       id: row.id, name: row.name ?? fields.name, phone: row.phone ?? fields.phone, email: row.email ?? fields.email, answers,
       status: isLeadStatus(row.status) ? row.status : "new", statusChangedAt: row.status_changed_at, formId: row.form_id, channel: row.channel,
       formName: row.form_id ? (nameOf.get(row.form_id) ?? fallbackFormName(row.form_id)) : fallbackFormName(null), createdTime: row.created_time,
+      campaignId: row.campaign_id, campaignName: row.campaign_name, adsetName: row.adset_name, adName: row.ad_name, platform: row.platform,
     };
   });
-  return { serverTime: now.toISOString(), total: (aggregate.data ?? []).length, today, statusCounts, forms, matching: result.count ?? leads.length, leads };
+  return { serverTime: now.toISOString(), total: (aggregate.data ?? []).length, today, statusCounts, forms, campaigns, matching: result.count ?? leads.length, leads };
 }
 
 /** Histórico (status e notas) de um lead do cliente; o lead precisa pertencer ao cliente (e ao escopo de formulários, se houver). */

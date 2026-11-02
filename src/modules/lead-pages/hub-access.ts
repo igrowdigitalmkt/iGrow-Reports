@@ -1,7 +1,9 @@
 import "server-only";
 
 import { notFound } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import type { Database } from "@/types/database";
 import { requireClientDashboardAccess } from "@/modules/client-portal/context";
 import { loadOwnModules } from "@/modules/team/admin";
 import { canOpenSection } from "@/modules/team/permissions";
@@ -20,6 +22,8 @@ export type LeadsAccess = {
   /** null = todos os formulários; senão só estes (link com escopo). */
   restrictFormIds: string[] | null;
   actor: string; userId: string | null; linkId: string | null;
+  /** Cliente de banco da sessão (só em acesso por login): lê o investimento do período sob as permissões da pessoa. */
+  supabase?: SupabaseClient<Database>;
 };
 
 const displayName = (user: { email?: string | null; user_metadata?: Record<string, unknown> }) => {
@@ -45,7 +49,7 @@ export async function authorizeLeadsClient(clientId: string): Promise<(LeadsAcce
   return {
     allowed: true, service, agencyId: context.access.agencyId, clientId, clientName: context.access.client.name, via: agencyMode ? "workspace" : "portal",
     canManage: agencyMode && (role === "owner" || role === "admin"), canUpdate: agencyMode ? role !== "viewer" : true, restrictFormIds: null,
-    actor: displayName(context.user), userId: context.user.id, linkId: null,
+    actor: displayName(context.user), userId: context.user.id, linkId: null, supabase: context.supabase,
   };
 }
 

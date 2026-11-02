@@ -17,9 +17,15 @@ export async function saveLead(service: Service, page: LeadPage, lead: FetchedLe
   const { error } = await service.from("leads").upsert({
     lead_page_id: page.id, leadgen_id: lead.leadgenId, name: fields.name, phone: fields.phone, email: fields.email,
     field_data: lead.fieldData as never, form_id: lead.formId, ad_id: lead.adId, adset_id: lead.adsetId, campaign_id: lead.campaignId,
+    campaign_name: lead.campaignName, adset_name: lead.adsetName, ad_name: lead.adName, platform: lead.platform, is_organic: lead.isOrganic,
     ...(lead.createdTime ? { created_time: lead.createdTime } : {}),
   }, { onConflict: "lead_page_id,leadgen_id", ignoreDuplicates: true });
   if (error) throw new Error("leads");
+  // Lead já gravado antes de a origem existir: completa só o que ainda está vazio (nunca sobrescreve).
+  if (lead.campaignId && lead.campaignName) {
+    await service.from("leads").update({ campaign_id: lead.campaignId, campaign_name: lead.campaignName, adset_id: lead.adsetId, adset_name: lead.adsetName, ad_id: lead.adId, ad_name: lead.adName, platform: lead.platform, is_organic: lead.isOrganic })
+      .eq("lead_page_id", page.id).eq("leadgen_id", lead.leadgenId).is("campaign_name", null);
+  }
 }
 
 export type LeadItem = { id: string; name: string | null; phone: string | null; email: string | null; answers: { question: string; answer: string }[]; createdTime: string; receivedAt: string };

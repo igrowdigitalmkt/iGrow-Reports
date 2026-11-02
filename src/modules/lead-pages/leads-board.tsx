@@ -5,7 +5,7 @@ import { Check, ChevronDown, Copy, Download, Mail, MessageCircle, Search, Volume
 import { ago, formatPhone } from "./lead-feed-view";
 import type { BoardApi } from "./leads-api";
 import {
-  EMPTY_FILTERS, LEAD_PERIODS, LEAD_STATUSES, PERIOD_LABEL, STATUS_LABEL,
+  EMPTY_FILTERS, LEAD_PERIODS, LEAD_STATUSES, PERIOD_LABEL, STATUS_LABEL, platformLabel,
   type BoardLead, type LeadEvent, type LeadFilters, type LeadStatus, type LeadsBoardData,
 } from "./hub-types";
 import "./lead-feed.css";
@@ -95,14 +95,14 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
     else void load(filtersRef.current);
   };
   const exportCsv = () => {
-    const rows = [["Data", "Nome", "WhatsApp", "E-mail", "Status", "Formulário", "Respostas"], ...board.leads.map(lead => [dateTime.format(new Date(lead.createdTime)), lead.name, lead.phone, lead.email, STATUS_LABEL[lead.status], lead.formName, lead.answers.map(item => `${item.question} ${item.answer}`).join(" | ")])];
+    const rows = [["Data", "Nome", "WhatsApp", "E-mail", "Status", "Formulário", "Campanha", "Conjunto", "Anúncio", "Plataforma", "Respostas"], ...board.leads.map(lead => [dateTime.format(new Date(lead.createdTime)), lead.name, lead.phone, lead.email, STATUS_LABEL[lead.status], lead.formName, lead.campaignName, lead.adsetName, lead.adName, platformLabel(lead.platform), lead.answers.map(item => `${item.question} ${item.answer}`).join(" | ")])];
     const csv = "﻿" + rows.map(row => row.map(cell => csvCell(cell)).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
   };
 
-  const filtered = filters.forms.length > 0 || filters.status.length > 0 || filters.q.trim() !== "" || filters.period !== "all";
+  const filtered = filters.forms.length > 0 || filters.campaigns.length > 0 || filters.status.length > 0 || filters.q.trim() !== "" || filters.period !== "all";
   const selectedForm = filters.forms[0] ?? "";
 
   return <section className="leads-board" aria-label="Leads">
@@ -129,6 +129,11 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial }: Props)
           <option value="">Todos os formulários</option>
           {board.forms.map(form => <option key={form.id} value={form.id}>{form.name} ({form.count})</option>)}
         </select><ChevronDown size={14} /></label>
+      {board.campaigns.length > 0 && <label className="lead-select"><span className="sr-only">Campanha</span>
+        <select value={filters.campaigns[0] ?? ""} onChange={event => setFilters(current => ({ ...current, campaigns: event.target.value ? [event.target.value] : [] }))} aria-label="Campanha">
+          <option value="">Todas as campanhas</option>
+          {board.campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name} ({campaign.count})</option>)}
+        </select><ChevronDown size={14} /></label>}
       <label className="lead-select"><span className="sr-only">Período</span>
         <select value={filters.period} onChange={event => setFilters(current => ({ ...current, period: event.target.value as LeadFilters["period"] }))} aria-label="Período">
           {LEAD_PERIODS.map(period => <option key={period} value={period}>{PERIOD_LABEL[period]}</option>)}
@@ -156,6 +161,7 @@ function LeadRowItem({ lead, now, fresh, canUpdate, api, open, onToggle, onStatu
     <div className="lead-when"><strong>{ago(now - new Date(lead.createdTime).getTime())}</strong><small>{dateTime.format(new Date(lead.createdTime))}</small></div>
     <div className="lead-name"><span>{lead.name ?? <span className="lead-muted">Sem nome</span>}{fresh && <span className="lead-badge">Novo</span>}</span>
       <small className="lead-form-name">{lead.formName}</small>
+      {(lead.campaignName || lead.adName) && <small className="lead-origin">{platformLabel(lead.platform) && <b>{platformLabel(lead.platform)}</b>}{[lead.campaignName, lead.adsetName, lead.adName].filter(Boolean).join(" › ")}</small>}
       {lead.answers.length > 0 && <ul className="lead-answers">{lead.answers.map(item => <li key={item.question}><small>{item.question}</small><span>{item.answer}</span></li>)}</ul>}</div>
     <div className="lead-contact">
       {lead.phone ? <span className="lead-chip"><a href={whatsappLink(lead.phone)} target="_blank" rel="noreferrer" aria-label={`Chamar ${lead.name ?? "contato"} no WhatsApp`}><MessageCircle size={14} />{formatPhone(lead.phone)}</a>

@@ -49,13 +49,13 @@ function fakeService(tables: Record<string, Row[]>) {
 
 const CLIENT = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
-const lead = (id: string, over: Row = {}): Row => ({ id, lead_page_id: "page-1", name: `Lead ${id}`, phone: "+5586999990001", email: null, status: "new", status_changed_at: null, form_id: "100001", channel: "form", field_data: [], created_time: "2026-11-02T12:00:00.000Z", ...over });
+const lead = (id: string, over: Row = {}): Row => ({ id, lead_page_id: "page-1", name: `Lead ${id}`, phone: "+5586999990001", email: null, status: "new", status_changed_at: null, form_id: "100001", channel: "form", field_data: [], created_time: "2026-11-02T12:00:00.000Z", campaign_id: "50001", campaign_name: "Campanha Terras", adset_name: "Conjunto A", ad_name: "Anúncio 1", platform: "ig", ...over });
 const tables = (): Record<string, Row[]> => ({
   lead_pages: [{ id: "page-1", client_id: CLIENT }, { id: "page-2", client_id: OTHER }],
   lead_forms: [{ lead_page_id: "page-1", form_id: "100001", name: "Terras Alphaville III" }],
   leads: [
     lead("a", { created_time: "2026-11-02T15:00:00.000Z" }),
-    lead("b", { status: "won", form_id: "100002", created_time: "2026-11-01T15:00:00.000Z" }),
+    lead("b", { status: "won", form_id: "100002", created_time: "2026-11-01T15:00:00.000Z", campaign_id: "50002", campaign_name: "Campanha Bate-papo" }),
     lead("c", { status: "contacted", created_time: "2026-10-01T15:00:00.000Z" }),
     lead("z", { lead_page_id: "page-2", form_id: "100001" }),
   ],
@@ -66,8 +66,11 @@ const NOW = new Date("2026-11-02T16:00:00.000Z");
 describe("filtros do menu Leads", () => {
   it("lê só valores válidos e monta a query de volta", () => {
     const filters = parseFilters(new URLSearchParams("formulario=100001,abc&status=won,hack&busca=ana&periodo=7d"));
-    expect(filters).toEqual({ forms: ["100001"], status: ["won"], q: "ana", period: "7d" });
+    expect(filters).toEqual({ forms: ["100001"], campaigns: [], status: ["won"], q: "ana", period: "7d" });
     expect(filtersToQuery(filters)).toBe("formulario=100001&status=won&busca=ana&periodo=7d");
+    const withCampaign = parseFilters(new URLSearchParams("campanha=50001,xx"));
+    expect(withCampaign.campaigns).toEqual(["50001"]);
+    expect(filtersToQuery(withCampaign)).toBe("campanha=50001");
     expect(parseFilters({ periodo: "ontem" })).toEqual(EMPTY_FILTERS);
   });
   it("busca segura e início dos períodos em horário de Brasília", () => {
@@ -87,6 +90,15 @@ describe("painel de leads do cliente", () => {
     expect(board!.leads.map(item => item.id)).toEqual(["a", "b", "c"]);
     expect(board!.forms).toEqual([{ id: "100001", name: "Terras Alphaville III", count: 2 }, { id: "100002", name: "Formulário …0002", count: 1 }]);
     expect(board!.leads.map(item => item.id)).not.toContain("z");
+  });
+  it("lista as campanhas com contagem, mostra a origem de cada lead e filtra por campanha", async () => {
+    const { service } = fakeService(tables());
+    const board = await queryBoard(service, { clientId: CLIENT, restrictFormIds: null }, NOW);
+    expect(board!.campaigns).toEqual([{ id: "50001", name: "Campanha Terras", count: 2 }, { id: "50002", name: "Campanha Bate-papo", count: 1 }]);
+    expect(board!.leads[0]).toMatchObject({ campaignId: "50001", campaignName: "Campanha Terras", adsetName: "Conjunto A", adName: "Anúncio 1", platform: "ig" });
+    const filtered = await queryBoard(service, { clientId: CLIENT, restrictFormIds: null, filters: { ...EMPTY_FILTERS, campaigns: ["50002"] } }, NOW);
+    expect(filtered!.leads.map(item => item.id)).toEqual(["b"]);
+    expect(filtered!.campaigns).toHaveLength(2);
   });
   it("filtra por formulário, status e período", async () => {
     const { service } = fakeService(tables());
