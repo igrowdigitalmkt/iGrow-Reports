@@ -238,3 +238,27 @@ Implementado e testado localmente (testes e build); **publicação e homologaç�
 - **Quando o crachá não basta:** só é aceito se a pessoa já tem senha definida (`password_set` ou login por senha). Quem entrou por convite, código ou Google confirma no serviço de login, como antes (preserva o desvio para "definir senha").
 - **Efeito do que muda:** quem for bloqueado ou removido continua *lendo telas* até o crachá vencer (~1 h) — o banco já aceitava o mesmo crachá nas leituras. Nenhuma escrita é afetada.
 - Testes: `tests/view-session.test.ts` (crachá sem consulta ao login, fallback, recusa, ações estritas).
+
+## 11. Medições reais (06/11/2026, logs da Vercel e do Supabase)
+
+Fonte: logs de runtime da Vercel (`web-vital`, erros), implantação `bf25b60`, logs do Postgres e testes de tempo no banco (somente leitura, dentro de transação desfeita).
+
+**Infra.** Região das funções da Vercel: **iad1** (Washington), perto do banco (Supabase us-east-2, Ohio): não é a causa. TTFB das páginas públicas 54–230 ms; LCP de `/clientes` 2,1 s; INP de Leads 80 ms; CLS bom. Poucos pontos de dados da área logada ainda (só testes do proprietário).
+
+**Causa principal encontrada: o painel do cliente estoura o tempo limite do banco.** Em 6/11, 18:16–18:24 UTC, o log do Postgres mostra **7 cancelamentos "statement timeout" (8 s)** em `get_client_analytics` e principalmente em `get_client_analytics_hierarchy`, no cliente com mais dados (RM Imobiliária, que tem só 477 linhas de insights e 6.195 de ações nos últimos 60 dias — volume pequeno). O banco não é lento por volume: é lento pelo **tamanho do cache de escopo**.
+
+- `public.meta_dashboard_scopes`: cada linha tem em média **1,2 MB comprimida (até 5,7 MB como texto)** para esse cliente (6 linhas); 17 MB no total.
+- Toda chamada de `get_client_analytics` passa por `enrich_dashboard_scope` → `valid_dashboard_scope`, que lê esse JSON e o **copia inteiro** (`s.payload || jsonb_build_object(...)`). Medido: `client_analytics_fingerprint` 25 ms, `client_analytics_compute` 400 ms, `enrich_dashboard_scope` **230 ms** (só para reler o cache).
+- `get_client_analytics_hierarchy` (chamada pelo painel ao abrir e a cada atualização) chama **`get_client_analytics` inteira** só para obter as contas selecionadas, relê o mesmo JSON de novo e, para cada elemento do catálogo, consulta `v_payload->entityValues->chave` dentro de um laço (cada consulta reabre o JSON grande: custo quadrático). No caminho sem cache, `analytics_hierarchy_base` chama `get_client_analytics` **de novo**.
+- Com 2 a 3 chamadas ao mesmo tempo (duas abas, atualização automática, carga da página), o banco (instância pequena) passa de 8 s e cancela.
+- O papel `authenticated` tem `statement_timeout = 8s` (padrão do Supabase).
+
+**Plano para a Etapa 4 (banco), com verificação de equivalência antes de trocar:**
+1. `get_client_analytics_hierarchy`: usar só a base em cache (não a leitura completa com `enrich`) para obter contas/cobertura, e montar os valores por **junção** (`jsonb_each` em vez de busca por elemento). Evita 2 leituras do JSON grande e o custo quadrático.
+2. `valid_dashboard_scope`/`enrich_dashboard_scope`: não copiar o JSON inteiro; ler só as chaves necessárias.
+3. Descobrir **por que o escopo chega a 5,7 MB** para um cliente pequeno (catálogo/valores por entidade e por dia?) e enxugar a gravação (código em `src/modules/meta/server.ts`/`analytics-hierarchy-loader.ts`).
+4. Aplicação: evitar chamadas simultâneas repetidas ao mesmo escopo (travar por cliente+período) e não reconsultar a hierarquia ao abrir se o escopo ainda é válido.
+5. Só depois, se ainda faltar folga: aumentar o tamanho da instância do Supabase (custo) e revisar índices/RLS (`get_advisors`).
+Cada troca: criar a versão nova com outro nome, **comparar a saída com a antiga** (`jsonb` idêntico) para todos os clientes e períodos reais e só então substituir.
+
+**Outros achados dos logs.** (a) `/api/cron/report-automations` e `/api/cron/billing` rodam a cada 5 min (576 e 288 registros/24 h); são leves, mas disputam o banco. (b) `meta-daily-refresh` falhou para 1 cliente (`MetaSetupError`: conexão Meta desligada) — esperado. (c) Nenhum outro erro de função em 24 h.
