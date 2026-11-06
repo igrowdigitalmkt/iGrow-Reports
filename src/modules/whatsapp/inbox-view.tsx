@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "@fontsource-variable/roboto/wght.css";
 import { createPortal } from "react-dom";
@@ -7,7 +8,6 @@ import { CalendarSearch, CircleX, Camera, ChartNoAxesGantt, MessagesSquare } fro
 import { AlertCircle, Archive, ArrowLeft, BadgeCheck, Download, Loader2, Pause, Phone, QrCode, Check, CheckCheck, Clock3, Contact, FileText, Image as ImageIcon, Lock, MapPin, Megaphone, MessageSquareText, Mic, MoreVertical, Play, Plus, Search, SendHorizontal, Smile, Star, Sticker, Trash2, UsersRound, Video, X, Headphones, Info, CheckSquare, BookmarkCheck, ChevronDown, Reply, Copy, Forward, Pin, PinOff, ListFilter } from "lucide-react";
 import { clockTime, colorFor, conversationTitle, dayKey, dayLabel, formatWhatsAppPhone, initialsOf, kindLabel, listTime, phoneKey } from "./inbox-format";
 import type { InboxChannel, InboxContact, InboxConversation, InboxList, InboxMessageItem, InboxStatus, InboxThread } from "./inbox-types";
-import { EmojiPicker } from "./emoji-picker";
 import { WhatsAppEmoji, WhatsAppEmojiText } from "./whatsapp-emoji";
 import { EmojiInput, type EmojiInputHandle } from "./emoji-input";
 import { labelPillStyle } from "./native-labels";
@@ -46,6 +46,9 @@ import type { NativeConversationState } from "./conversation-controls";
 import { PhonePanel } from "./phone-panel";
 import "./platform-theme.css";
 import {withOwnReaction} from "./optimistic-reactions";
+
+// A lista de emojis (~290 KB) só é baixada quando alguém abre o seletor.
+const EmojiPicker = dynamic(() => import("./emoji-picker").then(m => m.EmojiPicker), { ssr: false });
 
 type Filter = "all" | "unread" | "groups";
 type StarredItem = { id: string; conversationId: string; kind: string; body: string | null; sentAt: string; title: string | null; remoteId: string; isGroup: boolean; channelKey: string };

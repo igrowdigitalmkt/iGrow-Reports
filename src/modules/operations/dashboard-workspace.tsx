@@ -1,43 +1,48 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { PortfolioView } from "./portfolio-view";
+import dynamic from "next/dynamic";
 import { demoPortfolio } from "./demo-data";
 import Link from "next/link";
-import { motion } from "motion/react";
 import { ArrowDownToLine, ArrowRight, ArrowUpRight, CheckCheck, Clock3, FileChartColumn, Filter, Info, ShieldCheck, Users } from "lucide-react";
 import { type WorkspaceIdentity, navigation, useWorkspaceSearch } from "@/components/layout/app-shell";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { getDemoSnapshot } from "./demo-data";
 import { emptySnapshot, type ReportRow } from "./dashboard-data";
-import { ClientManager } from "@/modules/clients/client-manager";
 import type { ClientItem } from "@/modules/clients/schema";
 import type { ClientPortalAdminAccess, ClientPortalPendingInvitation } from "@/modules/client-portal/types";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
-import { ReportManager } from "@/modules/reports/report-manager";
 import type { ReportsAdminSnapshot } from "@/modules/reports/types";
 import type { WhatsAppSummary } from "@/modules/whatsapp/whatsapp-manager";
-import { DeliveriesView, type DeliveryItem } from "@/modules/whatsapp/deliveries-view";
-import { AutomationsView } from "@/modules/automations/automations-view";
-import { IntegrationsHub } from "./integrations-hub";
+import type { DeliveryItem } from "@/modules/whatsapp/deliveries-view";
 import type { AutomationsSnapshot } from "@/modules/automations/types";
 import type { TemplatesSnapshot } from "@/modules/templates/types";
-import { TemplatesView } from "@/modules/templates/templates-view";
-import { TeamView } from "@/modules/team/team-view";
-import { SettingsGrid } from "./settings-panels";
 import type { TeamSnapshot } from "@/modules/team/admin";
 import { demoTeam } from "@/modules/team/demo";
 import type { AgencyRole } from "@/types/database";
 import { isReportTab, SECTION_PATHS } from "./routes";
-import { ReportTabs } from "./report-tabs";
-import { ReportsOverview } from "./reports-overview";
 import { demoAutomationClients, demoAutomationRecipients, demoAutomations, demoOfficialNumbers } from "@/modules/automations/demo";
 import type { SendableRecipient } from "@/modules/whatsapp/send-report-dialog";
-import { WhatsAppInbox } from "@/modules/whatsapp/inbox-view";
-import { demoInboxChannels, demoInboxConversations, demoInboxThreads } from "@/modules/whatsapp/inbox-demo";
 import { numberName } from "@/modules/whatsapp/whatsapp-manager";
 import { Select } from "@/components/ui/select";
+
+// Cada seção é um pacote à parte: abrir Clientes não baixa o WhatsApp, os relatórios nem o resto (antes todas as telas carregavam tudo).
+const SectionLoading = () => <section className="panel" aria-busy="true"><p className="muted">Carregando…</p></section>;
+const PortfolioView = dynamic(() => import("./portfolio-view").then(m => m.PortfolioView), { loading: SectionLoading });
+const ClientManager = dynamic(() => import("@/modules/clients/client-manager").then(m => m.ClientManager), { loading: SectionLoading });
+const ReportManager = dynamic(() => import("@/modules/reports/report-manager").then(m => m.ReportManager), { loading: SectionLoading });
+const DeliveriesView = dynamic(() => import("@/modules/whatsapp/deliveries-view").then(m => m.DeliveriesView), { loading: SectionLoading });
+const AutomationsView = dynamic(() => import("@/modules/automations/automations-view").then(m => m.AutomationsView), { loading: SectionLoading });
+const IntegrationsHub = dynamic(() => import("./integrations-hub").then(m => m.IntegrationsHub), { loading: SectionLoading });
+const TemplatesView = dynamic(() => import("@/modules/templates/templates-view").then(m => m.TemplatesView), { loading: SectionLoading });
+const TeamView = dynamic(() => import("@/modules/team/team-view").then(m => m.TeamView), { loading: SectionLoading });
+const SettingsGrid = dynamic(() => import("./settings-panels").then(m => m.SettingsGrid), { loading: SectionLoading });
+const ReportTabs = dynamic(() => import("./report-tabs").then(m => m.ReportTabs), { loading: SectionLoading });
+const ReportsOverview = dynamic(() => import("./reports-overview").then(m => m.ReportsOverview), { loading: SectionLoading });
+const WhatsAppInbox = dynamic(() => import("@/modules/whatsapp/inbox-view").then(m => m.WhatsAppInbox), { loading: SectionLoading });
+// A caixa de demonstração leva os dados fictícios junto, e só é baixada em /demo.
+const DemoWhatsAppInbox = dynamic(() => import("@/modules/whatsapp/demo-inbox").then(m => m.DemoWhatsAppInbox), { loading: SectionLoading });
 
 interface Props { /** Contas do Google Ads por cliente (lista de Clientes). */ googleAccounts?: Record<string, Array<{ id: string; name: string }>>; portfolio?: ReactNode; whatsapp?: WhatsAppSummary; whatsappReadiness?: { ready: boolean; missing: string[] }; whatsappEmbedded?: { configId: string; apiVersion: string; appId: string } | null; recipients?: SendableRecipient[]; deliveries?: DeliveryItem[]; automations?: AutomationsSnapshot; templates?: TemplatesSnapshot; team?: TeamSnapshot; currentUserId?: string; currentRole?: AgencyRole; blocked?: boolean; initialClientId?: string; overviewPeriod?: "7d" | "30d" | "90d"; qrConnected?: boolean; canSendReports?: boolean; demo: boolean; section: string; identity: WorkspaceIdentity; activeClients?: number; clients?: ClientItem[]; initialMetaClientId?: string; agencyId?: string; canEditClients?: boolean; canManageClientAccess?: boolean; clientPortalAdminReady?: boolean; portalAccesses?: ClientPortalAdminAccess[]; portalInvitations?: ClientPortalPendingInvitation[]; metaSnapshot?: MetaAdminSnapshot; reportsSnapshot?: ReportsAdminSnapshot; }
 
@@ -52,7 +57,7 @@ export function DashboardWorkspace({ googleAccounts, portfolio, whatsapp = [], w
   const currentLabel = reportTab ? "Relatórios" : navigation.find(item => item.key === (SECTION_PATHS[section] ?? section))?.label ?? "Visão geral";
 
   return <>
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .18 }}>
+    <div className="workspace-fade">
       {section !== "whatsapp" && <div className="page-heading"><div><h1>{currentLabel}</h1><p>{section ? sectionDescription(section) : `${identity.agencyName} · todo o trabalho com os clientes no período`}</p></div><div className="heading-actions">{!section && <nav className="segmented" aria-label="Período da visão geral">{([["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"]] as const).map(([key, label]) => <Link key={key} href={key === "30d" ? base || "/" : `${base || "/"}?periodo=${key}`} aria-current={(demo ? "30d" : overviewPeriod) === key ? "page" : undefined} className="segmented-link" scroll={false}>{label}</Link>)}</nav>}</div></div>}
 
       {blocked ? <section className="panel empty-state"><ShieldCheck size={22} /><h3>Área não liberada para você</h3><p>O acesso a esta área foi limitado por um proprietário ou administrador do espaço de trabalho. Peça a liberação em Equipe.</p></section> : <>
@@ -60,7 +65,7 @@ export function DashboardWorkspace({ googleAccounts, portfolio, whatsapp = [], w
 
       {reportTab && <ReportTabs base={base} section={section} />}
       {section === "whatsapp" && (demo
-        ? <WhatsAppInbox demo channels={demoInboxChannels} demoConversations={demoInboxConversations} demoThreads={demoInboxThreads} />
+        ? <DemoWhatsAppInbox />
         : <WhatsAppInbox canReply={canSendReports} contacts={recipients.filter(recipient => recipient.authorized).map(recipient => ({ id: recipient.id, name: recipient.name, phone: recipient.phone, clientName: clients?.find(client => client.id === recipient.clientId)?.name ?? null }))} channels={whatsapp.filter(number => number.id).map(number => ({ key: number.id!, kind: "official" as const, name: numberName(number), phone: number.displayPhone, coexistence: number.coexistence }))} />)}
 
       {section === "relatorios-visao" && <ReportsOverview base={base} automations={demo ? demoAutomations : automations ?? null} deliveries={demo ? [] : deliveries} clients={demo ? demoAutomationClients : clients ?? []} timezone={identity.timezone || "America/Sao_Paulo"} />}
@@ -85,7 +90,7 @@ export function DashboardWorkspace({ googleAccounts, portfolio, whatsapp = [], w
 
       {section === "equipe" && <TeamView snapshot={demo ? demoTeam : team ?? { ready: false, members: [], invitations: [] }} currentUserId={demo ? "demo-owner" : currentUserId} currentRole={demo ? "owner" : currentRole} timezone={identity.timezone || "America/Sao_Paulo"} demo={demo} />}
       </>}
-    </motion.div>
+    </div>
 
     <Dialog open={!!selectedReport} onOpenChange={open => { if (!open) setSelectedReport(null); }} title={selectedReport?.client ?? "Relatório"} description="Prévia demonstrativa · todos os números abaixo são fictícios.">{selectedReport && <div><div className="report-preview-header"><span>{selectedReport.id} · v1</span><StatusBadge status={selectedReport.status} /></div><h3 className="text-lg font-semibold mt-6">{selectedReport.type}</h3><p className="muted text-sm mt-1">{selectedReport.date}</p><div className="preview-metrics"><div><small>Investimento fictício</small><strong>R$ 1.250,00</strong></div><div><small>{selectedReport.type === "Vendas" ? "Compras fictícias" : selectedReport.type === "Conversas" ? "Conversas fictícias" : "Leads fictícios"}</small><strong>50</strong></div><div><small>Custo por resultado</small><strong>R$ 25,00</strong></div></div><div className="info-banner mt-5"><Info size={18} /><p>Esta é uma amostra visual. Snapshots, aprovação, links de acesso e geração de PDF serão implementados nas próximas etapas.</p></div><div className="planned-note mt-5"><ArrowDownToLine size={15} />Download de PDF indisponível nesta etapa</div></div>}</Dialog>
   </>;

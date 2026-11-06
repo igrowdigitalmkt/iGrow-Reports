@@ -42,6 +42,8 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 
 - **Desempenho, Etapa 1 (6/11/2026):** cache de 5 min do Google Ads e leituras em paralelo no painel, menu com consultas em paralelo e contagem leve de não lidas, refresh de veiculação a cada 3 min, PDFs sob demanda (JS inicial do painel 387 → 252 KB gz no build), gatilho `validate_agency` só valida o fuso quando muda (migração `202611140001` aplicada, não reaplicar) e registro `web-vital` em `/api/vitals`. Detalhes e próximas etapas em `docs/ANALISE_DESEMPENHO_2026-11-06.md`. Não homologado em produção.
 
+- **Desempenho, Etapa 2 (6/11/2026):** seções da área de trabalho carregadas sob demanda (`next/dynamic`), emojis do WhatsApp só ao abrir o seletor, `motion` removido (fade em CSS). JS inicial no build: Clientes e demais telas 643 → 225 KB gz. Não homologado em produção. Ver `docs/ANALISE_DESEMPENHO_2026-11-06.md` §8.
+
 ## Pendências (ordem sugerida)
 1. Validar com dados reais do Google: seção no painel do Colégio Crescer, PDF com Meta+Google, mensagem de WhatsApp; depois pausar a campanha de teste e desvincular a conta do cliente.
 2. Testar "Desconectar" do Google e reconectar (fluxo do usuário novo) e o "Desconectar" da Meta num cliente sem importância (não testado em produção).

@@ -1,14 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { EmojiInput, type EmojiInputHandle } from "./emoji-input";
-import { EmojiPicker } from "./emoji-picker";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Edit3, ListFilter, Loader2, MoreVertical, Palette, Plus, Search, Smile, Trash2, UsersRound, X } from "lucide-react";
 import { colorFor, conversationTitle, initialsOf } from "./inbox-format";
 import type { InboxConversation } from "./inbox-types";
 import { CUSTOM_LABEL_COLORS } from "./native-labels";
 import { ListMembershipQueue, applyMembershipChanges, type MembershipChange } from "./list-membership-queue";
+
+// A lista de emojis (~290 KB) só é baixada quando alguém abre o seletor.
+const EmojiPicker = dynamic(() => import("./emoji-picker").then(m => m.EmojiPicker), { ssr: false });
 
 export type CustomList = { id: string; name: string; color: string; sortOrder: number; conversationIds: string[]; };
 const PALETTE = CUSTOM_LABEL_COLORS;

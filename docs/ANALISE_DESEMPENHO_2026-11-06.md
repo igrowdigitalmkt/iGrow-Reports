@@ -200,3 +200,18 @@ Implementado e testado localmente; **publicação e homologação em uso real pe
 **Medido no build local (JS inicial gzip, antes → depois):** `/` 664 → 527 KB; `/clientes` e demais telas da área de trabalho 643 → 507 KB; painel do cliente 387 → 252 KB; portal do cliente 371 → 236 KB; campanhas 330 → 333 KB; leads 217 → 220 KB (a medição de velocidade soma ~3 KB).
 
 **Fora desta etapa (continua na lista):** dividir o pacote da área de trabalho por seção (#3), contagens de Leads no banco (#6), WhatsApp (#9), índices/RLS (#12) e investigação das funções de análise (#5).
+
+## 8. Execução da Etapa 2 (06/11/2026)
+
+Implementado e testado localmente (testes e build); **publicação e homologação em uso real pendentes**. A página de vendas não foi tratada de propósito: o problema relatado é a lentidão da **plataforma** (área logada).
+
+| # | O que foi feito | Onde |
+|---|---|---|
+| 3 | Cada seção da área de trabalho (Clientes, Integrações, WhatsApp, Relatórios, Agendamentos, Entregas, Modelos, Equipe, Configurações) virou um pacote próprio carregado só quando aberta (`next/dynamic`). Os dados fictícios da caixa do WhatsApp da demonstração ficam num componente à parte, só usado em `/demo`. | `operations/dashboard-workspace.tsx`, `whatsapp/demo-inbox.tsx` |
+| 3b | A lista de emojis (~290 KB) só é baixada quando alguém abre o seletor. | `whatsapp/inbox-view.tsx`, `custom-lists.tsx` |
+| 3c | A biblioteca `motion` (~58 KB gz em toda tela) era usada só para um fade de 0,18 s: trocada por animação CSS (respeita "reduzir movimento"). | `layout/providers.tsx`, `dashboard-workspace.tsx`, `globals.css` |
+| 13 | O CSS do WhatsApp (12 arquivos) é importado pela caixa, que agora é carregada sob demanda; as outras seções deixam de baixá-lo. | consequência de 3 |
+
+**Medido no build local (JS inicial gzip), baseline do diagnóstico → Etapa 1 → Etapa 2:** Clientes, Integrações, WhatsApp, Relatórios, Agendamentos, Equipe, Configurações 643 → 507 → **225 KB** (−65%); painel do cliente 387 → 252 → **250 KB**; portal do cliente 371 → 236 → **236 KB**; campanhas 330 → 333 → **332 KB**; leads 217 → 220 → **220 KB**; demonstração → **217 KB**. A seção aberta carrega o próprio pacote além desses valores.
+
+**Próximos maiores pesos no navegador:** campanhas (332 KB) e painel do cliente (250 KB). **Continua na lista:** consultas em paralelo/contexto de autenticação (#2), Leads no banco (#6), WhatsApp (#9), banco (#5, #12).
