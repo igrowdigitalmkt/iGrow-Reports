@@ -16,7 +16,7 @@ import type { ClientPortalAdminAccess, ClientPortalPendingInvitation } from "@/m
 import { getMetaAdminSnapshot } from "@/modules/meta/admin";
 import type { MetaAdminSnapshot } from "@/modules/meta/types";
 import { getReportsAdminSnapshot } from "@/modules/reports/admin";
-import type { ReportsAdminSnapshot } from "@/modules/reports/types";
+
 import { loadDeliveries, loadSendableRecipients, loadWhatsAppSummary } from "@/modules/whatsapp/admin";
 import { whatsAppEmbeddedSignup, whatsAppReadiness } from "@/modules/whatsapp/server";
 import { loadAutomations } from "@/modules/automations/admin";
@@ -41,52 +41,51 @@ export default async function WorkspacePage({
   if (legacy) redirect(legacy);
   const key = SECTION_ROUTES[path];
   if (key === undefined) notFound();
-  // Member restrictions (Equipe › Permissões): a limited area shows a notice instead of its data.
-  const ownModules = context.role === "owner" || context.role === "admin" ? null : await loadOwnModules(context.supabase, context.agency.id, context.user.id);
-  const blocked = !canOpenSection(context.role, ownModules, key);
-  const { count, error } = await context.supabase.from("clients").select("id", { count: "exact", head: true }).eq("agency_id", context.agency.id).is("archived_at", null);
-  if (error) throw new Error("Não foi possível consultar os clientes deste espaço de trabalho.");
-  const clients: ClientItem[] = [];
-  let portalAccesses: ClientPortalAdminAccess[] = [];
-  let portalInvitations: ClientPortalPendingInvitation[] = [];
-  let clientPortalAdminReady = false;
-  let metaSnapshot: MetaAdminSnapshot | undefined;
-  let reportsSnapshot: ReportsAdminSnapshot | undefined;
   const canManageClientAccess = canManageAgency(context.role);
-  if (key === "" || key === "clientes" || key === "relatorios" || key === "integracoes" || key === "entregas" || key === "agendamentos" || key === "templates" || key === "relatorios-visao") {
+  const needsClients = key === "" || key === "clientes" || key === "relatorios" || key === "integracoes" || key === "entregas" || key === "agendamentos" || key === "templates" || key === "relatorios-visao";
+  const agencyId = context.agency.id;
+  // Tudo que a tela precisa e não depende de outra leitura sai junto (antes eram ~10 viagens ao banco em fila).
+  // Member restrictions (Equipe › Permissões): a limited area shows a notice instead of its data.
+  const ownModulesRead = context.role === "owner" || context.role === "admin" ? Promise.resolve(null) : loadOwnModules(context.supabase, agencyId, context.user.id);
+  const clientCountRead = Promise.resolve(context.supabase.from("clients").select("id", { count: "exact", head: true }).eq("agency_id", agencyId).is("archived_at", null));
+  const clientsRead = (async () => {
+    const rows: ClientItem[] = [];
+    if (!needsClients) return rows;
     for (let offset = 0; ; offset += 500) {
       const result = await context.supabase.from("clients").select("id,name,notes,archived_at,updated_at")
-        .eq("agency_id", context.agency.id).order("name").order("id").range(offset, offset + 499);
+        .eq("agency_id", agencyId).order("name").order("id").range(offset, offset + 499);
       if (result.error) throw new Error("Não foi possível consultar os clientes.");
-      clients.push(...result.data);
+      rows.push(...result.data);
       if (result.data.length < 500) break;
     }
-    if (key === "clientes" && canManageClientAccess) {
-      const portalAdmin = await getAgencyClientPortalAccesses(context.supabase, context.agency.id);
-      portalAccesses = portalAdmin.accesses;
-      portalInvitations = portalAdmin.invitations;
-      clientPortalAdminReady = portalAdmin.ready;
-    }
-  }
-  if (key === "" || key === "clientes" || key === "integracoes") {
-    metaSnapshot = await getMetaAdminSnapshot(context.supabase, context.agency.id);
-  }
-  if (key === "" || key === "relatorios" || key === "entregas" || key === "relatorios-visao") {
-    reportsSnapshot = await getReportsAdminSnapshot(context.supabase, context.agency.id);
-  }
-  const whatsapp = key === "integracoes" || key === "relatorios" || key === "entregas" || key === "templates" || key === "agendamentos" || key === "whatsapp" ? await loadWhatsAppSummary(context.supabase, context.agency.id) : [];
-  const recipients = key === "relatorios" || key === "agendamentos" || key === "whatsapp" ? await loadSendableRecipients(context.supabase, context.agency.id) : [];
-  const deliveries = key === "entregas" || key === "relatorios-visao" ? await loadDeliveries(context.supabase, context.agency.id, clients, reportsSnapshot?.versions ?? []) : [];
-  const automations = key === "agendamentos" || key === "entregas" || key === "relatorios-visao" ? await loadAutomations(context.supabase, context.agency.id) : undefined;
-  const qrConnected = key === "agendamentos" ? await getQrStatus(context.agency.id).then(status => "state" in status && status.state === "connected", () => false) : false;
-  const team = key === "equipe" ? await loadTeam(context.supabase, context.agency.id, canManageAgency(context.role)) : undefined;
-  const templates = key === "agendamentos" || key === "templates" || key === "relatorios-visao" ? await loadMessageTemplates(context.supabase, context.agency.id) : undefined;
+    return rows;
+  })();
+  const portalRead = key === "clientes" && canManageClientAccess ? getAgencyClientPortalAccesses(context.supabase, agencyId) : Promise.resolve(null);
+  const metaRead = key === "" || key === "clientes" || key === "integracoes" ? getMetaAdminSnapshot(context.supabase, agencyId) : Promise.resolve(undefined);
+  const reportsRead = key === "" || key === "relatorios" || key === "entregas" || key === "relatorios-visao" ? getReportsAdminSnapshot(context.supabase, agencyId) : Promise.resolve(undefined);
+  const whatsappRead = key === "integracoes" || key === "relatorios" || key === "entregas" || key === "templates" || key === "agendamentos" || key === "whatsapp" ? loadWhatsAppSummary(context.supabase, agencyId) : Promise.resolve([] as Awaited<ReturnType<typeof loadWhatsAppSummary>>);
+  const recipientsRead = key === "relatorios" || key === "agendamentos" || key === "whatsapp" ? loadSendableRecipients(context.supabase, agencyId) : Promise.resolve([] as Awaited<ReturnType<typeof loadSendableRecipients>>);
+  const automationsRead = key === "agendamentos" || key === "entregas" || key === "relatorios-visao" ? loadAutomations(context.supabase, agencyId) : Promise.resolve(undefined);
+  const qrRead = key === "agendamentos" ? getQrStatus(agencyId).then(status => "state" in status && status.state === "connected", () => false) : Promise.resolve(false);
+  const teamRead = key === "equipe" ? loadTeam(context.supabase, agencyId, canManageAgency(context.role)) : Promise.resolve(undefined);
+  const templatesRead = key === "agendamentos" || key === "templates" || key === "relatorios-visao" ? loadMessageTemplates(context.supabase, agencyId) : Promise.resolve(undefined);
+  // Lista de Clientes: as contas do Google Ads vinculadas a cada cliente (só cadastro).
+  const googleRead = key === "clientes" ? (async () => { const service = createSupabaseServiceClient(); return service ? await googleAccountsByClient(service, agencyId).catch(() => ({})) : {}; })() : Promise.resolve(undefined);
+  const [ownModules, clientCount, clients, portalAdmin, metaSnapshot, reportsSnapshot, whatsapp, recipients, automations, qrConnected, team, templates, clientsGoogle] = await Promise.all([
+    ownModulesRead, clientCountRead, clientsRead, portalRead, metaRead, reportsRead, whatsappRead, recipientsRead, automationsRead, qrRead, teamRead, templatesRead, googleRead,
+  ]);
+  const blocked = !canOpenSection(context.role, ownModules, key);
+  if (clientCount.error) throw new Error("Não foi possível consultar os clientes deste espaço de trabalho.");
+  const count = clientCount.count;
+  const portalAccesses: ClientPortalAdminAccess[] = portalAdmin?.accesses ?? [];
+  const portalInvitations: ClientPortalPendingInvitation[] = portalAdmin?.invitations ?? [];
+  const clientPortalAdminReady = portalAdmin?.ready ?? false;
+  // As entregas precisam dos clientes e dos relatórios já lidos.
+  const deliveries = key === "entregas" || key === "relatorios-visao" ? await loadDeliveries(context.supabase, agencyId, clients, reportsSnapshot?.versions ?? []) : [];
   // The portfolio streams in after the page shell: each client reads its pre-computed period.
   const reportsGenerated = reportsSnapshot?.ready
     // eslint-disable-next-line react-hooks/purity -- request-time reference, computed once on the server
     ? reportsSnapshot.versions.filter(version => new Date(version.generatedAt).getTime() >= Date.now() - 30 * 86_400_000).length : null;
-  // Lista de Clientes: as contas do Google Ads vinculadas a cada cliente (só cadastro).
-  const clientsGoogle = key === "clientes" ? await (async () => { const service = createSupabaseServiceClient(); return service ? await googleAccountsByClient(service, context.agency.id).catch(() => ({})) : {}; })() : undefined;
   const portfolio = key === "" ? <Suspense fallback={<PortfolioSkeleton />}>
     <Portfolio supabase={context.supabase} clients={clients} meta={metaSnapshot} reportsGenerated={reportsGenerated} period={portfolioPeriod(query.periodo)} aiAgencyId={context.role === "viewer" ? undefined : context.agency.id} agencyId={context.agency.id} />
   </Suspense> : undefined;

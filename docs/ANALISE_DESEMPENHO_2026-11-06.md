@@ -215,3 +215,16 @@ Implementado e testado localmente (testes e build); **publicação e homologaç�
 **Medido no build local (JS inicial gzip), baseline do diagnóstico → Etapa 1 → Etapa 2:** Clientes, Integrações, WhatsApp, Relatórios, Agendamentos, Equipe, Configurações 643 → 507 → **225 KB** (−65%); painel do cliente 387 → 252 → **250 KB**; portal do cliente 371 → 236 → **236 KB**; campanhas 330 → 333 → **332 KB**; leads 217 → 220 → **220 KB**; demonstração → **217 KB**. A seção aberta carrega o próprio pacote além desses valores.
 
 **Próximos maiores pesos no navegador:** campanhas (332 KB) e painel do cliente (250 KB). **Continua na lista:** consultas em paralelo/contexto de autenticação (#2), Leads no banco (#6), WhatsApp (#9), banco (#5, #12).
+
+## 9. Execução da Etapa 3 (06/11/2026)
+
+Implementado e testado localmente; **publicação e homologação em uso real pendentes**. Sem migração nesta etapa.
+
+| # | O que foi feito | Onde |
+|---|---|---|
+| 2 | A sessão (`auth.getUser()`) e os espaços do usuário passam a ser confirmados **uma vez por requisição** (`cache` do React). Antes, o layout, a página e a verificação de acesso do cliente chamavam o Auth e o banco de novo (~100 ms cada). O acesso ao painel do cliente lê o cliente e os espaços **em paralelo**. A regra de acesso não mudou (continua exigindo ser membro da organização do cliente, ou ter acesso de cliente); novo teste cobre equipe, outra organização e sem acesso. Server Actions e rotas /api continuam confirmando a sessão a cada chamada (cada uma é uma requisição própria). | `agencies/context.ts`, `client-portal/context.ts`, `tests/client-dashboard-access.test.ts` |
+| 7b | `workspace-page.tsx`: as ~10 leituras de cada seção (clientes, portal, Meta, relatórios, WhatsApp, destinatários, automações, equipe, modelos, Google, permissões, contagem) saem em um `Promise.all`; só as entregas esperam clientes e relatórios. | `operations/workspace-page.tsx` |
+| 6 | Leads atualiza a cada **10 s** (era 5 s) e deixa de consultar quando a lista está escondida (outra aba de Leads por cima) ou a aba do navegador está oculta. O alerta instantâneo por WhatsApp não depende disso. | `lead-pages/leads-board.tsx`, `lead-feed-view.tsx` |
+| 9 | A bolinha de não lidas do menu consulta a cada **30 s** (era 15 s); as etiquetas do WhatsApp só consultam com a aba visível. | `layout/app-shell.tsx`, `whatsapp/custom-lists.tsx` |
+
+**Observações honestas:** (a) o projeto usa chaves de assinatura **assimétricas** (ES256, confirmado na lista pública de chaves), então o `getClaims()` do `proxy` é verificação local, barata. Trocar o `getUser()` do servidor por `getClaims()` economizaria mais ~100 ms por navegação, mas deixa de detectar sessão revogada/usuário banido até o token vencer (1 h) nas ações que usam a chave de serviço. **Não foi feito: é uma decisão de segurança do proprietário.** (b) As contagens de Leads em memória (até 5.000 linhas) só pesam com milhares de leads; hoje há dezenas. Fica para quando o volume crescer (função no banco). (c) `loadInbox` do WhatsApp lê todas as conversas e filtra no servidor; com ~100 conversas não pesa. Fica para quando o volume crescer.

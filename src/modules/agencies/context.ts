@@ -15,11 +15,19 @@ export type AgencyMembership = {
   role: AgencyRole;
 };
 
-export async function requireUserSession(next = "/") {
+// Uma única confirmação da sessão por requisição (antes cada layout, página e verificação de acesso chamava o Auth de novo: ~100 ms cada).
+// `cache` vale só durante a renderização de UMA requisição; cada Server Action e cada rota /api confirma a sessão por conta própria.
+const getRequestSession = cache(async () => {
   const supabase = await createSupabaseServerClient();
-  if (!supabase) redirect("/entrar?estado=nao-configurado");
+  if (!supabase) return { supabase: null, user: null } as const;
   const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) redirect(`/entrar?next=${encodeURIComponent(safeRedirect(next))}`);
+  return { supabase, user: error ? null : user } as const;
+});
+
+export async function requireUserSession(next = "/") {
+  const { supabase, user } = await getRequestSession();
+  if (!supabase) redirect("/entrar?estado=nao-configurado");
+  if (!user) redirect(`/entrar?next=${encodeURIComponent(safeRedirect(next))}`);
   return { supabase, user };
 }
 
@@ -31,10 +39,17 @@ export async function getUserMemberships(supabase: SupabaseClient<Database>, use
   return (data ?? []).map((membership) => ({ agency: membership.agencies, role: membership.role }));
 }
 
+/** Espaços do usuário, lidos uma vez por requisição (o layout, a página e a verificação de acesso do cliente precisam da mesma lista). */
+export const getRequestMemberships = cache(async (userId: string): Promise<AgencyMembership[]> => {
+  const { supabase } = await getRequestSession();
+  if (!supabase) return [];
+  return getUserMemberships(supabase, userId);
+});
+
 // Cached per request: the dashboard layout and page both need the context.
 export const requireAgencyContext = cache(async function requireAgencyContext() {
   const { supabase, user } = await requireUserSession();
-  const memberships = await getUserMemberships(supabase, user.id);
+  const memberships = await getRequestMemberships(user.id);
   if (memberships.length === 0) redirect("/sem-acesso");
   const selectedId = (await cookies()).get(AGENCY_COOKIE)?.value;
   // A cookie only chooses among memberships re-read under the authenticated user's RLS.

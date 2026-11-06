@@ -121,7 +121,7 @@ export function AppShell({ demo, identity, initialCollapsed = false, clientCount
       fetch("/api/whatsapp/inbox/unread", { cache: "no-store" }).then(response => response.ok ? response.json() : null)
         .then((body: { count?: number } | null) => { if (!cancelled && typeof body?.count === "number") setLiveUnread(body.count); }).catch(() => undefined);
     };
-    const timer = setInterval(load, 15000);
+    const timer = setInterval(load, 30_000);
     document.addEventListener("visibilitychange", load);
     return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", load); };
   }, [whatsappVisible]);

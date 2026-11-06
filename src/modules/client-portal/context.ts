@@ -2,7 +2,7 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getUserMemberships, requireUserSession } from "@/modules/agencies/context";
+import { getRequestMemberships, requireUserSession } from "@/modules/agencies/context";
 import type { Database } from "@/types/database";
 import { needsPasswordSetup } from "@/modules/auth/password-state";
 
@@ -49,11 +49,13 @@ export async function requireClientPortalAccess(clientId: string) {
 export async function requireClientDashboardAccess(clientId: string) {
   const { supabase, user } = await requireUserSession(`/cliente/${clientId}`);
   if (needsPasswordSetup(user)) redirect("/auth/definir-senha");
-  const { data: client } = await supabase.from("clients")
-    .select("id,agency_id,name,logo_path,archived_at").eq("id", clientId).maybeSingle();
+  // O cliente e os espaços do usuário são independentes: saem juntos (e os espaços já foram lidos pelo layout, na mesma requisição).
+  const [{ data: client }, memberships] = await Promise.all([
+    supabase.from("clients").select("id,agency_id,name,logo_path,archived_at").eq("id", clientId).maybeSingle(),
+    getRequestMemberships(user.id),
+  ]);
   if (client) {
-    const membership = (await getUserMemberships(supabase, user.id))
-      .find(item => item.agency.id === client.agency_id);
+    const membership = memberships.find(item => item.agency.id === client.agency_id);
     if (membership) {
       const access: ClientPortalAccess = {
         agencyId: client.agency_id,

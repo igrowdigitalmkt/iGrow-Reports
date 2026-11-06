@@ -12,7 +12,8 @@ import {
 } from "./hub-types";
 import "./lead-feed.css";
 
-const POLL_MS = 5000;
+// Cada atualização confere a sessão, os filtros e os totais no servidor: 10 s ainda é "ao vivo" (o aviso instantâneo por WhatsApp continua imediato).
+const POLL_MS = 10_000;
 const dateTime = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const clock = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const whatsappLink = (phone: string) => `https://wa.me/${phone.replace(/\D/g, "")}`;
@@ -22,6 +23,7 @@ type Props = { initial: LeadsBoardData; api: BoardApi; canUpdate: boolean; /** S
 
 /** Painel de leads: filtros, funil, lista ao vivo e histórico por lead. Igual no menu do cliente, no portal e no link compartilhado. */
 export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDeleteLead, onDeleteLeads }: Props) {
+  const rootRef = useRef<HTMLElement>(null);
   const [board, setBoard] = useState(initial);
   const [canUpdate, setCanUpdate] = useState(canUpdateInitial);
   const [filters, setFilters] = useState<LeadFilters>(EMPTY_FILTERS);
@@ -73,7 +75,8 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDelete
 
   // Atualização ao vivo e ao trocar de aba do navegador.
   useEffect(() => {
-    const tick = () => { if (!document.hidden) void load(filtersRef.current); };
+    // Não atualiza com a aba do navegador oculta nem enquanto a lista está escondida (outra aba de Leads aberta por cima).
+    const tick = () => { if (!document.hidden && rootRef.current?.offsetParent !== null) void load(filtersRef.current); };
     const timer = setInterval(tick, POLL_MS);
     document.addEventListener("visibilitychange", tick);
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
@@ -143,7 +146,7 @@ export function LeadsBoard({ initial, api, canUpdate: canUpdateInitial, onDelete
   const filtered = filters.channel !== "" || filters.forms.length > 0 || filters.campaigns.length > 0 || filters.status.length > 0 || filters.q.trim() !== "" || filters.period !== "all";
   const selectedForm = filters.forms[0] ?? "";
 
-  return <section className="leads-board" aria-label="Leads">
+  return <section ref={rootRef} className="leads-board" aria-label="Leads">
     <div className="lead-hero">
       <div><p>Contatos que chegam em tempo real. Atualizado às {clock.format(updatedAt)}.</p></div>
       <div className="lead-tools">

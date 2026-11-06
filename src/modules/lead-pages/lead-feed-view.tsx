@@ -7,7 +7,7 @@ import { formatPhone } from "./hub-types";
 import type { LeadFeed, LeadItem } from "./store";
 import "./lead-feed.css";
 
-const POLL_MS = 5000;
+const POLL_MS = 10_000;
 const dateTime = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const clock = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 

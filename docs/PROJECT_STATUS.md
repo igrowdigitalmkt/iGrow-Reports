@@ -44,6 +44,8 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 
 - **Desempenho, Etapa 2 (6/11/2026):** seções da área de trabalho carregadas sob demanda (`next/dynamic`), emojis do WhatsApp só ao abrir o seletor, `motion` removido (fade em CSS). JS inicial no build: Clientes e demais telas 643 → 225 KB gz. Não homologado em produção. Ver `docs/ANALISE_DESEMPENHO_2026-11-06.md` §8.
 
+- **Desempenho, Etapa 3 (6/11/2026):** sessão e espaços confirmados uma vez por requisição, acesso ao painel do cliente em paralelo, leituras de cada seção em `Promise.all`, Leads a cada 10 s só com a lista visível, badge de não lidas a cada 30 s. Sem migração. Não homologado em produção. `getClaims()` no servidor ficou como decisão de segurança pendente. Ver `docs/ANALISE_DESEMPENHO_2026-11-06.md` §9.
+
 ## Pendências (ordem sugerida)
 1. Validar com dados reais do Google: seção no painel do Colégio Crescer, PDF com Meta+Google, mensagem de WhatsApp; depois pausar a campanha de teste e desvincular a conta do cliente.
 2. Testar "Desconectar" do Google e reconectar (fluxo do usuário novo) e o "Desconectar" da Meta num cliente sem importância (não testado em produção).

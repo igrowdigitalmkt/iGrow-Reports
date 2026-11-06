@@ -56,7 +56,8 @@ export function useCustomLists(channelKey: string, demo: boolean) {
 
   useEffect(() => {
     if (demo || channelKey !== "qr" || busy) return;
-    const timer = setInterval(() => { void refresh().catch(() => setError("Não foi possível sincronizar as etiquetas do WhatsApp.")); }, 15_000);
+    // Só confere com a aba do navegador visível.
+    const timer = setInterval(() => { if (!document.hidden) void refresh().catch(() => setError("Não foi possível sincronizar as etiquetas do WhatsApp.")); }, 15_000);
     return () => clearInterval(timer);
   }, [channelKey, demo, busy, refresh]);
 
