@@ -45,23 +45,27 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
     filterError = error instanceof Error && !(error instanceof z.ZodError) ? error.message : "Filtro de contas inválido.";
     accountIds = undefined;
   }
-  const initialData = await getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds);
-  let reportHistory: AnalyticsReportItem[] = [];
-  if (agencyMode) {
-    const history = await getReportsAdminSnapshot(supabase, access.agencyId);
-    reportHistory = history.versions.filter((version) => version.clientId === clientId).map((version) => ({
-      reportVersionId: version.id, reportId: version.reportId, title: version.title,
-      versionNumber: version.versionNumber, dateFrom: version.dateFrom, dateTo: version.dateTo,
-      state: version.state, publishedAt: version.publishedAt, generatedAt: version.generatedAt, orientation: version.orientation,
-    }));
-  } else {
+  // Leituras que não dependem da análise começam já, em paralelo com ela (antes esperavam uma pela outra em fila).
+  const reportHistoryPromise: Promise<AnalyticsReportItem[]> = (async () => {
+    if (agencyMode) {
+      const history = await getReportsAdminSnapshot(supabase, access.agencyId);
+      return history.versions.filter((version) => version.clientId === clientId).map((version) => ({
+        reportVersionId: version.id, reportId: version.reportId, title: version.title,
+        versionNumber: version.versionNumber, dateFrom: version.dateFrom, dateTo: version.dateTo,
+        state: version.state, publishedAt: version.publishedAt, generatedAt: version.generatedAt, orientation: version.orientation,
+      }));
+    }
     const history = await listClientPortalReports(supabase, clientId);
-    reportHistory = history.reports.map((report) => ({
+    return history.reports.map((report) => ({
       reportVersionId: report.reportVersionId, reportId: report.reportId, title: report.title,
       versionNumber: report.versionNumber, dateFrom: report.dateFrom, dateTo: report.dateTo,
       state: "published" as const, publishedAt: report.publishedAt,
     }));
-  }
+  })();
+  reportHistoryPromise.catch(() => undefined);
+  const headerPromise = Promise.resolve(supabase.rpc("get_client_report_header", { p_client_id: clientId }));
+  headerPromise.catch(() => undefined);
+  const initialData = await getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds);
   let data = initialData;
   if (range.period !== "custom") {
     const completeRange = resolveAnalyticsRange({ periodo: range.period }, data.accounts
@@ -71,6 +75,12 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
       data = await getClientAnalytics(supabase, clientId, range.dateFrom, range.dateTo, accountIds);
     }
   }
+  // Google Ads (começa já, em paralelo com a Meta): contas vinculadas ao cliente, lidas da API no período do painel. Falha de uma conta não derruba a página.
+  const googleService = createSupabaseServiceClient();
+  const googlePromise = googleService
+    ? loadGoogleSections({ service: googleService, agencyId: access.agencyId, clientId, dateFrom: range.dateFrom, dateTo: range.dateTo })
+      .catch(error => ({ sections: [], failures: [{ name: "Google Ads", message: billingBlockOf(error) ? "Atualização ao vivo indisponível enquanto o acesso da organização estiver restrito. Conexão e contas preservadas; os números do Google voltam após a regularização." : "Tente atualizar a página em instantes." }] }))
+    : { sections: [], failures: [] };
   data = await getFreshClientAnalytics({ supabase, agencyId: access.agencyId, clientId,
     dateFrom: range.dateFrom, dateTo: range.dateTo, accountIds, initial: data });
   if (data.coverage.status !== "complete") {
@@ -88,13 +98,8 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
       } catch { return null; }
     }))).filter((view): view is NonNullable<typeof view> => view !== null)
     : [];
-  // Google Ads: contas vinculadas ao cliente, lidas da API no período do painel. Falha de uma conta não derruba a página.
-  const googleService = createSupabaseServiceClient();
-  const google = googleService
-    ? await loadGoogleSections({ service: googleService, agencyId: access.agencyId, clientId, dateFrom: range.dateFrom, dateTo: range.dateTo })
-      .catch(error => ({ sections: [], failures: [{ name: "Google Ads", message: billingBlockOf(error) ? "Atualização ao vivo indisponível enquanto o acesso da organização estiver restrito. Conexão e contas preservadas; os números do Google voltam após a regularização." : "Tente atualizar a página em instantes." }] }))
-    : { sections: [], failures: [] };
-  const { data: headerData, error: headerError } = await supabase.rpc("get_client_report_header", { p_client_id: clientId });
+  const google = await googlePromise;
+  const { data: headerData, error: headerError } = await headerPromise;
   if (headerError) {
     console.error("client-report-header-rpc", {
       code: headerError.code, message: headerError.message, details: headerError.details, hint: headerError.hint, clientId,
@@ -109,6 +114,7 @@ export async function ClientAnalyticsScreen({ clientId, query, frame }: { client
     accountName: campaign.accountName, currency: campaign.currency, values: campaign.values,
     effectiveStatus: null, thumbnailUrl: null,
   }));
+  const reportHistory = await reportHistoryPromise;
   const content = <>
     {filterError && <p role="alert" className="client-alert">{filterError} Exibindo os últimos 30 dias completos.</p>}
     {access.client.archivedAt && <p className="client-alert">Cliente arquivado. Histórico preservado para consulta.</p>}

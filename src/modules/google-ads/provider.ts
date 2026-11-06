@@ -15,6 +15,7 @@ import { buildGoogleAnalytics, GOOGLE_METRICS, previousPeriod } from "./normaliz
 import { estimateCredit, type CreditEntry } from "./credit-balance";
 import { spendBetweenQuery, accountBudgetQuery, accountDailyQuery, billingSetupQuery, campaignBudgetsQuery, monthCostQuery, adGroupListQuery, adGroupQuery, adListQuery, adRowsQuery, campaignListQuery, campaignQuery } from "./queries";
 import { loadGoogleAdsClient } from "./server";
+import { cachedGoogleRead, googleCacheKey } from "./read-cache";
 
 type Service = SupabaseClient<Database>;
 
@@ -47,9 +48,16 @@ export async function linkedGoogleAccounts(service: Service, agencyId: string, c
  * Números do Google Ads de cada conta vinculada ao cliente, lidos da API no momento (sem cópia no banco).
  * Uma conta que falha não derruba as outras: o motivo vem em `failures` para o relatório avisar.
  */
-export async function loadGoogleSections(input: { service: Service; agencyId: string; clientId: string; dateFrom: string; dateTo: string; accountIds?: string[]; client?: GoogleAdsClient }): Promise<GoogleSectionsResult> {
+export async function loadGoogleSections(input: { service: Service; agencyId: string; clientId: string; dateFrom: string; dateTo: string; accountIds?: string[]; client?: GoogleAdsClient; /** Ignora o cache curto (envio de relatório, "atualizar agora"). */ fresh?: boolean }): Promise<GoogleSectionsResult> {
   // Leitura ao vivo é consulta nova ao provedor (não há histórico guardado): com acesso restrito não é usada para contornar a restrição.
   await ensurePaidOperation(input.agencyId);
+  // Um cliente de API injetado (testes) nunca passa pelo cache.
+  if (input.client) return readGoogleSections(input);
+  return cachedGoogleRead(googleCacheKey({ kind: "sections", agencyId: input.agencyId, clientId: input.clientId, dateFrom: input.dateFrom, dateTo: input.dateTo, accountIds: input.accountIds }),
+    () => readGoogleSections(input), { fresh: input.fresh, cacheable: result => result.failures.length === 0 });
+}
+
+async function readGoogleSections(input: { service: Service; agencyId: string; clientId: string; dateFrom: string; dateTo: string; accountIds?: string[]; client?: GoogleAdsClient }): Promise<GoogleSectionsResult> {
   const linked = (await linkedGoogleAccounts(input.service, input.agencyId, input.clientId)).filter(account => !input.accountIds || input.accountIds.includes(account.id));
   if (!linked.length) return { sections: [], failures: [] };
   const client = input.client ?? (await loadGoogleAdsClient(input.service, input.agencyId)).client;
@@ -158,8 +166,14 @@ export type GoogleCampaignsData = {
  * Hierarquia completa do Google Ads (campanhas › grupos de anúncios › anúncios) das contas vinculadas ao cliente, lida ao vivo no
  * período informado. Itens sem atividade no período vêm da lista completa, com estado; uma conta que falha vira aviso, não derruba as outras.
  */
-export async function loadGoogleCampaignRows(input: { service: Service; agencyId: string; clientId: string; dateFrom: string; dateTo: string; client?: GoogleAdsClient }): Promise<GoogleCampaignsData> {
+export async function loadGoogleCampaignRows(input: { service: Service; agencyId: string; clientId: string; dateFrom: string; dateTo: string; client?: GoogleAdsClient; fresh?: boolean }): Promise<GoogleCampaignsData> {
   await ensurePaidOperation(input.agencyId);
+  if (input.client) return readGoogleCampaignRows(input);
+  return cachedGoogleRead(googleCacheKey({ kind: "campaigns", agencyId: input.agencyId, clientId: input.clientId, dateFrom: input.dateFrom, dateTo: input.dateTo }),
+    () => readGoogleCampaignRows(input), { fresh: input.fresh, cacheable: result => result.failures.length === 0 });
+}
+
+async function readGoogleCampaignRows(input: { service: Service; agencyId: string; clientId: string; dateFrom: string; dateTo: string; client?: GoogleAdsClient }): Promise<GoogleCampaignsData> {
   const linked = await linkedGoogleAccounts(input.service, input.agencyId, input.clientId);
   const readAt = new Date().toISOString();
   if (!linked.length) return { accounts: [], rows: [], metrics: GOOGLE_METRICS as AnalyticsMetric[], failures: [], readAt };

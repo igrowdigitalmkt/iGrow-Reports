@@ -119,7 +119,7 @@ export async function executeAutomation(service: Service, automation: ReportAuto
       p_client_id: automation.client_id, p_date_from: run.period.dateFrom, p_date_to: run.period.dateTo,
     });
     // Google Ads: cada conta vinculada ao cliente vira um bloco próprio; falha de uma conta não derruba o envio.
-    const google = await (options.loadGoogle ?? loadGoogleSections)({ service, agencyId: automation.agency_id, clientId: automation.client_id, dateFrom: run.period.dateFrom, dateTo: run.period.dateTo })
+    const google = await (options.loadGoogle ?? loadGoogleSections)({ service, agencyId: automation.agency_id, clientId: automation.client_id, dateFrom: run.period.dateFrom, dateTo: run.period.dateTo, fresh: true })
       .catch(() => ({ sections: [], failures: [{ name: "Google Ads", message: "não foi possível ler o Google Ads agora" }] }));
     if ((analyticsError || !payload) && !google.sections.length) return await finish("failed", { error_message: "Não foi possível ler os números do período." });
     // Cliente só com Google Ads: não há números da Meta, o relatório usa apenas as contas do Google.

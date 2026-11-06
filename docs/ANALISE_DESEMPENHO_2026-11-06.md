@@ -182,3 +182,21 @@ Regra de ouro: antes de cada etapa, registrar a linha de base (TTFB, LCP, JS por
 ## 6. Método
 
 Leitura do código em `iGrow-Reports-credits` (`master` @ `3ed1373`), guias do Next 16.3.8 em `node_modules/next/dist/docs/` (diretiva `use cache`, `cacheComponents`), `next build` completo (compilou e gerou 47 páginas estáticas/dinâmicas sem erro), estatística de pacotes por rota com `route-bundle-stats.json` + gzip, e consultas **somente leitura** à Supabase (`get_advisors`, `pg_stat_user_tables`, `pg_stat_statements`, `pg_policies`, `list_extensions`, `get_project`). Nenhuma escrita, DDL ou migração.
+
+## 7. Execução da Etapa 1 (06/11/2026)
+
+Implementado e testado localmente; **publicação e homologação em uso real pendentes** (nada foi medido na Vercel).
+
+| # | O que foi feito | Onde |
+|---|---|---|
+| 1 | Cache curto (5 min) das leituras do Google Ads, com chave por organização+cliente+período+contas, sem guardar resultado com falha e com compartilhamento da leitura em andamento; envio de relatório continua lendo "fresco". O Google passa a ser pedido **em paralelo** com a leitura da Meta. | `src/modules/google-ads/read-cache.ts`, `provider.ts`, `client-analytics-screen.tsx`, `automations/runner.ts` |
+| 4 | Conferência de veiculação do painel a cada **3 min** (era 1 min) e, ao voltar para a aba, só se a última tiver mais de 1 min. | `analytics-dashboard.tsx` |
+| 7 | No painel: histórico de relatórios e cabeçalho começam junto com a análise (antes esperavam em fila). No menu: contagens e créditos em paralelo. | `client-analytics-screen.tsx`, `(workspace)/layout.tsx` |
+| 8 | Bolinha de não lidas do WhatsApp só **conta** (antes trazia até 500 linhas `select *` a cada navegação); função compartilhada com a rota `/api/whatsapp/inbox/unread`. | `whatsapp/unread-count.ts` |
+| 11 | PDFs (jsPDF e layout dos relatórios) só são baixados quando a pessoa pede o PDF. | `reports/pdf-download-lazy.ts` |
+| 15 | Origem localizada: gatilho `validate_agency` consultava a lista de fusos em **toda** atualização da organização. Agora só ao criar ou ao mudar o fuso. Migração `202611140001` aplicada (não reaplicar). | `supabase/migrations/202611140001_*.sql` |
+| 16 | Medição real de velocidade (LCP, INP, CLS, TTFB, FCP) enviada a `/api/vitals` e registrada como linha `web-vital` nos logs da Vercel (sem dados pessoais; ids do endereço trocados por `:id`). | `components/layout/web-vitals.tsx`, `app/api/vitals/route.ts` |
+
+**Medido no build local (JS inicial gzip, antes → depois):** `/` 664 → 527 KB; `/clientes` e demais telas da área de trabalho 643 → 507 KB; painel do cliente 387 → 252 KB; portal do cliente 371 → 236 KB; campanhas 330 → 333 KB; leads 217 → 220 KB (a medição de velocidade soma ~3 KB).
+
+**Fora desta etapa (continua na lista):** dividir o pacote da área de trabalho por seção (#3), contagens de Leads no banco (#6), WhatsApp (#9), índices/RLS (#12) e investigação das funções de análise (#5).

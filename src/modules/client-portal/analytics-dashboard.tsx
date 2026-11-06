@@ -10,7 +10,7 @@ import Link from "next/link";
 import { ANALYSIS_MODELS, modelMetrics, moveMetric } from "./analysis-models";
 import { CampaignTree } from "./campaign-tree";
 import { compactEntitySelection, entityDeliveryLabel, entityDeliveryRank, leafKeys, relevantCampaignHierarchy, type AnalyticsEntity } from "./analytics-hierarchy";
-import { downloadCombinedPdf, downloadCombinedSavedReports, downloadDashboardPdf, downloadSavedReportPdf, type DashboardPdfInput } from "@/modules/reports/pdf-download";
+import { downloadCombinedPdf, downloadCombinedSavedReports, downloadDashboardPdf, downloadSavedReportPdf, type DashboardPdfInput } from "@/modules/reports/pdf-download-lazy";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { clientSectionPath, parseClientPath, type ClientSection } from "./client-sections";
 import { Dialog } from "@/components/ui/dialog";
@@ -76,6 +76,9 @@ const FIXED_METRICS = ["spend", "primary_results", "cost_per_result"];
 const DEFAULT_OPTIONAL_METRICS = ["reach", "impressions", "cpm", "link_clicks", "ctr_link", "cpc_link", "frequency", "clicks", "inline_post_engagement"];
 const OVERVIEW_PREFERENCE_VERSION = 2;
 const isPinned = (key: string) => FIXED_METRICS.includes(key);
+
+const HIERARCHY_REFRESH_MS = 3 * 60_000;
+const HIERARCHY_RESUME_MIN_MS = 60_000;
 
 function displayDate(value: string, includeYear = true) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -760,9 +763,11 @@ export function ClientAnalyticsDashboard({
     if (demo || data.coverage.status !== "complete" || !data.selectedAccountIds.length) return;
     let cancelled = false;
     let loading = false;
+    let lastRun = 0;
     const refresh = async () => {
       if (loading || document.visibilityState !== "visible") return;
       loading = true;
+      lastRun = Date.now();
       setHierarchyLoading(true);
       setHierarchyError("");
       setHierarchyEntities(current => current.map(entity => ({ ...entity, effectiveStatus: null })));
@@ -811,8 +816,9 @@ export function ClientAnalyticsDashboard({
       }
     };
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 60_000);
-    const resumed = () => { void refresh(); };
+    // A situação de veiculação muda pouco: confere a cada 3 minutos (era 1) e, ao voltar para a aba, só se a última conferência tiver mais de 1 minuto.
+    const timer = window.setInterval(() => { void refresh(); }, HIERARCHY_REFRESH_MS);
+    const resumed = () => { if (Date.now() - lastRun >= HIERARCHY_RESUME_MIN_MS) void refresh(); };
     document.addEventListener("visibilitychange", resumed);
     return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", resumed); };
   }, [clientId, data.dateFrom, data.dateTo, data.selectedAccountIds, data.coverage.latestCollectedAt, data.coverage.status, dataSnapshotKey, demo]);

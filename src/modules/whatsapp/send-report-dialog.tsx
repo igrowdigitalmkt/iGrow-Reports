@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, CircleAlert, Send } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { buildSavedReportPdfFile } from "@/modules/reports/pdf-download";
+import { buildSavedReportPdfFile } from "@/modules/reports/pdf-download-lazy";
 import { numberName, type WhatsAppSummary } from "./whatsapp-manager";
 import { Select } from "@/components/ui/select";
 

@@ -40,6 +40,8 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 
 - **Excluir leads:** migrações `202611120001_delete_lead` e `202611130001_delete_leads_bulk` aplicadas em produção (não reaplicar). Exclusão individual e em lote (até 200; com 10 ou mais exige digitar EXCLUIR), só proprietário/administrador; apaga notas e histórico; leads de formulário da Meta ficam em `lead_tombstones` (só o id) para não voltarem na conferência. Implementado e testado; não homologado na tela.
 
+- **Desempenho, Etapa 1 (6/11/2026):** cache de 5 min do Google Ads e leituras em paralelo no painel, menu com consultas em paralelo e contagem leve de não lidas, refresh de veiculação a cada 3 min, PDFs sob demanda (JS inicial do painel 387 → 252 KB gz no build), gatilho `validate_agency` só valida o fuso quando muda (migração `202611140001` aplicada, não reaplicar) e registro `web-vital` em `/api/vitals`. Detalhes e próximas etapas em `docs/ANALISE_DESEMPENHO_2026-11-06.md`. Não homologado em produção.
+
 ## Pendências (ordem sugerida)
 1. Validar com dados reais do Google: seção no painel do Colégio Crescer, PDF com Meta+Google, mensagem de WhatsApp; depois pausar a campanha de teste e desvincular a conta do cliente.
 2. Testar "Desconectar" do Google e reconectar (fluxo do usuário novo) e o "Desconectar" da Meta num cliente sem importância (não testado em produção).

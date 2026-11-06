@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Eye, Search, Send, Trash2, Download, CheckCircle2, MessageCircle } from "lucide-react";
-import { downloadSavedReportPdf } from "./pdf-download";
+import { downloadSavedReportPdf } from "./pdf-download-lazy";
 import { Button } from "@/components/ui/button";
 import type { ClientItem } from "@/modules/clients/schema";
 import { deleteDashboardReport } from "@/modules/client-portal/report-actions";
