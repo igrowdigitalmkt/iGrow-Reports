@@ -48,6 +48,8 @@ Resumo para continuar o desenvolvimento sem o histórico da conversa. Detalhes d
 
 - **Sessão pelo crachá só nas telas de visualização (6/11/2026):** `requireAgencyViewContext`/`requireViewSession` (JWT verificado no servidor) nos layouts, seções e painel do cliente; ações, rotas /api e `requireUserSession` seguem com `getUser()`. Crachá só aceito com senha já definida. Não homologado em produção. Ver §10 da análise de desempenho.
 
+- **Desempenho, Etapa 4 (6/11/2026):** migração `202611150001_split_dashboard_scope_entities` aplicada em produção (não reaplicar): valores por entidade do resumo do painel em `private.meta_dashboard_scope_entities` (payload 17 MB → 0,5 MB), 3 funções reescritas só na busca por entidade, saídas idênticas em 36 de 36 comparações reais, `get_client_analytics` ~505 → 241 ms e hierarquia pior caso 4,5 s → 0,95 s. Também `staleTimes.dynamic = 30` (voltar a telas visitadas é instantâneo). Definições antigas em `private.dashboard_scope_old_function_defs` (remover após alguns dias). Ver §12 da análise.
+
 ## Pendências (ordem sugerida)
 1. Validar com dados reais do Google: seção no painel do Colégio Crescer, PDF com Meta+Google, mensagem de WhatsApp; depois pausar a campanha de teste e desvincular a conta do cliente.
 2. Testar "Desconectar" do Google e reconectar (fluxo do usuário novo) e o "Desconectar" da Meta num cliente sem importância (não testado em produção).

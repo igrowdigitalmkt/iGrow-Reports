@@ -262,3 +262,17 @@ Fonte: logs de runtime da Vercel (`web-vital`, erros), implantação `bf25b60`, 
 Cada troca: criar a versão nova com outro nome, **comparar a saída com a antiga** (`jsonb` idêntico) para todos os clientes e períodos reais e só então substituir.
 
 **Outros achados dos logs.** (a) `/api/cron/report-automations` e `/api/cron/billing` rodam a cada 5 min (576 e 288 registros/24 h); são leves, mas disputam o banco. (b) `meta-daily-refresh` falhou para 1 cliente (`MetaSetupError`: conexão Meta desligada) — esperado. (c) Nenhum outro erro de função em 24 h.
+
+## 12. Etapa 4 executada: resumo do painel separado em tabela própria (06/11/2026)
+
+**Publicado em produção** (migração `202611150001_split_dashboard_scope_entities` aplicada, não reaplicar) e **verificado com dados reais**; falta confirmar no uso diário.
+
+- **O que foi feito:** os valores por campanha/conjunto/anúncio (`entityValues`, 4 a 5 MB por resumo) saíram do `payload` e foram para `private.meta_dashboard_scope_entities` (uma linha por entidade, com índice). Um gatilho separa automaticamente quando o app grava (o código do app não mudou). As funções `valid_dashboard_scope`, `enrich_dashboard_scope` e `get_client_analytics_hierarchy` foram reescritas a partir da definição atual trocando **só** a busca por entidade. Resumos já guardados foram separados na própria migração.
+- **Resultado medido (18 períodos reais, antes → depois):** `get_client_analytics` média 505 → 241 ms; `get_client_analytics_hierarchy` média 495 → 213 ms e pior caso **4.560 → 952 ms**; leitura da validade do resumo 353 → ~6–26 ms; `payload` total 17 MB → 0,5 MB (RM Imobiliária: 1,2 MB → 46 KB por linha).
+- **Equivalência:** as 36 saídas (18 períodos × 2 funções) ficaram **idênticas** (mesmo hash e tamanho do JSON) antes e depois. O gatilho foi testado numa gravação simulada (desfeita): o payload fica enxuto e as entidades são substituídas por inteiro.
+- **Segurança:** tabela nova no schema `private`, sem acesso para anon/authenticated, com RLS ligada; funções do gatilho `security definer`. As definições antigas das 3 funções ficam em `private.dashboard_scope_old_function_defs` (sem acesso público) para reversão rápida; remover depois de alguns dias de uso.
+- **Reversão (se necessário):** recriar as 3 funções a partir de `dashboard_scope_old_function_defs`, remontar `entityValues` no payload a partir da tabela (`update ... set payload = payload || jsonb_build_object(entityValues, ...)`), remover os gatilhos e a tabela.
+
+**Navegação entre telas.** Observação do proprietário: ao trocar de página a tela inteira carrega de novo. Causa: no Next 15+ as páginas dinâmicas têm tempo de cache do cliente 0 s, então cada troca refaz a renderização no servidor e mostra o esqueleto. Mudança (publicada junto): `experimental.staleTimes = { dynamic: 30, static: 180 }` em `next.config.ts`: voltar a uma tela visitada há menos de 30 s é instantâneo; ações que gravam dados continuam invalidando o cache (`revalidatePath`/`router.refresh`).
+
+**Ainda pendente (e o que medir):** o caminho sem cache de `client_analytics_compute` (~400 ms em 30 dias, até ~3 s em períodos longos quando o cache vence), chamadas simultâneas repetidas na aplicação, índices/RLS (`get_advisors`) e, só se faltar folga, instância maior do Supabase. Reler os logs (`web-vital` e timeouts) depois de alguns dias de uso.
