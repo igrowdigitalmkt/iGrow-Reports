@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { isSidebarCollapsed, SIDEBAR_COOKIE } from "@/components/layout/sidebar-state";
 import { loadAiCredits } from "@/modules/ai/credits-usage";
-import { requireAgencyContext } from "@/modules/agencies/context";
+import { requireAgencyViewContext } from "@/modules/agencies/context";
 import { roleLabels } from "@/modules/agencies/roles";
 import { loadOwnModules } from "@/modules/team/admin";
 import { unreadConversationCount } from "@/modules/whatsapp/unread-count";
@@ -11,7 +11,7 @@ import { canOpenSection } from "@/modules/team/permissions";
 
 // The shell lives in the layout so the menu stays mounted while sections load.
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const context = await requireAgencyContext();
+  const context = await requireAgencyViewContext();
   const collapsed = isSidebarCollapsed((await cookies()).get(SIDEBAR_COOKIE)?.value);
   // Leituras independentes saem juntas (antes eram 4 viagens em fila ao banco a cada navegação).
   const clientCountQuery = context.supabase.from("clients").select("id", { count: "exact", head: true }).eq("agency_id", context.agency.id).is("archived_at", null);

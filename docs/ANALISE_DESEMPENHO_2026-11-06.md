@@ -228,3 +228,13 @@ Implementado e testado localmente; **publicação e homologação em uso real pe
 | 9 | A bolinha de não lidas do menu consulta a cada **30 s** (era 15 s); as etiquetas do WhatsApp só consultam com a aba visível. | `layout/app-shell.tsx`, `whatsapp/custom-lists.tsx` |
 
 **Observações honestas:** (a) o projeto usa chaves de assinatura **assimétricas** (ES256, confirmado na lista pública de chaves), então o `getClaims()` do `proxy` é verificação local, barata. Trocar o `getUser()` do servidor por `getClaims()` economizaria mais ~100 ms por navegação, mas deixa de detectar sessão revogada/usuário banido até o token vencer (1 h) nas ações que usam a chave de serviço. **Não foi feito: é uma decisão de segurança do proprietário.** (b) As contagens de Leads em memória (até 5.000 linhas) só pesam com milhares de leads; hoje há dezenas. Fica para quando o volume crescer (função no banco). (c) `loadInbox` do WhatsApp lê todas as conversas e filtra no servidor; com ~100 conversas não pesa. Fica para quando o volume crescer.
+
+## 10. Sessão pelo crachá nas telas de visualização (06/11/2026, decisão do proprietário)
+
+Implementado e testado localmente (testes e build); **publicação e homologação em uso real pendentes**. Versão **segura** da troca de `getUser()` por verificação local:
+
+- **Telas de visualização** (layout da área de trabalho, layout do cliente, páginas das seções e o painel do cliente) usam `requireAgencyViewContext`/`requireViewSession`/`requireClientDashboardAccess(id, { view: true })`: conferem o crachá (JWT) no servidor, sem ir ao serviço de login (~100 ms a menos por tela).
+- **Ações que alteram dados, rotas /api e a verificação padrão** (`requireUserSession`, `requireAgencyContext`, `requireClientDashboardAccess(id)`) **continuam confirmando a sessão no serviço de login**: usuário bloqueado ou removido é recusado na hora nelas.
+- **Quando o crachá não basta:** só é aceito se a pessoa já tem senha definida (`password_set` ou login por senha). Quem entrou por convite, código ou Google confirma no serviço de login, como antes (preserva o desvio para "definir senha").
+- **Efeito do que muda:** quem for bloqueado ou removido continua *lendo telas* até o crachá vencer (~1 h) — o banco já aceitava o mesmo crachá nas leituras. Nenhuma escrita é afetada.
+- Testes: `tests/view-session.test.ts` (crachá sem consulta ao login, fallback, recusa, ações estritas).

@@ -5,7 +5,7 @@ import type { Database } from "@/types/database";
 import { loadPortfolioRows, PORTFOLIO_PERIODS, portfolioPeriod, type PortfolioPeriod } from "@/modules/operations/portfolio-data";
 import { PortfolioView } from "@/modules/operations/portfolio-view";
 import { PortfolioSkeleton } from "@/modules/operations/portfolio-skeleton";
-import { requireAgencyContext } from "@/modules/agencies/context";
+import { requireAgencyViewContext } from "@/modules/agencies/context";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { googleAccountsByClient } from "@/modules/google-ads/provider";
 import { canManageAgency, roleLabels } from "@/modules/agencies/roles";
@@ -34,7 +34,7 @@ export default async function WorkspacePage({
   section = [],
   searchParams,
 }: WorkspacePageProps & { section?: string[] }) {
-  const context = await requireAgencyContext();
+  const context = await requireAgencyViewContext();
   const query = await searchParams;
   const path = section.join("/");
   const legacy = legacyRedirect("", path, query);

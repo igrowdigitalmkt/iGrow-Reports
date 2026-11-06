@@ -2,7 +2,8 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getRequestMemberships, requireUserSession } from "@/modules/agencies/context";
+import type { User } from "@supabase/supabase-js";
+import { getRequestMemberships, requireUserSession, requireViewSession } from "@/modules/agencies/context";
 import type { Database } from "@/types/database";
 import { needsPasswordSetup } from "@/modules/auth/password-state";
 
@@ -46,9 +47,11 @@ export async function requireClientPortalAccess(clientId: string) {
 }
 
 // Agency memberships and client grants are re-read under the authenticated user's RLS.
-export async function requireClientDashboardAccess(clientId: string) {
-  const { supabase, user } = await requireUserSession(`/cliente/${clientId}`);
-  if (needsPasswordSetup(user)) redirect("/auth/definir-senha");
+// `view: true` (só telas de visualização): sessão pelo crachá, sem a ida ao serviço de login. Ações e rotas /api usam o padrão (confirmação completa).
+export async function requireClientDashboardAccess(clientId: string, options: { view?: boolean } = {}) {
+  const { supabase, user } = options.view ? await requireViewSession(`/cliente/${clientId}`) : await requireUserSession(`/cliente/${clientId}`);
+  // O crachá só é aceito quando a senha já foi definida (ver claimsAreEnough); aqui vale a mesma regra de sempre.
+  if (needsPasswordSetup(user as Pick<User, "invited_at" | "app_metadata">)) redirect("/auth/definir-senha");
   // O cliente e os espaços do usuário são independentes: saem juntos (e os espaços já foram lidos pelo layout, na mesma requisição).
   const [{ data: client }, memberships] = await Promise.all([
     supabase.from("clients").select("id,agency_id,name,logo_path,archived_at").eq("id", clientId).maybeSingle(),
