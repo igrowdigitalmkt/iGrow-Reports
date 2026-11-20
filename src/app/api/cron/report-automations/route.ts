@@ -3,7 +3,7 @@ import { authorizeWorkerRequest } from "@/modules/integrations/worker-auth";
 import { runDueAutomations } from "@/modules/automations/runner";
 import { createQrSender } from "@/modules/whatsapp-qr/server";
 import { sendOfficialPdf } from "@/modules/automations/official-sender";
-import { runDueLeadAlerts } from "@/modules/lead-pages/alerts-send";
+import { resendMissedLeadAlerts, runDueLeadAlerts } from "@/modules/lead-pages/alerts-send";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -28,7 +28,10 @@ export async function GET(request: Request) {
     // Resumos de leads nos horários configurados (mesmo agendador de poucos minutos); uma falha aqui nunca derruba os agendamentos de relatório.
     const leadAlerts = await runDueLeadAlerts(service).catch(() => null);
     if (leadAlerts) console.info("lead-alerts", leadAlerts);
-    return Response.json({ ...summary, leadAlerts }, { headers });
+    // Quando o WhatsApp volta, reenvia em resumo os avisos que falharam por desconexão (últimas 72 h).
+    const leadResend = await resendMissedLeadAlerts(service).catch(() => null);
+    if (leadResend?.recipients) console.info("lead-alerts-resend", leadResend);
+    return Response.json({ ...summary, leadAlerts, leadResend }, { headers });
   } catch {
     console.error("report-automations-failed");
     return Response.json({ error: "Não foi possível executar os agendamentos." }, { status: 500, headers });

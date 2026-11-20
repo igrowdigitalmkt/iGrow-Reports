@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/whatsapp-qr/server", () => ({ createQrSender: vi.fn(async () => null), getQrStatus: vi.fn(async () => ({ configured: true, state: "connected" })) }));
 
-import { notifyNewLead, optOutAlertRecipients, runDueLeadAlerts, sendAlertTest } from "@/modules/lead-pages/alerts-send";
+import { notifyNewLead, optOutAlertRecipients, resendMissedLeadAlerts, runDueLeadAlerts, sendAlertTest } from "@/modules/lead-pages/alerts-send";
 import type { Service } from "@/modules/lead-pages/hub-query";
 import type { MessageSender } from "@/modules/automations/sender";
 
@@ -40,6 +40,7 @@ function fakeService(seed: Record<string, Row[]>) {
       update: (value: Row) => { mode = "update"; payload = value; returning = false; return builder; },
       eq: (column: string, value: unknown) => { tests.push(row => row[column] === value); return builder; },
       in: (column: string, values: unknown[]) => { tests.push(row => values.includes(row[column])); return builder; },
+      ilike: (column: string, pattern: string) => { const part = pattern.replaceAll("%", "").toLowerCase(); tests.push(row => String(row[column] ?? "").toLowerCase().includes(part)); return builder; },
       gt: (column: string, value: string) => { tests.push(row => String(row[column]) > value); return builder; },
       gte: (column: string, value: string) => { tests.push(row => String(row[column]) >= value); return builder; },
       lte: (column: string, value: string) => { tests.push(row => String(row[column]) <= value); return builder; },
@@ -122,6 +123,38 @@ describe("alerta instantâneo de lead novo", () => {
     const failing = fakeSender(true);
     const second = fakeService(base());
     expect(await notifyNewLead(second.service, "lead-1", options(failing.sender))).toEqual({ sent: 0, failed: 1 });
+  });
+});
+
+describe("reenvio dos avisos perdidos por desconexão", () => {
+  const missed = (over: Row = {}): Row => ({ id: "d-old", recipient_id: "r1", lead_id: "lead-1", kind: "instant", status: "failed", error: "O WhatsApp da Groow não está conectado por QR Code. Conecte em Integrações para enviar os alertas.", created_at: "2026-11-05T12:41:00.000Z", ...over });
+  it("com o WhatsApp de volta, manda um resumo e marca os avisos antigos como reenviados (uma vez só)", async () => {
+    const seed = base();
+    seed.lead_alert_deliveries = [missed()];
+    const { service, tables } = fakeService(seed);
+    const { sender, sent } = fakeSender();
+    expect(await resendMissedLeadAlerts(service, options(sender))).toEqual({ recipients: 1, leads: 1 });
+    expect(sent[0]!.text).toContain("Eduardo Melo");
+    expect(tables.lead_alert_deliveries.find(row => row.id === "d-old")).toMatchObject({ status: "skipped", error: "reenviado em resumo" });
+    expect(await resendMissedLeadAlerts(service, options(sender))).toEqual({ recipients: 0, leads: 0 });
+    expect(sent).toHaveLength(1);
+  });
+  it("sem conexão não envia nem consome o aviso: tenta de novo na próxima execução", async () => {
+    const seed = base();
+    seed.lead_alert_deliveries = [missed()];
+    const { service, tables } = fakeService(seed);
+    expect(await resendMissedLeadAlerts(service, options(null))).toEqual({ recipients: 0, leads: 0 });
+    expect(tables.lead_alert_deliveries[0]).toMatchObject({ status: "failed" });
+  });
+  it("ignora falhas de outro motivo e pessoa que pausou", async () => {
+    const seed = base();
+    seed.lead_alert_recipients = [recipient({ active: false })];
+    seed.lead_alert_deliveries = [missed(), missed({ id: "d-other", lead_id: "lead-2", error: "número sem WhatsApp ou grupo indisponível" })];
+    const { service, tables } = fakeService(seed);
+    const { sender, sent } = fakeSender();
+    await resendMissedLeadAlerts(service, options(sender));
+    expect(sent).toEqual([]);
+    expect(tables.lead_alert_deliveries.find(row => row.id === "d-other")).toMatchObject({ status: "failed" });
   });
 });
 

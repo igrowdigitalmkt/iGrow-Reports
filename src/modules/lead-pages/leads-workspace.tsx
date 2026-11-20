@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { TriangleAlert } from "lucide-react";
 import { sessionApi } from "./leads-api";
 import { LeadsBoard } from "./leads-board";
 import { deleteLeadAction, deleteLeadsAction } from "./hub-actions";
@@ -18,6 +20,8 @@ export function LeadsWorkspace({ clientId, clientName, initial, canUpdate, setti
   const api = useMemo(() => sessionApi(clientId), [clientId]);
   return <div className="leads-workspace">
     <div className="page-heading"><div><h1>Leads</h1><p>{clientName} · contatos que chegam dos seus anúncios</p></div></div>
+    {alerts && alerts.sender !== "connected" && alerts.recipients.some(item => item.active && !item.optedOutAt) && <p className="lead-notice-line is-warn" role="alert"><TriangleAlert size={14} aria-hidden="true" />
+      {alerts.sender === "not_configured" ? "O envio de alertas por WhatsApp não está configurado neste ambiente." : <>Os alertas de lead por WhatsApp estão parados: o WhatsApp da Groow está desconectado. <Link href="/integracoes">Reconecte por QR Code em Integrações</Link>. Os avisos perdidos nas últimas 72 horas são reenviados em um resumo assim que reconectar.</>}</p>}
     <div className="lead-tabs" role="tablist" aria-label="Seções de Leads">
       <button type="button" role="tab" aria-selected={tab === "leads"} className={tab === "leads" ? "is-active" : undefined} onClick={() => setTab("leads")}>Leads</button>
       <button type="button" role="tab" aria-selected={tab === "performance"} className={tab === "performance" ? "is-active" : undefined} onClick={() => setTab("performance")}>Desempenho</button>
