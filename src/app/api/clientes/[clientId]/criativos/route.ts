@@ -13,9 +13,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
   if (!parsed.success) return Response.json({ error: "Cliente inválido." }, { status: 400, headers });
   const campaignIds = (new URL(request.url).searchParams.get("campanhas") ?? "").split(",").map(id => id.trim()).filter(Boolean);
   if (!campaignIds.length || campaignIds.some(id => !/^\d+$/.test(id))) return Response.json({ error: "Informe os IDs das campanhas." }, { status: 400, headers });
+  // Período dos resultados por anúncio: ?de=AAAA-MM-DD&ate=AAAA-MM-DD (padrão: últimos 90 dias até ontem).
+  const search = new URL(request.url).searchParams;
+  const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
+  const since = search.get("de") ?? day(90);
+  const until = search.get("ate") ?? day(1);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || !/^\d{4}-\d{2}-\d{2}$/.test(until) || until < since) return Response.json({ error: "Período inválido." }, { status: 400, headers });
   const { access } = await requireClientDashboardAccess(parsed.data);
   try {
-    return Response.json({ campaigns: await getClientCampaignCreatives({ agencyId: access.agencyId, clientId: parsed.data, campaignIds }) }, { headers });
+    return Response.json({ since, until, campaigns: await getClientCampaignCreatives({ agencyId: access.agencyId, clientId: parsed.data, campaignIds, since, until }) }, { headers });
   } catch (error) {
     const block = billingBlockOf(error);
     if (block) return Response.json({ error: block.error, code: block.code }, { status: block.status, headers });

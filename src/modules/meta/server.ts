@@ -341,7 +341,7 @@ export type CampaignCreatives = { campaignId: string; ads: CampaignCreative[]; e
  * Criativos (imagem e link do post) das campanhas de um cliente, direto da Meta. Só leitura; chamada só depois de o painel autorizar o cliente.
  * Anúncio de conta que não é do cliente nunca é devolvido, mesmo que a credencial da agência enxergue.
  */
-export async function getClientCampaignCreatives(input: { agencyId: string; clientId: string; campaignIds: string[] }): Promise<CampaignCreatives[]> {
+export async function getClientCampaignCreatives(input: { agencyId: string; clientId: string; campaignIds: string[]; since: string; until: string }): Promise<CampaignCreatives[]> {
   await ensurePaidOperation(input.agencyId);
   const campaignIds = [...new Set(input.campaignIds)].filter(id => /^\d+$/.test(id)).slice(0, 25);
   if (!campaignIds.length) return [];
@@ -359,7 +359,10 @@ export async function getClientCampaignCreatives(input: { agencyId: string; clie
   return Promise.all(campaignIds.map(async (campaignId): Promise<CampaignCreatives> => {
     try {
       const ads = (await client.listCampaignAds(campaignId)).filter(ad => adBelongsToAccounts(ad, allowed));
-      return { campaignId, ads: ads.map(toCampaignCreative) };
+      // Sem o resultado (falha só nesta leitura) os criativos ainda saem; o resultado fica vazio em vez de inventado.
+      const rows = await client.getCampaignAdInsights({ campaignId, since: input.since, until: input.until }).catch(() => []);
+      const byAd = new Map(rows.filter(row => row.ad_id).map(row => [row.ad_id as string, row]));
+      return { campaignId, ads: ads.map(ad => toCampaignCreative(ad, byAd.get(ad.id))) };
     } catch { return { campaignId, ads: [], error: "A Meta não devolveu os anúncios desta campanha." }; }
   }));
 }

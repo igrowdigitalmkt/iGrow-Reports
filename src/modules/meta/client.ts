@@ -116,7 +116,7 @@ export function metaHasDeliveryIssues(entity: { issues_info?: unknown[] | null }
   return Array.isArray(entity.issues_info) && entity.issues_info.length > 0;
 }
 
-import type { MetaCampaignAd } from "./creatives";
+import type { MetaAdResultRow, MetaCampaignAd } from "./creatives";
 
 export type MetaCreative = {
   id: string;
@@ -482,6 +482,22 @@ export class MetaClient {
     return this.getAll<MetaCampaignAd>(`${campaignId}/ads`, {
       fields: "id,name,status,effective_status,account_id,preview_shareable_link,creative.thumbnail_width(800).thumbnail_height(800){id,thumbnail_url,image_url,video_id,effective_object_story_id,instagram_permalink_url}",
       limit: "200",
+    });
+  }
+
+  /** Resultado de cada anúncio de uma campanha no período (gasto, cliques e ações como cadastros). Só leitura; mesma atribuição do painel. */
+  async getCampaignAdInsights(input: { campaignId: string; since: string; until: string }): Promise<MetaAdResultRow[]> {
+    if (!/^\d+$/.test(input.campaignId)) throw new Error("Campanha Meta inválida.");
+    validateDate(input.since);
+    validateDate(input.until);
+    if (input.until < input.since) throw new Error("Período Meta inválido.");
+    return this.getAll<MetaAdResultRow>(`${input.campaignId}/insights`, {
+      level: "ad",
+      time_increment: "all_days",
+      time_range: JSON.stringify({ since: input.since, until: input.until }),
+      fields: "ad_id,ad_name,spend,impressions,inline_link_clicks,actions",
+      use_unified_attribution_setting: "true",
+      limit: "500",
     });
   }
 
