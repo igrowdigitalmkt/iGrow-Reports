@@ -139,6 +139,47 @@ describe("reenvio dos avisos perdidos por desconexão", () => {
     expect(await resendMissedLeadAlerts(service, options(sender))).toEqual({ recipients: 0, leads: 0 });
     expect(sent).toHaveLength(1);
   });
+  it("aviso perdido há vários dias (queda longa) também é reenviado", async () => {
+    const seed = base();
+    seed.leads = [lead({ created_time: "2026-10-30T12:40:00.000Z" })];
+    seed.lead_alert_deliveries = [missed({ created_at: "2026-10-30T12:41:00.000Z" })];
+    const { service, tables } = fakeService(seed);
+    const { sender, sent } = fakeSender();
+    expect(await resendMissedLeadAlerts(service, options(sender))).toEqual({ recipients: 1, leads: 1 });
+    expect(sent).toHaveLength(1);
+    expect(tables.lead_alert_deliveries.find(row => row.id === "d-old")).toMatchObject({ status: "skipped", error: "reenviado em resumo" });
+  });
+  it("nenhum lead fica de fora: 30 leads viram 3 mensagens, cada lead aparece uma vez, e nada é reenviado de novo", async () => {
+    const seed = base();
+    const many = Array.from({ length: 30 }, (_, index) => `lead-${index + 1}`);
+    seed.leads = many.map((id, index) => lead({ id, name: `Pessoa ${index + 1}`, created_time: `2026-11-04T${String(10 + Math.floor(index / 6)).padStart(2, "0")}:${String((index % 6) * 9).padStart(2, "0")}:00.000Z` }));
+    seed.lead_alert_deliveries = many.map((id, index) => missed({ id: `d-${index + 1}`, lead_id: id, created_at: "2026-11-04T12:00:00.000Z" }));
+    const { service, tables } = fakeService(seed);
+    const { sender, sent } = fakeSender();
+    expect(await resendMissedLeadAlerts(service, options(sender))).toEqual({ recipients: 1, leads: 30 });
+    expect(sent).toHaveLength(3);
+    const text = sent.map(item => item.text).join("\n");
+    for (let index = 1; index <= 30; index += 1) expect(text).toContain(`Pessoa ${index}`);
+    expect(text).not.toContain("e mais");
+    expect(tables.lead_alert_deliveries.filter(row => row.kind === "instant" && row.status === "skipped")).toHaveLength(30);
+    expect(await resendMissedLeadAlerts(service, options(sender))).toEqual({ recipients: 0, leads: 0 });
+    expect(sent).toHaveLength(3);
+  });
+  it("limita as mensagens por rodada e a rodada seguinte continua de onde parou", async () => {
+    const seed = base();
+    const many = Array.from({ length: 120 }, (_, index) => `lead-${index + 1}`);
+    seed.leads = many.map((id, index) => lead({ id, name: `Pessoa ${index + 1}`, created_time: "2026-11-04T10:00:00.000Z" }));
+    seed.lead_alert_deliveries = many.map((id, index) => missed({ id: `d-${index + 1}`, lead_id: id, created_at: "2026-11-04T12:00:00.000Z" }));
+    const { service, tables } = fakeService(seed);
+    const { sender, sent } = fakeSender();
+    const first = await resendMissedLeadAlerts(service, options(sender));
+    expect(sent).toHaveLength(8);
+    expect(first.leads).toBe(96);
+    const second = await resendMissedLeadAlerts(service, { ...options(sender), now: new Date(NOW.getTime() + 5 * 60_000) });
+    expect(second.leads).toBe(24);
+    expect(sent).toHaveLength(10);
+    expect(tables.lead_alert_deliveries.filter(row => row.kind === "instant" && row.status === "failed")).toHaveLength(0);
+  });
   it("sem conexão não envia nem consome o aviso: tenta de novo na próxima execução", async () => {
     const seed = base();
     seed.lead_alert_deliveries = [missed()];

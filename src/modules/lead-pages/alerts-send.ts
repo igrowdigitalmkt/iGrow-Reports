@@ -130,49 +130,64 @@ export async function runDueLeadAlerts(service: Service, options: { resolveSende
   return summary;
 }
 
-const RETRY_WINDOW_MS = 72 * 3_600_000;
+const RETRY_WINDOW_MS = 21 * 24 * 3_600_000;
+/** Leads por mensagem de resumo (o resumo comum mostra só 12; aqui nenhum lead pode ficar de fora). */
+const RESEND_BATCH = 12;
+/** Mensagens por execução do agendador: o resto continua na rodada seguinte (poucos minutos depois), sem rajada no WhatsApp. */
+const RESEND_MAX_MESSAGES = 8;
 
 /**
  * Reenvio dos avisos instantâneos que falharam só porque o WhatsApp da Groow estava desconectado.
- * Quando a conexão volta, cada pessoa recebe UM resumo com os leads que perdeu (últimas 72 h); os avisos originais ficam marcados como reenviados.
- * Sem conexão, nada acontece e a próxima execução tenta de novo.
+ * Quando a conexão volta, cada pessoa recebe resumos com TODOS os leads que perdeu (últimos 21 dias), em lotes de 12 por mensagem;
+ * cada aviso original é marcado como reenviado só depois que o lote dele foi enviado. Sem conexão, nada acontece e a próxima execução tenta de novo.
  */
 export async function resendMissedLeadAlerts(service: Service, options: { resolveSender?: SenderResolver; now?: Date; pause?: () => number } = {}): Promise<{ recipients: number; leads: number }> {
   const now = options.now ?? new Date();
   const summary = { recipients: 0, leads: 0 };
   const failed = await service.from("lead_alert_deliveries").select("id,recipient_id,lead_id").eq("kind", "instant").eq("status", "failed").ilike("error", "%não está conectado%")
-    .gte("created_at", new Date(now.getTime() - RETRY_WINDOW_MS).toISOString()).limit(500);
+    .gte("created_at", new Date(now.getTime() - RETRY_WINDOW_MS).toISOString()).order("created_at", { ascending: true }).limit(1000);
   if (failed.error || !failed.data?.length) return summary;
-  const byRecipient = new Map<string, { deliveryIds: string[]; leadIds: Set<string> }>();
+  const byRecipient = new Map<string, Map<string, string[]>>();
   for (const row of failed.data) {
     if (!row.lead_id) continue;
-    const entry = byRecipient.get(row.recipient_id) ?? { deliveryIds: [], leadIds: new Set<string>() };
-    entry.deliveryIds.push(row.id); entry.leadIds.add(row.lead_id); byRecipient.set(row.recipient_id, entry);
+    const leads = byRecipient.get(row.recipient_id) ?? new Map<string, string[]>();
+    leads.set(row.lead_id, [...(leads.get(row.lead_id) ?? []), row.id]); byRecipient.set(row.recipient_id, leads);
   }
   const senders = new Map<string, MessageSender | null>();
-  let first = true;
-  for (const [recipientId, entry] of byRecipient) {
+  let messages = 0;
+  for (const [recipientId, byLead] of byRecipient) {
+    if (messages >= RESEND_MAX_MESSAGES) break;
     const row = await service.from("lead_alert_recipients").select(RECIPIENT_COLUMNS).eq("id", recipientId).maybeSingle();
     if (row.error || !row.data) continue;
     const recipient = toRecipient(row.data as RecipientRow);
-    const markDone = (note: string) => service.from("lead_alert_deliveries").update({ status: "skipped", error: note }).in("id", entry.deliveryIds);
-    if (!canReceive(recipient)) { await markDone("pessoa inativa: não reenviado"); continue; }
+    const allIds = [...byLead.values()].flat();
+    const markDone = (ids: string[], note: string) => service.from("lead_alert_deliveries").update({ status: "skipped", error: note }).in("id", ids);
+    if (!canReceive(recipient)) { await markDone(allIds, "pessoa inativa: não reenviado"); continue; }
     const agencyId = (row.data as RecipientRow).agency_id;
     if (!senders.has(agencyId)) senders.set(agencyId, await (options.resolveSender ?? qrSenderResolver)(agencyId));
     const sender = senders.get(agencyId) ?? null;
     if (!sender) continue;
-    const since = new Date(now.getTime() - RETRY_WINDOW_MS);
-    const leads = ((await loadAlertLeads(service, (row.data as RecipientRow).client_id, { after: since, limit: 500 })) ?? []).filter(lead => entry.leadIds.has(lead.id) && matchesRecipient(recipient, lead));
-    if (!leads.length) { await markDone("sem leads para reenviar"); continue; }
-    const slot = `retry ${now.toISOString().slice(0, 16)}`;
-    const deliveryId = await claim(service, { recipientId, leadId: null, kind: "digest", slot });
-    if (!deliveryId) continue;
-    if (!first) await wait((options.pause ?? defaultPause)());
-    first = false;
-    const name = await clientName(service, (row.data as RecipientRow).client_id);
-    const outcome = await deliver(sender, recipient, formatDigestMessage({ clientName: name, leads, since: new Date(leads[0]!.createdTime), timezone: recipient.timezone }));
-    await settle(service, deliveryId, outcome.ok ? "sent" : "failed", outcome.ok ? null : outcome.error, leads.length);
-    if (outcome.ok) { await markDone("reenviado em resumo"); summary.recipients += 1; summary.leads += leads.length; }
+    const loaded = (await loadAlertLeads(service, (row.data as RecipientRow).client_id, { after: new Date(now.getTime() - RETRY_WINDOW_MS), limit: 500 })) ?? [];
+    const leads = loaded.filter(lead => byLead.has(lead.id) && matchesRecipient(recipient, lead)).sort((a, b) => a.createdTime.localeCompare(b.createdTime));
+    const kept = new Set(leads.map(lead => lead.id));
+    const dropped = [...byLead].filter(([leadId]) => !kept.has(leadId)).flatMap(([, ids]) => ids);
+    if (dropped.length) await markDone(dropped, "sem leads para reenviar");
+    const name = leads.length ? await clientName(service, (row.data as RecipientRow).client_id) : "";
+    let delivered = 0;
+    for (let start = 0; start < leads.length; start += RESEND_BATCH) {
+      if (messages >= RESEND_MAX_MESSAGES) break;
+      const batch = leads.slice(start, start + RESEND_BATCH);
+      const deliveryId = await claim(service, { recipientId, leadId: null, kind: "digest", slot: `retry ${now.toISOString().slice(0, 16)} #${start / RESEND_BATCH + 1}` });
+      if (!deliveryId) continue;
+      if (messages > 0) await wait((options.pause ?? defaultPause)());
+      messages += 1;
+      const outcome = await deliver(sender, recipient, formatDigestMessage({ clientName: name, leads: batch, since: new Date(batch[0]!.createdTime), timezone: recipient.timezone }));
+      await settle(service, deliveryId, outcome.ok ? "sent" : "failed", outcome.ok ? null : outcome.error, batch.length);
+      if (!outcome.ok) break;
+      await markDone(batch.flatMap(item => byLead.get(item.id) ?? []), "reenviado em resumo");
+      delivered += batch.length;
+    }
+    if (delivered) { summary.recipients += 1; summary.leads += delivered; }
   }
   return summary;
 }

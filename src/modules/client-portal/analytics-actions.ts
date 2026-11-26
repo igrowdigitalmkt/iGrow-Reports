@@ -16,9 +16,17 @@ export async function collectDashboardData(input: unknown) {
   if (!parsed.success) return { error: "Cliente ou período inválido." };
   const context = await requireClientDashboardAccess(parsed.data.clientId);
   if (!context.canCollect && !parsed.data.automatic) return { error: "Seu perfil não pode atualizar os dados deste cliente." };
-  // Atualização com a Meta é operação paga. A automática (ao abrir o painel) é pausada em silêncio e o painel mostra os dados guardados.
+  // Atualização com a Meta é operação paga. A automática (ao abrir o painel) é pausada em silêncio quando o período já está completo e o painel
+  // mostra os dados guardados; com dias faltando, o painel precisa dizer POR QUE não completa (assinatura restrita), em vez de ficar "aguardando".
   const collectBlock = await paidOperationBlock(context.access.agencyId);
-  if (collectBlock) return parsed.data.automatic ? { success: true as const, insightCount: 0, paused: true as const } : { error: collectBlock.error };
+  if (collectBlock) {
+    if (!parsed.data.automatic) return { error: collectBlock.error };
+    try {
+      const stored = await getClientAnalytics(context.supabase, parsed.data.clientId, parsed.data.from, parsed.data.to);
+      if (stored.coverage.status === "complete") return { success: true as const, insightCount: 0, paused: true as const };
+    } catch { /* sem a leitura, explica o bloqueio abaixo */ }
+    return { error: collectBlock.error };
+  }
   const { data: dataContext } = await context.supabase.rpc("get_client_portal_data_context", { p_client_id: parsed.data.clientId }).single();
   let range;
   try {

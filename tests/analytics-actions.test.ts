@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ access: vi.fn(), collect: vi.fn(), revalidate: vi.fn(), analytics: vi.fn(), fresh: vi.fn() }));
-vi.mock("@/modules/billing/guard", () => ({ paidOperationBlock: async () => null, billingBlockOf: () => null, ensurePaidOperation: async () => undefined, BillingRestrictedError: class extends Error {} }));
+const mocks = vi.hoisted(() => ({ access: vi.fn(), collect: vi.fn(), revalidate: vi.fn(), analytics: vi.fn(), fresh: vi.fn(), block: vi.fn() }));
+vi.mock("@/modules/billing/guard", () => ({ paidOperationBlock: async () => mocks.block(), billingBlockOf: () => null, ensurePaidOperation: async () => undefined, BillingRestrictedError: class extends Error {} }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/modules/client-portal/context", () => ({ requireClientDashboardAccess: mocks.access }));
@@ -28,6 +28,7 @@ function access(canCollect = true) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.block.mockReturnValue(null);
   mocks.access.mockResolvedValue(access());
   mocks.collect.mockResolvedValue({ insightCount: 42, completedSliceCount: 4, failures: [] });
   mocks.analytics.mockResolvedValue(coverage("complete"));
@@ -48,6 +49,14 @@ describe("dashboard collection authorization", () => {
       .mockResolvedValueOnce(coverage("complete"));
     expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30", automatic: true })).toHaveProperty("success", true);
     expect(mocks.collect).toHaveBeenCalledWith(expect.objectContaining({ agencyId: "agency-from-verified-client", clientId, forceRefresh: false }));
+  });
+  it("with a restricted subscription: complete period stays silent, missing days explain the block, manual refresh is refused", async () => {
+    mocks.block.mockReturnValue({ status: 403, error: "Operação indisponível: assinatura suspensa.", code: "billing_restricted" });
+    expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30", automatic: true })).toEqual({ success: true, insightCount: 0, paused: true });
+    mocks.analytics.mockResolvedValue(coverage("partial"));
+    expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30", automatic: true })).toEqual({ error: "Operação indisponível: assinatura suspensa." });
+    expect(await collectDashboardData({ clientId, from: "2025-09-01", to: "2025-09-30" })).toEqual({ error: "Operação indisponível: assinatura suspensa." });
+    expect(mocks.collect).not.toHaveBeenCalled();
   });
   it("refuses a client reader before privileged collection", async () => {
     mocks.access.mockResolvedValue(access(false));

@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     // Resumos de leads nos horários configurados (mesmo agendador de poucos minutos); uma falha aqui nunca derruba os agendamentos de relatório.
     const leadAlerts = await runDueLeadAlerts(service).catch(() => null);
     if (leadAlerts) console.info("lead-alerts", leadAlerts);
-    // Quando o WhatsApp volta, reenvia em resumo os avisos que falharam por desconexão (últimas 72 h).
+    // Quando o WhatsApp volta, reenvia em resumo os avisos que falharam por desconexão (últimos 21 dias, em lotes por rodada).
     const leadResend = await resendMissedLeadAlerts(service).catch(() => null);
     if (leadResend?.recipients) console.info("lead-alerts-resend", leadResend);
     return Response.json({ ...summary, leadAlerts, leadResend }, { headers });
