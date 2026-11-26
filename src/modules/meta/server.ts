@@ -27,6 +27,7 @@ import {
 import { coveringCollectionRun, normalizeInsightSlice, periodInsightMetrics, splitCollectionRange, validateCollectionRange } from "./collection";
 
 import { parseFundingAmount } from "./billing";
+import { adBelongsToAccounts, toCampaignCreative, type CampaignCreative } from "./creatives";
 import { liveDeliveryStatuses, liveRawDeliveryStates, type LiveDeliveryState } from "./delivery";
 import { META_ANALYTICS_MAX_AGE_MS, META_ANALYTICS_VERSION, META_ATTRIBUTION_REFRESH_DAYS, META_DETAIL_RETENTION_DAYS } from "./analytics-contract";
 import { applyProviderResults, hasOverlappingMetaSelection, insightActionTypes, periodInsightValues, selectedPeriodInsightRows, sumPeriodInsightValues } from "./insight-values";
@@ -332,6 +333,35 @@ export async function getClientAccountBilling(input: { agencyId: string; clientI
     } catch { return null; }
   }));
   return rows.filter((row): row is ClientAccountBilling => row !== null);
+}
+
+export type CampaignCreatives = { campaignId: string; ads: CampaignCreative[]; error?: string };
+
+/**
+ * Criativos (imagem e link do post) das campanhas de um cliente, direto da Meta. Só leitura; chamada só depois de o painel autorizar o cliente.
+ * Anúncio de conta que não é do cliente nunca é devolvido, mesmo que a credencial da agência enxergue.
+ */
+export async function getClientCampaignCreatives(input: { agencyId: string; clientId: string; campaignIds: string[] }): Promise<CampaignCreatives[]> {
+  await ensurePaidOperation(input.agencyId);
+  const campaignIds = [...new Set(input.campaignIds)].filter(id => /^\d+$/.test(id)).slice(0, 25);
+  if (!campaignIds.length) return [];
+  const { service, apiVersion } = operationalDependencies();
+  const { integration, connection } = await getStoredConnection(service, input.agencyId, input.clientId);
+  const { data: links, error: linkError } = await service.from("client_ad_accounts").select("ad_account_id").eq("agency_id", input.agencyId).eq("client_id", input.clientId);
+  if (linkError) throw new Error("Não foi possível consultar as contas do cliente.");
+  const ids = (links ?? []).map(link => link.ad_account_id);
+  if (!ids.length) return [];
+  const { data: accounts, error } = await service.from("meta_ad_accounts").select("external_id").eq("agency_id", input.agencyId).in("id", ids);
+  if (error || !accounts?.length) throw new Error("Não foi possível consultar as contas do cliente.");
+  const allowed = accounts.map(account => account.external_id);
+  const token = await loadAccessToken(service, input.agencyId, integration.id, connection.id);
+  const client = new MetaClient({ accessToken: token, apiVersion });
+  return Promise.all(campaignIds.map(async (campaignId): Promise<CampaignCreatives> => {
+    try {
+      const ads = (await client.listCampaignAds(campaignId)).filter(ad => adBelongsToAccounts(ad, allowed));
+      return { campaignId, ads: ads.map(toCampaignCreative) };
+    } catch { return { campaignId, ads: [], error: "A Meta não devolveu os anúncios desta campanha." }; }
+  }));
 }
 
 function connectionTokenKind(connectionId: string) {

@@ -116,6 +116,8 @@ export function metaHasDeliveryIssues(entity: { issues_info?: unknown[] | null }
   return Array.isArray(entity.issues_info) && entity.issues_info.length > 0;
 }
 
+import type { MetaCampaignAd } from "./creatives";
+
 export type MetaCreative = {
   id: string;
   name?: string;
@@ -471,6 +473,15 @@ export class MetaClient {
     return this.getAll<MetaAd>(`${adAccountId}/ads`, {
       fields: "id,name,adset_id,campaign_id,status,effective_status,issues_info,created_time,creative{id,thumbnail_url}",
       limit: "500",
+    });
+  }
+
+  /** Anúncios de uma campanha com o criativo (imagem em tamanho maior, post e vídeo). Só leitura. */
+  async listCampaignAds(campaignId: string): Promise<MetaCampaignAd[]> {
+    if (!/^\d+$/.test(campaignId)) throw new Error("Campanha Meta inválida.");
+    return this.getAll<MetaCampaignAd>(`${campaignId}/ads`, {
+      fields: "id,name,status,effective_status,account_id,preview_shareable_link,creative.thumbnail_width(800).thumbnail_height(800){id,thumbnail_url,image_url,video_id,effective_object_story_id,instagram_permalink_url}",
+      limit: "200",
     });
   }
 
