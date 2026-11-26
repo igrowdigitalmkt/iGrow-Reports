@@ -88,7 +88,7 @@ export function formatInstantMessage(input: { clientName: string; lead: AlertLea
   const { lead } = input;
   const lines = [`🔔 *Novo lead* · ${input.clientName}`, "", `*${lead.name ? clip(lead.name, 80) : "Sem nome"}*`];
   if (lead.phone) lines.push(`📱 ${formatPhone(lead.phone)}`);
-  else if (lead.handle) lines.push(`📷 @${clip(lead.handle, 40)}`);
+  if (lead.handle) lines.push(`📷 @${clip(lead.handle, 40)} · instagram.com/${clip(lead.handle, 40)}`);
   if (lead.email) lines.push(`✉️ ${clip(lead.email, 80)}`);
   const from = origin(lead);
   if (from) lines.push(`📣 ${from}`);
@@ -106,7 +106,7 @@ export function formatDigestMessage(input: { clientName: string; leads: AlertLea
   const total = input.leads.length;
   const lines = [`📋 *Resumo de leads* · ${input.clientName}`, `${total} ${total === 1 ? "lead novo" : "leads novos"} desde ${sinceText}`, ""];
   input.leads.slice(0, 12).forEach((lead, index) => {
-    const detail = [lead.phone ? formatPhone(lead.phone) : null, origin(lead)].filter(Boolean).join(" · ");
+    const detail = [lead.phone ? formatPhone(lead.phone) : null, lead.handle ? `@${clip(lead.handle, 40)}` : null, origin(lead)].filter(Boolean).join(" · ");
     lines.push(`${index + 1}. *${lead.name ? clip(lead.name, 60) : "Sem nome"}*${detail ? ` · ${clip(detail, 120)}` : ""}`);
   });
   if (total > 12) lines.push(`… e mais ${total - 12}.`);

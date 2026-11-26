@@ -18,7 +18,7 @@ export async function saveLead(service: Service, page: LeadPage, lead: FetchedLe
   const deleted = await service.from("lead_tombstones").select("leadgen_id").eq("lead_page_id", page.id).eq("leadgen_id", lead.leadgenId).maybeSingle();
   if (deleted?.data) return null;
   const { data: inserted, error } = await service.from("leads").upsert({
-    lead_page_id: page.id, leadgen_id: lead.leadgenId, name: fields.name, phone: fields.phone, email: fields.email,
+    lead_page_id: page.id, leadgen_id: lead.leadgenId, name: fields.name, phone: fields.phone, email: fields.email, handle: fields.handle,
     field_data: lead.fieldData as never, form_id: lead.formId, ad_id: lead.adId, adset_id: lead.adsetId, campaign_id: lead.campaignId,
     campaign_name: lead.campaignName, adset_name: lead.adsetName, ad_name: lead.adName, platform: lead.platform, is_organic: lead.isOrganic,
     ...(lead.createdTime ? { created_time: lead.createdTime } : {}),

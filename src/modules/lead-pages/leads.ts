@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { requestWithProof } from "./graph-proof";
+import { parseInstagramHandle } from "./ig-rules";
 
 /**
  * Páginas de acompanhamento de leads (formulário instantâneo da Meta / Lead Ads).
@@ -35,7 +36,7 @@ export function parseLeadgenEvents(payload: unknown): LeadgenEvent[] {
 
 const text = (value: unknown): string | null => (typeof value === "string" || typeof value === "number") && String(value).trim() ? String(value).trim() : null;
 
-export type LeadFields = { name: string | null; phone: string | null; email: string | null };
+export type LeadFields = { name: string | null; phone: string | null; email: string | null; handle: string | null };
 
 /** Pares (chave, primeiro valor) do `field_data`, preservando a ordem do formulário. */
 function entriesOf(fieldData: unknown): { key: string; label: string; value: string }[] {
@@ -49,6 +50,7 @@ function entriesOf(fieldData: unknown): { key: string; label: string; value: str
 
 const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 const PHONE_KEY = /(whats|telefone|celular|fone|phone|contato)/i;
+const INSTAGRAM_KEY = /(insta|arroba)/i;
 
 /**
  * Campos do formulário (`field_data`) → nome, WhatsApp e e-mail. Primeiro os campos padrão da Meta (full_name, phone_number, email); se o
@@ -72,9 +74,13 @@ export function splitLeadFields(fieldData: unknown): { fields: LeadFields; answe
   if (!email) { const found = spare.find(entry => EMAIL.test(entry.value)); if (found) { email = found.value.toLowerCase(); used.add(found.key); } }
   if (!phone) { const found = spare.find(entry => PHONE_KEY.test(entry.key) && normalizePhone(entry.value)); if (found) { phone = normalizePhone(found.value); used.add(found.key); } }
   if (!name) { const found = spare.find(entry => /(^|[^a-z])(nome|name)([^a-z]|$)/i.test(entry.key) && !EMAIL.test(entry.value) && !normalizePhone(entry.value)); if (found) { name = found.value; used.add(found.key); } }
+  // @ do Instagram: pergunta do formulário que cita "instagram"/"insta" (ou resposta que é um link do perfil) com um usuário válido.
+  let handle: string | null = null;
+  const instagram = spare.find(entry => !used.has(entry.key) && (INSTAGRAM_KEY.test(entry.key) || /instagram\.com\//i.test(entry.value)) && parseInstagramHandle(entry.value));
+  if (instagram) { handle = parseInstagramHandle(instagram.value); used.add(instagram.key); }
 
   const answers = entries.filter(entry => !used.has(entry.key)).map(entry => ({ question: prettyQuestion(entry.label), answer: prettyAnswer(entry.value).slice(0, 300) }));
-  return { fields: { name, phone, email }, answers };
+  return { fields: { name, phone, email, handle }, answers };
 }
 
 /** Opção guardada pela Meta em formato de código ("construir_para_morar") → "Construir para morar". Texto digitado pela pessoa nunca é alterado. */

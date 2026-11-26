@@ -42,7 +42,7 @@ export async function loadAlertLeads(service: Service, clientId: string, filter:
   return (rows.data ?? []).map(row => {
     const { fields, answers } = splitLeadFields(row.field_data);
     return { id: row.id, name: row.name ?? fields.name, phone: row.phone ?? fields.phone, email: row.email ?? fields.email, campaignId: row.campaign_id, campaignName: row.campaign_name,
-      adsetName: row.adset_name, adName: row.ad_name, formId: row.form_id, formName: row.form_id ? (nameOf.get(row.form_id) ?? fallbackFormName(row.form_id)) : "", platform: row.platform, answers, createdTime: row.created_time, channel: row.channel, firstMessage: row.first_message, handle: row.handle };
+      adsetName: row.adset_name, adName: row.ad_name, formId: row.form_id, formName: row.form_id ? (nameOf.get(row.form_id) ?? fallbackFormName(row.form_id)) : "", platform: row.platform, answers, createdTime: row.created_time, channel: row.channel, firstMessage: row.first_message, handle: row.handle ?? fields.handle };
   });
 }
 

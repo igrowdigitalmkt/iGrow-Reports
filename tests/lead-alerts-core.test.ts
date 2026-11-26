@@ -79,6 +79,16 @@ describe("mensagens", () => {
     expect(text).toContain("Qual é seu interesse? Construir para morar");
     expect(text).toContain("https://wa.me/5586995560428");
     expect(text).toContain("responda PARAR");
+    expect(text).not.toContain("📷");
+  });
+  it("com o @ do Instagram, o aviso e o resumo mostram o usuário junto do telefone", () => {
+    const withHandle = lead({ handle: "ana.souza" });
+    const instant = formatInstantMessage({ clientName: "RM", lead: withHandle });
+    expect(instant).toContain("📱 (86) 99556-0428");
+    expect(instant).toContain("📷 @ana.souza · instagram.com/ana.souza");
+    expect(instant.indexOf("📱")).toBeLessThan(instant.indexOf("📷"));
+    const digest = formatDigestMessage({ clientName: "RM", leads: [withHandle], since: new Date("2026-11-05T09:00:00Z"), timezone: "America/Sao_Paulo" });
+    expect(digest).toContain("@ana.souza");
   });
   it("lead sem nome e sem origem não quebra a mensagem", () => {
     const text = formatInstantMessage({ clientName: "RM", lead: lead({ name: null, phone: null, email: null, campaignName: null, adsetName: null, adName: null, platform: null, answers: [] }) });

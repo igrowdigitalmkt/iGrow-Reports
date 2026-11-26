@@ -35,15 +35,32 @@ describe("campos do formulário", () => {
     const fields = parseLeadFields([
       { name: "full_name", values: ["Ana Souza"] }, { name: "phone_number", values: ["p:+5586999990000"] }, { name: "email", values: ["ANA@Exemplo.com"] }, { name: "cidade", values: ["Teresina"] },
     ]);
-    expect(fields).toEqual({ name: "Ana Souza", phone: "+5586999990000", email: "ana@exemplo.com" });
+    expect(fields).toEqual({ name: "Ana Souza", phone: "+5586999990000", email: "ana@exemplo.com", handle: null });
   });
   it("monta o nome de primeiro nome + sobrenome e aceita campos em português", () => {
     expect(parseLeadFields([{ name: "first_name", values: ["Ana"] }, { name: "last_name", values: ["Souza"] }, { name: "telefone", values: ["(86) 99999-0000"] }]))
       .toMatchObject({ name: "Ana Souza", phone: "86999990000" });
   });
   it("tolera dados ausentes ou malformados", () => {
-    expect(parseLeadFields(undefined)).toEqual({ name: null, phone: null, email: null });
-    expect(parseLeadFields([{ name: "email", values: [] }, null, { values: ["x"] }])).toEqual({ name: null, phone: null, email: null });
+    expect(parseLeadFields(undefined)).toEqual({ name: null, phone: null, email: null, handle: null });
+    expect(parseLeadFields([{ name: "email", values: [] }, null, { values: ["x"] }])).toEqual({ name: null, phone: null, email: null, handle: null });
+  });
+  it("reconhece o @ do Instagram quando o formulário pergunta, em qualquer forma digitada", () => {
+    const form = (value: string, label = "qual_o_seu_instagram?") => parseLeadFields([{ name: "full_name", values: ["Ana"] }, { name: label, values: [value] }]).handle;
+    expect(form("@ana.souza")).toBe("ana.souza");
+    expect(form("ana_souza")).toBe("ana_souza");
+    expect(form("https://www.instagram.com/ana.souza/?hl=pt")).toBe("ana.souza");
+    expect(form("instagram.com/ana.souza")).toBe("ana.souza");
+    expect(form("não tenho instagram")).toBeNull();
+    expect(form("ana souza")).toBeNull();
+    expect(parseLeadFields([{ name: "full_name", values: ["Ana"] }, { name: "perfil", values: ["https://instagram.com/ana.souza"] }]).handle).toBe("ana.souza");
+  });
+  it("o @ não aparece repetido nas demais respostas, e pergunta sem relação não vira @", async () => {
+    const { splitLeadFields } = await import("@/modules/lead-pages/leads");
+    const result = splitLeadFields([{ name: "full_name", values: ["Ana"] }, { name: "qual_o_seu_instagram?", values: ["@ana.souza"] }, { name: "cidade", values: ["teresina"] }]);
+    expect(result.fields.handle).toBe("ana.souza");
+    expect(result.answers).toEqual([{ question: "Cidade", answer: "teresina" }]);
+    expect(splitLeadFields([{ name: "cidade", values: ["teresina"] }]).fields.handle).toBeNull();
   });
   it("normaliza telefones", () => {
     expect(normalizePhone("p:+55 (86) 99999-0000")).toBe("+5586999990000");
@@ -92,7 +109,7 @@ describe("processamento dos avisos", () => {
     const save = vi.fn(async () => undefined);
     const result = await processLeadgenEvents(events, { findPages: async () => [page], fetchLead: async () => lead, save });
     expect(result).toEqual({ saved: 1, ignored: 0, retry: false });
-    expect(save).toHaveBeenCalledWith(page, expect.objectContaining({ formId: "55", adId: "7", createdTime: new Date(1_790_000_000_000).toISOString() }), { name: "Ana", phone: "+5586999990000", email: null });
+    expect(save).toHaveBeenCalledWith(page, expect.objectContaining({ formId: "55", adId: "7", createdTime: new Date(1_790_000_000_000).toISOString() }), { name: "Ana", phone: "+5586999990000", email: null, handle: null });
   });
   it("ignora Página sem acompanhamento e nem consulta a Meta", async () => {
     const fetchSpy = vi.fn(async () => lead);
@@ -150,20 +167,20 @@ describe("formulário com perguntas próprias", () => {
       { name: "qual_o_seu_nome?", values: ["Ana Souza"] }, { name: "qual_o_seu_contato?", values: ["(86) 99999-0001"] }, { name: "seu_melhor_email", values: ["Ana@Exemplo.com"] },
       { name: "você_tem_interesse_em_visitar_o_apartamento?", values: ["Sim, sábado"] },
     ]);
-    expect(result.fields).toEqual({ name: "Ana Souza", phone: "86999990001", email: "ana@exemplo.com" });
+    expect(result.fields).toEqual({ name: "Ana Souza", phone: "86999990001", email: "ana@exemplo.com", handle: null });
     expect(result.answers).toEqual([{ question: "Você tem interesse em visitar o apartamento?", answer: "Sim, sábado" }]);
     expect(prettyQuestion("qual_o_seu_contato?")).toBe("Qual o seu contato?");
   });
   it("não confunde a resposta de teste da Meta com contato e mantém tudo como resposta", async () => {
     const { splitLeadFields } = await import("@/modules/lead-pages/leads");
     const result = splitLeadFields([{ name: "qual_o_seu_contato?", values: ["<test lead: dummy data for qual_o_seu_contato?>"] }]);
-    expect(result.fields).toEqual({ name: null, phone: null, email: null });
+    expect(result.fields).toEqual({ name: null, phone: null, email: null, handle: null });
     expect(result.answers).toHaveLength(1);
   });
   it("campos padrão da Meta continuam sendo usados e não repetem como resposta", async () => {
     const { splitLeadFields } = await import("@/modules/lead-pages/leads");
     const result = splitLeadFields([{ name: "full_name", values: ["Ana"] }, { name: "phone_number", values: ["+5586999990001"] }, { name: "email", values: ["a@b.co"] }, { name: "cidade", values: ["Teresina"] }]);
-    expect(result.fields).toEqual({ name: "Ana", phone: "+5586999990001", email: "a@b.co" });
+    expect(result.fields).toEqual({ name: "Ana", phone: "+5586999990001", email: "a@b.co", handle: null });
     expect(result.answers).toEqual([{ question: "Cidade", answer: "Teresina" }]);
   });
 });

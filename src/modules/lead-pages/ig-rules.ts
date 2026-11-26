@@ -41,3 +41,11 @@ export function cleanHandle(value: unknown): string | null {
   const text = typeof value === "string" ? value.trim().replace(/^@/, "") : "";
   return /^[A-Za-z0-9._]{1,30}$/.test(text) ? text : null;
 }
+
+/** Resposta digitada pela pessoa → @ limpo: aceita "@fulano", "fulano", "instagram.com/fulano" e links do perfil. Texto que não parece um usuário → null. */
+export function parseInstagramHandle(value: unknown): string | null {
+  let text = typeof value === "string" ? value.trim() : "";
+  const link = text.match(/instagram\.com\/([^/?#\s]+)/i);
+  if (link) text = link[1]!;
+  return cleanHandle(text);
+}

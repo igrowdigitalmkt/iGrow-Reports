@@ -79,7 +79,7 @@ export async function queryBoard(service: Service, input: { clientId: string; re
     const { fields, answers } = splitLeadFields(row.field_data);
     return {
       id: row.id, name: row.name ?? fields.name, phone: row.phone ?? fields.phone, email: row.email ?? fields.email, answers,
-      status: isLeadStatus(row.status) ? row.status : "new", statusChangedAt: row.status_changed_at, formId: row.form_id, channel: row.channel, firstMessage: row.first_message, handle: row.handle,
+      status: isLeadStatus(row.status) ? row.status : "new", statusChangedAt: row.status_changed_at, formId: row.form_id, channel: row.channel, firstMessage: row.first_message, handle: row.handle ?? fields.handle,
       formName: row.channel === "whatsapp" ? "WhatsApp" : row.channel === "instagram" ? "Instagram Direct" : row.form_id ? (nameOf.get(row.form_id) ?? fallbackFormName(row.form_id)) : fallbackFormName(null), createdTime: row.created_time,
       campaignId: row.campaign_id, campaignName: row.campaign_name, adsetName: row.adset_name, adName: row.ad_name, platform: row.platform,
     };
