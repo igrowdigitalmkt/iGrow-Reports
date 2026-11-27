@@ -55,6 +55,30 @@ describe("Meta campaign results", () => {
     ]);
     expect(totals).toBeNull();
   });
+  it("campanha de Cadastros sem o campo nativo usa o lead do formulário como resultado; dia sem lead é zero", () => {
+    const base = { date_start: "2026-11-20", date_stop: "2026-11-20", objective: "OUTCOME_LEADS", spend: "207.62", impressions: "11317" };
+    expect(providerResultValues({ ...base, actions: [{ action_type: "link_click", value: "187" }, { action_type: "lead", value: "15" }, { action_type: "onsite_conversion.lead_grouped", value: "15" }] }))
+      .toEqual({ "result:provider_known": 1, "result:provider:action:onsite_conversion.lead_grouped": 15 });
+    expect(providerResultValues({ ...base, actions: [{ action_type: "lead", value: "9" }] }))
+      .toEqual({ "result:provider_known": 1, "result:provider:action:onsite_conversion.lead_grouped": 9 });
+    expect(providerResultValues({ ...base, actions: [{ action_type: "link_click", value: "40" }] }))
+      .toEqual({ "result:provider_known": 1, "result:provider:action:onsite_conversion.lead_grouped": 0 });
+    const totals = providerResultTotals([{ ...base, actions: [{ action_type: "lead", value: "15" }] }, { ...base, actions: [{ action_type: "lead", value: "13" }] }]);
+    expect(totals).toEqual({ "result:provider_known": 1, "result:provider:action:onsite_conversion.lead_grouped": 28 });
+  });
+  it("o campo nativo continua mandando: com results válidos o fallback de cadastros não entra", () => {
+    expect(providerResultValues({ date_start: "2026-11-20", date_stop: "2026-11-20", objective: "OUTCOME_LEADS", spend: "10", impressions: "100",
+      actions: [{ action_type: "lead", value: "99" }], results: [{ indicator: "actions:onsite_conversion.messaging_conversation_started_7d", values: [{ value: "4" }] }] }))
+      .toEqual({ "result:provider_known": 1, "result:provider:action:onsite_conversion.messaging_conversation_started_7d": 4 });
+  });
+  it("o fallback vale só para Cadastros e só com as ações confirmadas: outros objetivos ou ação inválida continuam desconhecidos", () => {
+    const row = { date_start: "2026-11-20", date_stop: "2026-11-20", spend: "10", impressions: "100", actions: [{ action_type: "lead", value: "5" }] };
+    expect(providerResultValues({ ...row, objective: "OUTCOME_ENGAGEMENT" })).toBeNull();
+    expect(providerResultValues({ ...row, objective: "LINK_CLICKS" })).toBeNull();
+    expect(providerResultValues({ date_start: "2026-11-20", date_stop: "2026-11-20", objective: "OUTCOME_LEADS", spend: "10", impressions: "100" })).toBeNull();
+    expect(providerResultValues({ ...row, objective: "OUTCOME_LEADS", actions: [{ action_type: "lead", value: "abc" }] })).toBeNull();
+    expect(providerResultValues({ ...row, objective: "OUTCOME_LEADS", actions: [{ action_type: "lead", value: "-3" }] })).toBeNull();
+  });
   it("does not invent a campaign result when provider and compatible actions are both absent", () => {
     expect(campaignResultValues({ date_start: "2026-07-05", date_stop: "2026-10-02", spend: "10", impressions: "100" })).toBeNull();
   });

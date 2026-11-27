@@ -13,6 +13,28 @@ export function isZeroDeliveryInsight(row: MetaInsight | undefined) {
   return isZeroOrMissing(row.spend) && isZeroOrMissing(row.impressions);
 }
 
+// Para o objetivo Cadastros (formulário instantâneo) a Meta não devolve o campo nativo "results" por campanha, embora o resultado dessa
+// campanha seja sempre o lead do formulário. Só nesse objetivo, e só quando a linha trouxe as ações confirmadas, o resultado é o lead
+// (a ação onsite_conversion.lead_grouped; sem ela, o próprio lead do pixel). Dia sem lead é zero. Qualquer outro objetivo continua
+// desconhecido: ações secundárias não provam qual resultado a Meta escolheu.
+const LEAD_FORM_ACTIONS = ["onsite_conversion.lead_grouped", "lead", "omni_lead", "offsite_conversion.fb_pixel_lead"];
+function leadFormResultFallback(row: MetaInsight, counts: AnalyticsValues): AnalyticsValues | null {
+  if (row.objective !== "OUTCOME_LEADS" || !Array.isArray(row.actions)) return null;
+  let amount = 0;
+  for (const type of LEAD_FORM_ACTIONS) {
+    const entry = row.actions.find((action: unknown) => !!action && typeof action === "object" && (action as { action_type?: unknown }).action_type === type) as { value?: unknown } | undefined;
+    if (!entry) continue;
+    const raw = entry.value;
+    if ((typeof raw !== "string" && typeof raw !== "number") || (typeof raw === "string" && !raw.trim())) return null;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) return null;
+    amount = value;
+    break;
+  }
+  counts["result:provider:action:onsite_conversion.lead_grouped"] = amount;
+  return counts;
+}
+
 // Results are chosen by Meta for this entity's optimization goal. Secondary
 // actions must remain separate metrics, rather than inflate the Results column.
 export function providerResultValues(row: MetaInsight): AnalyticsValues | null {
@@ -20,7 +42,7 @@ export function providerResultValues(row: MetaInsight): AnalyticsValues | null {
   // Zero delivery is authoritative even if Meta emits an empty/partial Results
   // structure for the entity. It contributes zero and cannot invalidate totals.
   if (isZeroDeliveryInsight(row)) return counts;
-  if (!Array.isArray(row.results)) return null;
+  if (!Array.isArray(row.results)) return leadFormResultFallback(row, counts);
   for (const result of row.results) {
     if (!result || typeof result !== "object") return null;
     const entry = result as Record<string, unknown>;
