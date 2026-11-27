@@ -49,8 +49,8 @@ describe("confiabilidade: ausência não vira zero", () => {
   it("resultados por tipo trazem custo atribuído e referência separados", () => {
     const f = facts({ level: "campaign", accountId: IDS.accA, entityId: "100" });
     const campaign = f.entities[0]!;
-    expect(campaign.results.map(r => r.type).sort()).toEqual(["Conversas por mensagem iniciadas", "Leads"]);
-    const lead = campaign.results.find(r => r.type === "Leads")!;
+    expect(campaign.results.map(r => r.type).sort()).toEqual(["Conversas por mensagem iniciadas", "Leads de formulário"]);
+    const lead = campaign.results.find(r => r.type === "Leads de formulário")!;
     // Conjuntos de um tipo cada e que conferem com o total: custo atribuído existe; a referência usa o investimento total.
     expect(lead).toMatchObject({ value: 10, attributedCost: 10, referenceCostPerEvent: 30 });
     const single = f.entities.find(e => e.ref.id === "200")!;

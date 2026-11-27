@@ -64,7 +64,7 @@ describe("rótulos de métricas sem texto guardado", () => {
   });
   it("rótulos conhecidos e guardados continuam como antes", async () => {
     const { metaMetricLabel } = await import("@/modules/meta/metric-labels");
-    expect(metaMetricLabel("cost:action:lead", "Custo por leads")).toBe("Custo por leads");
+    expect(metaMetricLabel("cost:action:lead", "Custo por leads")).toBe("Custo por leads de formulário");
     expect(metaMetricLabel("cost:action:complete_registration", "Custo por cadastros concluídos")).toBe("Custo por cadastros concluídos");
     expect(metaMetricLabel("cpm", "CPM")).toBe("CPM (custo por 1.000 impressões)");
   });

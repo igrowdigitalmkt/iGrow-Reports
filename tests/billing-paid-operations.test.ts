@@ -143,10 +143,20 @@ describe("sincronização com anúncios: atualização automática pausada em si
   beforeEach(() => {
     mocks.dashboardAccess.mockResolvedValue({ canCollect: true, access: { agencyId: agency }, supabase: { rpc: mocks.rpc } });
   });
-  it("restrito + automática (abrir o painel): sucesso 'pausado', sem consultar nem coletar", async () => {
+  it("restrito + automática com o período completo: sucesso 'pausado' em silêncio, sem coletar", async () => {
     mocks.access.mockResolvedValue("restricted");
+    mocks.analytics.mockResolvedValue({ coverage: { status: "complete" } });
     const result = await collectDashboardData({ clientId, from: "2026-09-01", to: "2026-09-30", automatic: true });
     expect(result).toEqual({ success: true, insightCount: 0, paused: true });
+    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("restrito + automática com dias faltando: o painel recebe o motivo (acesso restrito) em vez de ficar aguardando, sem coletar", async () => {
+    mocks.access.mockResolvedValue("restricted");
+    mocks.analytics.mockResolvedValue({ coverage: { status: "partial" } });
+    expect(await collectDashboardData({ clientId, from: "2026-09-01", to: "2026-09-30", automatic: true })).toEqual({ error: PAID_OPERATION_RESTRICTED_MESSAGE });
+    mocks.analytics.mockRejectedValue(new Error("leitura indisponível"));
+    expect(await collectDashboardData({ clientId, from: "2026-09-01", to: "2026-09-30", automatic: true })).toEqual({ error: PAID_OPERATION_RESTRICTED_MESSAGE });
     expect(mocks.collect).not.toHaveBeenCalled();
     expect(mocks.rpc).not.toHaveBeenCalled();
   });

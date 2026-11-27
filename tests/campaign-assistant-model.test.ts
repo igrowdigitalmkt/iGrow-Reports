@@ -145,7 +145,7 @@ describe("valores derivados calculados no servidor", () => {
   it("totais e participações vêm do backend, só entre pares completos e de moeda única", () => {
     const f = factsFor(campaignsData().rows.filter(r => r.accountId === IDS.accA && r.level === "campaign" && r.id === "100").concat(row("campaign", "500", "Outra", null, IDS.accA, vals(100, { [LEAD]: 5 }))), { level: "client", accountIds: [IDS.accA] });
     expect(f.derived[0]).toMatchObject({ id: "d1", value: 400, unit: "currency", currency: "BRL" });
-    expect(f.derived.find(d => d.label === "Total de Leads")).toMatchObject({ value: 15, unit: "integer" });
+    expect(f.derived.find(d => d.label === "Total de Leads de formulário")).toMatchObject({ value: 15, unit: "integer" });
     const shares = f.derived.filter(d => d.unit === "percent");
     expect(shares.map(s => s.value)).toEqual([75, 25]);
     expect(renderMarkers("{d1} no total; {d4}", f)).toBe(`${renderMarkers("{d1}", f)} no total; 75,0%`);
